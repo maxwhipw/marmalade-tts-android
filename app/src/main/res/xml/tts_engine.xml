@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    TTS engine descriptor. Android reads this when the user selects
+    Marmalade TTS in Settings → Languages → Text-to-speech.
+-->
+<tts-engine xmlns:android="http://schemas.android.com/apk/res/android" />

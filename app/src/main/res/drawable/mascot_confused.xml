@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Marmalade mascot: CONFUSED expression.
+  Asymmetric eyes, one brow raised / one lowered, wavy mouth.
+  Used for unexpected errors or "I don't understand" states.
+  108x108dp canvas. Derived from concept1-kawaii-classic.svg (400x520)
+  scaled 0.2077x with x_offset=12.45 to center.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ========== JAR BODY (shared across all expressions) ========== -->
+
+    <!-- Shadow ellipse: cx=54, cy=101.8, rx=24.9, ry=3.7 -->
+    <path
+        android:fillColor="#15000000"
+        android:pathData="M29.1,101.8 a24.9,3.7 0 1,0 49.8,0 a24.9,3.7 0 1,0 -49.8,0 Z" />
+
+    <!-- Jar body: rounded rect at (28,35.3) w=51.9 h=62.3 rx=8.3 -->
+    <path
+        android:fillColor="#F5A623"
+        android:pathData="M36.3,35.3 L71.6,35.3 Q79.9,35.3 79.9,43.6 L79.9,89.3 Q79.9,97.6 71.6,97.6 L36.3,97.6 Q28.0,97.6 28.0,89.3 L28.0,43.6 Q28.0,35.3 36.3,35.3 Z" />
+
+    <!-- Marmalade fill: at (30.1,62.3) w=47.8 h=33.6 rx=6.6 @50% alpha -->
+    <path
+        android:fillColor="#80D4831E"
+        android:pathData="M36.7,62.3 L71.3,62.3 Q77.9,62.3 77.9,68.9 L77.9,89.3 Q77.9,95.9 71.3,95.9 L36.7,95.9 Q30.1,95.9 30.1,89.3 L30.1,68.9 Q30.1,62.3 36.7,62.3 Z" />
+
+    <!-- Glass shine: at (30.1,37.4) w=8.3 h=54 rx=4.2 ~15% white -->
+    <path
+        android:fillColor="#26FFFFFF"
+        android:pathData="M34.3,37.4 L34.2,37.4 Q38.4,37.4 38.4,41.6 L38.4,87.2 Q38.4,91.4 34.2,91.4 L34.3,91.4 Q30.1,91.4 30.1,87.2 L30.1,41.6 Q30.1,37.4 34.3,37.4 Z" />
+
+    <!-- Neck/rim: at (35.3,32.2) w=37.4 h=5.2 rx=1.7 -->
+    <path
+        android:fillColor="#E8D5B0"
+        android:pathData="M37.0,32.2 L71.0,32.2 Q72.7,32.2 72.7,33.9 L72.7,35.7 Q72.7,37.4 71.0,37.4 L37.0,37.4 Q35.3,37.4 35.3,35.7 L35.3,33.9 Q35.3,32.2 37.0,32.2 Z" />
+
+    <!-- Lid body: at (32.2,22.8) w=43.6 h=10.8 rx=2.9 with stroke -->
+    <path
+        android:fillColor="#FFF8EE"
+        android:strokeColor="#D4C4A0"
+        android:strokeWidth="0.4"
+        android:pathData="M35.1,22.8 L72.9,22.8 Q75.8,22.8 75.8,25.7 L75.8,30.7 Q75.8,33.6 72.9,33.6 L35.1,33.6 Q32.2,33.6 32.2,30.7 L32.2,25.7 Q32.2,22.8 35.1,22.8 Z" />
+
+    <!-- Lid ridge: at (34.3,21.8) w=39.5 h=2.9 rx=1.5 -->
+    <path
+        android:fillColor="#FFF5E6"
+        android:strokeColor="#D4C4A0"
+        android:strokeWidth="0.3"
+        android:pathData="M35.8,21.8 L72.3,21.8 Q73.8,21.8 73.8,23.3 L73.8,23.2 Q73.8,24.7 72.3,24.7 L35.8,24.7 Q34.3,24.7 34.3,23.2 L34.3,23.3 Q34.3,21.8 35.8,21.8 Z" />
+
+    <!-- Lid texture lines (5 vertical lines across lid) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#80E0D0B0"
+        android:strokeWidth="0.2"
+        android:pathData="M37.4,24.5 L37.4,32.2" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#80E0D0B0"
+        android:strokeWidth="0.2"
+        android:pathData="M43.6,23.9 L43.6,33.3" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#80E0D0B0"
+        android:strokeWidth="0.2"
+        android:pathData="M49.9,23.5 L49.9,33.3" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#80E0D0B0"
+        android:strokeWidth="0.2"
+        android:pathData="M56.1,23.5 L56.1,33.3" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#80E0D0B0"
+        android:strokeWidth="0.2"
+        android:pathData="M62.3,23.9 L62.3,33.3" />
+
+    <!-- Label background: at (36.3,78.9) w=35.3 h=13.5 rx=2.1 -->
+    <path
+        android:fillColor="#FFF8EE"
+        android:strokeColor="#D4B896"
+        android:strokeWidth="0.3"
+        android:pathData="M38.4,78.9 L69.5,78.9 Q71.6,78.9 71.6,81.0 L71.6,90.3 Q71.6,92.4 69.5,92.4 L38.4,92.4 Q36.3,92.4 36.3,90.3 L36.3,81.0 Q36.3,78.9 38.4,78.9 Z" />
+
+    <!-- Label decorative top line -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#E8C9A0"
+        android:strokeWidth="0.2"
+        android:pathData="M39.4,81.4 L68.6,81.4" />
+
+    <!-- Label decorative bottom line -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#E8C9A0"
+        android:strokeWidth="0.2"
+        android:pathData="M39.4,89.7 L68.6,89.7" />
+
+    <!-- Orange slice on label: cx=54, cy=76.9, r=2.5 -->
+    <path
+        android:fillColor="#F5A623"
+        android:strokeColor="#D4831E"
+        android:strokeWidth="0.3"
+        android:pathData="M51.5,76.9 a2.5,2.5 0 1,0 5.0,0 a2.5,2.5 0 1,0 -5.0,0 Z" />
+    <!-- Orange slice segment lines -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#99FFF5E6"
+        android:strokeWidth="0.2"
+        android:pathData="M54.0,74.4 L54.0,79.4" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#99FFF5E6"
+        android:strokeWidth="0.2"
+        android:pathData="M52.3,74.8 L53.2,79.4" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#99FFF5E6"
+        android:strokeWidth="0.2"
+        android:pathData="M55.7,74.8 L54.8,79.4" />
+
+    <!-- ========== END JAR BODY ========== -->
+
+    <!-- === FACE: CONFUSED === -->
+
+    <!-- Left eyebrow: raised (arched up - surprised side) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#3D2B1F"
+        android:strokeWidth="0.5"
+        android:strokeLineCap="round"
+        android:pathData="M40.0,55.0 Q44.6,53.0 49.0,55.0" />
+
+    <!-- Right eyebrow: lowered flat (skeptical side) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#3D2B1F"
+        android:strokeWidth="0.5"
+        android:strokeLineCap="round"
+        android:pathData="M59.5,57.5 L67.0,56.5" />
+
+    <!-- Left eye: slightly smaller (asymmetric) rx=3.8 ry=4.5 at (44.6, 60.2) -->
+    <path
+        android:fillColor="#3D2B1F"
+        android:pathData="M40.8,60.2 a3.8,4.5 0 1,0 7.6,0 a3.8,4.5 0 1,0 -7.6,0 Z" />
+
+    <!-- Right eye: normal size rx=4.6 ry=5.4 at (63.3, 60.2) -->
+    <path
+        android:fillColor="#3D2B1F"
+        android:pathData="M58.7,60.2 a4.6,5.4 0 1,0 9.2,0 a4.6,5.4 0 1,0 -9.2,0 Z" />
+
+    <!-- Left eye highlight: r=1.5 at (46.0, 58.5) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44.5,58.5 a1.5,1.5 0 1,0 3.0,0 a1.5,1.5 0 1,0 -3.0,0 Z" />
+
+    <!-- Right eye highlight: r=1.9 at (65.2, 58.2) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M63.3,58.2 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0 Z" />
+
+    <!-- Mouth: wavy line (confused squiggle) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#3D2B1F"
+        android:strokeWidth="0.5"
+        android:strokeLineCap="round"
+        android:pathData="M47.0,70.0 Q50.5,68.5 54.0,70.0 Q57.5,71.5 61.0,70.0" />
+
+    <!-- No blush for confused -->
+
+</vector>

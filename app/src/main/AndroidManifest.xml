@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Foreground service (synthesis playback) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!-- Notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Declared but not yet requested at runtime — voice cloning is v0.4 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- INTERNET is intentionally absent: v0.1 is fully on-device. Add when
+         the HTTP API ships (v0.3+) to preserve the privacy story. -->
+
+    <application
+        android:name="app.marmalade.tts.MarmaladeTtsApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MarmaladeTts">
+
+        <!-- Main Activity -->
+        <activity
+            android:name="app.marmalade.tts.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MarmaladeTts">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- System TTS engine — registered so Android Settings can select it -->
+        <service
+            android:name="app.marmalade.tts.service.MarmaladeTtsService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_TEXT_TO_SPEECH_SERVICE">
+            <intent-filter>
+                <action android:name="android.intent.action.TTS_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech.tts"
+                android:resource="@xml/tts_engine" />
+        </service>
+
+        <!-- Foreground synthesis service (long-form playback) -->
+        <service
+            android:name="app.marmalade.tts.service.MarmaladeSynthService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+    </application>
+
+</manifest>
