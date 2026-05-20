@@ -6,12 +6,12 @@ import androidx.room.RoomDatabase
 /**
  * Marmalade TTS Room database.
  *
- * Version 1 — no entities yet. Entities for voices, aliases, and synthesis
- * history will be added in v0.1 feature work. Use a migration when adding
- * the first entity rather than destructive recreation.
+ * Version 1. Starting with the [VoiceMeta] schema placeholder so Room's
+ * KSP processor has at least one entity to process. Feature work will add
+ * entities (aliases, synthesis history) via proper migrations.
  */
 @Database(
-    entities = [],
+    entities = [VoiceMeta::class],
     version = 1,
     exportSchema = true,
 )
