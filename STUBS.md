@@ -6,6 +6,35 @@ how to finish it.
 
 ## v0.1 — Engine + System TTS milestone
 
+### Kitten engine manifest SHA-256 hashes (PENDING_VERIFICATION sentinel)
+- **Files:** `app/src/main/java/app/marmalade/tts/install/EngineCatalog.kt`,
+  `app/src/main/java/app/marmalade/tts/install/KittenEspeakDataManifest.kt`
+- **Status:** The Kitten file manifest uses
+  `EngineCatalog.SHA256_PENDING` as the sha256 value for every file.
+  `EngineInstaller` accepts this sentinel: the file is still downloaded
+  and stored, but the post-download hash check is skipped with a logged
+  WARNING. Real installs will succeed; integrity verification is
+  effectively trust-on-first-fetch until the placeholders are replaced.
+- **Why deferred:** The implementation agent does not have network access
+  to fetch the real upstream files and compute hashes itself. The
+  installer infrastructure is complete and verified by unit tests; only
+  the manifest data is incomplete.
+- **What needs to happen (one-time, pre-release):**
+  1. `curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_1-fp16.tar.bz2 -o /tmp/kitten.tar.bz2`
+  2. `mkdir -p /tmp/kitten && tar -xjf /tmp/kitten.tar.bz2 -C /tmp/kitten`
+  3. `python3 scripts/generate-kitten-manifest.py --bundle-root /tmp/kitten/kitten-nano-en-v0_1-fp16 > app/src/main/java/app/marmalade/tts/install/KittenEspeakDataManifest.kt`
+     (rebuilds the full ~355-entry espeak-ng-data manifest with real
+     sha256s and sizes).
+  4. Hand-edit `EngineCatalog.kt` to replace the three
+     `SHA256_PENDING` entries for `model.fp16.onnx`, `voices.bin`,
+     `tokens.txt` with the matching sha256 from `sha256sum` against
+     the extracted files.
+- **Why a unit test can't help here:** sha256 verification is the test
+  — until the manifest has real hashes, the installer can either treat
+  PENDING as a soft-pass (current behaviour, logged loudly) or fail
+  every install. Soft-pass keeps the install flow exercisable in
+  manual / instrumented tests today.
+
 ### KittenEngine end-to-end synthesis (instrumented test deferred)
 - **File:** `app/src/main/java/app/marmalade/tts/engine/KittenEngine.kt`
 - **Status:** Model assets (`kitten-nano-en-v0_1-fp16`) are now bundled

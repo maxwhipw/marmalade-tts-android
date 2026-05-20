@@ -44,8 +44,8 @@ import kotlinx.coroutines.withContext
 sealed class SynthesizerException(message: String, cause: Throwable? = null) :
     Exception(message, cause) {
 
-    /** Engine assets aren't bundled yet. Shown as "Model not installed" in the UI. */
-    object ModelMissing : SynthesizerException("Kitten model assets not bundled")
+    /** Engine assets haven't been downloaded yet. UI routes user to Engines screen. */
+    object ModelMissing : SynthesizerException("Kitten engine not installed")
 
     /** Anything else — JNI failure, invalid voice ID, AudioTrack init, etc. */
     class SynthesisFailed(cause: Throwable) :

@@ -11,6 +11,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.ui.onboarding.OnboardingScreen
+import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SpeakScreen
 import app.marmalade.tts.ui.screen.VoicePickerScreen
 
@@ -19,45 +22,56 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 // -----------------------------------------------------------------------------
 //   MainActivity → AppRoot()
 //                    │
-//                    ├── rememberSaveable<Route>   (survives rotation)
+//                    ├── rememberActivityViewModel<AppRootViewModel>()
+//                    │     └── exposes SettingsRepository.onboarded
 //                    │
-//                    └── AnimatedContent switch on `current`
-//                          │
-//                          ├── Route.Speak  ─► SpeakScreen(onNavigateToVoices)
-//                          │                       └── onNavigateToVoices ─► current = Voices
-//                          │
-//                          └── Route.Voices ─► VoicePickerScreen(
-//                                                  onBack         = current = Speak,
-//                                                  onVoiceSelected = current = Speak)
+//                    ├── if (!onboarded) ─► OnboardingScreen(onComplete)
+//                    │       └── on complete → onboarded flips to true (DataStore)
+//                    │
+//                    └── else: rememberSaveable<Route>
+//                              │
+//                              ▼
+//                          AnimatedContent switch on `current`
+//                              ├── Route.Speak   → SpeakScreen(onNavigateToVoices, onNavigateToEngines)
+//                              ├── Route.Voices  → VoicePickerScreen(onBack, onVoiceSelected)
+//                              └── Route.Engines → EnginesScreen(onBack)
 //
-//   System back press on Voices ─► BackHandler → current = Speak
+//   System back press on Voices/Engines ─► BackHandler → current = Speak
 // -----------------------------------------------------------------------------
 
 /**
- * Two-destination navigation root.
+ * Top-level navigation root. Gates on onboarding state, then routes to
+ * the appropriate screen.
  *
- * Hand-rolled `AnimatedContent` swap instead of `androidx.navigation:navigation-compose`
- * because the dependency wasn't available offline at build time, and adding it
- * requires a build-system file edit that's outside this agent's scope (see
- * STUBS.md). For two screens this is honestly fine — it's roughly the same
- * lines of code, and `rememberSaveable` carries the current route through
- * rotation cleanly.
- *
- * When `navigation-compose` does land:
- *   - Replace this composable with a `NavHost` rooted at `"speak"`.
- *   - `onNavigateToVoices` → `navController.navigate("voices")`.
- *   - `onBack` / `onVoiceSelected` → `navController.popBackStack()`.
- *   - Keep the same screen signatures so the swap is contained here.
+ * Hand-rolled `AnimatedContent` swap instead of `navigation-compose` —
+ * see STUBS.md for why and what changes when the dependency lands.
  */
 @Composable
-fun AppRoot() {
+fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
+    val onboarded by viewModel.onboarded.collectAsStateWithLifecycle(initialValue = null)
+
+    // While we're still loading the onboarded flag, render nothing.
+    // DataStore reads are fast — this is typically a single frame.
+    val onboardedNow = onboarded ?: return
+
+    if (!onboardedNow) {
+        OnboardingScreen(
+            onComplete = {
+                // The VM has already flipped `onboarded` to true; the next
+                // recomposition will pick that up via the Flow and route
+                // through the else branch.
+            },
+        )
+        return
+    }
+
     var current: Route by rememberSaveable(stateSaver = RouteSaver) {
         mutableStateOf(Route.Speak)
     }
 
-    // System-back from the voice picker returns to Speak. On Speak itself,
-    // back falls through to the platform default (exits the activity).
-    BackHandler(enabled = current == Route.Voices) {
+    // System back from non-root destinations returns to Speak. On Speak
+    // itself, back falls through to the platform default (exits the activity).
+    BackHandler(enabled = current != Route.Speak) {
         current = Route.Speak
     }
 
@@ -72,17 +86,21 @@ fun AppRoot() {
         when (route) {
             Route.Speak -> SpeakScreen(
                 onNavigateToVoices = { current = Route.Voices },
+                onNavigateToEngines = { current = Route.Engines },
             )
             Route.Voices -> VoicePickerScreen(
                 onBack = { current = Route.Speak },
                 onVoiceSelected = { current = Route.Speak },
             )
+            Route.Engines -> EnginesScreen(
+                onBack = { current = Route.Speak },
+            )
         }
     }
 }
 
-/** The two destinations this app knows about. */
-enum class Route { Speak, Voices }
+/** The destinations this app knows about. */
+enum class Route { Speak, Voices, Engines }
 
 /**
  * Saver for [Route] — `rememberSaveable` needs a Bundle-compatible

@@ -105,7 +105,7 @@ fun VoicePickerScreen(
             // Inline status hint when the engine signals missing assets.
             if (modelMissing) {
                 Text(
-                    text = "Model not installed yet — previews will be available once the kitten model is bundled.",
+                    text = "Kitten engine not installed yet — install it from Settings → Engines to enable previews.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,

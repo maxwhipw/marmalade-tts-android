@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,8 +26,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -78,6 +85,7 @@ import app.marmalade.tts.ui.rememberActivityViewModel
 @Composable
 fun SpeakScreen(
     onNavigateToVoices: () -> Unit,
+    onNavigateToEngines: () -> Unit,
     viewModel: SpeakViewModel = rememberActivityViewModel(),
 ) {
     val text by viewModel.text.collectAsStateWithLifecycle()
@@ -86,6 +94,8 @@ fun SpeakScreen(
 
     val isSpeaking = playbackState is PlaybackState.Speaking
     val isModelMissing = playbackState is PlaybackState.ModelMissing
+
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -97,6 +107,26 @@ fun SpeakScreen(
                             imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = "Voices",
                         )
+                    }
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More",
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Engines") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onNavigateToEngines()
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -165,17 +195,31 @@ fun SpeakScreen(
 
             // Status line — single source of truth for "what's going on."
             Box(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = statusText(playbackState),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when (playbackState) {
-                        is PlaybackState.Error -> MaterialTheme.colorScheme.error
-                        is PlaybackState.ModelMissing -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (isModelMissing) {
+                    // Make the missing-engine state actionable: a text button
+                    // that routes the user straight to the Engines screen.
+                    TextButton(
+                        onClick = onNavigateToEngines,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "Tap to install Kitten engine",
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = statusText(playbackState),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when (playbackState) {
+                            is PlaybackState.Error -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }
@@ -184,6 +228,6 @@ fun SpeakScreen(
 private fun statusText(state: PlaybackState): String = when (state) {
     is PlaybackState.Idle -> "Ready"
     is PlaybackState.Speaking -> "Speaking…"
-    is PlaybackState.ModelMissing -> "Model not installed yet"
+    is PlaybackState.ModelMissing -> "Tap to install Kitten engine"
     is PlaybackState.Error -> state.message
 }

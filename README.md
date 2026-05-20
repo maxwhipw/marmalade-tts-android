@@ -43,11 +43,21 @@ robotic FOSS alternatives like espeak-ng. Marmalade fills the middle:
 
 | Engine | Status | Notes |
 |--------|--------|-------|
-| `kitten` | v0.1 | Bundled, ~25 MB, runs on every device |
+| `kitten` | v0.1 | Downloaded on demand, ~42 MB, runs on every device |
 | `emojivoice` | v0.1 | Emotion layer; ports from CLI |
 | `piper` | v0.2 | Voice store + downloader, ~70 MB per voice |
 | `kokoro` | v0.2 | High-quality multilingual |
 | `pocket` | v0.4 | Voice cloning from 5s recording |
+
+## How engines work
+
+Marmalade ships small: the default APK does not bundle any neural
+model files. On first launch you pick which engines to install — each
+one downloads from a hostname pinned in the catalog
+(`EngineCatalog.kt`) into `${filesDir}/engines/<engine>/`. You can
+install or uninstall engines later from Settings → Engines. The
+`INTERNET` permission is used solely for these downloads — see
+[PRIVACY.md](PRIVACY.md).
 
 ## Related projects
 

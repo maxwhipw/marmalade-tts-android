@@ -23,8 +23,13 @@ This app:
   installed app via `android.speech.tts.TextToSpeech`. We treat caller
   text as untrusted input and apply standard sanitization (control-char
   strip, length caps).
-- Runs ONNX models on-device. No telemetry, no network calls (until the
-  HTTP API ships in v0.3+).
+- Runs ONNX models on-device. No telemetry. The only network use is
+  the `EngineInstaller` downloading engine model files from a
+  hostname listed in the catalog source. Each download is verified
+  against a SHA-256 hash pinned in the catalog before the file lands
+  on disk — a poisoned mirror cannot substitute model weights without
+  the verifier rejecting them. See [PRIVACY.md](PRIVACY.md) for the
+  user-facing summary.
 - (v0.3+) May expose a local HTTP API on Wi-Fi. See
   [SPEC.md](SPEC.md) "Security" for the deployment rules — off by
   default, loopback when enabled, pairing-based auth, no write

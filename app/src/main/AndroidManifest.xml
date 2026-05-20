@@ -11,8 +11,13 @@
     <!-- Declared but not yet requested at runtime — voice cloning is v0.4 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- INTERNET is intentionally absent: v0.1 is fully on-device. Add when
-         the HTTP API ships (v0.3+) to preserve the privacy story. -->
+    <!--
+      INTERNET is used exclusively for engine model downloads via
+      EngineInstaller. No telemetry, no analytics, no other network use.
+      See PRIVACY.md / SECURITY.md for details. The set of hosts contacted
+      is enumerated in EngineCatalog (currently: huggingface.co only).
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name="app.marmalade.tts.MarmaladeTtsApplication"

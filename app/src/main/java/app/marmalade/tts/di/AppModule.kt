@@ -12,6 +12,11 @@ import app.marmalade.tts.audio.Synthesizer
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.install.EngineFilesDir
+import app.marmalade.tts.install.HttpFetcher
+import app.marmalade.tts.install.NativeEngineHandle
+import app.marmalade.tts.install.UrlHttpFetcher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -90,4 +95,33 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSpeechPlayer(impl: Synthesizer): SpeechPlayer = impl
+
+    /**
+     * Engine install root — wraps the app's private `filesDir` so the
+     * installer doesn't pull in a full Context dependency (lets unit
+     * tests stand the installer up against a TemporaryFolder).
+     */
+    @Provides
+    @Singleton
+    fun provideEngineFilesDir(@ApplicationContext ctx: Context): EngineFilesDir =
+        EngineFilesDir { ctx.filesDir }
+
+    /**
+     * Routes the installer's `NativeEngineHandle` to the live
+     * [KittenEngine] so uninstalls can release the JNI handle before
+     * deleting the model files. Unit tests substitute a no-op handle.
+     */
+    @Provides
+    @Singleton
+    fun provideNativeEngineHandle(engine: KittenEngine): NativeEngineHandle =
+        NativeEngineHandle { engine.release() }
+
+    /**
+     * HTTP fetcher used by [EngineInstaller]. Production uses
+     * `java.net.HttpURLConnection`; tests inject a fake fetcher that
+     * serves bytes from a synchronous in-memory map.
+     */
+    @Provides
+    @Singleton
+    fun provideHttpFetcher(): HttpFetcher = UrlHttpFetcher
 }

@@ -48,13 +48,22 @@ internal class RecordingPlayer(
  * a `DataStore<Preferences>` instance — we satisfy it with a no-op
  * implementation whose data Flow is never collected.
  */
-internal class FakeSettings(initialId: String) : SettingsRepository(
+internal class FakeSettings(
+    initialId: String,
+    initialOnboarded: Boolean = true,
+) : SettingsRepository(
     dataStore = NoOpPreferencesDataStore,
 ) {
     private val state = MutableStateFlow(initialId)
+    private val onboardedState = MutableStateFlow(initialOnboarded)
     override val defaultVoiceId: Flow<String> = state
     override suspend fun setDefaultVoiceId(id: String) {
         state.value = id
+    }
+
+    override val onboarded: Flow<Boolean> = onboardedState
+    override suspend fun setOnboarded(value: Boolean) {
+        onboardedState.value = value
     }
 }
 
