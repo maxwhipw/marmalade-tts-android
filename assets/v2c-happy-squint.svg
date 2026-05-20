@@ -1,0 +1,72 @@
+<svg viewBox="0 0 400 520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="jarGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F5A623"/>
+      <stop offset="100%" stop-color="#D4831E"/>
+    </linearGradient>
+    <linearGradient id="shineGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="white" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lidGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF8EE"/>
+      <stop offset="100%" stop-color="#F0DFC0"/>
+    </linearGradient>
+    <linearGradient id="marmaladeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8942A"/>
+      <stop offset="40%" stop-color="#D4780A"/>
+      <stop offset="100%" stop-color="#C06A08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shadow -->
+  <ellipse cx="200" cy="490" rx="120" ry="18" fill="#00000015"/>
+
+  <!-- Jar body -->
+  <rect x="75" y="170" width="250" height="300" rx="40" ry="40" fill="url(#jarGrad)"/>
+
+  <!-- Marmalade inside -->
+  <rect x="85" y="300" width="230" height="162" rx="32" ry="32" fill="url(#marmaladeGrad)" opacity="0.5"/>
+
+  <!-- Glass shine -->
+  <rect x="85" y="180" width="40" height="260" rx="20" fill="url(#shineGrad)" opacity="0.4"/>
+
+  <!-- Jar neck -->
+  <rect x="110" y="155" width="180" height="25" rx="8" fill="#E8D5B0"/>
+
+  <!-- Lid -->
+  <rect x="95" y="110" width="210" height="52" rx="14" fill="url(#lidGrad)" stroke="#D4C4A0" stroke-width="2"/>
+  <rect x="105" y="105" width="190" height="14" rx="7" fill="#FFF5E6" stroke="#D4C4A0" stroke-width="1.5"/>
+
+  <!-- Lid texture lines -->
+  <line x1="120" y1="118" x2="120" y2="155" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+  <line x1="150" y1="115" x2="150" y2="158" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+  <line x1="180" y1="113" x2="180" y2="158" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+  <line x1="210" y1="113" x2="210" y2="158" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+  <line x1="240" y1="115" x2="240" y2="158" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+  <line x1="270" y1="118" x2="270" y2="155" stroke="#E0D0B0" stroke-width="1" opacity="0.5"/>
+
+  <!-- Eyes - happy closed squint (upside down U) -->
+  <path d="M135 290 Q155 268 175 290" stroke="#3D2B1F" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M225 290 Q245 268 265 290" stroke="#3D2B1F" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <!-- Small lash/sparkle marks at outer corners -->
+  <line x1="178" y1="285" x2="185" y2="280" stroke="#3D2B1F" stroke-width="2" stroke-linecap="round"/>
+  <line x1="222" y1="285" x2="215" y2="280" stroke="#3D2B1F" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Mouth - wider content smile -->
+  <path d="M178 335 Q200 355 222 335"
+        stroke="#3D2B1F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Label -->
+  <rect x="115" y="380" width="170" height="65" rx="10" fill="#FFF8EE" stroke="#D4B896" stroke-width="1.5"/>
+  <line x1="130" y1="392" x2="270" y2="392" stroke="#E8C9A0" stroke-width="1"/>
+  <text x="200" y="420" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#A0522D">marmalade</text>
+  <line x1="130" y1="432" x2="270" y2="432" stroke="#E8C9A0" stroke-width="1"/>
+
+  <!-- Orange slice on label -->
+  <circle cx="200" cy="370" r="12" fill="#F5A623" stroke="#D4831E" stroke-width="1.5"/>
+  <line x1="200" y1="362" x2="200" y2="378" stroke="#FFF5E6" stroke-width="1" opacity="0.6"/>
+  <line x1="192" y1="364" x2="196" y2="378" stroke="#FFF5E6" stroke-width="1" opacity="0.6"/>
+  <line x1="208" y1="364" x2="204" y2="378" stroke="#FFF5E6" stroke-width="1" opacity="0.6"/>
+</svg>
