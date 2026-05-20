@@ -6,54 +6,28 @@ how to finish it.
 
 ## v0.1 — Engine + System TTS milestone
 
-### Kitten engine manifest SHA-256 hashes (PENDING_VERIFICATION sentinel)
-- **Files:** `app/src/main/java/app/marmalade/tts/install/EngineCatalog.kt`,
-  `app/src/main/java/app/marmalade/tts/install/KittenEspeakDataManifest.kt`
-- **Status:** The Kitten file manifest uses
-  `EngineCatalog.SHA256_PENDING` as the sha256 value for every file.
-  `EngineInstaller` accepts this sentinel: the file is still downloaded
-  and stored, but the post-download hash check is skipped with a logged
-  WARNING. Real installs will succeed; integrity verification is
-  effectively trust-on-first-fetch until the placeholders are replaced.
-- **Why deferred:** The implementation agent does not have network access
-  to fetch the real upstream files and compute hashes itself. The
-  installer infrastructure is complete and verified by unit tests; only
-  the manifest data is incomplete.
-- **What needs to happen (one-time, pre-release):**
-  1. `curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_1-fp16.tar.bz2 -o /tmp/kitten.tar.bz2`
-  2. `mkdir -p /tmp/kitten && tar -xjf /tmp/kitten.tar.bz2 -C /tmp/kitten`
-  3. `python3 scripts/generate-kitten-manifest.py --bundle-root /tmp/kitten/kitten-nano-en-v0_1-fp16 > app/src/main/java/app/marmalade/tts/install/KittenEspeakDataManifest.kt`
-     (rebuilds the full ~355-entry espeak-ng-data manifest with real
-     sha256s and sizes).
-  4. Hand-edit `EngineCatalog.kt` to replace the three
-     `SHA256_PENDING` entries for `model.fp16.onnx`, `voices.bin`,
-     `tokens.txt` with the matching sha256 from `sha256sum` against
-     the extracted files.
-- **Why a unit test can't help here:** sha256 verification is the test
-  — until the manifest has real hashes, the installer can either treat
-  PENDING as a soft-pass (current behaviour, logged loudly) or fail
-  every install. Soft-pass keeps the install flow exercisable in
-  manual / instrumented tests today.
-
 ### KittenEngine end-to-end synthesis (instrumented test deferred)
 - **File:** `app/src/main/java/app/marmalade/tts/engine/KittenEngine.kt`
-- **Status:** Model assets (`kitten-nano-en-v0_1-fp16`) are now bundled
-  in `app/src/main/assets/kitten/`. `ensureModelLoaded()` no longer
-  throws; on first call it stages `espeak-ng-data/` to `filesDir` and
-  builds an `OfflineTts`. The bundle was sourced from
-  `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_1-fp16.tar.bz2`
-  (Apache 2.0; see `LICENSES/kitten-tts.md`).
-- **Why a unit test won't cut it:** `OfflineTts` loads native
-  libraries through JNI and reads model bytes through Android's
-  `AssetManager`. Neither survives in a JVM unit test (`./gradlew
-  testDebugUnitTest`) — they need an Android runtime. Verification
-  path is install the debug APK, pick Marmalade in Settings →
-  Languages → Text-to-speech, tap "Listen to an example."
-- **What an instrumented test would assert:** synthesize "hello world"
-  with the default voice, expect a non-empty PCM ShortArray at 24 kHz,
-  expect total duration roughly proportional to text length (catches
-  zero-length output bugs). Requires adding `androidx.test.ext:junit`
-  and writing it under `androidTest/`.
+- **Status:** Engine + installer + onboarding all in place. The
+  installer downloads Kitten into `${filesDir}/engines/kitten/` from
+  the HF mirror, sha256-verifies every file, and atomically renames
+  on success. `KittenEngine.ensureModelLoaded()` then reads from that
+  directory and builds an `OfflineTts`. **Not yet verified on a real
+  device** — no instrumented test exists.
+- **Why a unit test won't cut it:** `OfflineTts` loads native libraries
+  through JNI. Neither JNI nor the Sherpa-ONNX `.so` survives in a JVM
+  unit test (`./gradlew testDebugUnitTest`) — they need an Android
+  runtime.
+- **What an instrumented test would assert:**
+  1. Install the debug APK on a connected device.
+  2. Run onboarding to completion (installs Kitten over the network).
+  3. Pick Marmalade in Settings → Languages → Text-to-speech, tap
+     "Listen to an example" — audio should play at 24 kHz.
+  4. Programmatically: synthesize "hello world" via the system TTS
+     API, expect a non-empty PCM ShortArray at 24 kHz, duration
+     roughly proportional to text length (catches zero-length-output
+     bugs), no crashes through an uninstall + reinstall cycle.
+- Requires adding `androidx.test.ext:junit` (`androidTest/` source set).
 
 ### VoiceMetaDao Room queries (integration test deferred)
 - **File:** `app/src/main/java/app/marmalade/tts/data/db/VoiceMetaDao.kt`
@@ -75,29 +49,26 @@ how to finish it.
 
 ### androidx.navigation:navigation-compose deferred (P2 — UX improvement)
 - **File:** `app/src/main/java/app/marmalade/tts/ui/AppRoot.kt`
-- **Status:** v0.1 ships a hand-rolled two-state router
-  (`enum Route { Speak, Voices }` + `rememberSaveable` + `AnimatedContent`).
-  Functionally equivalent to a `NavHost` for the current two-screen surface
-  and survives rotation. The implementation agent could not add
-  `androidx.navigation:navigation-compose` because `app/build.gradle.kts`
-  is off-limits.
+- **Status:** v0.1 ships a hand-rolled router (gated additionally by
+  `SettingsRepository.onboarded`) using `enum Route` + `rememberSaveable`
+  + `AnimatedContent`. Functionally equivalent to a `NavHost` for the
+  current surface and survives rotation. The implementation agent could
+  not add `androidx.navigation:navigation-compose` because
+  `app/build.gradle.kts` is off-limits.
 - **What needs to happen:** Once a build agent can edit
   `app/build.gradle.kts`, add
-  `implementation("androidx.navigation:navigation-compose:2.8.5")` (the
-  Compose BOM 2024.12.01 manages a compatible version transitively, the
-  artifact itself is offline-cached). Replace `AppRoot.kt` with a
-  `NavHost` rooted at `"speak"`; keep the existing `SpeakScreen` /
-  `VoicePickerScreen` composable signatures so the swap is contained to
-  that one file.
-- **Why a unit test won't cut it:** the router is a single enum-switch
-  with rotation persistence — too thin to assert against in isolation.
-  The thing worth verifying (route-preserving back-stack semantics,
+  `implementation("androidx.navigation:navigation-compose:2.8.5")`.
+  Replace `AppRoot.kt` with a `NavHost` rooted at `"speak"` (with an
+  onboarding pre-flight); keep the existing screen composable signatures
+  so the swap is contained to that one file.
+- **Why a unit test won't cut it:** the router is too thin to assert
+  against in isolation. The thing worth verifying (back-stack semantics,
   deep-link handling for the future share-sheet intent) only becomes
   real once the actual NavHost lands.
 
 ### hilt-navigation-compose deferred (P2 — boilerplate cleanup)
-- **File:** `app/src/main/java/app/marmalade/tts/ui/screen/SpeakScreen.kt`
-  and `VoicePickerScreen.kt` — both use
+- **Files:** `SpeakScreen.kt`, `VoicePickerScreen.kt`,
+  `OnboardingScreen.kt`, `EnginesScreen.kt` — all use
   `androidx.lifecycle.viewmodel.compose.viewModel()` instead of
   `androidx.hilt.navigation.compose.hiltViewModel()`.
 - **Status:** `@HiltViewModel`-annotated ViewModels still resolve because
@@ -106,11 +77,10 @@ how to finish it.
   is what Compose's `viewModel()` picks up via the activity's
   `HasDefaultViewModelProviderFactory` contract.
 - **What needs to happen:** add
-  `implementation("androidx.hilt:hilt-navigation-compose:1.2.0")`
-  (offline-cached version may need confirmation) and swap
-  `viewModel()` → `hiltViewModel()` in both screen composables. Once a
-  proper NavHost lands the `hiltViewModel()` version also gets nav-graph-
-  scoped ViewModels for free.
+  `implementation("androidx.hilt:hilt-navigation-compose:1.2.0")` and
+  swap `viewModel()` → `hiltViewModel()` in all four screen composables.
+  Once a proper NavHost lands the `hiltViewModel()` version also gets
+  nav-graph-scoped ViewModels for free.
 
 ### MarmaladeTtsService onSynthesizeText flow (integration test deferred)
 - **File:** `app/src/main/java/app/marmalade/tts/service/MarmaladeTtsService.kt`
@@ -122,7 +92,7 @@ how to finish it.
   `SynthesisCallback`/`SynthesisRequest` (using reflection or
   `androidx.test.ext.junit`) and assert call ordering:
   `start(24000, PCM_16BIT, 1)` → N×`audioAvailable` → `done`. Validate
-  that a thrown `UnsupportedOperationException` from `KittenEngine`
+  that a thrown `EngineNotInstalledException` from `KittenEngine`
   yields exactly one `error()` call. This requires test deps the
   current build doesn't have.
 - **Why a unit test won't cut it:** can't fake the framework callbacks
