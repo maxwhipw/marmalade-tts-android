@@ -3,6 +3,28 @@
 Version-by-version plan. See [SPEC.md](SPEC.md) for the architecture
 and non-goals. Dates are aspirational, not commitments.
 
+## North star
+
+**Feature parity with [marmalade-tts](https://github.com/maxwhipw/marmalade-tts)
+(the CLI) where it makes sense on mobile**, plus mobile-only features
+that the CLI can't reach. The CLI is the reference for what's
+available; the Android app is the reference for how it should feel on
+a phone. Things that translate directly (voice aliases, effects,
+preprocessing, batch/chunking, multiple engines, subtitles) carry the
+same concept names — a user moving between CLI and app should not
+have to relearn vocabulary.
+
+What the Android app adds that the CLI can't: system TTS provider,
+share sheet, Quick Settings tile, foreground media playback, voice
+cloning from a mic recording with a guided consent UX, Tasker/MacroDroid
+plugin, Android Auto / Wear OS, Quick-tile voice profile switching.
+
+What the CLI has that won't ship on Android: subprocess-based engine
+hosting (Android uses ONNX in-process), the Docker HTTP server (the
+Android equivalent ships in v0.3+ with pairing-based auth — see
+SPEC.md "Security"), `sox` (Android uses `android.media.audiofx` /
+Oboe DSP).
+
 ## v0.1.0 — MVP (the resume piece)
 
 **Tweetable elevator pitch:** *"Marmalade TTS: an emotionally
@@ -10,7 +32,13 @@ expressive, FOSS, on-device system-TTS engine for Android. Emoji
 controls feeling. No cloud. Cloneable voices."*
 
 - [ ] **System TTS engine provider** — `TextToSpeechService` impl
-- [ ] **Bundled `kitten` engine** via Sherpa-ONNX (~25 MB)
+- [ ] **Engine installer + onboarding** — first-launch wizard picks
+      engines to download; Settings → Engines screen for later
+      install/uninstall. Engine bundles land in `${filesDir}/engines/`
+      under explicit user opt-in (mirrors CLI's
+      `marmalade-tts install <engine>`).
+- [ ] **`kitten` engine** as the recommended default — small (~42 MB
+      on-disk after install), 8 English voices.
 - [ ] **Emoji prosody layer** — emoji → emotion via post-synthesis
       pitch/rate/volume modulation
 - [ ] **Share-sheet target** — "Share to Marmalade TTS"

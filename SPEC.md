@@ -65,7 +65,9 @@ These are out by deliberate choice. Revisit only with a strong reason.
 - **TTS inference:** Sherpa-ONNX (vendored AAR — same one used in
   marmalade-android) on top of ONNX Runtime Mobile. Android's
   `android.speech.tts.TextToSpeech` registered as a fallback engine
-  for low-end devices.
+  for low-end devices. Engine assets (models + phonemizer data) are
+  not bundled — they're downloaded by `EngineInstaller` to
+  `${filesDir}/engines/<name>/` on user opt-in.
 - **Audio:** Oboe for low-latency streaming output. AudioTrack on the
   TextToSpeechService callback path (mandated by the system TTS
   contract). `android.media.audiofx` for v0.1 effect presets.
@@ -77,15 +79,67 @@ These are out by deliberate choice. Revisit only with a strong reason.
 - **Local HTTP server framework only if/when needed:** NanoHTTPD as
   fallback if Ktor is too heavy.
 
+## Engine-as-plugin architecture
+
+Engine model files do **not** ship in the APK. They're downloaded at
+runtime by an `EngineInstaller` into `${filesDir}/engines/<engine>/`
+when the user opts in via onboarding or Settings → Engines. The default
+install ships only the wrapper code + UI + the Sherpa-ONNX AAR — no
+neural models, no phonemizer data.
+
+This mirrors the CLI's `marmalade-tts install <engine>` pattern and
+delivers three benefits:
+
+1. **APK stays small.** Default install is ~115 MB. Bundling Kitten
+   alone pushed it to ~140 MB; bundling the full CLI engine matrix is
+   not feasible.
+2. **License hygiene.** The Sherpa-ONNX AAR statically links espeak-ng
+   (GPL-3.0). Shipping it by default would force a GPL-licensed APK;
+   with opt-in install, the GPL'd component only lands on devices
+   whose users have accepted a one-line disclosure during install.
+   Default install posture stays MIT-clean.
+3. **User choice.** Mobile users have varying tolerance for size /
+   network use — let them pick which engines they actually need.
+
+Engines have lifecycle states (persisted in DataStore + reflected in
+the engine's `isInstalled()` method):
+
+```
+        ┌────────────┐  user taps install   ┌────────────┐
+        │ NotInstalled├──────────────────► │ Downloading│
+        └────────────┘                      └─────┬──────┘
+              ▲                                    │
+              │                                    ▼
+              │ user taps uninstall          ┌───────────┐
+              │                              │ Extracting│
+        ┌────────────┐                       └─────┬─────┘
+        │ Installed  │◄─────────────────────────── ┘
+        └────────────┘
+              │
+              ▼ (on synth attempt with missing files)
+        ┌────────────┐
+        │  Corrupt   │ → user prompted to reinstall
+        └────────────┘
+```
+
+When `KittenEngine.ensureModelLoaded()` is called and the files aren't
+on disk, it throws `EngineNotInstalledException`. The UI catches this
+and routes to the install flow.
+
 ## Feature surface — v0.1.0 MVP
 
 1. **System TTS engine provider** — implements `TextToSpeechService`,
    registers in the system settings as a selectable TTS engine.
-2. **Bundled `kitten` engine** via Sherpa-ONNX (~25 MB). Default voice.
-3. **Emoji prosody layer** — `emojivoice`-style emotion injection.
+2. **Engine installer + onboarding** — first-launch wizard asks which
+   engines to install. Settings → Engines screen lets the user
+   install/uninstall later. Each engine ships as a downloadable bundle
+   (model + phonemizer data) under `${filesDir}/engines/<name>/`.
+3. **`kitten` engine** as the recommended default — small (~42 MB
+   on-disk after install), runs on every device, 8 English voices.
+4. **Emoji prosody layer** — `emojivoice`-style emotion injection.
    Even on monotone underlying engines, applies pitch/rate/volume
    curves per emoji on the AudioTrack stream as a degraded fallback.
-4. **Share-sheet target** — "Share to Marmalade TTS" from any app
+5. **Share-sheet target** — "Share to Marmalade TTS" from any app
    speaks the selection. Mobile analog of the CLI's `speak-selection`
    KDE script.
 5. **Quick Settings tile** — one-tap "Speak clipboard" from anywhere.
