@@ -82,6 +82,31 @@ how to finish it.
   Once a proper NavHost lands the `hiltViewModel()` version also gets
   nav-graph-scoped ViewModels for free.
 
+### Share-sheet + Quick Settings tile (device verification deferred)
+- **Files:**
+  - `app/src/main/java/app/marmalade/tts/ui/intent/ShareIntentActivity.kt`
+  - `app/src/main/java/app/marmalade/tts/service/SpeakClipboardTileService.kt`
+  - `app/src/main/java/app/marmalade/tts/service/SpeakDispatcher.kt`
+- **Status:** Implementation in place; `SpeakDispatcher.prepare` is
+  unit-tested for trim / blank / clamp logic (8 assertions). The
+  end-to-end intent plumbing (manifest filters, foreground-service
+  hand-off, ClipboardManager read) needs a real device or Robolectric
+  to exercise.
+- **What an instrumented test would assert:**
+  1. `adb shell am start -a android.intent.action.SEND -t text/plain \
+     --es android.intent.extra.TEXT "hello world" \
+     -n app.marmalade.tts/.ui.intent.ShareIntentActivity` produces
+     audible speech and finishes the trampoline activity.
+  2. Same for `ACTION_PROCESS_TEXT` via a UiAutomator selection menu
+     interaction.
+  3. Adding the tile from Quick Settings, copying text to clipboard,
+     tapping the tile → audible speech (also from the lock screen).
+  4. Empty clipboard tap → Toast "Clipboard is empty", no service start.
+- **Why a unit test won't cut it:** `ContextCompat.startForegroundService`,
+  `ClipboardManager.primaryClip`, and the manifest-driven intent
+  routing all require an Android runtime. Robolectric would handle 1–2
+  with the right `androidTest` setup but isn't currently a project dep.
+
 ### MarmaladeTtsService onSynthesizeText flow (integration test deferred)
 - **File:** `app/src/main/java/app/marmalade/tts/service/MarmaladeTtsService.kt`
 - **Status:** Pure helpers (`pcm16ToLittleEndianBytes`) are unit-tested.

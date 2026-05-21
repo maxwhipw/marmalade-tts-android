@@ -59,6 +59,53 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!--
+          Share-sheet target + system text-selection "Process text" action.
+          Themed translucent so the trampoline activity never paints UI;
+          it just dispatches to MarmaladeSynthService and finishes.
+        -->
+        <activity
+            android:name="app.marmalade.tts.ui.intent.ShareIntentActivity"
+            android:exported="true"
+            android:label="@string/share_to_marmalade_tts"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Quick Settings tile that speaks the current clipboard. Declared
+          as an ACTIVE_TILE so we can refresh icon/label as state changes;
+          unlock-required is false so the user can use it from the lock
+          screen.
+        -->
+        <service
+            android:name="app.marmalade.tts.service.SpeakClipboardTileService"
+            android:exported="true"
+            android:icon="@drawable/mascot_happy"
+            android:label="@string/quick_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+
     </application>
 
 </manifest>
