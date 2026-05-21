@@ -1,50 +1,40 @@
-# Contributor Covenant Code of Conduct
+# Code of Conduct
 
-## Our Pledge
+This project is open to contributions from anyone willing to act with
+basic courtesy and good faith. The rules below cover how we interact —
+nothing more.
 
-We as members, contributors, and maintainers pledge to make
-participation in our community a harassment-free experience for
-everyone, regardless of age, body size, visible or invisible
-disability, ethnicity, sex characteristics, gender identity and
-expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity
-and orientation.
+## What's expected
 
-## Our Standards
+- Be respectful in disagreement. Technical and design debates are
+  welcome; personal attacks aren't.
+- Give and accept constructive feedback. Assume the other person is
+  acting in good faith until they prove otherwise.
+- Take responsibility for mistakes — yours and the project's — and
+  learn from them.
+- Keep the focus on the project's goals. Off-topic political or
+  culture-war debates don't belong in issues, PRs, or discussions.
 
-Examples of behavior that contributes to a positive environment:
+## What isn't tolerated
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
-* Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing to those affected by our
-  mistakes, and learning from the experience
-* Focusing on what is best for the overall community
-
-Examples of unacceptable behavior:
-
-* The use of sexualized language or imagery, and sexual attention or
-  advances
-* Trolling, insulting or derogatory comments, and personal or
-  political attacks
-* Public or private harassment
-* Publishing others' private information without their explicit
-  permission
-* Other conduct which could reasonably be considered inappropriate
-  in a professional setting
+- Personal attacks, insults, name-calling, or harassment.
+- Sexualized language, imagery, or unwanted advances.
+- Sharing someone else's private information (address, real name,
+  employer, etc.) without their explicit permission.
+- Sustained disruption of discussions, trolling, or bad-faith
+  argumentation.
+- Anything else a reasonable professional would consider out of place
+  in a workplace setting.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior
-may be reported via GitHub's private vulnerability reporting at
+Maintainers may, at their discretion, edit or remove comments, commits,
+issues, and pull requests that violate these expectations, and may ban
+contributors temporarily or permanently for serious or repeated
+violations.
+
+Report conduct concerns privately via GitHub's private vulnerability
+reporting at
 https://github.com/maxwhipw/marmalade-tts-android/security/advisories/new
-(despite the URL, this channel can also be used for conduct reports).
-All complaints will be reviewed and investigated promptly and fairly.
-
-## Attribution
-
-This Code of Conduct is adapted from the
-[Contributor Covenant][homepage], version 2.1, available at
-https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.
-
-[homepage]: https://www.contributor-covenant.org
+(the channel works for conduct reports as well). Reports are reviewed
+promptly and confidentially.
