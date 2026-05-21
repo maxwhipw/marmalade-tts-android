@@ -109,24 +109,40 @@ internal class FakeDao(private val voices: List<VoiceMeta>) : VoiceMetaDao {
 }
 
 /**
- * Minimal in-memory [VoiceAliasDao].
+ * In-memory [VoiceAliasDao] used by both [SpeakViewModel] and
+ * [AliasViewModel] tests.
  *
- * Read-only — the speak-screen path only consumes `getAll()` + `findByName(...)`.
- * Mutating methods throw so a test that touches them fails loudly instead
- * of silently no-op'ing.
+ * Originally read-only (SpeakViewModel only consumes `getAll()` /
+ * `findByName`). Extended for [AliasViewModelTest] to support writes —
+ * the alias editor exercises upsert + delete, and tests assert on the
+ * recorded calls. The state Flow also reflects writes so subsequent
+ * `aliases.value` reads inside the ViewModel see the updated list.
+ *
+ * The recorded-call lists ([upsertedAliases], [deletedNames]) are
+ * append-only; tests inspect them after the ViewModel coroutine has
+ * settled (UnconfinedTestDispatcher + viewModelScope.launch resolves
+ * synchronously under `runTest`).
  */
 internal class FakeAliasDao(
     private val initial: List<VoiceAlias> = emptyList(),
 ) : VoiceAliasDao {
     private val state = MutableStateFlow(initial)
+    val upsertedAliases = mutableListOf<VoiceAlias>()
+    val deletedNames = mutableListOf<String>()
+
     override fun getAll() = state
     override suspend fun findByName(name: String): VoiceAlias? =
         state.value.firstOrNull { it.name == name }
+
     override suspend fun upsert(alias: VoiceAlias) {
-        throw UnsupportedOperationException("read-only fake")
+        upsertedAliases += alias
+        // REPLACE semantics: drop any row with the same PK before adding.
+        state.value = state.value.filterNot { it.name == alias.name } + alias
     }
+
     override suspend fun delete(name: String) {
-        throw UnsupportedOperationException("read-only fake")
+        deletedNames += name
+        state.value = state.value.filterNot { it.name == name }
     }
 }
 
