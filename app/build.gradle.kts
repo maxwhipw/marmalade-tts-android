@@ -127,9 +127,28 @@ dependencies {
     // Sherpa-ONNX (TTS inference, vendored AAR)
     implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.12.32.aar"))
 
-    // Testing
+    // Media session (lock-screen + BT transport controls in MarmaladeSynthService).
+    // Provides MediaSessionCompat / PlaybackStateCompat / MediaButtonReceiver.
+    implementation("androidx.media:media:1.7.0")
+
+    // Navigation
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
+    // Testing — JVM
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("androidx.room:room-testing:$roomVersion")
+    testImplementation("org.robolectric:robolectric:4.13")
+    // Provides ApplicationProvider — used by Robolectric tests (Room DAO + TTS service).
+    testImplementation("androidx.test:core:1.5.0")
+
+    // Testing — Instrumented
+    // Requested 1.2.1; 1.1.5 is the latest version in the offline Gradle cache.
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    // Requested 1.6.2; 1.5.0 is the latest version in the offline Gradle cache.
+    androidTestImplementation("androidx.test:runner:1.5.0")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }
 
 tasks.withType<Test>().configureEach {

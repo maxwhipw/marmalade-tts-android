@@ -9,6 +9,8 @@ import android.util.Log
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
@@ -18,7 +20,13 @@ import kotlinx.coroutines.runBlocking
 // -----------------------------------------------------------------------------
 //   Android system  ── onSynthesizeText(request, callback) ──▶  this service
 //      │
-//      ├── request.charSequenceText  → String to synthesize
+//      ├── request.charSequenceText  → String (raw, may contain emojis)
+//      │      │
+//      │      ├── EmojiProsody.detect(raw) ──► ProsodyHint(emotion, intensity)
+//      │      └── EmojiProsody.stripEmojis(raw) ──► cleaned text for the engine
+//      │              (Kitten can't phonemize 🤣; espeak would read it as
+//      │               "rolling on the floor laughing face")
+//      │
 //      ├── request.voiceName / language fields → resolveVoiceId()
 //      │      │
 //      │      ▼
@@ -31,8 +39,11 @@ import kotlinx.coroutines.runBlocking
 //   callback.start(sampleRate, ENCODING_PCM_16BIT, mono)
 //      │
 //      ▼
-//   KittenEngine.synthesize(text, voiceId, speed)   (runBlocking)
+//   KittenEngine.synthesize(cleanedText, voiceId, speed)   (runBlocking)
 //      │  produces SynthAudio(pcm: ShortArray, sampleRate)
+//      ▼
+//   ProsodyApplier.apply(pcm, sampleRate, detectedEmotion)
+//      │  pitch/rate/volume/extras per emotion; Neutral is identity.
 //      ▼
 //   pcm → little-endian ByteArray → chunked writes via
 //          callback.audioAvailable(buf, offset, n)  while
@@ -75,7 +86,9 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
-    override fun onIsLanguageAvailable(
+    // Widened to public so MarmaladeTtsServiceTest can exercise the
+    // language-negotiation logic without subclassing the framework type.
+    public override fun onIsLanguageAvailable(
         lang: String?,
         country: String?,
         variant: String?,
@@ -135,17 +148,33 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
     }
 
-    override fun onSynthesizeText(request: SynthesisRequest, callback: SynthesisCallback) {
-        val text = request.charSequenceText?.toString().orEmpty()
-        if (text.isBlank()) {
+    // Widened to public so MarmaladeTtsServiceTest can exercise the
+    // synthesis orchestration without subclassing the framework type.
+    public override fun onSynthesizeText(request: SynthesisRequest, callback: SynthesisCallback) {
+        val rawText = request.charSequenceText?.toString().orEmpty()
+        if (rawText.isBlank()) {
             // Open + close so the system isn't left waiting on us.
             callback.start(engine.sampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
             callback.done()
             return
         }
 
+        // Emoji prosody is computed off the *raw* text (the emojis are
+        // the signal). The engine is fed the *stripped* text so it does
+        // not phonemize "😭" as the espeak-ng name for the codepoint.
+        val hint = EmojiProsody.detect(rawText)
+        val text = EmojiProsody.stripEmojis(rawText)
+        if (text.isBlank()) {
+            // Stripping left nothing speakable (e.g. input was emojis
+            // only). Don't pass a blank line to the engine — close the
+            // callback cleanly.
+            callback.start(engine.sampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
+            callback.done()
+            return
+        }
+
         val voiceId = pickVoiceFromRequest(request)
-        Log.d(TAG, "onSynthesizeText: voice=$voiceId chars=${text.length}")
+        Log.d(TAG, "onSynthesizeText: voice=$voiceId chars=${text.length} emotion=${hint.emotion}")
 
         val startResult = callback.start(
             engine.sampleRate,
@@ -160,7 +189,8 @@ class MarmaladeTtsService : TextToSpeechService() {
 
         try {
             val audio = runBlocking { engine.synthesize(text, voiceId) }
-            streamPcm(callback, audio.pcm)
+            val shaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+            streamPcm(callback, shaped)
             callback.done()
         } catch (e: Exception) {
             // Covers IllegalStateException from KittenEngine (assets

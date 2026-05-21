@@ -79,8 +79,11 @@ class EngineNotInstalledException(engineName: String) :
  * is CPU-bound and serial inside `OfflineTts.generate` anyway — there is
  * no benefit to fine-grained locking.
  */
+// `open` exists only to let MarmaladeTtsServiceTest substitute a JVM-safe
+// fake engine (the real one calls into Sherpa-ONNX JNI which won't load in
+// Robolectric). See app/src/test/java/.../service/MarmaladeTtsServiceTest.kt.
 @Singleton
-class KittenEngine @Inject constructor(
+open class KittenEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
 ) {
 
@@ -112,7 +115,7 @@ class KittenEngine @Inject constructor(
     }
 
     /** Native sample rate the engine emits. Constant for kitten-nano = 24 kHz. */
-    val sampleRate: Int get() = KittenVoiceCatalog.SAMPLE_RATE
+    open val sampleRate: Int get() = KittenVoiceCatalog.SAMPLE_RATE
 
     /** Where the installer puts engine assets on disk. */
     private val engineDir: File get() = File(ctx.filesDir, "engines/$ENGINE_NAME")
@@ -127,7 +130,7 @@ class KittenEngine @Inject constructor(
      * disk. Used by UI to gate "Speak" / "Preview" buttons and to drive
      * the install/uninstall affordances.
      */
-    fun isInstalled(): Boolean {
+    open fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
         val required = listOf(MODEL_FILE, VOICES_FILE, TOKENS_FILE)
         for (name in required) {
@@ -198,7 +201,7 @@ class KittenEngine @Inject constructor(
      *
      * @param speed length-scale style; 1.0 = native pace, >1 = faster.
      */
-    suspend fun synthesize(
+    open suspend fun synthesize(
         text: String,
         voiceId: String,
         speed: Float = 1.0f,
