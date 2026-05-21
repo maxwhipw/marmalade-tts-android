@@ -47,25 +47,6 @@ how to finish it.
   without `room-testing` + a Robolectric (or instrumented) host. The
   DAO is trivial enough that an integration test is the right tool.
 
-### androidx.navigation:navigation-compose deferred (P2 — UX improvement)
-- **File:** `app/src/main/java/app/marmalade/tts/ui/AppRoot.kt`
-- **Status:** v0.1 ships a hand-rolled router (gated additionally by
-  `SettingsRepository.onboarded`) using `enum Route` + `rememberSaveable`
-  + `AnimatedContent`. Functionally equivalent to a `NavHost` for the
-  current surface and survives rotation. The implementation agent could
-  not add `androidx.navigation:navigation-compose` because
-  `app/build.gradle.kts` is off-limits.
-- **What needs to happen:** Once a build agent can edit
-  `app/build.gradle.kts`, add
-  `implementation("androidx.navigation:navigation-compose:2.8.5")`.
-  Replace `AppRoot.kt` with a `NavHost` rooted at `"speak"` (with an
-  onboarding pre-flight); keep the existing screen composable signatures
-  so the swap is contained to that one file.
-- **Why a unit test won't cut it:** the router is too thin to assert
-  against in isolation. The thing worth verifying (back-stack semantics,
-  deep-link handling for the future share-sheet intent) only becomes
-  real once the actual NavHost lands.
-
 ### hilt-navigation-compose deferred (P2 — boilerplate cleanup)
 - **Files:** `SpeakScreen.kt`, `VoicePickerScreen.kt`,
   `OnboardingScreen.kt`, `EnginesScreen.kt` — all use

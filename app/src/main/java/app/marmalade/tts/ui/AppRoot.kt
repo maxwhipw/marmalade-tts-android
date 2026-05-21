@@ -1,17 +1,14 @@
 package app.marmalade.tts.ui
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
@@ -29,23 +26,36 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                    ├── if (!onboarded) ─► OnboardingScreen(onComplete)
 //                    │       └── on complete → onboarded flips to true (DataStore)
 //                    │
-//                    └── else: rememberSaveable<Route>
+//                    └── else: rememberNavController() + NavHost
 //                              │
 //                              ▼
-//                          AnimatedContent switch on `current`
-//                              ├── Route.Speak   → SpeakScreen(onNavigateToVoices, onNavigateToEngines)
-//                              ├── Route.Voices  → VoicePickerScreen(onBack, onVoiceSelected)
-//                              └── Route.Engines → EnginesScreen(onBack)
+//                          NavHost(startDestination = Routes.Speak)
+//                              ├── Routes.Speak   → SpeakScreen(navigate→Voices/Engines/Aliases)
+//                              ├── Routes.Voices  → VoicePickerScreen(popBackStack, popBackStack)
+//                              ├── Routes.Engines → EnginesScreen(popBackStack)
+//                              └── Routes.Aliases → AliasScreen(popBackStack)
 //
-//   System back press on Voices/Engines ─► BackHandler → current = Speak
+//   System back press on non-Speak destinations is wired through NavController
+//   automatically; popping the last entry exits the activity by default.
+//   The NavController is rememberSaveable internally, so the back stack
+//   survives process death.
 // -----------------------------------------------------------------------------
 
+/** Route identifiers for the top-level nav graph. */
+object Routes {
+    const val Speak = "speak"
+    const val Voices = "voices"
+    const val Engines = "engines"
+    const val Aliases = "aliases"
+}
+
 /**
- * Top-level navigation root. Gates on onboarding state, then routes to
- * the appropriate screen.
+ * Top-level navigation root. Gates on onboarding state, then hands off to
+ * a `NavHost` rooted at [Routes.Speak].
  *
- * Hand-rolled `AnimatedContent` swap instead of `navigation-compose` —
- * see STUBS.md for why and what changes when the dependency lands.
+ * The onboarding wizard sits *outside* the nav graph as a pre-flight gate —
+ * once `SettingsRepository.onboarded` flips to true the user enters the graph
+ * and never sees the wizard again unless they explicitly reset.
  */
 @Composable
 fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
@@ -60,60 +70,45 @@ fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
             onComplete = {
                 // The VM has already flipped `onboarded` to true; the next
                 // recomposition will pick that up via the Flow and route
-                // through the else branch.
+                // through the NavHost branch.
             },
         )
         return
     }
 
-    var current: Route by rememberSaveable(stateSaver = RouteSaver) {
-        mutableStateOf(Route.Speak)
-    }
+    val navController = rememberNavController()
 
-    // System back from non-root destinations returns to Speak. On Speak
-    // itself, back falls through to the platform default (exits the activity).
-    BackHandler(enabled = current != Route.Speak) {
-        current = Route.Speak
-    }
-
-    AnimatedContent(
-        targetState = current,
-        label = "AppRootNav",
-        transitionSpec = {
-            (fadeIn(animationSpec = androidx.compose.animation.core.tween(150))
-                togetherWith fadeOut(animationSpec = androidx.compose.animation.core.tween(150)))
-        },
-    ) { route ->
-        when (route) {
-            Route.Speak -> SpeakScreen(
-                onNavigateToVoices = { current = Route.Voices },
-                onNavigateToEngines = { current = Route.Engines },
-                onNavigateToAliases = { current = Route.Aliases },
+    NavHost(
+        navController = navController,
+        startDestination = Routes.Speak,
+        // Keep the same 150ms cross-fade the hand-rolled router used.
+        enterTransition = { fadeIn(animationSpec = tween(150)) },
+        exitTransition = { fadeOut(animationSpec = tween(150)) },
+    ) {
+        composable(Routes.Speak) {
+            SpeakScreen(
+                onNavigateToVoices = { navController.navigate(Routes.Voices) },
+                onNavigateToEngines = { navController.navigate(Routes.Engines) },
+                onNavigateToAliases = { navController.navigate(Routes.Aliases) },
             )
-            Route.Voices -> VoicePickerScreen(
-                onBack = { current = Route.Speak },
-                onVoiceSelected = { current = Route.Speak },
+        }
+        composable(Routes.Voices) {
+            VoicePickerScreen(
+                // popBackStack over navigateUp: no app-bar nav icon to honour
+                // "up" semantics, and we always want to drop the current entry.
+                onBack = { navController.popBackStack() },
+                onVoiceSelected = { navController.popBackStack() },
             )
-            Route.Engines -> EnginesScreen(
-                onBack = { current = Route.Speak },
+        }
+        composable(Routes.Engines) {
+            EnginesScreen(
+                onBack = { navController.popBackStack() },
             )
-            Route.Aliases -> AliasScreen(
-                onBack = { current = Route.Speak },
+        }
+        composable(Routes.Aliases) {
+            AliasScreen(
+                onBack = { navController.popBackStack() },
             )
         }
     }
 }
-
-/** The destinations this app knows about. */
-enum class Route { Speak, Voices, Engines, Aliases }
-
-/**
- * Saver for [Route] — `rememberSaveable` needs a Bundle-compatible
- * representation; storing the enum's name string is the simplest stable
- * form (Bundle survives across process death; ordinals are not stable
- * across versions, names are).
- */
-private val RouteSaver: Saver<Route, String> = Saver(
-    save = { it.name },
-    restore = { name -> Route.entries.firstOrNull { it.name == name } ?: Route.Speak },
-)
