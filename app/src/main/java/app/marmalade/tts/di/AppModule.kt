@@ -11,6 +11,7 @@ import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.Synthesizer
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.db.MarmaladeDb
+import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
 import app.marmalade.tts.install.EngineFilesDir
@@ -57,7 +58,10 @@ object AppModule {
             "marmalade_db",
         )
             // v1 was a placeholder with no user data — destructive migration
-            // to v2 is safe and avoids hand-writing an empty migration.
+            // to v2 is safe and avoids hand-writing an empty migration. v3
+            // adds the voice_alias table; existing installs have no alias
+            // rows so the wipe is similarly safe (voice_meta is reseeded by
+            // the onCreate callback below).
             .fallbackToDestructiveMigration()
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
@@ -77,6 +81,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVoiceMetaDao(db: MarmaladeDb): VoiceMetaDao = db.voiceMetaDao()
+
+    @Provides
+    @Singleton
+    fun provideVoiceAliasDao(db: MarmaladeDb): VoiceAliasDao = db.voiceAliasDao()
 
     @Provides
     @Singleton

@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
+import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SpeakScreen
 import app.marmalade.tts.ui.screen.VoicePickerScreen
@@ -87,6 +88,7 @@ fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
             Route.Speak -> SpeakScreen(
                 onNavigateToVoices = { current = Route.Voices },
                 onNavigateToEngines = { current = Route.Engines },
+                onNavigateToAliases = { current = Route.Aliases },
             )
             Route.Voices -> VoicePickerScreen(
                 onBack = { current = Route.Speak },
@@ -95,12 +97,15 @@ fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
             Route.Engines -> EnginesScreen(
                 onBack = { current = Route.Speak },
             )
+            Route.Aliases -> AliasScreen(
+                onBack = { current = Route.Speak },
+            )
         }
     }
 }
 
 /** The destinations this app knows about. */
-enum class Route { Speak, Voices, Engines }
+enum class Route { Speak, Voices, Engines, Aliases }
 
 /**
  * Saver for [Route] — `rememberSaveable` needs a Bundle-compatible

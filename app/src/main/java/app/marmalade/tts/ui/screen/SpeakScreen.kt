@@ -86,6 +86,7 @@ import app.marmalade.tts.ui.rememberActivityViewModel
 fun SpeakScreen(
     onNavigateToVoices: () -> Unit,
     onNavigateToEngines: () -> Unit,
+    onNavigateToAliases: () -> Unit,
     viewModel: SpeakViewModel = rememberActivityViewModel(),
 ) {
     val text by viewModel.text.collectAsStateWithLifecycle()
@@ -124,6 +125,13 @@ fun SpeakScreen(
                                 onClick = {
                                     menuExpanded = false
                                     onNavigateToEngines()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Voice aliases") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onNavigateToAliases()
                                 },
                             )
                         }
