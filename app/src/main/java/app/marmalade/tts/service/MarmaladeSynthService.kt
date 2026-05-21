@@ -20,6 +20,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import app.marmalade.tts.R
+import app.marmalade.tts.audio.EffectChain
+import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.KittenEngine
@@ -51,6 +53,8 @@ import kotlinx.coroutines.withContext
 //                                          Defaults to KittenVoiceCatalog.DEFAULT_VOICE_ID.
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
+//     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
+//                                          ROBOT / TELEPHONE). Default NONE.
 //
 //   Transport actions (media button / lock-screen):
 //     ACTION_PAUSE / ACTION_RESUME / ACTION_STOP — wired via MediaSessionCompat.
@@ -87,7 +91,8 @@ import kotlinx.coroutines.withContext
 //     ├── EmojiProsody.detect(raw text)  ──► ProsodyHint
 //     ├── EmojiProsody.stripEmojis(raw)  ──► engine-safe text
 //     ├── KittenEngine.synthesize(text, voice, speed) → SynthAudio
-//     ├── ProsodyApplier.apply(pcm, sr, hint.emotion) → shaped PCM
+//     ├── ProsodyApplier.apply(pcm, sr, hint.emotion) → emotion-shaped PCM
+//     ├── EffectChain.apply(pcm, sr, effect)          → effect-shaped PCM
 //     │
 //     ├── stream into AudioTrack (MODE_STREAM, 24 kHz PCM_16BIT mono)
 //     │     - pausable / cancellable via volatile flags
@@ -205,7 +210,14 @@ class MarmaladeSynthService : Service() {
         } else {
             1.0f
         }
-        return SpeakRequest(text, engineName, voice, speed)
+        val effect = intent.getStringExtra(EXTRA_EFFECT)
+            ?.let { name ->
+                // Unknown values fall back to NONE — safer than throwing on a
+                // typo'd extra from a third-party caller (Tasker etc).
+                EffectPreset.entries.firstOrNull { it.name == name } ?: EffectPreset.NONE
+            }
+            ?: EffectPreset.NONE
+        return SpeakRequest(text, engineName, voice, speed, effect)
     }
 
     private fun enqueue(req: SpeakRequest) {
@@ -274,7 +286,10 @@ class MarmaladeSynthService : Service() {
             return
         }
 
-        val shaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+        val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+        // EffectChain is a no-op for NONE (returns the same array unchanged),
+        // so the dry path adds no extra allocation.
+        val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, req.effect)
         try {
             playPcm(shaped, audio.sampleRate)
         } catch (t: Throwable) {
@@ -556,6 +571,7 @@ class MarmaladeSynthService : Service() {
         val engine: String,
         val voice: String,
         val speed: Float,
+        val effect: EffectPreset,
     )
 
     companion object {
@@ -576,6 +592,7 @@ class MarmaladeSynthService : Service() {
         const val EXTRA_ENGINE: String = "app.marmalade.tts.extra.ENGINE"
         const val EXTRA_VOICE: String = "app.marmalade.tts.extra.VOICE"
         const val EXTRA_SPEED: String = "app.marmalade.tts.extra.SPEED"
+        const val EXTRA_EFFECT: String = "app.marmalade.tts.extra.EFFECT"
 
         /**
          * Convenience: build a SPEAK intent without the caller needing to
@@ -587,12 +604,14 @@ class MarmaladeSynthService : Service() {
             engine: String = DEFAULT_ENGINE,
             voice: String? = null,
             speed: Float? = null,
+            effect: EffectPreset? = null,
         ): Intent = Intent(context, MarmaladeSynthService::class.java).apply {
             action = ACTION_SPEAK
             putExtra(EXTRA_TEXT, text)
             putExtra(EXTRA_ENGINE, engine)
             voice?.let { putExtra(EXTRA_VOICE, it) }
             speed?.let { putExtra(EXTRA_SPEED, it) }
+            effect?.let { putExtra(EXTRA_EFFECT, it.name) }
         }
     }
 }

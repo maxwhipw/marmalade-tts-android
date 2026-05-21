@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
+import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -43,7 +45,12 @@ class SpeakViewModelTest {
         // completion before this assertion — we should be back at Idle.
         assertEquals(PlaybackState.Idle, vm.playbackState.value)
         assertEquals(1, player.calls.size)
-        assertEquals("Hello world" to "kitten:Bella", player.calls.single())
+        val call = player.calls.single()
+        assertEquals("Hello world", call.text)
+        assertEquals("kitten:Bella", call.voiceId)
+        // Default speed / effect when no alias has been applied.
+        assertEquals(1.0f, call.speed, 0.0f)
+        assertEquals(EffectPreset.NONE, call.effect)
     }
 
     @Test
@@ -90,6 +97,65 @@ class SpeakViewModelTest {
     }
 
     @Test
+    fun speak_passesEffectAndSpeedFromActiveAlias() = runTest {
+        val alias = VoiceAlias(
+            name = "robocop",
+            engine = "kitten",
+            voiceId = "kitten:Hugo",
+            speed = 1.25f,
+            effectPreset = "ROBOT",
+            createdAt = 0L,
+        )
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        val vm = newViewModel(player = player, aliases = listOf(alias))
+        vm.currentVoice.firstNonNull()
+
+        vm.applyAlias("robocop")
+        // The voice swap happens via SettingsRepository.setDefaultVoiceId,
+        // so wait for currentVoice to reflect the new id before speaking.
+        vm.currentVoice.filter { it?.id == "kitten:Hugo" }.first()
+
+        vm.onTextChanged("Affirmative")
+        vm.speak()
+
+        val call = player.calls.single()
+        assertEquals("kitten:Hugo", call.voiceId)
+        assertEquals(1.25f, call.speed, 0.0f)
+        assertEquals(EffectPreset.ROBOT, call.effect)
+    }
+
+    @Test
+    fun applyAlias_thenManualVoiceChange_clearsEffect() = runTest {
+        val alias = VoiceAlias(
+            name = "echo",
+            engine = "kitten",
+            voiceId = "kitten:Luna",
+            speed = 0.9f,
+            effectPreset = "CAVE",
+            createdAt = 0L,
+        )
+        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        val vm = newViewModel(player = player, settings = settings, aliases = listOf(alias))
+        vm.currentVoice.firstNonNull()
+
+        vm.applyAlias("echo")
+        // Wait for the alias to fully apply before changing voice manually.
+        vm.activeAlias.filter { it == "echo" }.first()
+        assertEquals(EffectPreset.CAVE, vm.currentEffect.value)
+        assertEquals(0.9f, vm.currentSpeed.value, 0.0f)
+
+        // Simulate the user picking a different voice in the picker.
+        settings.setDefaultVoiceId("kitten:Kiki")
+        vm.currentVoice.filter { it?.id == "kitten:Kiki" }.first()
+
+        // Manual voice pick should drop the alias and reset effect + speed.
+        assertEquals(null, vm.activeAlias.value)
+        assertEquals(EffectPreset.NONE, vm.currentEffect.value)
+        assertEquals(1.0f, vm.currentSpeed.value, 0.0f)
+    }
+
+    @Test
     fun cancelReturnsToIdle() = runTest {
         val player = RecordingPlayer(behaviour = { Result.success(Unit) })
         val vm = newViewModel(player = player)
@@ -105,10 +171,11 @@ class SpeakViewModelTest {
     private fun newViewModel(
         player: SpeechPlayer,
         defaultVoiceId: String = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+        settings: FakeSettings = FakeSettings(initialId = defaultVoiceId),
+        aliases: List<VoiceAlias> = emptyList(),
     ): SpeakViewModel {
-        val settings = FakeSettings(initialId = defaultVoiceId)
         val dao = FakeDao(voices = KittenVoiceCatalog.voices)
-        val aliasDao = FakeAliasDao()
+        val aliasDao = FakeAliasDao(initial = aliases)
         return SpeakViewModel(
             synthesizer = player,
             settings = settings,

@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
@@ -24,16 +25,32 @@ import kotlinx.coroutines.flow.flowOf
  * Result it wants back. `cancel()` increments a counter instead of doing
  * any real work — both ViewModels use cancel() defensively before /
  * after speak() and we want to observe that.
+ *
+ * `Call` is a data class (not a Pair) so tests can assert against speed /
+ * effect as well as text / voiceId. Destructuring `val (text, voiceId) = …`
+ * still works via the generated component1 / component2.
  */
+internal data class Call(
+    val text: String,
+    val voiceId: String,
+    val speed: Float,
+    val effect: EffectPreset,
+)
+
 internal class RecordingPlayer(
     private val behaviour: () -> Result<Unit> = { Result.success(Unit) },
 ) : SpeechPlayer {
-    val calls = mutableListOf<Pair<String, String>>()
+    val calls = mutableListOf<Call>()
     var cancelCount = 0
         private set
 
-    override suspend fun speak(text: String, voiceId: String): Result<Unit> {
-        calls += text to voiceId
+    override suspend fun speak(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        effect: EffectPreset,
+    ): Result<Unit> {
+        calls += Call(text, voiceId, speed, effect)
         return behaviour()
     }
 

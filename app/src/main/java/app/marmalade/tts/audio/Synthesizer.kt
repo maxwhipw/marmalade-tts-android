@@ -14,13 +14,16 @@ import kotlinx.coroutines.withContext
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   ViewModel.speak(text, voiceId)
+//   ViewModel.speak(text, voiceId, speed, effect)
 //     │
 //     ▼
-//   Synthesizer.speak(text, voiceId)
+//   Synthesizer.speak(text, voiceId, speed, effect)
 //     │
-//     ├── KittenEngine.synthesize(text, voiceId) ──► SynthAudio(pcm, sr)
+//     ├── KittenEngine.synthesize(text, voiceId, speed) ──► SynthAudio(pcm, sr)
 //     │     (CPU-bound; runs on Dispatchers.Default inside the engine)
+//     │
+//     ├── EffectChain.apply(pcm, sampleRate, effect)
+//     │     (pure-Kotlin DSP; NONE returns the input array unchanged)
 //     │
 //     ├── build AudioTrack (PCM_16BIT, mono, sampleRate)
 //     │
@@ -60,7 +63,20 @@ sealed class SynthesizerException(message: String, cause: Throwable? = null) :
  * access and a Sherpa-ONNX JNI handle).
  */
 interface SpeechPlayer {
-    suspend fun speak(text: String, voiceId: String): Result<Unit>
+    /**
+     * Synthesize [text] using [voiceId], optionally rate-scaled by [speed]
+     * (1.0 = native pace) and shaped by [effect] (NONE = dry). Returns
+     * when audio has finished playing (or been cancelled).
+     *
+     * Defaults are provided so existing callers that don't care about
+     * speed / effect can keep calling `speak(text, voiceId)`.
+     */
+    suspend fun speak(
+        text: String,
+        voiceId: String,
+        speed: Float = 1.0f,
+        effect: EffectPreset = EffectPreset.NONE,
+    ): Result<Unit>
     fun cancel()
 }
 
@@ -105,11 +121,16 @@ class Synthesizer @Inject constructor(
      *   Result.failure(ModelMissing)      — engine assets not yet bundled
      *   Result.failure(SynthesisFailed)   — anything else
      */
-    override suspend fun speak(text: String, voiceId: String): Result<Unit> {
+    override suspend fun speak(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        effect: EffectPreset,
+    ): Result<Unit> {
         cancelled = false
 
         val audio: SynthAudio = try {
-            engine.synthesize(text, voiceId)
+            engine.synthesize(text, voiceId, speed)
         } catch (_: UnsupportedOperationException) {
             // Engine clearly signals "model isn't installed" — propagate as
             // a typed result so the UI can show the right copy.
@@ -119,8 +140,12 @@ class Synthesizer @Inject constructor(
             return Result.failure(SynthesizerException.SynthesisFailed(t))
         }
 
+        // EffectChain.apply is a no-op for NONE (returns the same array), so
+        // the dry path stays allocation-free.
+        val shaped = EffectChain.apply(audio.pcm, audio.sampleRate, effect)
+
         return try {
-            playPcm(audio.pcm, audio.sampleRate)
+            playPcm(shaped, audio.sampleRate)
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.w(TAG, "Playback failed", t)

@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 //     ├── playback ◄──────── SpeakViewModel.playbackState
 //     │                          ▲
 //     │                          │
-//     │                  Synthesizer.speak(text, voiceId)
+//     │                  Synthesizer.speak(text, voiceId, speed, effect)
 //     │
 //     ├── aliases   ◄──────── SpeakViewModel.aliases (VoiceAliasDao.getAll)
 //     ├── activeAlias ◄────── SpeakViewModel.activeAlias
@@ -51,11 +51,10 @@ import kotlinx.coroutines.launch
 //     │                          │ defaultVoiceId emits a value that doesn't
 //     │                          │ match the voice we last applied.
 //     │
-//     ├── currentEffect ◄──── SpeakViewModel.currentEffect (set by applyAlias)
-//     │   TODO: route currentEffect through SpeechPlayer in a follow-up commit.
-//     │   v0.1 stores it for UI/future-use only; Synthesizer.speak doesn't
-//     │   take an EffectPreset yet, and threading one through would require
-//     │   widening SpeechPlayer + updating MarmaladeSynthService + test fakes.
+//     ├── currentEffect ◄──── SpeakViewModel.currentEffect (set by applyAlias;
+//     │                       passed through to Synthesizer on speak())
+//     ├── currentSpeed  ◄──── SpeakViewModel.currentSpeed  (set by applyAlias;
+//     │                       passed through to Synthesizer on speak())
 //     │
 //     └── actions ──► onTextChanged / speak() / cancel() / applyAlias(name)
 // -----------------------------------------------------------------------------
@@ -122,16 +121,25 @@ class SpeakViewModel @Inject constructor(
 
     /**
      * Effect preset currently associated with the active alias. Defaults
-     * to [EffectPreset.NONE]; applyAlias(...) writes to it.
-     *
-     * TODO: route currentEffect through Synthesizer in a follow-up commit.
-     * The SpeechPlayer interface takes (text, voiceId) only — widening it
-     * to take an EffectPreset would touch the fake player in tests and
-     * MarmaladeSynthService. Tracked separately so this commit stays scoped
-     * to the alias-chip UI.
+     * to [EffectPreset.NONE]; applyAlias(...) writes to it; speak() passes
+     * it through to [SpeechPlayer]. Resets to NONE when the user picks a
+     * voice manually (alias chip clears).
      */
     private val _currentEffect = MutableStateFlow(EffectPreset.NONE)
     val currentEffect: StateFlow<EffectPreset> = _currentEffect.asStateFlow()
+
+    /**
+     * Speed multiplier currently associated with the active alias. Defaults
+     * to 1.0 (native pace); applyAlias(...) writes to it; speak() passes
+     * it through to [SpeechPlayer]. Resets to 1.0 when the user picks a
+     * voice manually (alias chip clears).
+     *
+     * v0.1 has no Speak-screen speed slider — alias application is the only
+     * way to set this. The chip subtitle ("Bella · 1.0×") reads from the
+     * alias row, not this StateFlow, so no UI binding is needed.
+     */
+    private val _currentSpeed = MutableStateFlow(1.0f)
+    val currentSpeed: StateFlow<Float> = _currentSpeed.asStateFlow()
 
     /**
      * The voice the user has chosen as default. Re-resolved whenever
@@ -151,7 +159,12 @@ class SpeakViewModel @Inject constructor(
         .onEach { id ->
             val expected = expectedAliasVoiceId
             if (expected != null && id != expected) {
+                // Manual voice change — drop everything the alias set up so
+                // the next speak() doesn't smuggle stale effect/speed onto a
+                // voice the user just hand-picked.
                 _activeAlias.value = null
+                _currentEffect.value = EffectPreset.NONE
+                _currentSpeed.value = 1.0f
                 expectedAliasVoiceId = null
             }
         }
@@ -228,13 +241,8 @@ class SpeakViewModel @Inject constructor(
                 settings.setDefaultVoiceId(alias.voiceId)
             }
 
-            // TODO: apply alias.speed once SpeechPlayer threads a speed
-            // multiplier through. Stored intent: the alias's speed should
-            // win on the next speak() call.
-            // For now we just decode the effect so applyAlias has the
-            // right intent recorded on the ViewModel.
-
             _currentEffect.value = decodeEffect(alias.effectPreset)
+            _currentSpeed.value = alias.speed
             _activeAlias.value = alias.name
         }
     }
@@ -252,11 +260,11 @@ class SpeakViewModel @Inject constructor(
         if (_playbackState.value is PlaybackState.Speaking) return
         val voiceId = currentVoice.value?.id ?: return
 
+        val effect = _currentEffect.value
+        val speed = _currentSpeed.value
         _playbackState.value = PlaybackState.Speaking
         viewModelScope.launch {
-            // TODO: pass currentEffect.value and the alias's speed through
-            // to synthesizer.speak once SpeechPlayer's signature is widened.
-            val result = synthesizer.speak(currentText, voiceId)
+            val result = synthesizer.speak(currentText, voiceId, speed, effect)
             _playbackState.value = result.fold(
                 onSuccess = { PlaybackState.Idle },
                 onFailure = { err ->
