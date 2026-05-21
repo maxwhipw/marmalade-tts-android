@@ -14,7 +14,8 @@ client, your AI chat — can route through marmalade. No cloud.
 Sister project to **[marmalade-tts](https://github.com/maxwhipw/marmalade-tts)**
 (the Linux CLI it borrows its concept vocabulary from) and
 **[marmalade-android](https://github.com/maxwhipw/marmalade-android)**
-(the OpenClaw AI assistant client it borrows its visual identity from).
+(the OpenClaw AI assistant client it borrows its visual identity from —
+public release coming soon).
 
 ---
 
@@ -64,7 +65,8 @@ install or uninstall engines later from Settings → Engines. The
 - **[marmalade-tts](https://github.com/maxwhipw/marmalade-tts)** —
   Linux CLI with daemon mode, multi-engine, scripting-first.
 - **[marmalade-android](https://github.com/maxwhipw/marmalade-android)** —
-  OpenClaw AI assistant client (shares the mascot + visual language).
+  OpenClaw AI assistant client (shares the mascot + visual language;
+  public release coming soon).
 
 ## Project status
 
