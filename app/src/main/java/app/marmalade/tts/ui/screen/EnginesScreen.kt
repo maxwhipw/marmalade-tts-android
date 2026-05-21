@@ -35,11 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.ui.onboarding.formatBytes
-import app.marmalade.tts.ui.rememberActivityViewModel
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -73,7 +73,7 @@ import app.marmalade.tts.ui.rememberActivityViewModel
 @Composable
 fun EnginesScreen(
     onBack: () -> Unit,
-    viewModel: EnginesViewModel = rememberActivityViewModel(),
+    viewModel: EnginesViewModel = hiltViewModel(),
 ) {
     val engines by viewModel.engines.collectAsStateWithLifecycle()
     val states by viewModel.installStates.collectAsStateWithLifecycle()

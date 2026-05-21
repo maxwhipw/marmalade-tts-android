@@ -47,22 +47,6 @@ how to finish it.
   without `room-testing` + a Robolectric (or instrumented) host. The
   DAO is trivial enough that an integration test is the right tool.
 
-### hilt-navigation-compose deferred (P2 — boilerplate cleanup)
-- **Files:** `SpeakScreen.kt`, `VoicePickerScreen.kt`,
-  `OnboardingScreen.kt`, `EnginesScreen.kt` — all use
-  `androidx.lifecycle.viewmodel.compose.viewModel()` instead of
-  `androidx.hilt.navigation.compose.hiltViewModel()`.
-- **Status:** `@HiltViewModel`-annotated ViewModels still resolve because
-  `MainActivity` is `@AndroidEntryPoint`, which makes
-  `defaultViewModelProviderFactory` a `HiltViewModelFactory`. That factory
-  is what Compose's `viewModel()` picks up via the activity's
-  `HasDefaultViewModelProviderFactory` contract.
-- **What needs to happen:** add
-  `implementation("androidx.hilt:hilt-navigation-compose:1.2.0")` and
-  swap `viewModel()` → `hiltViewModel()` in all four screen composables.
-  Once a proper NavHost lands the `hiltViewModel()` version also gets
-  nav-graph-scoped ViewModels for free.
-
 ### Share-sheet + Quick Settings tile (device verification deferred)
 - **Files:**
   - `app/src/main/java/app/marmalade/tts/ui/intent/ShareIntentActivity.kt`

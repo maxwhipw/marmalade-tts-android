@@ -37,9 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
-import app.marmalade.tts.ui.rememberActivityViewModel
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -87,7 +87,7 @@ fun SpeakScreen(
     onNavigateToVoices: () -> Unit,
     onNavigateToEngines: () -> Unit,
     onNavigateToAliases: () -> Unit,
-    viewModel: SpeakViewModel = rememberActivityViewModel(),
+    viewModel: SpeakViewModel = hiltViewModel(),
 ) {
     val text by viewModel.text.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()

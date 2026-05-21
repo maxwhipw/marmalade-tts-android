@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,7 +21,11 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 // -----------------------------------------------------------------------------
 //   MainActivity → AppRoot()
 //                    │
-//                    ├── rememberActivityViewModel<AppRootViewModel>()
+//                    ├── hiltViewModel<AppRootViewModel>()
+//                    │     (no NavBackStackEntry above us — falls back to the
+//                    │      Activity ViewModelStore, which is fine because
+//                    │      MainActivity is @AndroidEntryPoint and supplies a
+//                    │      HiltViewModelFactory)
 //                    │     └── exposes SettingsRepository.onboarded
 //                    │
 //                    ├── if (!onboarded) ─► OnboardingScreen(onComplete)
@@ -58,7 +63,7 @@ object Routes {
  * and never sees the wizard again unless they explicitly reset.
  */
 @Composable
-fun AppRoot(viewModel: AppRootViewModel = rememberActivityViewModel()) {
+fun AppRoot(viewModel: AppRootViewModel = hiltViewModel()) {
     val onboarded by viewModel.onboarded.collectAsStateWithLifecycle(initialValue = null)
 
     // While we're still loading the onboarded flag, render nothing.

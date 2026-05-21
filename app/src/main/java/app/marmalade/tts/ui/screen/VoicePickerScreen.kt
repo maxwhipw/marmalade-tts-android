@@ -30,9 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.data.db.VoiceMeta
-import app.marmalade.tts.ui.rememberActivityViewModel
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -74,7 +74,7 @@ import app.marmalade.tts.ui.rememberActivityViewModel
 fun VoicePickerScreen(
     onBack: () -> Unit,
     onVoiceSelected: () -> Unit,
-    viewModel: VoicePickerViewModel = rememberActivityViewModel(),
+    viewModel: VoicePickerViewModel = hiltViewModel(),
 ) {
     val voices by viewModel.voices.collectAsStateWithLifecycle()
     val selectedId by viewModel.selectedId.collectAsStateWithLifecycle()

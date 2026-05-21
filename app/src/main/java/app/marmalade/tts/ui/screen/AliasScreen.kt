@@ -46,12 +46,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineDescriptor
-import app.marmalade.tts.ui.rememberActivityViewModel
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -84,7 +84,7 @@ import app.marmalade.tts.ui.rememberActivityViewModel
 @Composable
 fun AliasScreen(
     onBack: () -> Unit,
-    viewModel: AliasViewModel = rememberActivityViewModel(),
+    viewModel: AliasViewModel = hiltViewModel(),
 ) {
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
