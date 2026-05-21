@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.Synthesizer
 import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.db.MIGRATION_2_3
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -57,11 +58,11 @@ object AppModule {
             MarmaladeDb::class.java,
             "marmalade_db",
         )
-            // v1 was a placeholder with no user data — destructive migration
-            // to v2 is safe and avoids hand-writing an empty migration. v3
-            // adds the voice_alias table; existing installs have no alias
-            // rows so the wipe is similarly safe (voice_meta is reseeded by
-            // the onCreate callback below).
+            // v1→v2 is destructive (v1 was a placeholder with no user data).
+            // v2→v3 prefers MIGRATION_2_3 so user-toggled isInstalled flags
+            // on voice_meta survive the alias-table add; fallback stays as
+            // a belt-and-braces option for any future hash drift.
+            .addMigrations(MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {

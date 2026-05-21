@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -156,10 +157,18 @@ fun AliasScreen(
             title = { Text("Delete \"${alias.name}\"?") },
             text = { Text("This removes the alias. The underlying voice stays installed.") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.delete(alias.name)
-                    pendingDelete = null
-                }) { Text("Delete") }
+                // Error-toned destructive action — matches the red trash
+                // icon already shown on each list row.
+                Button(
+                    onClick = {
+                        viewModel.delete(alias.name)
+                        pendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) { Text("Delete") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
@@ -223,7 +232,7 @@ private fun AliasRow(
                 )
                 AssistChip(
                     onClick = onEdit,
-                    label = { Text(alias.effectPreset.lowercase()) },
+                    label = { Text(effectDisplayName(alias.effectPreset)) },
                 )
             }
         }
@@ -428,7 +437,7 @@ private fun EffectDropdown(
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedTextField(
-            value = selected.name,
+            value = effectDisplayName(selected),
             onValueChange = { /* read-only */ },
             readOnly = true,
             label = { Text("Effect") },
@@ -445,7 +454,7 @@ private fun EffectDropdown(
         ) {
             for (preset in EffectPreset.entries) {
                 DropdownMenuItem(
-                    text = { Text(preset.name) },
+                    text = { Text(effectDisplayName(preset)) },
                     onClick = {
                         onPick(preset)
                         expanded = false
@@ -454,6 +463,31 @@ private fun EffectDropdown(
             }
         }
     }
+}
+
+/**
+ * Map [EffectPreset] to a Title-Case display string. The enum's raw
+ * `.name` (`NONE`, `CAVE`, …) is too shouty for UI.
+ *
+ * Persists round-trips via `EffectPreset.name` — no change there. This
+ * is purely a presentation layer.
+ */
+private fun effectDisplayName(preset: EffectPreset): String = when (preset) {
+    EffectPreset.NONE -> "None"
+    EffectPreset.CAVE -> "Cave"
+    EffectPreset.ROBOT -> "Robot"
+    EffectPreset.TELEPHONE -> "Telephone"
+}
+
+/**
+ * Same as the [EffectPreset] overload, but for the string column on
+ * [VoiceAlias.effectPreset]. Unknown values fall through to the raw
+ * string capitalised, which keeps forward-compat with future enum
+ * additions that haven't been mapped yet.
+ */
+private fun effectDisplayName(raw: String): String {
+    val match = EffectPreset.entries.firstOrNull { it.name == raw }
+    return if (match != null) effectDisplayName(match) else raw.lowercase().replaceFirstChar { it.uppercase() }
 }
 
 private fun errorTextFor(error: SaveError?): String? = when (error) {

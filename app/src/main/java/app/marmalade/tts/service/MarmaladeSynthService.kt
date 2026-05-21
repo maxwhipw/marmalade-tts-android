@@ -18,7 +18,6 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.media.session.MediaButtonReceiver
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
@@ -36,7 +35,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
@@ -417,11 +415,15 @@ class MarmaladeSynthService : Service() {
      */
     private suspend fun playPcm(pcm: ShortArray, sampleRate: Int) =
         withContext(Dispatchers.IO) {
+            // Aim for ~250 ms of headroom — small enough that pause/cancel
+            // feels responsive (the audio device drains the buffer before we
+            // see the effect), large enough that the write loop below isn't
+            // constantly stalling on full-buffer back-pressure.
             val minBuf = AudioTrack.getMinBufferSize(
                 sampleRate,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-            ).coerceAtLeast(pcm.size * 2)
+            ).coerceAtLeast(sampleRate * 2 / 4)
 
             val track = AudioTrack.Builder()
                 .setAudioAttributes(
@@ -627,9 +629,3 @@ class MarmaladeSynthService : Service() {
         }
     }
 }
-
-// Keep MediaButtonReceiver imported so the compiler reminds future agents
-// the dependency exists if/when we wire BT-button passthrough on pre-API-26
-// devices. It is unused today; the lock-screen path goes through MediaStyle.
-@Suppress("unused")
-private val _mediaButtonReceiverRef: Class<*> = MediaButtonReceiver::class.java

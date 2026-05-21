@@ -6,7 +6,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import app.marmalade.tts.service.SpeakDispatcher
-import dagger.hilt.android.AndroidEntryPoint
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -47,7 +46,6 @@ import dagger.hilt.android.AndroidEntryPoint
  * never sees a flash of UI — we read the intent, dispatch to
  * [app.marmalade.tts.service.MarmaladeSynthService], and finish.
  */
-@AndroidEntryPoint
 class ShareIntentActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

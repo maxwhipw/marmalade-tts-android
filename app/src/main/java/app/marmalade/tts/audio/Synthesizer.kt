@@ -185,11 +185,14 @@ class Synthesizer @Inject constructor(
      * promptly to [cancel] via the volatile flag.
      */
     private suspend fun playPcm(pcm: ShortArray, sampleRate: Int) = withContext(Dispatchers.IO) {
+        // Aim for ~250 ms of headroom — responsive cancel, no constant
+        // back-pressure stalls on the write loop. Sizing this to the entire
+        // PCM payload defeats MODE_STREAM and wastes memory on long inputs.
         val minBuf = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
-        ).coerceAtLeast(pcm.size * 2 /* shorts → bytes */)
+        ).coerceAtLeast(sampleRate * 2 / 4 /* shorts → bytes, 250 ms */)
 
         val track = AudioTrack.Builder()
             .setAudioAttributes(

@@ -8,7 +8,6 @@ import android.service.quicksettings.TileService
 import android.util.Log
 import android.widget.Toast
 import app.marmalade.tts.R
-import dagger.hilt.android.AndroidEntryPoint
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -46,7 +45,6 @@ import dagger.hilt.android.AndroidEntryPoint
  * [app.marmalade.tts.service.MarmaladeSynthService] via [SpeakDispatcher]
  * — same code path as the share-sheet target.
  */
-@AndroidEntryPoint
 class SpeakClipboardTileService : TileService() {
 
     override fun onStartListening() {

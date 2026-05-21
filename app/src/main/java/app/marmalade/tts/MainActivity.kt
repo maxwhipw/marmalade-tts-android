@@ -9,13 +9,8 @@ import app.marmalade.tts.ui.theme.MarmaladeTtsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * Single Activity host for the Compose UI.
- *
- * @AndroidEntryPoint makes Hilt furnish `defaultViewModelProviderFactory`
- * with a `HiltViewModelFactory`, so the `viewModel<T>()` calls in the
- * screen composables resolve their @HiltViewModel-annotated ViewModels
- * without needing the `hilt-navigation-compose` artifact (not present
- * in the build's offline cache).
+ * Single Activity host for the Compose UI. `@AndroidEntryPoint` plumbs
+ * Hilt through to every `hiltViewModel()` call in the screen composables.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
