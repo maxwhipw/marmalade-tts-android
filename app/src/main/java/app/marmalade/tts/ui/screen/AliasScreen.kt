@@ -219,7 +219,7 @@ private fun AliasRow(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AssistChip(
                     onClick = onEdit,
-                    label = { Text("${alias.speed}x") },
+                    label = { Text("%.2f×".format(alias.speed)) },
                 )
                 AssistChip(
                     onClick = onEdit,
@@ -294,7 +294,7 @@ private fun AliasEditorDialog(
 
                 Column {
                     Text(
-                        text = "Speed: ${"%.2f".format(state.speed)}x",
+                        text = "Speed: %.2f×".format(state.speed),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Slider(

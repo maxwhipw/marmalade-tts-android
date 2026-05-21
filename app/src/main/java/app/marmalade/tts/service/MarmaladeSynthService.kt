@@ -266,34 +266,46 @@ class MarmaladeSynthService : Service() {
             Log.w(TAG, "Audio focus denied — skipping request")
             return
         }
-        updateNotification("Speaking: ${req.text.take(40)}")
-
-        val hint = EmojiProsody.detect(req.text)
-        val cleaned = EmojiProsody.stripEmojis(req.text)
-        if (cleaned.isBlank()) return
-
-        val audio = try {
-            engine.synthesize(cleaned, req.voice, req.speed)
-        } catch (e: EngineNotInstalledException) {
-            // Surface as a notification update so the user sees it; the
-            // app-launcher tap will route them to the Engines screen.
-            Log.w(TAG, "Engine not installed", e)
-            updateNotification("Kitten engine not installed")
-            return
-        } catch (t: Throwable) {
-            Log.e(TAG, "Synthesis failed", t)
-            updateNotification("Synthesis failed")
-            return
-        }
-
-        val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
-        // EffectChain is a no-op for NONE (returns the same array unchanged),
-        // so the dry path adds no extra allocation.
-        val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, req.effect)
+        // From this point on we MUST releaseFocus() before returning, on
+        // every branch — otherwise the next queued request calls
+        // requestFocus() again, overwrites `focusRequest`, and the previous
+        // grant becomes unrecoverable (abandonAudioFocusRequest on API 26+
+        // needs the exact original AudioFocusRequest object). doStop() /
+        // stopIfIdle() only abandon the *latest* request, so they don't
+        // recover earlier leaks either. try { … } finally { releaseFocus() }
+        // is the only safe shape.
         try {
-            playPcm(shaped, audio.sampleRate)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Playback failed", t)
+            updateNotification("Speaking: ${req.text.take(40)}")
+
+            val hint = EmojiProsody.detect(req.text)
+            val cleaned = EmojiProsody.stripEmojis(req.text)
+            if (cleaned.isBlank()) return
+
+            val audio = try {
+                engine.synthesize(cleaned, req.voice, req.speed)
+            } catch (e: EngineNotInstalledException) {
+                // Surface as a notification update so the user sees it; the
+                // app-launcher tap will route them to the Engines screen.
+                Log.w(TAG, "Engine not installed", e)
+                updateNotification("Kitten engine not installed")
+                return
+            } catch (t: Throwable) {
+                Log.e(TAG, "Synthesis failed", t)
+                updateNotification("Synthesis failed")
+                return
+            }
+
+            val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+            // EffectChain is a no-op for NONE (returns the same array unchanged),
+            // so the dry path adds no extra allocation.
+            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, req.effect)
+            try {
+                playPcm(shaped, audio.sampleRate)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Playback failed", t)
+            }
+        } finally {
+            releaseFocus()
         }
     }
 

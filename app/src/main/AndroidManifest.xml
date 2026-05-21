@@ -85,9 +85,10 @@
 
         <!--
           Quick Settings tile that speaks the current clipboard. Declared
-          as an ACTIVE_TILE so we can refresh icon/label as state changes;
-          unlock-required is false so the user can use it from the lock
-          screen.
+          as an ACTIVE_TILE so we can refresh icon/label as state changes.
+          This tile requires the device to be unlocked: Android 10+ blocks
+          background clipboard reads from a locked context, so declaring
+          UNLOCK_REQUIRED=false would only get us an empty clip.
         -->
         <service
             android:name="app.marmalade.tts.service.SpeakClipboardTileService"

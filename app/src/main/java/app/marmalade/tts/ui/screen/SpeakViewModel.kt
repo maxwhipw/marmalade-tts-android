@@ -233,6 +233,13 @@ class SpeakViewModel @Inject constructor(
                     "applyAlias($name): voiceId '${alias.voiceId}' not in catalog; " +
                         "skipping voice change",
                 )
+                // No voice change to predict, so seed `expectedAliasVoiceId`
+                // with the *current* voice id. That way the next manual
+                // voice change diverges and clears the chip — without this,
+                // the chip would stay selected indefinitely (cosmetic in
+                // v0.1's static catalog, but matters once engines become
+                // dynamic and voices can disappear).
+                expectedAliasVoiceId = currentVoice.value?.id
             } else {
                 // Record the expected voice BEFORE persisting so the
                 // upcoming defaultVoiceId emission isn't misread as a

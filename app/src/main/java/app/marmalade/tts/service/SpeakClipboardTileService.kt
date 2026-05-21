@@ -1,5 +1,6 @@
 package app.marmalade.tts.service
 
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.graphics.drawable.Icon
 import android.service.quicksettings.Tile
@@ -32,10 +33,11 @@ import dagger.hilt.android.AndroidEntryPoint
 //   state on the tile — that can come later; the active-tile metadata
 //   in the manifest leaves the door open for it.
 //
-//   The tile is declared `unlock-required = false` (set via
-//   isLocked=false here is not required: the flag lives in the manifest)
-//   so the user can speak clipboard contents straight from the lock
-//   screen without a PIN dance.
+//   This tile requires the device to be unlocked. We do not declare
+//   `UNLOCK_REQUIRED=false` because Android 10+ blocks background
+//   clipboard reads from a locked context — the primary clip read would
+//   come back empty even if the tile were allowed to fire from the lock
+//   screen, so the unlock dance is unavoidable for "speak clipboard."
 // -----------------------------------------------------------------------------
 
 /**
@@ -85,6 +87,18 @@ class SpeakClipboardTileService : TileService() {
             return null
         }
         if (clip == null || clip.itemCount == 0) return null
+        // Without this MIME-type guard, `coerceToText` happily turns a
+        // content-URI for an image (or any non-text item with a uri/intent)
+        // into the URI string itself, which the dispatcher would then speak
+        // aloud literally. Accept text/plain and text/html only; everything
+        // else surfaces as the "Clipboard is empty" toast.
+        val description = clip.description
+        if (description == null ||
+            (!description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) &&
+                !description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML))
+        ) {
+            return null
+        }
         val item = clip.getItemAt(0) ?: return null
         return item.coerceToText(this)?.toString()
     }

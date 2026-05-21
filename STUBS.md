@@ -44,9 +44,12 @@ how to finish it.
      on the androidTest classpath plus a way to drag the tile into the
      user's active QS layout (not currently possible programmatically),
      so the audible/lock-screen halves stay manual.
-  4. **Lock-screen tile visibility** — manifest declares the tile
-     without unlock-required, but Android OEM skins occasionally
-     enforce extra gates; re-verify on each release device.
+  4. **Lock-screen tile behaviour** — the tile requires the device to
+     be unlocked. We don't declare `UNLOCK_REQUIRED=false` because
+     Android 10+ blocks background clipboard reads from a locked
+     context, so trying the lock-screen path would only get an empty
+     clip. Re-verify on each release device that the unlock-then-tap
+     flow still works.
 - **How to run:** `./gradlew :app:connectedDebugAndroidTest --tests
   '*ShareAndTileInstrumentedTest*'` with a device attached and the
   engine installed (run through onboarding once).
