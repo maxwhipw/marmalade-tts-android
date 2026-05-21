@@ -2,6 +2,8 @@ package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +87,28 @@ internal class FakeDao(private val voices: List<VoiceMeta>) : VoiceMetaDao {
         throw UnsupportedOperationException("read-only fake")
     }
     override suspend fun upsertAll(voices: List<VoiceMeta>) {
+        throw UnsupportedOperationException("read-only fake")
+    }
+}
+
+/**
+ * Minimal in-memory [VoiceAliasDao].
+ *
+ * Read-only — the speak-screen path only consumes `getAll()` + `findByName(...)`.
+ * Mutating methods throw so a test that touches them fails loudly instead
+ * of silently no-op'ing.
+ */
+internal class FakeAliasDao(
+    private val initial: List<VoiceAlias> = emptyList(),
+) : VoiceAliasDao {
+    private val state = MutableStateFlow(initial)
+    override fun getAll() = state
+    override suspend fun findByName(name: String): VoiceAlias? =
+        state.value.firstOrNull { it.name == name }
+    override suspend fun upsert(alias: VoiceAlias) {
+        throw UnsupportedOperationException("read-only fake")
+    }
+    override suspend fun delete(name: String) {
         throw UnsupportedOperationException("read-only fake")
     }
 }

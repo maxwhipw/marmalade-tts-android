@@ -1,16 +1,21 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
@@ -20,6 +25,8 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
+import app.marmalade.tts.data.db.VoiceAlias
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -68,6 +76,28 @@ import app.marmalade.tts.R
 //     │
 //     ▼
 //   onNavigateToVoices()  ──► MainActivity swaps to VoicePickerScreen
+//
+//   User taps an alias chip
+//     │
+//     ▼
+//   SpeakViewModel.applyAlias(name)
+//     │
+//     ├── VoiceAliasDao.findByName ─► alias row
+//     ├── SettingsRepository.setDefaultVoiceId(alias.voiceId)
+//     └── activeAlias = name  ──► FilterChip.selected = true
+//
+//   User taps a voice manually in the picker
+//     │
+//     ▼
+//   defaultVoiceId emits a value ≠ the one applyAlias set
+//     │
+//     ▼
+//   SpeakViewModel clears activeAlias ──► FilterChip selection clears
+//
+//   User taps "Create alias" trailing chip
+//     │
+//     ▼
+//   onNavigateToAliases()  ──► alias editor screen
 // -----------------------------------------------------------------------------
 
 /**
@@ -78,6 +108,8 @@ import app.marmalade.tts.R
  *  - Mascot (~64dp) — `mascot_speaking` while audio plays, `mascot_happy` otherwise.
  *  - OutlinedTextField, multi-line (~5 lines visible).
  *  - AssistChip showing the current voice — tap to navigate to picker.
+ *  - LazyRow of FilterChips, one per saved alias, with a trailing
+ *    "Create alias" AssistChip. Empty alias list ⇒ only the create chip.
  *  - "Speak" Button — disabled when text is blank or model isn't installed.
  *  - Status line below the button mirroring the ViewModel state.
  */
@@ -92,6 +124,8 @@ fun SpeakScreen(
     val text by viewModel.text.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
     val currentVoice by viewModel.currentVoice.collectAsStateWithLifecycle()
+    val aliases by viewModel.aliases.collectAsStateWithLifecycle()
+    val activeAlias by viewModel.activeAlias.collectAsStateWithLifecycle()
 
     val isSpeaking = playbackState is PlaybackState.Speaking
     val isModelMissing = playbackState is PlaybackState.ModelMissing
@@ -188,6 +222,19 @@ fun SpeakScreen(
                 },
             )
 
+            Spacer(Modifier.height(8.dp))
+
+            // Alias chip row. One FilterChip per saved alias + a trailing
+            // "Create alias" AssistChip that always shows (so the user can
+            // add more even when they already have some). LazyRow gives
+            // horizontal scroll for free on narrow screens.
+            AliasChipRow(
+                aliases = aliases,
+                activeAlias = activeAlias,
+                onApplyAlias = viewModel::applyAlias,
+                onCreateAlias = onNavigateToAliases,
+            )
+
             Spacer(Modifier.height(16.dp))
 
             val canSpeak = text.isNotBlank() && !isSpeaking && !isModelMissing
@@ -229,6 +276,62 @@ fun SpeakScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Horizontally scrollable row of alias FilterChips with a trailing
+ * "Create alias" AssistChip. Extracted so the SpeakScreen body stays
+ * legible and so the chip layout is easy to swap later.
+ */
+@Composable
+private fun AliasChipRow(
+    aliases: List<VoiceAlias>,
+    activeAlias: String?,
+    onApplyAlias: (String) -> Unit,
+    onCreateAlias: () -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+    ) {
+        items(aliases, key = { it.name }) { alias ->
+            FilterChip(
+                selected = alias.name == activeAlias,
+                onClick = { onApplyAlias(alias.name) },
+                label = { Text(alias.name) },
+                leadingIcon = if (alias.name == activeAlias) {
+                    {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize),
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
+        }
+
+        // Trailing "Create alias" chip — always present so the user can
+        // add more aliases regardless of how many already exist.
+        item(key = "__create_alias__") {
+            AssistChip(
+                onClick = onCreateAlias,
+                label = { Text("Create alias") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(AssistChipDefaults.IconSize),
+                    )
+                },
+            )
         }
     }
 }

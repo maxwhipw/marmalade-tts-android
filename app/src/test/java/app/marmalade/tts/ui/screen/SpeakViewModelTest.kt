@@ -108,10 +108,12 @@ class SpeakViewModelTest {
     ): SpeakViewModel {
         val settings = FakeSettings(initialId = defaultVoiceId)
         val dao = FakeDao(voices = KittenVoiceCatalog.voices)
+        val aliasDao = FakeAliasDao()
         return SpeakViewModel(
             synthesizer = player,
             settings = settings,
             voiceDao = dao,
+            aliasDao = aliasDao,
         )
     }
 
