@@ -13,13 +13,11 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -32,12 +30,12 @@ import kotlinx.coroutines.launch
 //     ├── text state ◄────── SpeakViewModel.text  (MutableStateFlow)
 //     ├── current voice ◄─── SpeakViewModel.currentVoice
 //     │                          ▲
-//     │                          │ flatMapLatest
+//     │                          │ combine(id, voices) { voices.firstOrNull(...) }
 //     │                          │
-//     │            SettingsRepository.defaultVoiceId
-//     │                          │
-//     │                          ▼
-//     │                  VoiceMetaDao.findById(id) (suspend → flow shim)
+//     │            SettingsRepository.defaultVoiceId  +  VoiceMetaDao.getAll()
+//     │
+//     │   (combining the two flows means once the seed lands and getAll()
+//     │    re-emits, the lookup re-runs — no stale null past initial seed)
 //     │
 //     ├── playback ◄──────── SpeakViewModel.playbackState
 //     │                          ▲
@@ -89,7 +87,6 @@ sealed class PlaybackState {
  * playing in the background.
  */
 @HiltViewModel
-@OptIn(ExperimentalCoroutinesApi::class)
 class SpeakViewModel @Inject constructor(
     private val synthesizer: SpeechPlayer,
     private val settings: SettingsRepository,
@@ -142,21 +139,25 @@ class SpeakViewModel @Inject constructor(
     val currentSpeed: StateFlow<Float> = _currentSpeed.asStateFlow()
 
     /**
-     * The voice the user has chosen as default. Re-resolved whenever
-     * [SettingsRepository.defaultVoiceId] emits, so picking a new voice in
-     * the picker shows up here without an extra signal.
+     * The voice the user has chosen as default. Composed from two flows so
+     * the lookup re-runs both when the user picks a different voice AND
+     * when the underlying voice catalog changes (e.g. the first-launch
+     * seed lands after the VM was already constructed — see Blocker #2 in
+     * the v0.1 whole-project review).
      *
-     * Emits `null` only transiently — before the first lookup completes
-     * or if the persisted ID points at a voice that's been removed from
-     * the catalog (shouldn't happen with the v0.1 static catalog).
+     * Emits `null` only transiently — before either upstream has emitted,
+     * or if the persisted ID points at a voice that isn't (yet) in the
+     * catalog. Once the seed lands, `voiceDao.getAll()` re-emits and the
+     * combine resolves a non-null value.
      *
-     * The `onEach` side effect breaks out of the alias chip selection
-     * when the user picks a voice manually: if a new defaultVoiceId
-     * arrives that doesn't match what applyAlias most recently set,
-     * activeAlias clears.
+     * The `onEach` side effect on `defaultVoiceId` (applied BEFORE the
+     * combine so it only fires on id changes, not catalog refreshes)
+     * breaks out of the alias chip selection when the user picks a voice
+     * manually: if a new defaultVoiceId arrives that doesn't match what
+     * applyAlias most recently set, activeAlias clears.
      */
-    val currentVoice: StateFlow<VoiceMeta?> = settings.defaultVoiceId
-        .onEach { id ->
+    val currentVoice: StateFlow<VoiceMeta?> = combine(
+        settings.defaultVoiceId.onEach { id ->
             val expected = expectedAliasVoiceId
             if (expected != null && id != expected) {
                 // Manual voice change — drop everything the alias set up so
@@ -167,16 +168,14 @@ class SpeakViewModel @Inject constructor(
                 _currentSpeed.value = 1.0f
                 expectedAliasVoiceId = null
             }
-        }
-        .flatMapLatest { id ->
-            // Convert the suspend point-lookup into a single-emission Flow.
-            // findById is cheap (indexed PK lookup), so this is fine to
-            // re-run on every change.
-            flow { emit(voiceDao.findById(id)) }
-        }
+        },
+        voiceDao.getAll(),
+    ) { id, voices ->
+        voices.firstOrNull { it.id == id }
+    }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Eagerly,
+            started = SharingStarted.WhileSubscribed(5_000),
             initialValue = null,
         )
 
@@ -192,9 +191,24 @@ class SpeakViewModel @Inject constructor(
             initialValue = emptyList(),
         )
 
-    /** UI hook for the text field's onValueChange. */
+    /**
+     * UI hook for the text field's onValueChange.
+     *
+     * Typing also unsticks a previous [PlaybackState.ModelMissing] or
+     * [PlaybackState.Error] — those are "the last speak() failed" markers
+     * that disable the Speak button, and a fresh edit signals the user
+     * intends to retry (with hopefully the engine installed by now, or
+     * a different sentence that avoids whatever error path). [Speaking]
+     * is not reset — that's a mid-synthesis state where the result is
+     * still in flight, so typing shouldn't yank the button out from under
+     * the running coroutine.
+     */
     fun onTextChanged(value: String) {
         _text.value = value
+        val state = _playbackState.value
+        if (state is PlaybackState.ModelMissing || state is PlaybackState.Error) {
+            _playbackState.value = PlaybackState.Idle
+        }
     }
 
     /**

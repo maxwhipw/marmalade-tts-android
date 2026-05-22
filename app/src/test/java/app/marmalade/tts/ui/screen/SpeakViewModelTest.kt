@@ -5,13 +5,18 @@ import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceMeta
+import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -156,6 +161,73 @@ class SpeakViewModelTest {
     }
 
     @Test
+    fun currentVoice_emitsOnceVoicesArrive() = runTest {
+        // Pin Blocker #2: the seed race. Before the fix, currentVoice
+        // resolved findById once on first defaultVoiceId emission and got
+        // null (DB empty), then never re-resolved when the seed completed.
+        // After the fix, combine(defaultVoiceId, voiceDao.getAll()) re-emits
+        // when the catalog flow emits the seeded voices.
+        val voicesFlow = MutableStateFlow<List<VoiceMeta>>(emptyList())
+        val dao = MutableVoiceDao(voicesFlow)
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val vm = SpeakViewModel(
+            synthesizer = player,
+            settings = settings,
+            voiceDao = dao,
+            aliasDao = FakeAliasDao(),
+        )
+
+        // Subscribe to keep WhileSubscribed hot. Initially voices is empty,
+        // so currentVoice resolves to null.
+        val initial = vm.currentVoice.first()
+        assertNull("Expected null while catalog empty", initial)
+
+        // Simulate the seed landing — catalog flips to non-empty.
+        voicesFlow.value = KittenVoiceCatalog.voices
+
+        // currentVoice should now resolve to the Bella row.
+        val resolved = vm.currentVoice.filter { it != null }.first()
+        assertNotNull(resolved)
+        assertEquals(KittenVoiceCatalog.DEFAULT_VOICE_ID, resolved!!.id)
+    }
+
+    @Test
+    fun onTextChanged_resetsStickyModelMissing() = runTest {
+        // Pin Major #1: typing after a ModelMissing failure must reset the
+        // Speak button (the UI's `enabled` predicate gates on !isModelMissing).
+        val player = RecordingPlayer(behaviour = {
+            Result.failure(SynthesizerException.ModelMissing)
+        })
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        vm.onTextChanged("Test")
+        vm.speak()
+        assertEquals(PlaybackState.ModelMissing, vm.playbackState.value)
+
+        // Typing again should unstick the state.
+        vm.onTextChanged("Test more")
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+    }
+
+    @Test
+    fun onTextChanged_resetsStickyError() = runTest {
+        val player = RecordingPlayer(behaviour = {
+            Result.failure(SynthesizerException.SynthesisFailed(RuntimeException("boom")))
+        })
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        vm.onTextChanged("Test")
+        vm.speak()
+        assertTrue(vm.playbackState.value is PlaybackState.Error)
+
+        vm.onTextChanged("Test more")
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+    }
+
+    @Test
     fun cancelReturnsToIdle() = runTest {
         val player = RecordingPlayer(behaviour = { Result.success(Unit) })
         val vm = newViewModel(player = player)
@@ -186,4 +258,27 @@ class SpeakViewModelTest {
 
     private suspend fun <T> Flow<T?>.firstNonNull(): T =
         this.filter { it != null }.first()!!
+
+    /**
+     * VoiceMetaDao backed by a mutable `Flow<List<VoiceMeta>>`. Used by the
+     * seed-race regression test to simulate the catalog being empty until
+     * the application-scoped seed coroutine writes to it.
+     */
+    private class MutableVoiceDao(
+        private val voices: MutableStateFlow<List<VoiceMeta>>,
+    ) : VoiceMetaDao {
+        override fun getAll(): Flow<List<VoiceMeta>> = voices
+        override fun getByEngine(engine: String): Flow<List<VoiceMeta>> =
+            kotlinx.coroutines.flow.flowOf(voices.value.filter { it.engine == engine })
+        override suspend fun findById(id: String): VoiceMeta? =
+            voices.value.firstOrNull { it.id == id }
+        override suspend fun count(): Int = voices.value.size
+        override suspend fun upsert(voice: VoiceMeta) {
+            voices.value = voices.value.filterNot { it.id == voice.id } + voice
+        }
+        override suspend fun upsertAll(rows: List<VoiceMeta>) {
+            val ids = rows.map { it.id }.toSet()
+            voices.value = voices.value.filterNot { it.id in ids } + rows
+        }
+    }
 }

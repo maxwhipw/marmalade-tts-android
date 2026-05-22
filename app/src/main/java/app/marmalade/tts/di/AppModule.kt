@@ -5,11 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.Synthesizer
-import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.db.MIGRATION_2_3
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
@@ -24,12 +21,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Provider
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 // DataStore singleton — one instance per process via extension property
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
@@ -44,15 +36,12 @@ object AppModule {
     @Singleton
     fun provideDatabase(
         @ApplicationContext context: Context,
-        // Provider<> breaks the cyclic dep: the DAO is fetched from the DB,
-        // but seeding the DB needs a DAO. Provider defers resolution until
-        // after Room finishes building.
-        daoProvider: Provider<VoiceMetaDao>,
     ): MarmaladeDb {
-        // Single-shot coroutine scope for the seed task — independent of any
-        // Android lifecycle. SupervisorJob so a seed failure doesn't tear
-        // down the whole process.
-        val seedScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // Seeding has moved out of the Room callback and into
+        // `MarmaladeTtsApplication.onCreate` so the seed coroutine is
+        // attached to an application-scoped CoroutineScope rather than a
+        // process-lived one captured by an anonymous Room callback. See
+        // Major #4 in the v0.1 whole-project review.
         return Room.databaseBuilder(
             context,
             MarmaladeDb::class.java,
@@ -64,18 +53,6 @@ object AppModule {
             // a belt-and-braces option for any future hash drift.
             .addMigrations(MIGRATION_2_3)
             .fallbackToDestructiveMigration()
-            .addCallback(object : RoomDatabase.Callback() {
-                override fun onCreate(db: SupportSQLiteDatabase) {
-                    super.onCreate(db)
-                    // Fires exactly once, the first time the DB is created.
-                    // Idempotent because upsertAll() uses REPLACE — but the
-                    // callback's once-per-lifetime contract means it usually
-                    // runs exactly once anyway.
-                    seedScope.launch {
-                        daoProvider.get().upsertAll(KittenVoiceCatalog.voices)
-                    }
-                }
-            })
             .build()
     }
 
