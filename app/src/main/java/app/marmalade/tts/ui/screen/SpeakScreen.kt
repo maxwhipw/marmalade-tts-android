@@ -16,14 +16,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -36,9 +33,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -75,7 +69,7 @@ import app.marmalade.tts.data.db.VoiceAlias
 //   User taps voice chip OR top-bar Voices icon
 //     │
 //     ▼
-//   onNavigateToVoices()  ──► MainActivity swaps to VoicePickerScreen
+//   onNavigateToVoices()  ──► AppRoot routes to VoicePickerScreen
 //
 //   User taps an alias chip
 //     │
@@ -97,7 +91,17 @@ import app.marmalade.tts.data.db.VoiceAlias
 //   User taps "Create alias" trailing chip
 //     │
 //     ▼
-//   onNavigateToAliases()  ──► alias editor screen
+//   onNavigateToAliases()  ──► alias editor screen (AliasScreen)
+//
+//   User taps "Tap to install Kitten engine" when the model is missing
+//     │
+//     ▼
+//   onNavigateToEngines()  ──► engine installer screen (EnginesScreen)
+//
+//   v0.1.8 note: Engines / Aliases / Settings are top-level destinations
+//   on the bottom NavigationBar; the old overflow DropdownMenu in this
+//   top app bar is gone. The Voices IconButton and these inline nav
+//   affordances stay — they're action-in-context, not duplicate nav.
 // -----------------------------------------------------------------------------
 
 /**
@@ -130,45 +134,20 @@ fun SpeakScreen(
     val isSpeaking = playbackState is PlaybackState.Speaking
     val isModelMissing = playbackState is PlaybackState.ModelMissing
 
-    var menuExpanded by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("marmalade-tts") },
                 actions = {
+                    // The bottom nav exposes Voices as a tab; this in-bar
+                    // shortcut stays for now because it's the single
+                    // most-used action from Speak (post v0.1.7 user data).
+                    // Revisit in v0.2 once we have nav-bar usage telemetry.
                     IconButton(onClick = onNavigateToVoices) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = "Voices",
                         )
-                    }
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "More",
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Engines") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onNavigateToEngines()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Voice aliases") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onNavigateToAliases()
-                                },
-                            )
-                        }
                     }
                 },
             )
