@@ -265,6 +265,153 @@ class AliasViewModelTest {
         assertNull(state.error)
     }
 
+    // -- Primary alias behaviour ----------------------------------------------
+
+    @Test
+    fun firstCreatedAlias_becomesPrimary() = runTest {
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        assertNull("Primary should start null", settings.primaryAliasName.first())
+
+        val vm = newViewModel(settings = settings)
+        vm.openEditor()
+        vm.onEditorNameChange("narrator")
+        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val ok = vm.save()
+        assertTrue(ok)
+
+        assertEquals(
+            "First-created alias should auto-promote to primary",
+            "narrator",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun creatingSecondAlias_doesNotOverridePrimary() = runTest {
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        val vm = newViewModel(settings = settings)
+
+        // First alias — auto-promotes.
+        vm.openEditor()
+        vm.onEditorNameChange("narrator")
+        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.save()
+        assertEquals("narrator", settings.primaryAliasName.first())
+
+        // Second alias — primary should NOT change.
+        vm.openEditor()
+        vm.onEditorNameChange("storyteller")
+        vm.onEditorVoiceChange("kitten:Hugo")
+        vm.save()
+
+        assertEquals(
+            "Primary should remain on the first alias",
+            "narrator",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun deletingPrimaryAlias_clearsPrimaryPointer() = runTest {
+        val existing = alias("narrator")
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setPrimaryAliasName("narrator")
+        val vm = newViewModel(
+            aliasDao = FakeAliasDao(initial = listOf(existing)),
+            settings = settings,
+        )
+        vm.aliases.first { it.isNotEmpty() }
+
+        vm.delete("narrator")
+
+        assertNull(
+            "Deleting the primary alias should clear the pointer",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun deletingNonPrimaryAlias_preservesPrimaryPointer() = runTest {
+        val primary = alias("narrator")
+        val other = alias("storyteller")
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setPrimaryAliasName("narrator")
+        val vm = newViewModel(
+            aliasDao = FakeAliasDao(initial = listOf(primary, other)),
+            settings = settings,
+        )
+        vm.aliases.first { it.size == 2 }
+
+        vm.delete("storyteller")
+
+        assertEquals(
+            "Deleting a non-primary alias should not affect the primary pointer",
+            "narrator",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun setPrimary_explicitlyChangesPointer() = runTest {
+        val first = alias("narrator")
+        val second = alias("storyteller")
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setPrimaryAliasName("narrator")
+        val vm = newViewModel(
+            aliasDao = FakeAliasDao(initial = listOf(first, second)),
+            settings = settings,
+        )
+        vm.aliases.first { it.size == 2 }
+
+        vm.setPrimary("storyteller")
+
+        assertEquals(
+            "Primary should follow the explicit setPrimary call",
+            "storyteller",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun renamingPrimaryAlias_retargetsPointer() = runTest {
+        val existing = alias("narrator")
+        val settings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setPrimaryAliasName("narrator")
+        val vm = newViewModel(
+            aliasDao = FakeAliasDao(initial = listOf(existing)),
+            settings = settings,
+        )
+        vm.aliases.first { it.isNotEmpty() }
+
+        vm.openEditor(existing)
+        vm.onEditorNameChange("storyteller")
+        vm.save()
+
+        assertEquals(
+            "Renaming the primary alias should follow it to the new name",
+            "storyteller",
+            settings.primaryAliasName.first(),
+        )
+    }
+
     // -- Delete behaviour -----------------------------------------------------
 
     @Test
@@ -328,13 +475,17 @@ class AliasViewModelTest {
     private fun newViewModel(
         aliasDao: FakeAliasDao? = null,
         aliases: List<VoiceAlias> = emptyList(),
+        settings: FakeSettings = FakeSettings(
+            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        ),
     ): AliasViewModel {
         require(aliasDao == null || aliases.isEmpty()) {
             "Pass either aliasDao or aliases, not both"
         }
         val dao = aliasDao ?: FakeAliasDao(initial = aliases)
         val voiceDao = FakeDao(voices = KittenVoiceCatalog.voices)
-        return AliasViewModel(aliasDao = dao, voiceDao = voiceDao)
+        return AliasViewModel(aliasDao = dao, voiceDao = voiceDao, settings = settings)
     }
 
     private fun alias(

@@ -29,12 +29,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
+import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
 import app.marmalade.tts.ui.screen.SpeakScreen
@@ -53,15 +56,19 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                    │
 //                    └── else: Scaffold { bottomBar = NavigationBar(...) }
 //                              NavHost(startDestination = Routes.Speak)
-//                                ├── Routes.Speak    → SpeakScreen
-//                                ├── Routes.Voices   → VoicePickerScreen
-//                                ├── Routes.Engines  → EnginesScreen
-//                                ├── Routes.Settings → SettingsScreen
-//                                └── Routes.Aliases  → AliasScreen (no nav bar)
+//                                ├── Routes.Speak        → SpeakScreen
+//                                ├── Routes.Voices       → VoicePickerScreen
+//                                ├── Routes.Engines      → EnginesScreen
+//                                ├── Routes.Settings     → SettingsScreen
+//                                ├── Routes.Aliases      → AliasScreen
+//                                │                         (detail; no nav bar)
+//                                └── engine/{name}        → EngineDetailScreen
+//                                                          (detail; no nav bar)
 //
 //   Bottom-nav tabs use popUpTo(startDestinationId) + saveState/restoreState
 //   so tab switching never grows the back stack — matches marmalade-android.
-//   Aliases is reachable from Settings; it's a detail screen (nav bar hidden).
+//   Aliases + engine/{name} are reachable from Settings/Engines respectively;
+//   both are detail screens with the nav bar hidden.
 // -----------------------------------------------------------------------------
 
 /** Route identifiers for the top-level nav graph. */
@@ -71,6 +78,12 @@ object Routes {
     const val Engines = "engines"
     const val Settings = "settings"
     const val Aliases = "aliases"
+
+    /** Detail screen for one engine. Use [engineDetail] to build the concrete route. */
+    const val EngineDetail = "engine"
+
+    /** Build the navigation route for [name]'s per-engine detail screen. */
+    fun engineDetail(name: String): String = "$EngineDetail/$name"
 }
 
 /** Tabs that show in the bottom NavigationBar. Order = display order. */
@@ -110,8 +123,11 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
 
-    // Bottom bar hides on detail destinations (currently just Aliases).
-    val showBottomBar = currentRoute != Routes.Aliases
+    // Bottom bar hides on detail destinations: the alias editor and the
+    // per-engine detail page (whose route is "engine/<name>", so a
+    // startsWith check is the cheapest way to match the whole family).
+    val showBottomBar = currentRoute != Routes.Aliases &&
+        currentRoute?.startsWith("${Routes.EngineDetail}/") != true
 
     Scaffold(
         bottomBar = {
@@ -163,7 +179,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 )
             }
             composable(Routes.Engines) {
-                EnginesScreen(onBack = { navController.navigateToTab(Routes.Speak) })
+                EnginesScreen(
+                    onBack = { navController.navigateToTab(Routes.Speak) },
+                    onEngineSettings = { engine ->
+                        navController.navigate(Routes.engineDetail(engine.name))
+                    },
+                )
             }
             composable(Routes.Settings) {
                 SettingsScreen(
@@ -172,6 +193,16 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.Aliases) {
                 AliasScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "${Routes.EngineDetail}/{name}",
+                arguments = listOf(navArgument("name") { type = NavType.StringType }),
+            ) { entry ->
+                val name = entry.arguments?.getString("name") ?: return@composable
+                EngineDetailScreen(
+                    engineName = name,
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }

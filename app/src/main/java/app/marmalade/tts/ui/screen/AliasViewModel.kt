@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -46,9 +48,17 @@ import kotlinx.coroutines.launch
 //     │                          │ flatMapLatest(editorState.engine)
 //     │                  VoiceMetaDao.getByEngine(engine)
 //     │
+//     ├── primaryAliasName ◄────── AliasViewModel.primaryAliasName
+//     │                                  ▲
+//     │                                  │ Flow
+//     │                          SettingsRepository.primaryAliasName
+//     │
 //     └── actions
 //          ├── save()    → validate → VoiceAliasDao.upsert(...)
-//          └── delete(n) → VoiceAliasDao.delete(n)
+//          │                + auto-promote first alias to primary if none set,
+//          │                + retarget primary on rename of current primary.
+//          ├── delete(n) → VoiceAliasDao.delete(n) + clear primary if it was n.
+//          └── setPrimary(n) → SettingsRepository.setPrimaryAliasName(n)
 // -----------------------------------------------------------------------------
 
 /** Why an attempted save was rejected. UI shows this inline under the name field. */
@@ -105,6 +115,7 @@ data class EditorState(
 class AliasViewModel @Inject constructor(
     private val aliasDao: VoiceAliasDao,
     private val voiceDao: VoiceMetaDao,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     /**
@@ -120,6 +131,20 @@ class AliasViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
+        )
+
+    /**
+     * The currently designated primary alias name (or null when none is
+     * set). Sourced verbatim from [SettingsRepository.primaryAliasName] —
+     * callers that need a "resolved" primary (i.e. fall back to null when
+     * the named alias has been deleted) should cross-check against
+     * [aliases] before consuming.
+     */
+    val primaryAliasName: StateFlow<String?> = settings.primaryAliasName
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null,
         )
 
     /** Static list — v0.1 only ships Kitten but other engines plug in later. */
@@ -271,15 +296,51 @@ class AliasViewModel @Inject constructor(
                 aliasDao.delete(oldName)
             }
             aliasDao.upsert(alias)
+            // First-alias-becomes-primary rule. We auto-promote whenever
+            // there is no primary set yet (null pointer in settings) —
+            // covers fresh installs and the "primary was deleted, next
+            // created alias inherits" recovery path. Renames of the
+            // current primary keep the pointer in sync by re-writing it
+            // to the new name.
+            val currentPrimary = settings.primaryAliasName.first()
+            when {
+                currentPrimary == null -> settings.setPrimaryAliasName(name)
+                !state.isNew && oldName != null && oldName != name && currentPrimary == oldName ->
+                    settings.setPrimaryAliasName(name)
+                else -> Unit
+            }
         }
         _editorState.value = EditorState()
         return true
     }
 
-    /** Remove the alias with [name]. No-op if it doesn't exist. */
+    /**
+     * Remove the alias with [name]. No-op if it doesn't exist.
+     *
+     * Self-healing: if the deleted alias was the primary, clear the
+     * primary pointer so a stale name doesn't linger in DataStore. The
+     * "first alias becomes primary" rule in [save] then picks up the
+     * next created alias.
+     */
     fun delete(name: String) {
         viewModelScope.launch {
             aliasDao.delete(name)
+            if (settings.primaryAliasName.first() == name) {
+                settings.setPrimaryAliasName(null)
+            }
+        }
+    }
+
+    /**
+     * Explicitly designate [name] as the primary alias. The caller is
+     * responsible for passing the name of an existing alias — this method
+     * does not cross-check against [aliases] (the UI only exposes the
+     * action via context menus on already-rendered rows, so the row's
+     * existence is implicit at call time).
+     */
+    fun setPrimary(name: String) {
+        viewModelScope.launch {
+            settings.setPrimaryAliasName(name)
         }
     }
 

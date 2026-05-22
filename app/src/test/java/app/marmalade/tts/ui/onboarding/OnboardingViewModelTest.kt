@@ -1,13 +1,20 @@
 package app.marmalade.tts.ui.onboarding
 
+import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.ui.screen.FakeAliasDao
+import app.marmalade.tts.ui.screen.FakeDao
 import app.marmalade.tts.ui.screen.FakeSettings
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -35,7 +42,7 @@ class OnboardingViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun stepProgressesThroughWelcomeToEnginePickToInstalling() = runTest {
+    fun stepProgressesThroughWelcomeToEnginePickToInstallingToCreateAlias() = runTest {
         val vm = newViewModel()
         assertEquals(OnboardingStep.Welcome, vm.step.value)
 
@@ -43,6 +50,12 @@ class OnboardingViewModelTest {
         assertEquals(OnboardingStep.EnginePick, vm.step.value)
 
         vm.next()
+        assertEquals(OnboardingStep.Installing, vm.step.value)
+
+        vm.next()
+        assertEquals(OnboardingStep.CreateAlias, vm.step.value)
+
+        vm.back()
         assertEquals(OnboardingStep.Installing, vm.step.value)
 
         vm.back()
@@ -123,16 +136,124 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun finishMarksUserAsOnboarded() = runTest {
+    fun finishWithoutAliasIsBlocked() = runTest {
+        // No aliases in the DB → finish() must refuse to flip onboarded.
         val settings = FakeSettings(
             initialId = "kitten:Bella",
             initialOnboarded = false,
         )
-        val vm = newViewModel(settings = settings)
-        assertEquals(false, settings.onboarded.first())
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+        vm.aliasCreated.first { !it }
 
-        vm.finish()
+        val flipped = vm.finish()
+
+        assertFalse("finish() should refuse when no alias exists", flipped)
+        assertEquals(false, settings.onboarded.first())
+    }
+
+    @Test
+    fun finishWithExistingAliasFlipsOnboardedAndAutoAssignsPrimary() = runTest {
+        // Existing-alias edge case (sideloaded data): finish() should
+        // flip onboarded *and* auto-promote the existing alias to primary
+        // when no primary is set yet.
+        val existing = VoiceAlias(
+            name = "narrator",
+            engine = "kitten",
+            voiceId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            speed = 1.0f,
+            effectPreset = EffectPreset.NONE.name,
+            createdAt = 0L,
+        )
+        val settings = FakeSettings(
+            initialId = "kitten:Bella",
+            initialOnboarded = false,
+        )
+        val aliasDao = FakeAliasDao(initial = listOf(existing))
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+        vm.aliasCreated.first { it }
+
+        val flipped = vm.finish()
+
+        assertTrue("finish() should flip when an alias exists", flipped)
         assertEquals(true, settings.onboarded.first())
+        assertEquals(
+            "Primary should self-heal to the existing alias",
+            "narrator",
+            settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun saveAliasAndContinueCreatesAliasMarksPrimaryAndFlipsOnboarded() = runTest {
+        val settings = FakeSettings(
+            initialId = "kitten:Bella",
+            initialOnboarded = false,
+        )
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+
+        vm.onAliasNameChange("narrator")
+        vm.onAliasEngineChange("kitten")
+        vm.onAliasVoiceChange("kitten:Bella")
+        val ok = vm.saveAliasAndContinue()
+
+        assertTrue("saveAliasAndContinue should succeed with valid fields", ok)
+        assertEquals(1, aliasDao.upsertedAliases.size)
+        assertEquals("narrator", aliasDao.upsertedAliases.single().name)
+        assertEquals("narrator", settings.primaryAliasName.first())
+        assertEquals(true, settings.onboarded.first())
+    }
+
+    @Test
+    fun saveAliasAndContinueRejectsInvalidName() = runTest {
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+
+        vm.onAliasNameChange("Has Spaces!")
+        vm.onAliasEngineChange("kitten")
+        vm.onAliasVoiceChange("kitten:Bella")
+        val ok = vm.saveAliasAndContinue()
+
+        assertFalse("Invalid name must not save", ok)
+        assertTrue("No alias upserted on validation failure", aliasDao.upsertedAliases.isEmpty())
+        assertNotNull("Editor error should be populated", vm.aliasEditorState.first().error)
+    }
+
+    @Test
+    fun useDefaultsAndContinueCreatesDefaultAliasAndFlipsOnboarded() = runTest {
+        val settings = FakeSettings(
+            initialId = "kitten:Bella",
+            initialOnboarded = false,
+        )
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+        // Recommended engine (kokoro) is pre-selected → install lands it
+        // as Installed which makes useDefaultsAndContinue pick kokoro.
+        vm.installSelected()
+
+        vm.useDefaultsAndContinue()
+
+        assertEquals(1, aliasDao.upsertedAliases.size)
+        val row = aliasDao.upsertedAliases.single()
+        assertEquals("default", row.name)
+        assertEquals("kokoro", row.engine)
+        assertEquals("default", settings.primaryAliasName.first())
+        assertEquals(true, settings.onboarded.first())
+    }
+
+    @Test
+    fun aliasCreatedReflectsDbState() = runTest {
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        assertFalse("aliasCreated should be false on empty DB", vm.aliasCreated.first { !it })
+
+        vm.onAliasNameChange("narrator")
+        vm.onAliasEngineChange("kitten")
+        vm.onAliasVoiceChange("kitten:Bella")
+        vm.saveAliasAndContinue()
+
+        assertTrue("aliasCreated should flip to true after save", vm.aliasCreated.first { it })
     }
 
     // -- helpers ----------------------------------------------------------
@@ -143,7 +264,11 @@ class OnboardingViewModelTest {
             initialId = "kitten:Bella",
             initialOnboarded = false,
         ),
-    ): OnboardingViewModel = OnboardingViewModel(installer, settings)
+        aliasDao: FakeAliasDao = FakeAliasDao(),
+    ): OnboardingViewModel {
+        val voiceDao = FakeDao(voices = KittenVoiceCatalog.voices)
+        return OnboardingViewModel(installer, settings, aliasDao, voiceDao)
+    }
 }
 
 /**

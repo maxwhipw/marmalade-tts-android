@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,10 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.BuildConfig
-import app.marmalade.tts.install.EngineCatalog
-import app.marmalade.tts.install.EngineDescriptor
-import app.marmalade.tts.preprocessing.EngineProfiles
-import app.marmalade.tts.preprocessing.PreprocessingRules
 import app.marmalade.tts.ui.theme.ThemePreset
 
 // -----------------------------------------------------------------------------
@@ -43,14 +38,13 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //   SettingsScreen (composable)
 //     │
 //     ├── reads  ◄── SettingsViewModel.themePreset       (StateFlow<ThemePreset>)
+//     │              SettingsViewModel.themeMode         (StateFlow<String>)
 //     │              SettingsViewModel.keepEngineLoaded  (StateFlow<Boolean>)
 //     │              SettingsViewModel.aliasCount        (StateFlow<Int>)
-//     │              SettingsViewModel.enabledRules      (StateFlow<Map<engine, Set<rule>>>)
 //     │
 //     └── writes ──► SettingsViewModel.setThemePreset(ThemePreset)
+//                    SettingsViewModel.setThemeMode(String)
 //                    SettingsViewModel.setKeepEngineLoaded(Boolean)
-//                    SettingsViewModel.toggleRule(engine, rule, enabled)
-//                    SettingsViewModel.resetRules(engine)
 //                                 │
 //                                 ▼
 //                          SettingsRepository.setX(...)
@@ -63,6 +57,11 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //     ▼
 //   onNavigateToAliases()  ──► AppRoot routes to AliasScreen
 //
+//   Text preprocessing lives in EngineDetailScreen, reachable from the
+//   Engines tab (Engines → tap card → "Engine settings"). It used to be a
+//   global section on this screen and was moved in v0.1.11 — the rules
+//   were already per-engine in DataStore.
+//
 //   This screen sits inside the bottom-nav graph as a sibling of Speak /
 //   Voices / Engines — no back arrow (it's a tab destination, not a detail).
 // -----------------------------------------------------------------------------
@@ -71,16 +70,14 @@ import app.marmalade.tts.ui.theme.ThemePreset
  * Single-page Settings surface — a tab destination on the bottom nav.
  *
  * Sections (separated by HorizontalDivider):
- *  1. Appearance   — 5 chips to pick a [ThemePreset].
- *  2. Engine       — toggle to keep the engine resident.
- *  3. Text preprocessing — per-engine switches for the rule set ported
- *                         from the marmalade-tts CLI.
- *  4. Aliases      — chevron row routing to the existing alias editor.
- *  5. About        — version string from [BuildConfig].
+ *  1. Appearance     — mode (system/light/dark) + color preset chips.
+ *  2. Engine behavior — toggle to keep the engine resident.
+ *  3. Voice aliases  — chevron row routing to the alias editor.
+ *  4. About          — version string from [BuildConfig].
  *
- * The Light/Dark/System override is NOT exposed in v0.1 — system dark mode
- * follows the OS. A follow-up agent can wire a dropdown using
- * [app.marmalade.tts.ui.theme.resolveThemeIsDark] without re-shaping this file.
+ * Text preprocessing toggles used to live here. They're per-engine settings
+ * and now live on [EngineDetailScreen] — see Engines tab → tap a card →
+ * "Engine settings".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +89,6 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val keepLoaded by viewModel.keepEngineLoaded.collectAsStateWithLifecycle()
     val aliasCount by viewModel.aliasCount.collectAsStateWithLifecycle()
-    val enabledRules by viewModel.enabledRules.collectAsStateWithLifecycle()
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -123,14 +119,6 @@ fun SettingsScreen(
             EngineBehaviorSection(
                 keepLoaded = keepLoaded,
                 onKeepLoadedChange = viewModel::setKeepEngineLoaded,
-            )
-
-            HorizontalDivider()
-
-            TextPreprocessingSection(
-                enabledRulesByEngine = enabledRules,
-                onToggle = viewModel::toggleRule,
-                onReset = viewModel::resetRules,
             )
 
             HorizontalDivider()
@@ -231,103 +219,6 @@ private fun EngineBehaviorSection(
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
-}
-
-/**
- * Per-engine toggles for the text preprocessing rules ported from the
- * marmalade-tts CLI's preprocessing.py.
- *
- * Iterates [EngineCatalog.all] filtered to engines that actually have a
- * profile in [EngineProfiles.DEFAULT_PROFILES] — currently kitten only,
- * but the structure is ready for the second engine to land.
- *
- * Each engine subsection lists every rule from [PreprocessingRules.ALL]
- * regardless of whether the engine's default includes it, so the user
- * can opt INTO a rule their engine's default skips (e.g. enabling
- * `emoji` for emojivoice if they don't want emotion routing). The
- * switch state reflects current membership in the user's set; toggling
- * persists via the ViewModel.
- *
- * "Reset to defaults" restores [EngineProfiles.DEFAULT_PROFILES] for
- * that one engine — doesn't touch others.
- */
-@Composable
-private fun TextPreprocessingSection(
-    enabledRulesByEngine: Map<String, Set<String>>,
-    onToggle: (engine: String, rule: String, enabled: Boolean) -> Unit,
-    onReset: (engine: String) -> Unit,
-) {
-    SectionHeader("Text preprocessing")
-
-    // Only show engines that the user might actually install (catalog
-    // membership) AND that we know how to default-profile.
-    val engines: List<EngineDescriptor> = EngineCatalog.all
-        .filter { it.name in EngineProfiles.DEFAULT_PROFILES }
-
-    if (engines.isEmpty()) {
-        // Defensive — shouldn't happen with v0.1's catalog, but better to
-        // render a clean empty-state than nothing at all if a future
-        // refactor strips both lists.
-        Text(
-            text = "No engines available.",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        return
-    }
-
-    for (engine in engines) {
-        val enabled = enabledRulesByEngine[engine.name] ?: EngineProfiles.defaultsFor(engine.name)
-
-        // Subheading — engine displayName. Not a full SectionHeader (that
-        // style is reserved for top-level Settings sections); use a
-        // smaller titleSmall in the surface's onSurface tint to nest
-        // visually under the parent header.
-        Text(
-            text = engine.displayName,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 12.dp,
-                bottom = 4.dp,
-            ),
-        )
-
-        for (rule in PreprocessingRules.ALL) {
-            val isOn = rule.name in enabled
-            ListItem(
-                modifier = Modifier.clickable {
-                    onToggle(engine.name, rule.name, !isOn)
-                },
-                headlineContent = { Text(rule.name) },
-                supportingContent = { Text(rule.description) },
-                trailingContent = {
-                    Switch(
-                        checked = isOn,
-                        onCheckedChange = { onToggle(engine.name, rule.name, it) },
-                    )
-                },
-                colors = ListItemDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
-        }
-
-        // "Reset to defaults" lives at the bottom of each engine's
-        // subsection so users with multiple engines (future) can reset
-        // one without affecting the others.
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = { onReset(engine.name) }) {
-                Text("Reset ${engine.displayName} to defaults")
-            }
-        }
-    }
 }
 
 @Composable

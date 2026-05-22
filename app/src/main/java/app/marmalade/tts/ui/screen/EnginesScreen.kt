@@ -1,7 +1,9 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,16 +16,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,35 +50,45 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   SpeakScreen menu → "Engines" → EnginesScreen(onBack)
+//   Bottom-nav "Engines" tab → EnginesScreen(onBack, onEngineSettings)
 //     │
 //     ├── reads EngineCatalog.all + per-engine InstallState from
-//     │   EnginesViewModel
+//     │   EnginesViewModel.
 //     │
-//     ├── per row:
+//     ├── per card:
 //     │     NotInstalled → "Install" button → confirm dialog → vm.install(name)
-//     │     Downloading  → progress bar + bytes-so-far label
-//     │     Installed    → "Uninstall" button → confirm dialog → vm.uninstall(name)
-//     │     Failed       → "Retry" button + error text
+//     │     Downloading  → CircularProgressIndicator + linear progress strip
+//     │     Extracting   → CircularProgressIndicator + indeterminate strip
+//     │     Installed    → "Uninstall" (outlined) + "Engine settings" (filled)
+//     │                    confirm dialog before uninstall;
+//     │                    Engine settings → onEngineSettings(engine) →
+//     │                                       AppRoot navigates to
+//     │                                       engine/<name>
+//     │     Failed       → "Retry" + reason text below
+//     │     Corrupt      → "Reinstall"
 //     │
-//     └── back arrow → onBack()
+//     └── back arrow → onBack()   (only present when reached from a non-tab
+//                                 entry point; the bottom-nav copy of this
+//                                 screen pops via tab switch)
+//
+//   Cards are OutlinedCard for a quieter look that pairs with the orange
+//   primary used by the install / engine-settings buttons. ElevatedCard
+//   would compete visually with the buttons; outlined keeps the buttons as
+//   the focal point of each card.
 // -----------------------------------------------------------------------------
 
 /**
  * Settings → Engines screen.
  *
- * Lists every engine in [EngineCatalog] with a per-row affordance
- * appropriate to its current state. Confirmation dialogs gate destructive
- * actions (install eats network + storage; uninstall deletes files).
- *
- * Why not a generic "settings" container yet: v0.1 has exactly one
- * settings surface (engines). Putting it on a generic SettingsScreen
- * would be an empty wrapper.
+ * One card per engine in [app.marmalade.tts.install.EngineCatalog]. Each
+ * card exposes its own install/uninstall lifecycle plus a route into
+ * [EngineDetailScreen] for per-engine settings (preprocessing rules etc.).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnginesScreen(
     onBack: () -> Unit,
+    onEngineSettings: (EngineDescriptor) -> Unit,
     viewModel: EnginesViewModel = hiltViewModel(),
 ) {
     val engines by viewModel.engines.collectAsStateWithLifecycle()
@@ -106,16 +121,18 @@ fun EnginesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(items = engines, key = { it.name }) { engine ->
-                EngineRow(
+                EngineCard(
                     engine = engine,
                     state = states[engine.name] ?: InstallState.NotInstalled,
                     onInstallRequested = { pendingInstall = engine },
                     onUninstallRequested = { pendingUninstall = engine },
                     onRetry = { viewModel.install(engine.name) },
+                    onEngineSettings = { onEngineSettings(engine) },
                 )
-                HorizontalDivider()
             }
         }
     }
@@ -144,106 +161,170 @@ fun EnginesScreen(
 }
 
 @Composable
-private fun EngineRow(
+private fun EngineCard(
     engine: EngineDescriptor,
     state: InstallState,
     onInstallRequested: () -> Unit,
     onUninstallRequested: () -> Unit,
     onRetry: () -> Unit,
+    onEngineSettings: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header row: display name + a status chip on the right.
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = engine.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = engine.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                StatusChip(state)
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = engine.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "${formatBytes(engine.downloadSizeBytes)} download · " +
+                    "${formatBytes(engine.installedSizeBytes)} installed",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = engine.licenseSummary,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // In-progress strip + label. Kept identical to the v0.1.10
+            // implementation — determinate while we know the byte count,
+            // indeterminate during the tar.bz2 unpack.
+            if (state is InstallState.Downloading) {
+                Spacer(Modifier.height(8.dp))
+                val fraction = if (state.totalBytes > 0L) {
+                    (state.bytesFetched.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "${formatBytes(engine.downloadSizeBytes)} · ${engine.licenseSummary}",
+                    text = "Downloading · ${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            ActionAffordance(
+            if (state is InstallState.Extracting) {
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Installing · unpacking model files…",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (state is InstallState.Failed) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = state.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Action row. Right-aligned by default; Installed state shows
+            // two buttons with an Uninstall (outlined, destructive-ish)
+            // on the left and Engine settings (filled, primary action)
+            // on the right.
+            ActionRow(
                 state = state,
                 onInstall = onInstallRequested,
                 onUninstall = onUninstallRequested,
                 onRetry = onRetry,
-            )
-        }
-        // Inline progress strip during install — keeps the row from
-        // jumping in height as state transitions. Determinate during
-        // download (byte progress is known), indeterminate during
-        // extraction (tar.bz2 unpack doesn't expose progress).
-        if (state is InstallState.Downloading) {
-            Spacer(Modifier.height(8.dp))
-            val fraction = if (state.totalBytes > 0L) {
-                (state.bytesFetched.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
-            } else 0f
-            LinearProgressIndicator(
-                progress = { fraction },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Downloading · ${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (state is InstallState.Extracting) {
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Installing · unpacking model files…",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (state is InstallState.Failed) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = state.reason,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+                onEngineSettings = onEngineSettings,
             )
         }
     }
 }
 
 @Composable
-private fun ActionAffordance(
+private fun StatusChip(state: InstallState) {
+    val (label, color) = when (state) {
+        InstallState.NotInstalled -> "Not installed" to MaterialTheme.colorScheme.onSurfaceVariant
+        is InstallState.Downloading -> "Downloading" to MaterialTheme.colorScheme.primary
+        InstallState.Extracting -> "Installing" to MaterialTheme.colorScheme.primary
+        InstallState.Installed -> "Installed" to MaterialTheme.colorScheme.primary
+        is InstallState.Failed -> "Failed" to MaterialTheme.colorScheme.error
+        InstallState.Corrupt -> "Corrupt" to MaterialTheme.colorScheme.error
+    }
+    // AssistChip with onClick = no-op keeps the visual + accessible
+    // role-as-a-chip behaviour without needing to hand-roll a Surface +
+    // Text. The chip is purely informational.
+    AssistChip(
+        onClick = { /* informational only */ },
+        label = { Text(label) },
+        colors = AssistChipDefaults.assistChipColors(labelColor = color),
+        enabled = false,
+    )
+}
+
+@Composable
+private fun ActionRow(
     state: InstallState,
     onInstall: () -> Unit,
     onUninstall: () -> Unit,
     onRetry: () -> Unit,
+    onEngineSettings: () -> Unit,
 ) {
-    when (state) {
-        InstallState.NotInstalled -> Button(onClick = onInstall) { Text("Install") }
-        // A small spinner sits in the action slot during the install — pairs
-        // with the wider LinearProgressIndicator strip below the row so the
-        // user always has *something* visibly moving while we work.
-        is InstallState.Downloading,
-        InstallState.Extracting -> CircularProgressIndicator(
-            modifier = Modifier.width(24.dp),
-            strokeWidth = 2.5.dp,
-        )
-        InstallState.Installed -> OutlinedButton(onClick = onUninstall) { Text("Uninstall") }
-        is InstallState.Failed -> Button(onClick = onRetry) { Text("Retry") }
-        InstallState.Corrupt -> Button(onClick = onRetry) { Text("Reinstall") }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when (state) {
+            InstallState.NotInstalled -> {
+                Button(onClick = onInstall) { Text("Install") }
+            }
+            is InstallState.Downloading, InstallState.Extracting -> {
+                // No buttons during install — the action area is
+                // intentionally just a small spinner. Progress + label
+                // are shown above in the card body.
+                Box(
+                    modifier = Modifier.height(36.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(24.dp),
+                        strokeWidth = 2.5.dp,
+                    )
+                }
+            }
+            InstallState.Installed -> {
+                OutlinedButton(onClick = onUninstall) { Text("Uninstall") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onEngineSettings) { Text("Engine settings") }
+            }
+            is InstallState.Failed -> {
+                Button(onClick = onRetry) { Text("Retry") }
+            }
+            InstallState.Corrupt -> {
+                Button(onClick = onRetry) { Text("Reinstall") }
+            }
+        }
     }
 }
 
@@ -309,4 +390,3 @@ private fun UninstallConfirmDialog(
         },
     )
 }
-

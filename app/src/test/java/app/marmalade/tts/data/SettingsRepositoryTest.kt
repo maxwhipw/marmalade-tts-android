@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -64,6 +65,40 @@ class SettingsRepositoryTest {
         repo.setDefaultVoiceId("kitten:Bella")
         repo.setDefaultVoiceId("kitten:Leo")
         assertEquals("kitten:Leo", repo.defaultVoiceId.first())
+    }
+
+    // -- primaryAliasName -----------------------------------------------------
+
+    @Test
+    fun primaryAliasName_defaultsToNullWhenUnset() = runTest {
+        val repo = newRepo()
+        assertNull(
+            "Fresh install should have a null primary alias",
+            repo.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun setPrimaryAliasName_roundTripsThroughDataStore() = runTest {
+        val repo = newRepo()
+        repo.setPrimaryAliasName("narrator")
+        assertEquals("narrator", repo.primaryAliasName.first())
+    }
+
+    @Test
+    fun setPrimaryAliasName_nullClearsThePointer() = runTest {
+        val repo = newRepo()
+        repo.setPrimaryAliasName("narrator")
+        assertEquals("narrator", repo.primaryAliasName.first())
+
+        // Null write must remove the key, not store an empty string —
+        // otherwise consumers can't distinguish "user cleared" from
+        // "never set".
+        repo.setPrimaryAliasName(null)
+        assertNull(
+            "Writing null should remove the key entirely",
+            repo.primaryAliasName.first(),
+        )
     }
 
     private fun newRepo(): SettingsRepository {

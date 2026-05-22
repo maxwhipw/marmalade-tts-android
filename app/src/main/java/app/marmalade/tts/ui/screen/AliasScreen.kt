@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -91,6 +92,7 @@ fun AliasScreen(
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val voices by viewModel.voicesForSelectedEngine.collectAsStateWithLifecycle()
+    val primaryAliasName by viewModel.primaryAliasName.collectAsStateWithLifecycle()
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
@@ -126,8 +128,10 @@ fun AliasScreen(
                     items(items = aliases, key = { it.name }) { alias ->
                         AliasRow(
                             alias = alias,
+                            isPrimary = alias.name == primaryAliasName,
                             onEdit = { viewModel.openEditor(alias) },
                             onDelete = { pendingDelete = alias },
+                            onSetPrimary = { viewModel.setPrimary(alias.name) },
                         )
                         HorizontalDivider()
                     }
@@ -200,11 +204,28 @@ private fun EmptyState() {
     }
 }
 
+/**
+ * One row on the alias list.
+ *
+ * UX choice for the primary indicator: a leading **filled star** on the
+ * primary row, an outlined-star **IconButton** on non-primary rows. The
+ * star is a single tap target with no menu — tapping it on a non-primary
+ * row calls [onSetPrimary] immediately. Picked over an overflow menu
+ * because the action is binary (set/unset is implicit — there is always
+ * exactly one primary) and a one-tap affordance reads cleaner than a
+ * three-dot menu hiding a single item.
+ *
+ * The primary row's star is non-interactive (no IconButton wrapper) so
+ * tapping a row that is already primary does nothing — matches the
+ * "there is always one primary" invariant.
+ */
 @Composable
 private fun AliasRow(
     alias: VoiceAlias,
+    isPrimary: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onSetPrimary: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -213,12 +234,44 @@ private fun AliasRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = alias.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+        if (isPrimary) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = "Primary alias",
+                tint = MaterialTheme.colorScheme.primary,
             )
+        } else {
+            IconButton(onClick = onSetPrimary) {
+                // Same star icon for both states; the dimmed alpha is the
+                // "not primary" affordance. material-icons-core doesn't
+                // ship an outlined variant of Star, and pulling in
+                // material-icons-extended just for one icon is overkill.
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = "Set ${alias.name} as primary",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                )
+            }
+        }
+        Spacer(Modifier.height(0.dp))
+        Column(modifier = Modifier
+            .weight(1f)
+            .padding(start = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = alias.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (isPrimary) {
+                    Spacer(Modifier.height(0.dp))
+                    AssistChip(
+                        onClick = onEdit,
+                        label = { Text("Primary") },
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
             Text(
                 text = "${alias.engine} · ${alias.voiceId}",
                 style = MaterialTheme.typography.bodySmall,

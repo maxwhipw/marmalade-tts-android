@@ -99,6 +99,42 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
+     * Name of the alias currently designated as **primary** — the
+     * default-fallback voice/effect/speed bundle used when no per-app
+     * rule matches, or when an external caller asks marmalade to speak
+     * without specifying a voice.
+     *
+     * Emits `null` when no primary has been set yet (fresh install,
+     * or the previously-primary alias was deleted). The alias name is
+     * the PK on the `voice_alias` table; callers must treat a stale
+     * pointer (alias deleted out from under us) as null and re-derive.
+     *
+     * Stored as a *user preference*, not as a column on `VoiceAlias`,
+     * so the alias schema stays unchanged and deleting an alias is a
+     * simple `dao.delete(name)` plus a defensive clear here.
+     */
+    open val primaryAliasName: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_PRIMARY_ALIAS]
+    }
+
+    /**
+     * Set (or clear) the primary alias pointer.
+     *
+     * Passing `null` removes the key from the DataStore rather than
+     * storing an empty string — keeps the "no primary set" state
+     * indistinguishable from a fresh install on read.
+     */
+    open suspend fun setPrimaryAliasName(value: String?) {
+        dataStore.edit { prefs ->
+            if (value == null) {
+                prefs.remove(KEY_PRIMARY_ALIAS)
+            } else {
+                prefs[KEY_PRIMARY_ALIAS] = value
+            }
+        }
+    }
+
+    /**
      * Emits the persisted theme preset name (one of [ThemePreset.name]),
      * falling back to [ThemePreset.MARMALADE]'s name when nothing is stored.
      *
@@ -227,5 +263,9 @@ open class SettingsRepository @Inject constructor(
 
         // Keep-engine-loaded toggle; default true preserves pre-toggle behavior.
         private val KEY_KEEP_LOADED = booleanPreferencesKey("keep_engine_loaded")
+
+        // Primary alias pointer (nullable). Null is encoded as
+        // "key absent from DataStore" — see [setPrimaryAliasName].
+        private val KEY_PRIMARY_ALIAS = stringPreferencesKey("primary_alias_name")
     }
 }

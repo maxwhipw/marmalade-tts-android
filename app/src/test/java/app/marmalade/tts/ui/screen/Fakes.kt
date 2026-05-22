@@ -87,6 +87,14 @@ internal class FakeSettings(
         onboardedState.value = value
     }
 
+    // Primary alias pointer (nullable). Mirrors the prod field — null
+    // means "no primary set" and is the default for fresh test fixtures.
+    private val primaryAlias = MutableStateFlow<String?>(null)
+    override val primaryAliasName: Flow<String?> = primaryAlias
+    override suspend fun setPrimaryAliasName(value: String?) {
+        primaryAlias.value = value
+    }
+
     // Per-engine preprocessing-rule sets. Defaults to "nothing stored"
     // — `enabledRules(engine)` falls back to EngineProfiles.defaultsFor.
     // Tests that want to start from a stored set can call
