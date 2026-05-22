@@ -5,8 +5,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Repo scaffolded. README, [SPEC.md](SPEC.md), and [ROADMAP.md](ROADMAP.md)
-written. No code yet — first build will be v0.1.0 (see ROADMAP for scope).
+_No unreleased changes yet._
+
+## [0.1.0] — 2026-05-21
+
+First shipped build (debug-signed APK on GitHub Releases). System TTS
+engine provider with the Kitten engine via opt-in install, emoji prosody
+layer, share-sheet target, Quick Settings tile, voice aliases, three
+effect presets (cave / robot / telephone), and a foreground media
+playback service for long-form text.
 
 ### Added — Engine installer + onboarding flow
 

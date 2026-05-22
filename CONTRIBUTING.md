@@ -5,17 +5,21 @@ contribution path is a bit different than a stable project.
 
 ## Right now
 
-The repo is a documentation skeleton. Code work hasn't started yet —
-the first usable build will be v0.1.0 (see [ROADMAP.md](ROADMAP.md)).
+v0.1.0 has shipped as a debug-signed APK on
+[GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases).
+Focus for the next milestones is on the items called out in
+[ROADMAP.md](ROADMAP.md) (Piper / Kokoro engines, production signing key,
+audible-test automation).
 
 If you want to:
 
-- **Discuss the design** before code lands: open a discussion or an
-  issue. Architecture decisions in [SPEC.md](SPEC.md) are not yet
-  locked.
-- **Help with v0.1.0:** the MVP is scoped in ROADMAP.md. Comment on
-  the tracking issue (once filed) saying which feature you'd take.
-- **Suggest features beyond MVP:** ROADMAP.md lists v0.2 → v1.0; PRs
+- **Discuss the design:** open a discussion or an issue.
+  Architecture decisions in [SPEC.md](SPEC.md) are documented, but
+  pre-1.0 we're still willing to revisit them.
+- **Help with v0.2:** the next-milestone items are scoped in ROADMAP.md.
+  Comment on the tracking issue (once filed) saying which feature
+  you'd take.
+- **Suggest features beyond v0.2:** ROADMAP.md lists v0.3 → v1.0; PRs
   to ROADMAP.md proposing additions are welcome.
 
 ## Once code lands

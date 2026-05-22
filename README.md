@@ -4,7 +4,9 @@
   <img src="assets/mascot.png" alt="marmalade-tts-android mascot" width="220">
 </p>
 
-> **Status:** Early development. Not yet released.
+> **Status:** v0.1.0 shipped (debug-signed APK on
+> [GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases/tag/v0.1.0)).
+> Early development — still pre-1.0.
 
 Native Android text-to-speech app with on-device neural voices and
 emotion-aware prosody. Registers as a system TTS engine, so every app
@@ -70,11 +72,18 @@ install or uninstall engines later from Settings → Engines. The
 
 ## Project status
 
-This is currently a documentation skeleton. The README, [SPEC.md](SPEC.md)
-and [ROADMAP.md](ROADMAP.md) capture the full v0.1 → v1.0 plan. Code
-work begins next; first usable build will be v0.1.0 with the system TTS
-provider, kitten engine, emoji prosody layer, share sheet, quick tile,
-and voice aliases.
+**v0.1.0 has shipped** as a debug-signed APK on the
+[GitHub Releases page](https://github.com/maxwhipw/marmalade-tts-android/releases/tag/v0.1.0).
+Working in this build: system TTS engine provider, the Kitten engine via
+opt-in install, the emoji prosody layer, the share-sheet target, the
+Quick Settings tile, voice aliases / personas, three audio effect presets
+(cave / robot / telephone), and a foreground media-playback service for
+long-form text.
+
+Not yet: a production signing key (future releases will be release-signed
+and will require a fresh install at that point), Piper and Kokoro engines,
+and automated audible / lock-screen tests. See [SPEC.md](SPEC.md) and
+[ROADMAP.md](ROADMAP.md) for the full v0.1 → v1.0 plan.
 
 ## License
 

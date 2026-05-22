@@ -15,17 +15,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       uses Room's `fallbackToDestructiveMigration()` — see [AppModule].
  * - v3: adds `voice_alias` table for user-saved voice aliases / personas
  *       (mirrors the CLI's `aliases:` block — see README "Voice aliases /
- *       personas"). v2→v3 is destructive: on upgrade, `voice_meta` is
- *       rebuilt from `KittenVoiceCatalog` at catalog defaults via the
- *       `onCreate` reseed, so any `isInstalled = true` flags the user
- *       flipped revert to `false`. Acceptable in v0.1 because the install
- *       state is re-derived from engine-directory existence the next time
- *       a synth attempt runs (KittenEngine.ensureModelLoaded surfaces
- *       missing files as ModelMissing, prompting reinstall). The
- *       [MIGRATION_2_3] skeleton below is a ready-to-wire non-destructive
- *       alternative — switch AppModule to use `.addMigrations(MIGRATION_2_3)`
- *       instead of `fallbackToDestructiveMigration()` once preserving
- *       user-toggled flags becomes worth it.
+ *       personas"). v2→v3 prefers [MIGRATION_2_3], which adds the alias
+ *       table without touching `voice_meta` so any `isInstalled = true`
+ *       flags the user flipped survive the upgrade. [AppModule] also keeps
+ *       `fallbackToDestructiveMigration()` wired in as a belt-and-braces
+ *       option for any future hash drift; in practice it should never
+ *       fire on the v2→v3 path. If a destructive fallback ever does run,
+ *       install state is re-derived from engine-directory existence the
+ *       next time a synth attempt happens (KittenEngine.ensureModelLoaded
+ *       surfaces missing files as ModelMissing, prompting reinstall).
  *
  * Schemas are exported under `app/schemas/` so future versions can write
  * migrations against the v3 hash without guesswork.
@@ -43,11 +41,9 @@ abstract class MarmaladeDb : RoomDatabase() {
 /**
  * v2 → v3 non-destructive migration. Adds the `voice_alias` table without
  * touching `voice_meta`, so user-toggled `isInstalled` flags survive the
- * upgrade. Currently unused — [AppModule] takes the destructive fallback
- * path (acceptable for v0.1, see the schema-history block above). Wire
- * this in by replacing `.fallbackToDestructiveMigration()` with
- * `.addMigrations(MIGRATION_2_3)` (and keeping fallback as a belt-and-
- * braces option for future hash drift).
+ * upgrade. Wired in via `.addMigrations(MIGRATION_2_3)` in [AppModule];
+ * `fallbackToDestructiveMigration()` is kept alongside as a belt-and-
+ * braces option for any future hash drift but should not fire on v2→v3.
  *
  * The CREATE TABLE statement is kept literally in sync with the exported
  * schema at `app/schemas/.../3.json` — any change to [VoiceAlias] must

@@ -68,9 +68,12 @@ These are out by deliberate choice. Revisit only with a strong reason.
   for low-end devices. Engine assets (models + phonemizer data) are
   not bundled — they're downloaded by `EngineInstaller` to
   `${filesDir}/engines/<name>/` on user opt-in.
-- **Audio:** Oboe for low-latency streaming output. AudioTrack on the
-  TextToSpeechService callback path (mandated by the system TTS
-  contract). `android.media.audiofx` for v0.1 effect presets.
+- **Audio:** AudioTrack with MODE_STREAM for output — sized to ~250 ms of
+  headroom so transport actions (pause/cancel/skip) feel immediate.
+  AudioTrack on the TextToSpeechService callback path (mandated by the
+  system TTS contract). Pure-Kotlin PCM DSP in `audio/EffectChain.kt` for
+  the cave/robot/telephone presets — `android.media.audiofx` only operates
+  on a playing `AudioTrack`, not arbitrary buffers, so it wasn't a fit.
 - **DI:** Hilt.
 - **Persistence:** Room (voice + alias metadata, synthesis history),
   DataStore (settings).
@@ -151,8 +154,9 @@ and routes to the install flow.
 8. **Voice aliases / personas** — same concept as `aliases:` config in
    the CLI. UI: "Save current engine+voice+speed+effect as 'narrator'".
    Aliases appear as share-sheet sub-targets.
-9. **Audio effects (3 presets)** — `cave`, `robot`, `telephone` via
-   `android.media.audiofx`. Full chain (10 presets, matching CLI) in v0.2.
+9. **Audio effects (3 presets)** — `cave`, `robot`, `telephone` via a
+   pure-Kotlin PCM DSP (`audio/EffectChain.kt`). Full chain (10 presets,
+   matching CLI) in v0.2.
 
 ## Feature surface — v1.0 (extended)
 
@@ -237,7 +241,7 @@ surfaces:
 What does NOT cross over:
 - Synth code (subprocess-based on Linux vs in-process ONNX on Android).
 - Daemon mode (Android equivalent is foreground service / bound service).
-- sox effects (mobile uses `android.media.audiofx` / Oboe DSP graph).
+- sox effects (mobile uses a pure-Kotlin PCM DSP in `audio/EffectChain.kt`).
 
 ## Versioning and stability
 
