@@ -23,4 +23,6 @@ class AppRootViewModel @Inject constructor(
 ) : ViewModel() {
     val onboarded: Flow<Boolean> = settings.onboarded
     val themePreset: Flow<ThemePreset> = settings.themePreset.map { ThemePreset.fromString(it) }
+    /** "system" / "light" / "dark" — see [resolveThemeIsDark] for the contract. */
+    val themeMode: Flow<String> = settings.themeMode
 }

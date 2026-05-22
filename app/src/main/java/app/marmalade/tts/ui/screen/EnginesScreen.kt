@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -182,8 +183,10 @@ private fun EngineRow(
                 onRetry = onRetry,
             )
         }
-        // Inline progress strip when downloading — keeps the row from
-        // jumping in height as state transitions.
+        // Inline progress strip during install — keeps the row from
+        // jumping in height as state transitions. Determinate during
+        // download (byte progress is known), indeterminate during
+        // extraction (tar.bz2 unpack doesn't expose progress).
         if (state is InstallState.Downloading) {
             Spacer(Modifier.height(8.dp))
             val fraction = if (state.totalBytes > 0L) {
@@ -195,7 +198,17 @@ private fun EngineRow(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
+                text = "Downloading · ${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (state is InstallState.Extracting) {
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Installing · unpacking model files…",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -220,15 +233,13 @@ private fun ActionAffordance(
 ) {
     when (state) {
         InstallState.NotInstalled -> Button(onClick = onInstall) { Text("Install") }
-        is InstallState.Downloading -> Text(
-            text = "…",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        InstallState.Extracting -> Text(
-            text = "…",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // A small spinner sits in the action slot during the install — pairs
+        // with the wider LinearProgressIndicator strip below the row so the
+        // user always has *something* visibly moving while we work.
+        is InstallState.Downloading,
+        InstallState.Extracting -> CircularProgressIndicator(
+            modifier = Modifier.width(24.dp),
+            strokeWidth = 2.5.dp,
         )
         InstallState.Installed -> OutlinedButton(onClick = onUninstall) { Text("Uninstall") }
         is InstallState.Failed -> Button(onClick = onRetry) { Text("Retry") }

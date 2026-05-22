@@ -89,6 +89,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val keepLoaded by viewModel.keepEngineLoaded.collectAsStateWithLifecycle()
     val aliasCount by viewModel.aliasCount.collectAsStateWithLifecycle()
     val enabledRules by viewModel.enabledRules.collectAsStateWithLifecycle()
@@ -111,8 +112,10 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             AppearanceSection(
-                current = themePreset,
+                currentPreset = themePreset,
                 onPresetSelected = viewModel::setThemePreset,
+                currentMode = themeMode,
+                onModeSelected = viewModel::setThemeMode,
             )
 
             HorizontalDivider()
@@ -148,23 +151,52 @@ fun SettingsScreen(
 
 @Composable
 private fun AppearanceSection(
-    current: ThemePreset,
+    currentPreset: ThemePreset,
     onPresetSelected: (ThemePreset) -> Unit,
+    currentMode: String,
+    onModeSelected: (String) -> Unit,
 ) {
     SectionHeader("Appearance")
 
+    // Light / Dark / System override — independent of preset. Users
+    // who want "Marmalade always dark" should be able to set it.
+    Text(
+        text = "Mode",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
+    )
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+            FilterChip(
+                selected = key == currentMode,
+                onClick = { onModeSelected(key) },
+                label = { Text(label) },
+            )
+        }
+    }
+
+    Text(
+        text = "Color",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+    )
     // FlowRow would be the right primitive here but it's still in the
     // experimental compose-foundation-layout artifact for our BOM. A
     // simple wrapping Row with arrangement.spacedBy + horizontal padding
     // covers the same use case for 5 short chips on a phone-width screen.
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ThemePreset.entries.forEach { preset ->
             FilterChip(
-                selected = preset == current,
+                selected = preset == currentPreset,
                 onClick = { onPresetSelected(preset) },
                 label = { Text(preset.displayName) },
             )

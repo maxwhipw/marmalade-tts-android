@@ -100,19 +100,43 @@ open class SettingsRepository @Inject constructor(
 
     /**
      * Emits the persisted theme preset name (one of [ThemePreset.name]),
-     * falling back to [ThemePreset.SYSTEM]'s name when nothing is stored.
+     * falling back to [ThemePreset.MARMALADE]'s name when nothing is stored.
      *
      * Stored as a string (not an int ordinal) so reordering the enum in a
      * future release doesn't silently re-skin existing installs.
+     *
+     * Default changed from SYSTEM → MARMALADE in v0.1.10: the orange palette
+     * is the brand identity, and System (Material You) felt arbitrary as
+     * the default for new installs.
      */
     open val themePreset: Flow<String> = dataStore.data.map { prefs ->
-        prefs[KEY_THEME_PRESET] ?: ThemePreset.SYSTEM.name
+        prefs[KEY_THEME_PRESET] ?: ThemePreset.MARMALADE.name
     }
 
     /** Persists [value] (a [ThemePreset.name]) as the new theme preset. */
     open suspend fun setThemePreset(value: String) {
         dataStore.edit { prefs ->
             prefs[KEY_THEME_PRESET] = value
+        }
+    }
+
+    /**
+     * Emits the user's dark-mode override: `"system"` / `"light"` / `"dark"`.
+     * Defaults to `"system"` (follow the OS).
+     *
+     * Decoupled from [themePreset] — preset is the color *family* (Marmalade,
+     * Midnight, etc.) and themeMode is the *brightness* (light/dark/auto).
+     * Resolved at the theme-application site via
+     * [app.marmalade.tts.ui.theme.resolveThemeIsDark].
+     */
+    open val themeMode: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_THEME_MODE] ?: "system"
+    }
+
+    /** Persists the dark-mode override. Caller is responsible for normalising the input. */
+    open suspend fun setThemeMode(value: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_THEME_MODE] = value
         }
     }
 
@@ -196,6 +220,10 @@ open class SettingsRepository @Inject constructor(
         // Theme preset name (stored as ThemePreset.name, not ordinal — see
         // [themePreset] kdoc).
         private val KEY_THEME_PRESET = stringPreferencesKey("theme_preset")
+
+        // Dark-mode override: "system" / "light" / "dark". Decoupled from
+        // theme preset so the user can pick "Marmalade + always dark" etc.
+        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
 
         // Keep-engine-loaded toggle; default true preserves pre-toggle behavior.
         private val KEY_KEEP_LOADED = booleanPreferencesKey("keep_engine_loaded")

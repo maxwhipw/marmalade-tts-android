@@ -115,20 +115,43 @@ fun VoicePickerScreen(
                 )
             }
 
+            // Group by engine so the user can see at a glance which engine
+            // each voice belongs to — and so they can pick "any kokoro
+            // voice" vs "any kitten voice" without rummaging a flat list.
+            val groupedByEngine = voices.groupBy { it.engine }
+            // Sort engines so the most-installed-likely (kokoro, then kitten)
+            // surfaces first. Anything else falls in alphabetical order.
+            val engineOrder = listOf("kokoro", "kitten")
+            val orderedEngines = engineOrder.filter { it in groupedByEngine.keys } +
+                groupedByEngine.keys.filter { it !in engineOrder }.sorted()
+
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items = voices, key = { it.id }) { voice ->
-                    VoiceRow(
-                        voice = voice,
-                        isSelected = voice.id == selectedId,
-                        isPreviewing = (previewState as? PreviewState.Playing)?.voiceId == voice.id,
-                        previewEnabled = !modelMissing,
-                        onClick = {
-                            viewModel.selectVoice(voice.id)
-                            onVoiceSelected()
-                        },
-                        onPreview = { viewModel.preview(voice) },
-                    )
-                    HorizontalDivider()
+                orderedEngines.forEach { engineName ->
+                    val engineVoices = groupedByEngine[engineName].orEmpty()
+                    item(key = "header-$engineName") {
+                        Text(
+                            text = displayNameForEngine(engineName),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(items = engineVoices, key = { it.id }) { voice ->
+                        VoiceRow(
+                            voice = voice,
+                            isSelected = voice.id == selectedId,
+                            isPreviewing = (previewState as? PreviewState.Playing)?.voiceId == voice.id,
+                            previewEnabled = !modelMissing,
+                            onClick = {
+                                viewModel.selectVoice(voice.id)
+                                onVoiceSelected()
+                            },
+                            onPreview = { viewModel.preview(voice) },
+                        )
+                        HorizontalDivider()
+                    }
                 }
             }
         }
@@ -212,4 +235,11 @@ private fun genderGlyph(gender: String?): String = when (gender) {
 private fun supportingText(voice: VoiceMeta): String {
     val gender = voice.gender ?: "—"
     return "${voice.engine} · $gender · ${voice.languageCode}"
+}
+
+/** Title-case the engine name for the section header. */
+private fun displayNameForEngine(engineName: String): String = when (engineName) {
+    "kokoro" -> "Kokoro"
+    "kitten" -> "Kitten"
+    else -> engineName.replaceFirstChar { it.uppercase() }
 }

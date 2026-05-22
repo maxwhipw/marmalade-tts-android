@@ -74,7 +74,18 @@ class SettingsViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = ThemePreset.SYSTEM,
+            initialValue = ThemePreset.MARMALADE,
+        )
+
+    /**
+     * The user's dark-mode override — `"system"`, `"light"`, or `"dark"`.
+     * Defaults to `"system"` (follow the OS).
+     */
+    val themeMode: StateFlow<String> = settings.themeMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = "system",
         )
 
     /**
@@ -131,6 +142,13 @@ class SettingsViewModel @Inject constructor(
     fun setThemePreset(preset: ThemePreset) {
         viewModelScope.launch {
             settings.setThemePreset(preset.name)
+        }
+    }
+
+    /** Persist a new dark-mode override. Caller passes one of "system" / "light" / "dark". */
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch {
+            settings.setThemeMode(mode)
         }
     }
 
