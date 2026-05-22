@@ -110,38 +110,39 @@ data class EngineDescriptor(
 object EngineCatalog {
 
     /**
-     * Sum of unpacked Kitten file sizes. Carried over from the v0.1.0–
-     * v0.1.2 per-file catalog where this figure was computed as
-     * `(KITTEN_TOP_LEVEL + KITTEN_ESPEAK_DATA).sumOf { it.sizeBytes }`.
-     * That came out to roughly 42 MB on-disk; the precise byte count
-     * documented here is the pre-refactor sum so the "installed size"
-     * copy in the UI stays accurate.
-     *
-     * Refresh procedure when bumping the bundle:
-     *   tar -xjf kitten-nano-en-v0_1-fp16.tar.bz2
-     *   find kitten-nano-en-v0_1-fp16 -type f -exec stat -c %s {} + | \
+     * Sum of unpacked Kitten v0.8 int8 file sizes. Compute with:
+     *   tar -xjf kitten-nano-en-v0_8-int8.tar.bz2
+     *   find kitten-nano-en-v0_8-int8 -type f -exec stat -c %s {} + | \
      *       awk '{s+=$1} END {print s}'
      */
-    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 42_318_953L
+    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 45_652_547L
 
-    /** Kitten TTS — small (~42 MB on-disk), 8 English voices, runs on every device. */
+    /**
+     * Kitten TTS — Sherpa-ONNX nano-en v0.8 int8 port. ~31 MB compressed
+     * download, ~44 MB on-disk, 8 English voices.
+     *
+     * v0.1.0–v0.1.3 shipped the older v0.1 fp16 port; v0.1.4 upgrades to
+     * v0.8 int8 (same revision the marmalade-tts CLI uses on Linux). The
+     * model filename also changed from `model.fp16.onnx` to
+     * `model.int8.onnx` — [KittenEngine] reads from the new path.
+     */
     private val KITTEN: EngineDescriptor = EngineDescriptor(
         name = "kitten",
         displayName = "Kitten TTS",
         description = "Small, fast English TTS with 8 voices. Recommended starter engine — " +
             "runs offline on every device and downloads in under a minute.",
-        downloadSizeBytes = 26_855_312L,
+        downloadSizeBytes = 31_220_690L,
         installedSizeBytes = KITTEN_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v2/kitten-nano-en-v0_1-fp16.tar.bz2",
-            sha256 = "f35dac93754fe2ac97c66e1f468311d0d2130f7f0f5a89bfa1197e09a0cbdec5",
-            sizeBytes = 26_855_312L,
-            // The upstream Sherpa-ONNX tarball wraps everything in a
-            // top-level directory of this name. The installer strips it
-            // during extraction so the on-device layout is flat under
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v3/kitten-nano-en-v0_8-int8.tar.bz2",
+            sha256 = "6fa5be852612ce761094ba74ee6123b4fc4acfefa79bf64dc63acae4a83af2fd",
+            sizeBytes = 31_220_690L,
+            // Sherpa-ONNX's tarball wraps everything in a top-level
+            // directory of this name. The installer strips it during
+            // extraction so the on-device layout is flat under
             // ${filesDir}/engines/kitten/.
-            archiveRoot = "kitten-nano-en-v0_1-fp16/",
+            archiveRoot = "kitten-nano-en-v0_8-int8/",
         ),
         licenseNotice = "LICENSES/kitten-tts.md",
         licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
