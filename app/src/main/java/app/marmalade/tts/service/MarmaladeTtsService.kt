@@ -13,6 +13,11 @@ import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 // -----------------------------------------------------------------------------
@@ -55,6 +60,14 @@ import kotlinx.coroutines.runBlocking
 //   Voice negotiation (onLoadVoice / onIsLanguageAvailable) is wired to
 //   the same VoiceMetaDao seed (KittenVoiceCatalog) so the system can
 //   enumerate the 8 Kitten voices through Settings → Languages → TTS.
+//
+//   onLoadLanguage additionally fires a background warm-up — calling
+//   KittenEngine.ensureModelLoaded() off-thread — so that the first
+//   onSynthesizeText doesn't pay the ~2–5 s cold-start tax for loading
+//   ~25 MB of model + 19 MB of espeak-ng-data via JNI. Some TTS clients
+//   (screen readers especially) will treat a slow callback.start() as
+//   an engine fault, so we eat the load cost when the user picks us in
+//   Settings → Languages → Text-to-speech rather than on first utterance.
 // -----------------------------------------------------------------------------
 
 /**
@@ -86,6 +99,12 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
+    // Bound to the service lifecycle (cancelled in onDestroy). Used for the
+    // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
+    // because ensureModelLoaded() reads ~44 MB off disk before handing to JNI.
+    private val serviceScope: CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     // Widened to public so MarmaladeTtsServiceTest can exercise the
     // language-negotiation logic without subclassing the framework type.
     public override fun onIsLanguageAvailable(
@@ -107,11 +126,52 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
     }
 
+    /**
+     * Called by the framework when the user selects this engine in
+     * Settings → Languages → Text-to-speech, and again on engine start.
+     *
+     * Returns the same `LANG_*` code as [onIsLanguageAvailable] (the
+     * contract is identical — same inputs, same outputs). On any positive
+     * match we additionally fire a background warm-up so the first
+     * [onSynthesizeText] does not pay the ~2–5 s cold-start tax of loading
+     * ~25 MB of model + 19 MB of espeak-ng-data via JNI. Some clients
+     * (screen readers especially) treat a slow `callback.start()` as an
+     * engine fault.
+     */
     override fun onLoadLanguage(
         lang: String?,
         country: String?,
         variant: String?,
-    ): Int = onIsLanguageAvailable(lang, country, variant)
+    ): Int {
+        val result = onIsLanguageAvailable(lang, country, variant)
+        val supported = result == TextToSpeech.LANG_AVAILABLE ||
+            result == TextToSpeech.LANG_COUNTRY_AVAILABLE ||
+            result == TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE
+        if (supported) {
+            warmUpEngine()
+        }
+        return result
+    }
+
+    /**
+     * Pre-load the Kitten model on a background coroutine so the next
+     * [onSynthesizeText] is fast. Safe to call repeatedly —
+     * [KittenEngine.ensureModelLoaded] is idempotent. Failures are logged
+     * and swallowed; the synthesis path's own catch will still surface
+     * [EngineNotInstalledException] correctly if this warm-up fails.
+     */
+    private fun warmUpEngine() {
+        serviceScope.launch {
+            try {
+                engine.ensureModelLoaded()
+                Log.d(TAG, "Engine warm-up complete")
+            } catch (e: Exception) {
+                // Don't crash the service — onSynthesizeText will report
+                // the same error to the system the next time it fires.
+                Log.w(TAG, "Engine warm-up failed (will retry on synthesis)", e)
+            }
+        }
+    }
 
     override fun onGetLanguage(): Array<String> = arrayOf("eng", "USA", "")
 
@@ -202,10 +262,17 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
     }
 
+    // TODO: STUBS.md — onStop cancellation
     override fun onStop() {
         // Nothing to cancel: synthesis is synchronous and the system will
         // simply ignore any pcm we'd write after onStop returns. Future
         // work (chunked streaming generation) will set a cancel flag here.
+    }
+
+    override fun onDestroy() {
+        // Tear down the warm-up scope before the framework releases us.
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     // -- helpers --------------------------------------------------------------
