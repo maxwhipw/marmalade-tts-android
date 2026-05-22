@@ -26,13 +26,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import sys
 from pathlib import Path
 
 
-HF_BASE = (
-    "https://huggingface.co/csukuangfj/"
-    "sherpa-onnx-kitten-nano-en-v0_1-fp16/resolve/main"
+ENGINES_BASE = (
+    "https://github.com/maxwhipw/marmalade-tts-android-engines/"
+    "releases/download/v1"
 )
 
 KOTLIN_HEADER = '''\
@@ -59,7 +60,7 @@ package app.marmalade.tts.install
 internal object KittenEspeakDataManifest {
 
     private const val BASE: String =
-        "https://huggingface.co/csukuangfj/sherpa-onnx-kitten-nano-en-v0_1-fp16/resolve/main"
+        "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v1"
 
     val FILES: List<EngineFile> = listOf(
 '''
@@ -114,7 +115,16 @@ def main(argv: list[str]) -> int:
         size = path.stat().st_size
         sha = sha256_of(path)
         rel_under_engine = f"espeak-ng-data/{rel}"
-        url_path = f"$BASE/espeak-ng-data/{rel}"
+        # GitHub release-asset filenames are flat AND sanitized — directory
+        # separators get encoded as `__`, and any character outside
+        # [A-Za-z0-9._+-] (the GitHub-permitted asset-filename charset)
+        # becomes `.`. espeak's voice-variant files use `!` (e.g.
+        # `!v/adam`) and the language-roots dir contains "Mr serious"
+        # with a space, so the rewrite has bite. EngineInstaller maps
+        # back to the nested on-device path via the `relativePath` field.
+        flat = rel_under_engine.replace("/", "__")
+        sanitized = re.sub(r"[^A-Za-z0-9._+\-]", ".", flat)
+        url_path = f"$BASE/{sanitized}"
         out.append(
             f'        EngineFile(\n'
             f'            relativePath = "{rel_under_engine}",\n'

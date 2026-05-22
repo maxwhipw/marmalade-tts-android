@@ -118,41 +118,49 @@ object EngineCatalog {
     const val SHA256_PENDING: String = "PENDING_VERIFICATION"
 
     /**
-     * Base URL for the Sherpa-ONNX HuggingFace mirror that hosts the
-     * Kitten engine files. The URL pattern is
-     * `<base>/<relativePath>` — e.g. the model file lives at
-     * `<base>/model.fp16.onnx`.
+     * Base URL for the GitHub-Releases-hosted Kitten engine bundle on the
+     * dedicated `marmalade-tts-android-engines` repo. The URL pattern is
+     * `<base>/<flatAssetName>` — GitHub release-asset filenames are flat,
+     * so directory separators in [EngineFile.relativePath] are replaced
+     * with `__` to produce the asset name.
+     *
+     * v0.1.0 / v0.1.1 of the app pinned a Hugging Face mirror that the
+     * upstream maintainer later removed (returned HTTP 401). The dedicated
+     * mirror puts us in control of the URL contract — see the engines
+     * repo's README for the licensing rationale (GPL-3.0 as a whole
+     * because espeak-ng-data is GPL-3.0).
      *
      * Pulled out into a constant so the generator script + the static
      * catalog can stay in sync.
      */
-    private const val KITTEN_HF_BASE: String =
-        "https://huggingface.co/csukuangfj/sherpa-onnx-kitten-nano-en-v0_1-fp16/resolve/main"
+    private const val KITTEN_BASE: String =
+        "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v1"
 
     /**
      * Top-level Kitten files (everything outside `espeak-ng-data/`).
      *
      * Sizes + sha256 captured from the Sherpa-ONNX
-     * `kitten-nano-en-v0_1-fp16.tar.bz2` bundle dated 2026-05-12.
+     * `kitten-nano-en-v0_1-fp16.tar.bz2` bundle dated 2026-05-12; verified
+     * byte-identical to the engines-repo mirror at refresh time.
      * Refresh via the procedure documented in
      * `scripts/generate-kitten-manifest.py`.
      */
     private val KITTEN_TOP_LEVEL: List<EngineFile> = listOf(
         EngineFile(
             relativePath = "model.fp16.onnx",
-            url = "$KITTEN_HF_BASE/model.fp16.onnx",
+            url = "$KITTEN_BASE/model.fp16.onnx",
             sha256 = "6b42d25df767db408d95738b464f02168a9cfb76367c1b2b9e90095485981407",
             sizeBytes = 23_848_586L,
         ),
         EngineFile(
             relativePath = "voices.bin",
-            url = "$KITTEN_HF_BASE/voices.bin",
+            url = "$KITTEN_BASE/voices.bin",
             sha256 = "138cf3a7afd0ebf1f9d6fb72f49e960ef8405252eaff5d130cf3fba1b038a741",
             sizeBytes = 8_192L,
         ),
         EngineFile(
             relativePath = "tokens.txt",
-            url = "$KITTEN_HF_BASE/tokens.txt",
+            url = "$KITTEN_BASE/tokens.txt",
             sha256 = "934a4188addc7665dd3410256bb622169242357fbb99d840d9351209b486dabb",
             sizeBytes = 1_064L,
         ),
