@@ -593,7 +593,11 @@ open class EngineInstaller @Inject constructor(
      * archive's sha256 (verified at download time) already proves the
      * extracted bytes are correct. This is a structural check only:
      *
-     *  - `model.fp16.onnx` present and > 1 MB (catches truncated extract)
+     *  - Some `model*.onnx` file present and > 1 MB (catches truncated
+     *    extract). Filename varies across upstream Kitten revisions —
+     *    v0.1 ships `model.fp16.onnx`, v0.8 ships `model.int8.onnx`,
+     *    others might ship `model.fp32.onnx`. Matching by glob keeps
+     *    the installer agnostic to which revision is in the bundle.
      *  - `voices.bin` present and non-empty
      *  - `tokens.txt` present and non-empty
      *  - `espeak-ng-data/` is a directory with > 100 entries
@@ -601,12 +605,13 @@ open class EngineInstaller @Inject constructor(
      *    catches "extraction halfway through" without pinning the count)
      */
     private fun verifyLayout(dir: File): InstallState {
-        val model = File(dir, "model.fp16.onnx")
+        val modelCandidates = dir.listFiles { f -> f.isFile && f.name.startsWith("model") && f.name.endsWith(".onnx") }
+        val model = modelCandidates?.firstOrNull()
         val voices = File(dir, "voices.bin")
         val tokens = File(dir, "tokens.txt")
         val espeak = File(dir, "espeak-ng-data")
 
-        if (!model.isFile || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+        if (model == null || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
         if (!voices.isFile || voices.length() == 0L) return InstallState.Corrupt
         if (!tokens.isFile || tokens.length() == 0L) return InstallState.Corrupt
         if (!espeak.isDirectory) return InstallState.Corrupt
