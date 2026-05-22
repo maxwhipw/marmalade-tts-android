@@ -14,13 +14,20 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.1.6"
+        versionCode = 8
+        versionName = "0.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Real Android devices are arm64-v8a (modern) or armeabi-v7a (older
+        // 32-bit ARM). x86 / x86_64 are emulator-only; shipping their
+        // libsherpa-onnx-jni + libonnxruntime cost ~58 MB of APK with zero
+        // real-device benefit. Drop them. Anyone running the app in an x86
+        // emulator can do a from-source build.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     buildTypes {
