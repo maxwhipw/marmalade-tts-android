@@ -1,6 +1,7 @@
 package app.marmalade.tts.install
 
 import android.util.Log
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 
 /**
  * Marker interface for the install root directory. Lets unit tests inject
@@ -93,28 +96,36 @@ object UrlHttpFetcher : HttpFetcher {
 //     ▼
 //   EngineInstaller.install(name)
 //     │
-//     ├── EngineCatalog.byName(name) ──► EngineDescriptor
+//     ├── EngineCatalog.byName(name) ──► EngineDescriptor (carries EngineArchive)
 //     │
-//     ├── _state["kitten"].value = Downloading(0, total, "")
+//     ├── _state["kitten"].value = Downloading(0, archive.sizeBytes, "archive")
 //     │
-//     ├── for each EngineFile in descriptor.files:
-//     │      ├── HTTP GET (HttpURLConnection)        — downloadFile()
-//     │      ├── stream bytes → ${scratchDir}/<relativePath>
+//     ├── Stream archive bytes:
+//     │      ├── HTTP GET via HttpFetcher → ${engineDir}.archive.tmp
 //     │      ├── update sha256 incrementally
-//     │      ├── update _state["kitten"] with progress
-//     │      └── verify sha256 matches descriptor (skipped for PENDING)
+//     │      ├── emit Downloading progress every ~1% / ~256 KB
+//     │      └── reject on sha256 mismatch with archive.sha256
 //     │
 //     ├── _state["kitten"].value = Extracting
-//     │     (no-op for individual-file installs — kept for state-machine
-//     │      symmetry with future archive-based engines)
+//     │
+//     ├── Open archive.tmp → BZip2CompressorInputStream → TarArchiveInputStream:
+//     │      ├── for each entry:
+//     │      │     ├── strip archive.archiveRoot prefix
+//     │      │     ├── canonical-path check (zip-slip protection)
+//     │      │     ├── skip directories
+//     │      │     └── stream bytes into ${scratchDir}/<relPath>
+//     │      └── delete archive.tmp
 //     │
 //     ├── atomic rename scratchDir → engineDir
+//     │
+//     ├── verifyDescriptor() — confirms required files are present + non-zero
+//     │     (does NOT re-hash; the archive sha256 already proved bytes are correct)
 //     │
 //     └── _state["kitten"].value = Installed
 //
 //   On any failure:
 //     ├── _state["kitten"].value = Failed(reason)
-//     ├── delete scratchDir (so a retry starts clean)
+//     ├── delete archive.tmp + scratchDir (so a retry starts clean)
 //     └── return Result.failure(IOException(reason))
 //
 //   UI: subscribes via .state("kitten")
@@ -142,7 +153,8 @@ sealed class InstallState {
 
     /**
      * Engine is mid-download. The UI polls/observes this for the progress
-     * bar; one update per processed chunk of [bytesFetched].
+     * bar. One emission per ~1% of the archive or per ~256 KB transferred,
+     * whichever is coarser, so the Flow isn't flooded.
      */
     data class Downloading(
         val bytesFetched: Long,
@@ -151,10 +163,9 @@ sealed class InstallState {
     ) : InstallState()
 
     /**
-     * Files are downloaded and being staged into the engine directory. For
-     * v0.1 with individual-file installs this is a near-instant rename;
-     * the state is retained for future archive engines whose extraction
-     * step is non-trivial.
+     * Archive is downloaded + sha256-verified and is now being decompressed
+     * + untarred into the engine directory. For a 27 MB tar.bz2 this is
+     * around 1–3 seconds on a mid-range device.
      */
     object Extracting : InstallState()
 
@@ -165,9 +176,10 @@ sealed class InstallState {
     data class Failed(val reason: String) : InstallState()
 
     /**
-     * Files are *present on disk* but at least one is missing or its
-     * hash doesn't match the catalog. Surfaced by [EngineInstaller.verify]
-     * and treated by the UI the same as NotInstalled (offer reinstall).
+     * Files are *present on disk* but the post-install sanity check
+     * couldn't find the required top-level files. Surfaced by
+     * [EngineInstaller.verify] and treated by the UI the same as
+     * NotInstalled (offer reinstall).
      */
     object Corrupt : InstallState()
 }
@@ -182,18 +194,23 @@ sealed class InstallState {
  *
  * Implementation invariants:
  *
- *  1. **Atomic installs.** Files are downloaded to a scratch directory
- *     (`<name>.tmp`) and renamed to the final location on success. The app
- *     never observes a partial engine directory.
- *  2. **Hash-verified files.** Every downloaded file's SHA-256 is checked
- *     against the manifest. Mismatches fail the install (after one retry).
- *     The sentinel [EngineCatalog.SHA256_PENDING] skips verification with
- *     a logged warning — see STUBS.md for why this exists.
- *  3. **Single concurrent install per engine.** Callers must serialise
+ *  1. **Atomic installs.** The archive is downloaded to
+ *     `<name>.archive.tmp`, extracted into a scratch directory
+ *     (`<name>.tmp`), and the scratch dir is renamed to the final
+ *     location on success. The app never observes a partial engine
+ *     directory.
+ *  2. **Hash-verified archive.** The archive's SHA-256 is checked against
+ *     the manifest. Mismatch fails the install and deletes the bad bytes.
+ *     Because the archive is a single sealed bundle, per-file hashes are
+ *     redundant — proving the archive bytes are correct proves every
+ *     extracted file's bytes are correct.
+ *  3. **Zip-slip protection.** Each archive entry's normalized path is
+ *     checked to make sure it stays inside the scratch directory.
+ *  4. **Single concurrent install per engine.** Callers must serialise
  *     install/uninstall on the same engine name. v0.1 enforces this via UI
  *     state (the install button disables while in flight); a future Mutex
  *     can move the guarantee into this class.
- *  4. **No network use outside install/verify.** The single
+ *  5. **No network use outside install/verify.** The single
  *     `<uses-permission android:name="android.permission.INTERNET" />`
  *     in the manifest documents that boundary.
  */
@@ -217,7 +234,7 @@ open class EngineInstaller @Inject constructor(
      *
      *  - directory absent → [InstallState.NotInstalled]
      *  - directory present, all expected files match → [InstallState.Installed]
-     *  - directory present but files missing/corrupt → [InstallState.Corrupt]
+     *  - directory present but files missing → [InstallState.Corrupt]
      *
      * Multiple subscribers share the same StateFlow — this is how the
      * Onboarding screen and the Engines screen stay in sync if they're
@@ -228,15 +245,13 @@ open class EngineInstaller @Inject constructor(
     /**
      * Install [engineName] from the catalog.
      *
-     * Downloads every file in the engine's descriptor sequentially (kept
-     * simple — concurrent downloads add ~3× the complexity for marginal
-     * speedup on HTTP/1.1 to a single host). Reports progress through
-     * [onProgress] and updates the per-engine state flow.
+     * Downloads the engine's single tar.bz2 archive, verifies its SHA-256,
+     * decompresses + untars it into the engine directory. Reports progress
+     * through [onProgress] and updates the per-engine state flow.
      *
      * Re-running install on an already-installed engine is idempotent:
      * the existing engine directory is removed first so the new install
-     * starts clean. (A future optimisation could skip files whose sha256
-     * already matches.)
+     * starts clean.
      *
      * @return Result.success(Unit) on success, Result.failure(IOException)
      *   on any download / verification / I/O error. The state flow has
@@ -266,16 +281,15 @@ open class EngineInstaller @Inject constructor(
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val engineName = descriptor.name
         val sf = stateFlow(engineName)
-        val totalBytes = descriptor.downloadSizeBytes
         val finalDir = engineDirFor(engineName)
         val scratchDir = scratchDirFor(engineName)
+        val archiveTmp = archiveTmpFor(engineName)
 
-        // Clean up any leftover scratch from a previous failed attempt.
-        // Also drop any previous final dir so we never overlay a partial
-        // install on top of an existing one.
-        if (scratchDir.exists()) {
-            scratchDir.deleteRecursively()
-        }
+        // Clean up any leftover scratch / partial archive from a previous
+        // failed attempt, and drop any existing final dir so we never
+        // overlay a partial install on top of an existing one.
+        if (archiveTmp.exists()) archiveTmp.delete()
+        if (scratchDir.exists()) scratchDir.deleteRecursively()
         if (finalDir.exists()) {
             // Release the engine's native handle before deleting its files,
             // otherwise OfflineTts could be holding open mmap'd model bytes.
@@ -288,56 +302,67 @@ open class EngineInstaller @Inject constructor(
             finalDir.deleteRecursively()
         }
         scratchDir.mkdirs()
+        archiveTmp.parentFile?.mkdirs()
 
         try {
-            var bytesFetched = 0L
-            for ((index, file) in descriptor.files.withIndex()) {
-                val target = File(scratchDir, file.relativePath)
-                target.parentFile?.mkdirs()
+            val archive = descriptor.archive
+            val totalBytes = archive.sizeBytes
 
-                Log.d(TAG, "Downloading ${file.url} → ${target.absolutePath}")
-                val fetchedSha = downloadFile(file.url, target) { progressBytes ->
-                    // Per-file progress is approximate — we don't know how many
-                    // bytes the *server* will send (Content-Length might be
-                    // absent for chunked encoding), so we add to the cumulative
-                    // counter as bytes land.
-                    val update = InstallState.Downloading(
-                        bytesFetched = bytesFetched + progressBytes,
-                        totalBytes = totalBytes,
-                        currentFile = file.relativePath,
-                    )
-                    sf.value = update
-                    onProgress(update)
-                }
+            // 1. Download the archive while computing SHA-256 and emitting
+            // throttled progress updates.
+            sf.value = InstallState.Downloading(
+                bytesFetched = 0L,
+                totalBytes = totalBytes,
+                currentFile = ARCHIVE_PROGRESS_LABEL,
+            )
 
-                // Verify hash unless the manifest is marked PENDING (see
-                // STUBS.md). We log loudly so this can't be missed in
-                // release-quality logs.
-                if (file.sha256 == EngineCatalog.SHA256_PENDING) {
-                    Log.w(
-                        TAG,
-                        "SHA256 verification SKIPPED for ${file.relativePath} " +
-                            "(manifest hash is PENDING — see STUBS.md)",
-                    )
-                } else if (!fetchedSha.equals(file.sha256, ignoreCase = true)) {
-                    throw IOException(
-                        "SHA-256 mismatch for ${file.relativePath}: " +
-                            "expected ${file.sha256}, got $fetchedSha",
-                    )
-                }
-
-                bytesFetched += target.length()
-                Log.d(TAG, "Downloaded ${index + 1}/${descriptor.files.size}: ${file.relativePath}")
+            Log.d(TAG, "Downloading ${archive.url} → ${archiveTmp.absolutePath}")
+            val fetchedSha = downloadArchive(archive.url, archiveTmp, totalBytes) { fetched ->
+                val update = InstallState.Downloading(
+                    bytesFetched = fetched,
+                    totalBytes = totalBytes,
+                    currentFile = ARCHIVE_PROGRESS_LABEL,
+                )
+                sf.value = update
+                onProgress(update)
             }
 
-            sf.value = InstallState.Extracting
+            // 2. Verify archive hash.
+            if (!fetchedSha.equals(archive.sha256, ignoreCase = true)) {
+                throw IOException(
+                    "SHA-256 mismatch for archive ${descriptor.name}: " +
+                        "expected ${archive.sha256}, got $fetchedSha",
+                )
+            }
 
-            // Atomic rename. The scratch dir and the final dir share the
-            // same parent (${filesDir}/engines/), so rename is just an
-            // inode flip — no cross-filesystem fallback needed.
+            // 3. Extract.
+            sf.value = InstallState.Extracting
+            extractArchive(archiveTmp, scratchDir, archive.archiveRoot)
+
+            // 4. Delete the archive scratch file — it's served its purpose.
+            archiveTmp.delete()
+
+            // 5. Atomic rename. Scratch dir and final dir share the same
+            // parent (${filesDir}/engines/), so rename is just an inode flip
+            // — no cross-filesystem fallback needed.
             if (!scratchDir.renameTo(finalDir)) {
                 throw IOException(
                     "Could not rename ${scratchDir.absolutePath} to ${finalDir.absolutePath}",
+                )
+            }
+
+            // 6. Post-install sanity check. The archive sha already proved
+            // the bytes are correct, so this just confirms the extraction
+            // produced the expected top-level layout — defensive against
+            // a malformed bundle slipping through.
+            val verified = verifyLayout(finalDir)
+            if (verified is InstallState.Corrupt) {
+                // Extracted shape doesn't match expectations. Tear down so a
+                // retry has a clean slate.
+                finalDir.deleteRecursively()
+                throw IOException(
+                    "Post-install verification failed for ${descriptor.name}: " +
+                        "extracted layout missing required files",
                 )
             }
 
@@ -345,10 +370,10 @@ open class EngineInstaller @Inject constructor(
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.w(TAG, "Install of $engineName failed", t)
-            // Clean up scratch on failure so the next attempt starts fresh.
-            if (scratchDir.exists()) {
-                scratchDir.deleteRecursively()
-            }
+            // Clean up scratch + archive on failure so the next attempt
+            // starts fresh.
+            if (archiveTmp.exists()) archiveTmp.delete()
+            if (scratchDir.exists()) scratchDir.deleteRecursively()
             sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
             Result.failure(if (t is IOException) t else IOException(t))
         }
@@ -377,11 +402,11 @@ open class EngineInstaller @Inject constructor(
             if (dir.exists() && !dir.deleteRecursively()) {
                 throw IOException("Could not delete ${dir.absolutePath}")
             }
-            // Also clean any stale scratch dir lying around.
+            // Also clean any stale scratch dir + partial archive lying around.
             val scratch = scratchDirFor(engineName)
-            if (scratch.exists()) {
-                scratch.deleteRecursively()
-            }
+            if (scratch.exists()) scratch.deleteRecursively()
+            val archiveTmp = archiveTmpFor(engineName)
+            if (archiveTmp.exists()) archiveTmp.delete()
 
             stateFlow(engineName).value = InstallState.NotInstalled
             Result.success(Unit)
@@ -393,8 +418,9 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * Inspect the on-disk engine bundle and return the matching state.
-     * Cheap — does not re-hash files, only checks presence. Used by the UI
-     * to populate the Engines screen on first composition.
+     * Cheap — does not re-hash files, only checks presence of the well-
+     * known top-level layout. Used by the UI to populate the Engines
+     * screen on first composition.
      */
     open suspend fun verify(engineName: String): InstallState {
         val descriptor = EngineCatalog.byName(engineName)
@@ -405,6 +431,10 @@ open class EngineInstaller @Inject constructor(
     /**
      * Test-friendly verify that operates against a caller-supplied
      * descriptor. Production code paths must go through [verify].
+     *
+     * For the current single-engine (Kitten) catalog this delegates to
+     * [verifyLayout] which encodes the Kitten payload's required files
+     * (model.fp16.onnx + voices.bin + tokens.txt + espeak-ng-data/).
      */
     internal suspend fun verifyDescriptor(descriptor: EngineDescriptor): InstallState =
         withContext(Dispatchers.IO) {
@@ -413,11 +443,7 @@ open class EngineInstaller @Inject constructor(
             val computed = if (!dir.isDirectory) {
                 InstallState.NotInstalled
             } else {
-                val allPresent = descriptor.files.all { file ->
-                    val target = File(dir, file.relativePath)
-                    target.isFile && target.length() > 0L
-                }
-                if (allPresent) InstallState.Installed else InstallState.Corrupt
+                verifyLayout(dir)
             }
             stateFlow(engineName).value = computed
             computed
@@ -448,19 +474,33 @@ open class EngineInstaller @Inject constructor(
     private fun scratchDirFor(engineName: String): File =
         File(filesDir.get(), "engines/$engineName.tmp")
 
+    private fun archiveTmpFor(engineName: String): File =
+        File(filesDir.get(), "engines/$engineName.archive.tmp")
+
     /**
-     * Stream [url] to [target] via [httpFetcher], computing SHA-256 as bytes
-     * flow through.
+     * Stream the archive at [url] to [target] via [httpFetcher], computing
+     * SHA-256 incrementally and emitting throttled byte-count updates via
+     * [onProgress].
+     *
+     * Progress is throttled to one emission per ~1% of [totalBytes] (or per
+     * ~256 KB, whichever is coarser) so the StateFlow consumer isn't
+     * flooded with thousands of updates per second on fast connections.
      *
      * @return hex-encoded SHA-256 of the downloaded bytes (lowercase).
      */
-    private fun downloadFile(
+    private fun downloadArchive(
         url: String,
         target: File,
+        totalBytes: Long,
         onProgress: (Long) -> Unit,
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
         var bytesSoFar = 0L
+        var bytesSinceEmit = 0L
+        // Emit at the larger of 1% of total or 256 KB. For a 27 MB archive
+        // that's ~270 KB → ~100 updates total, which is plenty granular for
+        // a progress bar without flooding the Flow.
+        val emitThreshold = maxOf(totalBytes / 100L, PROGRESS_MIN_BYTES)
         httpFetcher.open(url).use { input ->
             target.outputStream().use { output ->
                 val buf = ByteArray(BUFFER_SIZE)
@@ -470,11 +510,109 @@ open class EngineInstaller @Inject constructor(
                     output.write(buf, 0, read)
                     digest.update(buf, 0, read)
                     bytesSoFar += read
-                    onProgress(bytesSoFar)
+                    bytesSinceEmit += read
+                    if (bytesSinceEmit >= emitThreshold) {
+                        onProgress(bytesSoFar)
+                        bytesSinceEmit = 0L
+                    }
                 }
             }
         }
+        // Final emission so the bar reaches 100% before we flip to Extracting.
+        onProgress(bytesSoFar)
         return digest.digest().toHex()
+    }
+
+    /**
+     * Extract a tar.bz2 [archiveFile] into [destDir]. Strips the leading
+     * [archiveRoot] prefix from each entry path (so an archive containing
+     * `kitten-nano-en-v0_1-fp16/model.fp16.onnx` produces
+     * `${destDir}/model.fp16.onnx`).
+     *
+     * Skips directory entries (parent dirs are mkdirs'd implicitly).
+     * Rejects entries whose normalized path would escape [destDir]
+     * (zip-slip protection).
+     */
+    private fun extractArchive(
+        archiveFile: File,
+        destDir: File,
+        archiveRoot: String,
+    ) {
+        val destCanonical = destDir.canonicalPath
+        BufferedInputStream(archiveFile.inputStream()).use { fileIn ->
+            BZip2CompressorInputStream(fileIn).use { bzIn ->
+                TarArchiveInputStream(bzIn).use { tarIn ->
+                    while (true) {
+                        val entry = tarIn.nextEntry ?: break
+                        if (entry.isDirectory) continue
+                        val rawName = entry.name
+                        // Strip the wrapper directory if it matches; otherwise
+                        // keep the entry path as-is. Empty archiveRoot means
+                        // "no stripping".
+                        val relPath = when {
+                            archiveRoot.isEmpty() -> rawName
+                            rawName.startsWith(archiveRoot) -> rawName.removePrefix(archiveRoot)
+                            else -> rawName
+                        }
+                        if (relPath.isEmpty()) continue
+
+                        val outFile = File(destDir, relPath)
+                        val outCanonical = outFile.canonicalPath
+                        // Zip-slip: refuse any entry whose canonical path
+                        // lands outside destDir. catches `../../etc/passwd`-
+                        // style escapes in adversarial archives.
+                        if (!outCanonical.startsWith(destCanonical + File.separator) &&
+                            outCanonical != destCanonical
+                        ) {
+                            throw IOException(
+                                "Tar entry escapes destination directory: $rawName " +
+                                    "→ $outCanonical (dest=$destCanonical)",
+                            )
+                        }
+                        outFile.parentFile?.mkdirs()
+                        outFile.outputStream().use { out ->
+                            val buf = ByteArray(BUFFER_SIZE)
+                            while (true) {
+                                val read = tarIn.read(buf)
+                                if (read == -1) break
+                                out.write(buf, 0, read)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Confirm the on-disk layout matches the Kitten engine's expected
+     * top-level shape. Used by [installViaDescriptor]'s post-extract
+     * sanity check and by [verifyDescriptor]'s startup probe.
+     *
+     * Does not re-hash files — for an archive install, the upstream
+     * archive's sha256 (verified at download time) already proves the
+     * extracted bytes are correct. This is a structural check only:
+     *
+     *  - `model.fp16.onnx` present and > 1 MB (catches truncated extract)
+     *  - `voices.bin` present and non-empty
+     *  - `tokens.txt` present and non-empty
+     *  - `espeak-ng-data/` is a directory with > 100 entries
+     *    (Kitten's bundle has ~355; the threshold is a sanity floor that
+     *    catches "extraction halfway through" without pinning the count)
+     */
+    private fun verifyLayout(dir: File): InstallState {
+        val model = File(dir, "model.fp16.onnx")
+        val voices = File(dir, "voices.bin")
+        val tokens = File(dir, "tokens.txt")
+        val espeak = File(dir, "espeak-ng-data")
+
+        if (!model.isFile || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+        if (!voices.isFile || voices.length() == 0L) return InstallState.Corrupt
+        if (!tokens.isFile || tokens.length() == 0L) return InstallState.Corrupt
+        if (!espeak.isDirectory) return InstallState.Corrupt
+        val entryCount = espeak.list()?.size ?: 0
+        if (entryCount < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
+        return InstallState.Installed
     }
 
     /**
@@ -494,6 +632,21 @@ open class EngineInstaller @Inject constructor(
         // large enough that the SHA-256 digest call dominates over loop
         // overhead.
         private const val BUFFER_SIZE = 32 * 1024
+
+        // Minimum emit interval for download progress (256 KB). Throttles
+        // the StateFlow at the high end when 1% of total is < 256 KB.
+        private const val PROGRESS_MIN_BYTES: Long = 256L * 1024L
+
+        // Sanity floors for the post-install layout check. Tuned to catch
+        // truncated extractions without pinning to the exact upstream
+        // numbers (which would force a code change every bundle bump).
+        private const val MIN_MODEL_BYTES: Long = 1L * 1024L * 1024L
+        private const val MIN_ESPEAK_ENTRIES: Int = 100
+
+        // String shown in the per-engine progress UI while the archive is
+        // downloading. v0.1's per-file labels are gone with the per-file
+        // catalog — a single archive download is the whole download phase.
+        private const val ARCHIVE_PROGRESS_LABEL: String = "archive"
     }
 }
 

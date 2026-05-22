@@ -5,7 +5,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+### Changed
+- Engine install path is now single-archive download + extraction.
+  v0.1.0/0.1.1 fetched 358 files individually from Hugging Face;
+  v0.1.2 mirrored those 358 to a dedicated GitHub Releases CDN;
+  v0.1.3 collapses that to one tar.bz2 download (the upstream Sherpa-
+  ONNX tarball, byte-identical). 358 HTTPS round-trips → 1.
+  KittenEspeakDataManifest.kt + the per-file sha256 list are gone.
+- New dep: org.apache.commons:commons-compress for tar.bz2 extraction.
 
 ## [0.1.0] — 2026-05-21
 

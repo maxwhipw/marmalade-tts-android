@@ -14,8 +14,8 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -134,6 +134,11 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
+    // Engine bundle extraction (tar.bz2). EngineInstaller streams the
+    // single-archive engine download through BZip2CompressorInputStream
+    // + TarArchiveInputStream. Apache-2.0.
+    implementation("org.apache.commons:commons-compress:1.27.1")
 
     // Testing — JVM
     testImplementation("junit:junit:4.13.2")

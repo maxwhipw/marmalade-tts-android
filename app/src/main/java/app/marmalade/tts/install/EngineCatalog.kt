@@ -7,14 +7,17 @@ package app.marmalade.tts.install
 //     │
 //     ├── EngineCatalog.byName(name)  ──► EngineDescriptor
 //     │                                       │
-//     │                                       ├── files: List<EngineFile>
-//     │                                       │     (relativePath, url, sha256, size)
+//     │                                       ├── archive: EngineArchive
+//     │                                       │     (url, sha256, sizeBytes,
+//     │                                       │      archiveRoot)
 //     │                                       │
 //     │                                       └── displayName, description,
-//     │                                           downloadSizeBytes, licenseSummary
+//     │                                           downloadSizeBytes,
+//     │                                           installedSizeBytes,
+//     │                                           licenseSummary
 //     │
 //     ▼
-//   For each EngineFile: HTTP GET → sha256 check → write to scratch dir
+//   Single HTTP GET → sha256 check → tar.bz2 extract → atomic rename
 //
 //   UI (Onboarding / EnginesScreen)
 //     │
@@ -23,30 +26,30 @@ package app.marmalade.tts.install
 // -----------------------------------------------------------------------------
 
 /**
- * Description of a single file that makes up an installable engine bundle.
+ * Archive that makes up an engine bundle. The installer downloads it,
+ * verifies [sha256], and extracts it into `${filesDir}/engines/<name>.tmp/`
+ * before atomic-renaming to `${filesDir}/engines/<name>/`.
  *
- * The installer downloads each file independently (concurrent or serial),
- * verifies it against [sha256], and stages it under
- * `${filesDir}/engines/<engine>.tmp/<relativePath>` before atomic-renaming
- * the temp dir to `${filesDir}/engines/<engine>/` once every file is
- * accounted for.
- *
- * @property relativePath  Path relative to the engine's install directory,
- *                         e.g. `"model.fp16.onnx"` or
- *                         `"espeak-ng-data/intonations"`. Forward slashes
- *                         only; resolved via `java.io.File(parent, path)`.
- * @property url           Absolute HTTPS URL the installer GETs.
- * @property sha256        Hex-encoded SHA-256 of the file's bytes, lower
- *                         case. May be the sentinel value
- *                         [EngineCatalog.SHA256_PENDING] for files whose
- *                         hashes haven't been pinned yet — see STUBS.md.
- * @property sizeBytes     Expected file size in bytes (for progress UI).
+ * @property url Absolute HTTPS URL to a tar.bz2 archive whose top-level
+ *               directory (named per [archiveRoot]) contains the engine
+ *               payload. The installer flattens the top-level directory
+ *               during extraction so the on-device layout is
+ *               `${filesDir}/engines/<name>/<file>` regardless of the
+ *               archive's wrapper-dir name.
+ * @property sha256 Hex-encoded SHA-256 of the archive bytes, lower case.
+ * @property sizeBytes Expected archive size in bytes (for progress UI).
+ * @property archiveRoot Name of the wrapper directory inside the archive
+ *               to strip during extraction, with trailing `/`. Empty
+ *               string means "extract entries as-is, no stripping" —
+ *               use that for future archives that aren't wrapper-dir'd.
+ *               For Kitten v0.1 this is `"kitten-nano-en-v0_1-fp16/"`
+ *               (the directory name Sherpa-ONNX's tarball uses).
  */
-data class EngineFile(
-    val relativePath: String,
+data class EngineArchive(
     val url: String,
     val sha256: String,
     val sizeBytes: Long,
+    val archiveRoot: String = "",
 )
 
 /**
@@ -63,17 +66,17 @@ data class EngineFile(
  * @property displayName       User-facing label (e.g. "Kitten TTS").
  * @property description       One-paragraph pitch for the engine, shown on
  *                             the install consent card. Keep it short.
- * @property downloadSizeBytes Sum of all [files] sizes — informs the
- *                             "this will download ~42 MB" copy.
- * @property installedSizeBytes Approximate on-disk size after extraction
- *                             (for option-3-style file-by-file installs
- *                             this equals [downloadSizeBytes]; for archive
- *                             installs it would be larger).
+ * @property downloadSizeBytes Compressed archive size on the wire — informs
+ *                             the "this will download ~26 MB" copy. Equals
+ *                             [archive.sizeBytes] by convention.
+ * @property installedSizeBytes Approximate on-disk size after extraction.
+ *                             Larger than [downloadSizeBytes] because the
+ *                             archive is tar.bz2-compressed.
  * @property isRecommended     True for the engine pre-checked in the
  *                             onboarding wizard. v0.1 only ships Kitten,
  *                             which is the recommended default.
- * @property files             Files to download, in any order. Empty list
- *                             would describe a no-op engine; not allowed.
+ * @property archive           Single downloadable archive that contains
+ *                             every file in the engine bundle.
  * @property licenseNotice     Path inside the APK to the long-form notice
  *                             shown on the license expand panel.
  * @property licenseSummary    One-liner shown on the install card, e.g.
@@ -86,13 +89,14 @@ data class EngineDescriptor(
     val downloadSizeBytes: Long,
     val installedSizeBytes: Long,
     val isRecommended: Boolean,
-    val files: List<EngineFile>,
+    val archive: EngineArchive,
     val licenseNotice: String,
     val licenseSummary: String,
 ) {
     init {
         require(name.isNotBlank()) { "engine name must not be blank" }
-        require(files.isNotEmpty()) { "engine $name has no files; would never install" }
+        require(archive.url.isNotBlank()) { "engine $name has no archive url" }
+        require(archive.sizeBytes > 0L) { "engine $name has zero-size archive" }
     }
 }
 
@@ -106,78 +110,19 @@ data class EngineDescriptor(
 object EngineCatalog {
 
     /**
-     * Sentinel hash value indicating "we don't have the real sha256 pinned
-     * yet — verify softly with a logged warning instead of rejecting." The
-     * installer treats this as a deferred-verification marker. Once the
-     * real hash is known (e.g. after running
-     * `scripts/generate-kitten-manifest.py`), replace the placeholder.
+     * Sum of unpacked Kitten file sizes. Carried over from the v0.1.0–
+     * v0.1.2 per-file catalog where this figure was computed as
+     * `(KITTEN_TOP_LEVEL + KITTEN_ESPEAK_DATA).sumOf { it.sizeBytes }`.
+     * That came out to roughly 42 MB on-disk; the precise byte count
+     * documented here is the pre-refactor sum so the "installed size"
+     * copy in the UI stays accurate.
      *
-     * Documented in STUBS.md so reviewers don't mistake this for a missing
-     * verification step.
+     * Refresh procedure when bumping the bundle:
+     *   tar -xjf kitten-nano-en-v0_1-fp16.tar.bz2
+     *   find kitten-nano-en-v0_1-fp16 -type f -exec stat -c %s {} + | \
+     *       awk '{s+=$1} END {print s}'
      */
-    const val SHA256_PENDING: String = "PENDING_VERIFICATION"
-
-    /**
-     * Base URL for the GitHub-Releases-hosted Kitten engine bundle on the
-     * dedicated `marmalade-tts-android-engines` repo. The URL pattern is
-     * `<base>/<flatAssetName>` — GitHub release-asset filenames are flat,
-     * so directory separators in [EngineFile.relativePath] are replaced
-     * with `__` to produce the asset name.
-     *
-     * v0.1.0 / v0.1.1 of the app pinned a Hugging Face mirror that the
-     * upstream maintainer later removed (returned HTTP 401). The dedicated
-     * mirror puts us in control of the URL contract — see the engines
-     * repo's README for the licensing rationale (GPL-3.0 as a whole
-     * because espeak-ng-data is GPL-3.0).
-     *
-     * Pulled out into a constant so the generator script + the static
-     * catalog can stay in sync.
-     */
-    private const val KITTEN_BASE: String =
-        "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v1"
-
-    /**
-     * Top-level Kitten files (everything outside `espeak-ng-data/`).
-     *
-     * Sizes + sha256 captured from the Sherpa-ONNX
-     * `kitten-nano-en-v0_1-fp16.tar.bz2` bundle dated 2026-05-12; verified
-     * byte-identical to the engines-repo mirror at refresh time.
-     * Refresh via the procedure documented in
-     * `scripts/generate-kitten-manifest.py`.
-     */
-    private val KITTEN_TOP_LEVEL: List<EngineFile> = listOf(
-        EngineFile(
-            relativePath = "model.fp16.onnx",
-            url = "$KITTEN_BASE/model.fp16.onnx",
-            sha256 = "6b42d25df767db408d95738b464f02168a9cfb76367c1b2b9e90095485981407",
-            sizeBytes = 23_848_586L,
-        ),
-        EngineFile(
-            relativePath = "voices.bin",
-            url = "$KITTEN_BASE/voices.bin",
-            sha256 = "138cf3a7afd0ebf1f9d6fb72f49e960ef8405252eaff5d130cf3fba1b038a741",
-            sizeBytes = 8_192L,
-        ),
-        EngineFile(
-            relativePath = "tokens.txt",
-            url = "$KITTEN_BASE/tokens.txt",
-            sha256 = "934a4188addc7665dd3410256bb622169242357fbb99d840d9351209b486dabb",
-            sizeBytes = 1_064L,
-        ),
-    )
-
-    /**
-     * espeak-ng-data manifest — all 355 phonemizer data files. Generated by
-     * [scripts/generate-kitten-manifest.py] against a locally-extracted
-     * bundle. Each entry carries its real sha256 + size so the installer
-     * verifies every file independently.
-     *
-     * The installer treats this as "all entries are independently
-     * downloadable" — keeping each file as its own URL avoids needing a
-     * bzip2 decoder (bzip2 isn't in Java stdlib and adding it requires a
-     * gradle dependency that we cannot add — see project STUBS.md).
-     */
-    private val KITTEN_ESPEAK_DATA: List<EngineFile> = KittenEspeakDataManifest.FILES
+    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 42_318_953L
 
     /** Kitten TTS — small (~42 MB on-disk), 8 English voices, runs on every device. */
     private val KITTEN: EngineDescriptor = EngineDescriptor(
@@ -185,10 +130,19 @@ object EngineCatalog {
         displayName = "Kitten TTS",
         description = "Small, fast English TTS with 8 voices. Recommended starter engine — " +
             "runs offline on every device and downloads in under a minute.",
-        downloadSizeBytes = (KITTEN_TOP_LEVEL + KITTEN_ESPEAK_DATA).sumOf { it.sizeBytes },
-        installedSizeBytes = (KITTEN_TOP_LEVEL + KITTEN_ESPEAK_DATA).sumOf { it.sizeBytes },
+        downloadSizeBytes = 26_855_312L,
+        installedSizeBytes = KITTEN_INSTALLED_SIZE_BYTES,
         isRecommended = true,
-        files = KITTEN_TOP_LEVEL + KITTEN_ESPEAK_DATA,
+        archive = EngineArchive(
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v2/kitten-nano-en-v0_1-fp16.tar.bz2",
+            sha256 = "f35dac93754fe2ac97c66e1f468311d0d2130f7f0f5a89bfa1197e09a0cbdec5",
+            sizeBytes = 26_855_312L,
+            // The upstream Sherpa-ONNX tarball wraps everything in a
+            // top-level directory of this name. The installer strips it
+            // during extraction so the on-device layout is flat under
+            // ${filesDir}/engines/kitten/.
+            archiveRoot = "kitten-nano-en-v0_1-fp16/",
+        ),
         licenseNotice = "LICENSES/kitten-tts.md",
         licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
     )

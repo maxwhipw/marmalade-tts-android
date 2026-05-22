@@ -1,11 +1,15 @@
 package app.marmalade.tts.install
 
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import kotlinx.coroutines.test.runTest
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,16 +23,14 @@ import org.junit.rules.TemporaryFolder
  *
  * Drives the installer against an in-memory [FakeHttpFetcher] (no real
  * sockets — `com.sun.net.httpserver` isn't on the Android unit test
- * classpath). The trade-off is that we don't exercise the production
- * `HttpURLConnection` implementation — that's fine. The non-trivial
- * logic in `EngineInstaller` is around state, file system, and SHA-256
- * verification, which the fake exercises end-to-end.
+ * classpath). The fetcher serves synthetic tar.bz2 archives built with
+ * commons-compress, which is also the library the installer uses for
+ * extraction, so any compat mismatch surfaces here.
  *
- * The installer is tested against synthetic descriptors via the
- * `TestInstaller` wrapper (which exposes the `installViaDescriptor` and
- * `verifyDescriptor` internal helpers as public methods). The
- * production `install(name)` path lookups against `EngineCatalog` are
- * covered by [EngineCatalogTest].
+ * The installer is exercised via the `TestInstaller` wrapper (which
+ * exposes the `installViaDescriptor` and `verifyDescriptor` internal
+ * helpers as public methods). The production `install(name)` path
+ * lookups against `EngineCatalog` are covered by [EngineCatalogTest].
  */
 class EngineInstallerTest {
 
@@ -55,14 +57,8 @@ class EngineInstallerTest {
     // -- happy path --------------------------------------------------------
 
     @Test
-    fun installDownloadsFilesVerifiesHashAndAtomicallyRenames() = runTest {
-        val descriptor = stageBundle(
-            files = mapOf(
-                "model.fp16.onnx" to "hello model".toByteArray(),
-                "tokens.txt" to "abc def".toByteArray(),
-                "espeak-ng-data/phontab" to "shared phonemizer table".toByteArray(),
-            ),
-        )
+    fun installDownloadsArchiveVerifiesShaExtractsAndAtomicallyRenames() = runTest {
+        val descriptor = stageBundle(KITTEN_LAYOUT)
 
         val progressEvents = mutableListOf<InstallState.Downloading>()
         val result = installer.install(descriptor) { progress ->
@@ -72,43 +68,39 @@ class EngineInstallerTest {
         assertTrue("install should succeed, got $result", result.isSuccess)
         val engineDir = File(filesDir, "engines/${descriptor.name}")
         assertTrue("engine dir should exist after install", engineDir.isDirectory)
-        assertEquals("hello model", File(engineDir, "model.fp16.onnx").readText())
-        assertEquals(
-            "shared phonemizer table",
-            File(engineDir, "espeak-ng-data/phontab").readText(),
-        )
-        // Scratch dir cleaned up.
+        // Spot-check a few extracted files.
+        assertTrue(File(engineDir, "model.fp16.onnx").length() >= 1L * 1024L * 1024L)
+        assertEquals("voices payload", File(engineDir, "voices.bin").readText())
+        assertEquals("phoneme tokens", File(engineDir, "tokens.txt").readText())
+        assertTrue(File(engineDir, "espeak-ng-data").isDirectory)
+        // Scratch dir + archive scratch cleaned up.
         assertFalse(File(filesDir, "engines/${descriptor.name}.tmp").exists())
-        // Progress reported at least once per file.
+        assertFalse(File(filesDir, "engines/${descriptor.name}.archive.tmp").exists())
+        // Progress reported at least once.
         assertTrue(
             "should have reported progress, got ${progressEvents.size} events",
-            progressEvents.size >= descriptor.files.size,
+            progressEvents.isNotEmpty(),
         )
+        // Final progress emission should equal totalBytes (so the UI bar
+        // hits 100% before flipping to Extracting).
+        val last = progressEvents.last()
+        assertEquals(last.totalBytes, last.bytesFetched)
     }
 
     // -- sha mismatch ------------------------------------------------------
 
     @Test
     fun shaMismatchFailsAndCleansScratch() = runTest {
-        val descriptor = EngineDescriptor(
+        val archive = buildArchive(KITTEN_LAYOUT, archiveRootName = ARCHIVE_ROOT)
+        val descriptor = engineDescriptor(
             name = "ferret",
-            displayName = "Ferret",
-            description = "test",
-            downloadSizeBytes = 11L,
-            installedSizeBytes = 11L,
-            isRecommended = false,
-            files = listOf(
-                EngineFile(
-                    relativePath = "model.bin",
-                    url = "https://test/ferret/model.bin",
-                    sha256 = "deadbeef".repeat(8), // wrong hash
-                    sizeBytes = 11L,
-                ),
-            ),
-            licenseNotice = "n/a",
-            licenseSummary = "n/a",
+            url = "https://test/ferret.tar.bz2",
+            archiveBytes = archive,
+            // Wrong hash — bytes are valid but the catalog claims a
+            // different sha256.
+            shaOverride = "deadbeef".repeat(8),
         )
-        fetcher.payloads["https://test/ferret/model.bin"] = "hello model".toByteArray()
+        fetcher.payloads[descriptor.archive.url] = archive
 
         val result = installer.install(descriptor) {}
 
@@ -117,73 +109,60 @@ class EngineInstallerTest {
         assertTrue("expected SHA mismatch reason in '$msg'", msg.contains("SHA-256 mismatch"))
         assertFalse(File(filesDir, "engines/ferret.tmp").exists())
         assertFalse(File(filesDir, "engines/ferret").exists())
-    }
-
-    // -- pending hash is skipped (with warning) ---------------------------
-
-    @Test
-    fun pendingShaIsAcceptedAsDeferredVerification() = runTest {
-        val descriptor = EngineDescriptor(
-            name = "mongoose",
-            displayName = "Mongoose",
-            description = "test",
-            downloadSizeBytes = 4L,
-            installedSizeBytes = 4L,
-            isRecommended = false,
-            files = listOf(
-                EngineFile(
-                    relativePath = "file.txt",
-                    url = "https://test/mongoose/file.txt",
-                    sha256 = EngineCatalog.SHA256_PENDING,
-                    sizeBytes = 4L,
-                ),
-            ),
-            licenseNotice = "n/a",
-            licenseSummary = "n/a",
-        )
-        fetcher.payloads["https://test/mongoose/file.txt"] = "test".toByteArray()
-
-        val result = installer.install(descriptor) {}
-
-        assertTrue("pending sha should not fail install: $result", result.isSuccess)
+        assertFalse(File(filesDir, "engines/ferret.archive.tmp").exists())
     }
 
     // -- network failure mid-stream ---------------------------------------
 
     @Test
-    fun httpErrorMidStreamCleansUpScratch() = runTest {
-        val descriptor = EngineDescriptor(
+    fun httpErrorCleansUpScratch() = runTest {
+        val archive = buildArchive(KITTEN_LAYOUT, archiveRootName = ARCHIVE_ROOT)
+        val descriptor = engineDescriptor(
             name = "weasel",
-            displayName = "Weasel",
-            description = "test",
-            downloadSizeBytes = 10L,
-            installedSizeBytes = 10L,
-            isRecommended = false,
-            files = listOf(
-                EngineFile(
-                    relativePath = "first.bin",
-                    url = "https://test/weasel/first.bin",
-                    sha256 = EngineCatalog.SHA256_PENDING,
-                    sizeBytes = 5L,
-                ),
-                EngineFile(
-                    relativePath = "second.bin",
-                    url = "https://test/weasel/second.bin",
-                    sha256 = EngineCatalog.SHA256_PENDING,
-                    sizeBytes = 5L,
-                ),
-            ),
-            licenseNotice = "n/a",
-            licenseSummary = "n/a",
+            url = "https://test/weasel.tar.bz2",
+            archiveBytes = archive,
         )
-        fetcher.payloads["https://test/weasel/first.bin"] = "hello".toByteArray()
-        // second.bin not registered → fetcher returns 404-style IOException
+        // Don't register the URL with the fetcher — it'll throw IOException,
+        // simulating a 404 or transport error.
 
         val result = installer.install(descriptor) {}
 
         assertTrue("expected failure, got $result", result.isFailure)
         assertFalse(File(filesDir, "engines/weasel.tmp").exists())
         assertFalse(File(filesDir, "engines/weasel").exists())
+        assertFalse(File(filesDir, "engines/weasel.archive.tmp").exists())
+    }
+
+    // -- zip-slip protection ----------------------------------------------
+
+    @Test
+    fun zipSlipEntryIsRejected() = runTest {
+        // Build an archive whose entry name climbs out of the engine
+        // directory. Use no archive root so the malicious path is the
+        // entry's full name post-strip.
+        val maliciousLayout = mapOf(
+            "../../../../etc/pwned" to "haha".toByteArray(),
+        )
+        val archive = buildArchive(maliciousLayout, archiveRootName = "")
+        val descriptor = engineDescriptor(
+            name = "evil",
+            url = "https://test/evil.tar.bz2",
+            archiveBytes = archive,
+            archiveRoot = "",
+        )
+        fetcher.payloads[descriptor.archive.url] = archive
+
+        val result = installer.install(descriptor) {}
+
+        assertTrue("zip-slip should fail install, got $result", result.isFailure)
+        val msg = result.exceptionOrNull()?.message ?: ""
+        assertTrue(
+            "expected escape-detection in '$msg'",
+            msg.contains("escapes destination", ignoreCase = true),
+        )
+        assertFalse(File(filesDir, "engines/evil").exists())
+        assertFalse(File(filesDir, "engines/evil.tmp").exists())
+        assertFalse(File(filesDir, "engines/evil.archive.tmp").exists())
     }
 
     // -- uninstall ---------------------------------------------------------
@@ -211,96 +190,164 @@ class EngineInstallerTest {
 
     @Test
     fun verifyDistinguishesInstalledFromCorruptFromNotInstalled() = runTest {
-        val descriptor = EngineDescriptor(
-            name = "stoat",
-            displayName = "Stoat",
-            description = "test",
-            downloadSizeBytes = 11L,
-            installedSizeBytes = 11L,
-            isRecommended = false,
-            files = listOf(
-                EngineFile(
-                    relativePath = "a.bin",
-                    url = "https://example.invalid/a.bin",
-                    sha256 = EngineCatalog.SHA256_PENDING,
-                    sizeBytes = 5L,
-                ),
-            ),
-            licenseNotice = "n/a",
-            licenseSummary = "n/a",
+        // verifyLayout is keyed to the Kitten payload shape (model.fp16.onnx
+        // + voices.bin + tokens.txt + espeak-ng-data/ with > 100 entries),
+        // so this test uses the kitten name + manually stages the layout.
+        val descriptor = engineDescriptor(
+            name = "kitten",
+            url = "https://test/kitten.tar.bz2",
+            archiveBytes = ByteArray(0), // unused — we only call verify
         )
 
         assertEquals(InstallState.NotInstalled, installer.verifyAgainst(descriptor))
 
         val dir = File(filesDir, "engines/${descriptor.name}")
         dir.mkdirs()
-        assertEquals(InstallState.Corrupt, installer.verifyAgainst(descriptor))
+        assertEquals(
+            "empty dir should be Corrupt",
+            InstallState.Corrupt,
+            installer.verifyAgainst(descriptor),
+        )
 
-        File(dir, "a.bin").writeText("hello")
+        // Build the full expected layout: oversize model, the two small
+        // files, and an espeak-ng-data/ dir with > 100 entries.
+        File(dir, "model.fp16.onnx").writeBytes(ByteArray(2 * 1024 * 1024) { 0x42 })
+        File(dir, "voices.bin").writeText("voices")
+        File(dir, "tokens.txt").writeText("tokens")
+        val dataDir = File(dir, "espeak-ng-data").apply { mkdirs() }
+        for (i in 0 until 120) {
+            File(dataDir, "entry_$i").writeText("$i")
+        }
         assertEquals(InstallState.Installed, installer.verifyAgainst(descriptor))
+    }
+
+    @Test
+    fun verifyReturnsCorruptIfModelTooSmall() = runTest {
+        val descriptor = engineDescriptor(
+            name = "kitten",
+            url = "https://test/kitten.tar.bz2",
+            archiveBytes = ByteArray(0),
+        )
+
+        val dir = File(filesDir, "engines/${descriptor.name}").apply { mkdirs() }
+        File(dir, "model.fp16.onnx").writeText("too small") // < 1 MB
+        File(dir, "voices.bin").writeText("voices")
+        File(dir, "tokens.txt").writeText("tokens")
+        val dataDir = File(dir, "espeak-ng-data").apply { mkdirs() }
+        for (i in 0 until 120) {
+            File(dataDir, "entry_$i").writeText("$i")
+        }
+
+        assertEquals(InstallState.Corrupt, installer.verifyAgainst(descriptor))
     }
 
     // -- idempotent re-install ---------------------------------------------
 
     @Test
     fun reinstallReplacesPreviousFilesAtomically() = runTest {
-        val descriptor = stageBundle(
-            files = mapOf("model.fp16.onnx" to "v1".toByteArray()),
-        )
-
-        installer.install(descriptor) {}
+        // First install.
+        val v1Layout = KITTEN_LAYOUT.toMutableMap().apply {
+            this["voices.bin"] = "v1".toByteArray()
+        }
+        val v1Descriptor = stageBundle(v1Layout)
+        val first = installer.install(v1Descriptor) {}
+        assertTrue("first install should succeed, got $first", first.isSuccess)
         assertEquals(
             "v1",
-            File(filesDir, "engines/${descriptor.name}/model.fp16.onnx").readText(),
+            File(filesDir, "engines/${v1Descriptor.name}/voices.bin").readText(),
         )
 
-        // Stage v2 with the same URL — swap the bytes + rebuild descriptor
-        // with the matching sha256 so the verification passes.
-        val v2 = "v2 contents".toByteArray()
-        fetcher.payloads[descriptor.files.single().url] = v2
-        val v2Descriptor = descriptor.copy(
-            files = listOf(descriptor.files.single().copy(
-                sha256 = sha256Hex(v2),
-                sizeBytes = v2.size.toLong(),
-            )),
-            downloadSizeBytes = v2.size.toLong(),
-            installedSizeBytes = v2.size.toLong(),
+        // Second install with new content at the same URL.
+        val v2Layout = KITTEN_LAYOUT.toMutableMap().apply {
+            this["voices.bin"] = "v2 fresh".toByteArray()
+        }
+        val v2Archive = buildArchive(v2Layout, archiveRootName = ARCHIVE_ROOT)
+        fetcher.payloads[v1Descriptor.archive.url] = v2Archive
+        val v2Descriptor = v1Descriptor.copy(
+            archive = v1Descriptor.archive.copy(
+                sha256 = sha256Hex(v2Archive),
+                sizeBytes = v2Archive.size.toLong(),
+            ),
+            downloadSizeBytes = v2Archive.size.toLong(),
         )
-        val secondResult = installer.install(v2Descriptor) {}
-        assertTrue("reinstall should succeed, got $secondResult", secondResult.isSuccess)
+
+        val second = installer.install(v2Descriptor) {}
+        assertTrue("reinstall should succeed, got $second", second.isSuccess)
 
         assertEquals(
-            "v2 contents",
-            File(filesDir, "engines/${descriptor.name}/model.fp16.onnx").readText(),
+            "v2 fresh",
+            File(filesDir, "engines/${v1Descriptor.name}/voices.bin").readText(),
+        )
+        // Native handle was released before the reinstall touched the
+        // existing engine dir.
+        assertTrue(
+            "reinstall should release the native handle before deleting model files",
+            fakeEngine.released,
         )
     }
 
     // -- fixture machinery -------------------------------------------------
 
-    /** Register a bundle's bytes with the fake fetcher and return a matching descriptor. */
+    /**
+     * Register a bundle's bytes with the fake fetcher and return a matching
+     * descriptor. Uses the standard Kitten archive-root convention.
+     */
     private fun stageBundle(files: Map<String, ByteArray>): EngineDescriptor {
-        val name = "kitten-test"
-        val entries = files.entries.map { (path, bytes) ->
-            val url = "https://test/$name/$path"
-            fetcher.payloads[url] = bytes
-            EngineFile(
-                relativePath = path,
-                url = url,
-                sha256 = sha256Hex(bytes),
-                sizeBytes = bytes.size.toLong(),
-            )
-        }
-        return EngineDescriptor(
-            name = name,
-            displayName = "Kitten (test)",
-            description = "test",
-            downloadSizeBytes = files.values.sumOf { it.size.toLong() },
-            installedSizeBytes = files.values.sumOf { it.size.toLong() },
-            isRecommended = true,
-            files = entries,
-            licenseNotice = "n/a",
-            licenseSummary = "n/a",
+        val archive = buildArchive(files, archiveRootName = ARCHIVE_ROOT)
+        val descriptor = engineDescriptor(
+            name = "kitten-test",
+            url = "https://test/kitten-test/bundle.tar.bz2",
+            archiveBytes = archive,
         )
+        fetcher.payloads[descriptor.archive.url] = archive
+        return descriptor
+    }
+
+    private fun engineDescriptor(
+        name: String,
+        url: String,
+        archiveBytes: ByteArray,
+        shaOverride: String? = null,
+        archiveRoot: String = ARCHIVE_ROOT,
+    ): EngineDescriptor = EngineDescriptor(
+        name = name,
+        displayName = name,
+        description = "test",
+        downloadSizeBytes = archiveBytes.size.toLong().coerceAtLeast(1L),
+        installedSizeBytes = (archiveBytes.size.toLong() * 2L).coerceAtLeast(2L),
+        isRecommended = false,
+        archive = EngineArchive(
+            url = url,
+            sha256 = shaOverride ?: sha256Hex(archiveBytes),
+            sizeBytes = archiveBytes.size.toLong().coerceAtLeast(1L),
+            archiveRoot = archiveRoot,
+        ),
+        licenseNotice = "n/a",
+        licenseSummary = "n/a",
+    )
+
+    companion object {
+        // Wrapper directory name used by the production Kitten archive.
+        // The installer strips this prefix during extraction; the test
+        // archives mirror the same layout.
+        private const val ARCHIVE_ROOT = "kitten-nano-en-v0_1-fp16/"
+
+        /**
+         * Synthetic Kitten payload large enough to pass the post-install
+         * verification (model > 1 MB, > 100 espeak-ng-data entries).
+         */
+        private val KITTEN_LAYOUT: Map<String, ByteArray> = buildMap {
+            // 1.5 MB so it clears the 1 MB MIN_MODEL_BYTES floor with room
+            // to spare. Bytes don't matter — the installer only checks the
+            // archive's sha, not the model's contents.
+            put("model.fp16.onnx", ByteArray(1_500_000) { (it and 0xFF).toByte() })
+            put("voices.bin", "voices payload".toByteArray())
+            put("tokens.txt", "phoneme tokens".toByteArray())
+            // > 100 entries under espeak-ng-data/ to clear MIN_ESPEAK_ENTRIES.
+            for (i in 0 until 110) {
+                put("espeak-ng-data/entry_$i", "dict-$i".toByteArray())
+            }
+        }
     }
 }
 
@@ -349,7 +396,40 @@ internal class FakeHttpFetcher : HttpFetcher {
     }
 }
 
-private fun sha256Hex(bytes: ByteArray): String {
+/**
+ * Build a tar.bz2 archive in-memory from a {entry-name -> bytes} map.
+ *
+ * If [archiveRootName] is non-empty, every entry name is prefixed with
+ * it — mirrors the upstream Sherpa-ONNX tarball's `kitten-nano-en-v0_1-fp16/`
+ * wrapper directory.
+ */
+internal fun buildArchive(
+    files: Map<String, ByteArray>,
+    archiveRootName: String,
+): ByteArray {
+    val out = ByteArrayOutputStream()
+    BZip2CompressorOutputStream(out).use { bzOut ->
+        TarArchiveOutputStream(bzOut).use { tarOut ->
+            tarOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
+            for ((name, bytes) in files) {
+                val entryName = if (archiveRootName.isNotEmpty()) {
+                    archiveRootName + name
+                } else {
+                    name
+                }
+                val entry = TarArchiveEntry(entryName)
+                entry.size = bytes.size.toLong()
+                tarOut.putArchiveEntry(entry)
+                tarOut.write(bytes)
+                tarOut.closeArchiveEntry()
+            }
+            tarOut.finish()
+        }
+    }
+    return out.toByteArray()
+}
+
+internal fun sha256Hex(bytes: ByteArray): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
     val sb = StringBuilder(digest.size * 2)
     for (b in digest) {
