@@ -14,8 +14,8 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -124,8 +124,10 @@ dependencies {
     // DataStore (Preferences)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // Sherpa-ONNX (TTS inference, vendored AAR)
-    implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.12.32.aar"))
+    // Sherpa-ONNX (TTS inference, vendored AAR). 1.13.2 is the first
+    // release with KittenTTS v0.8 support — anything older crashes mid-
+    // synthesis against our v0.8 int8 bundle.
+    implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar"))
 
     // Media session (lock-screen + BT transport controls in MarmaladeSynthService).
     // Provides MediaSessionCompat / PlaybackStateCompat / MediaButtonReceiver.
