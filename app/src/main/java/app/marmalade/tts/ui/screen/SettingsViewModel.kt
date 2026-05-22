@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAliasDao
+import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.ui.theme.ThemePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -32,8 +35,15 @@ import kotlinx.coroutines.launch
 //     │                                │ map { it.size }
 //     │                          VoiceAliasDao.getAll() (Flow<List<VoiceAlias>>)
 //     │
+//     ├── enabledRules     ◄────── SettingsViewModel.enabledRules
+//     │                                ▲
+//     │                                │ combine(per-engine flows)
+//     │                          SettingsRepository.enabledRules(engine)
+//     │
 //     └── actions ──► setThemePreset(ThemePreset)
 //                     setKeepEngineLoaded(Boolean)
+//                     toggleRule(engine, rule, enabled)
+//                     resetRules(engine)
 //                          │
 //                          ▼
 //                     SettingsRepository.set...(value)  (DataStore round-trip)
@@ -92,6 +102,31 @@ class SettingsViewModel @Inject constructor(
             initialValue = 0,
         )
 
+    /**
+     * The set of enabled preprocessing rules per engine the UI offers
+     * toggles for. Keys are engine names (`"kitten"`, future `"kokoro"`,
+     * …); values are the rule-name sets currently persisted in
+     * DataStore — falling back to [EngineProfiles.defaultsFor] on a
+     * fresh install.
+     *
+     * Combine here is across the per-engine flows so the UI can render
+     * the whole section synchronously after first emission, and so the
+     * StateFlow stays one observable that the screen collects once.
+     */
+    val enabledRules: StateFlow<Map<String, Set<String>>> = run {
+        // Only the engines that have a default profile show up in the
+        // UI — the screen iterates this map's keys to draw subsections.
+        val engineNames = EngineProfiles.DEFAULT_PROFILES.keys.toList()
+        val flows = engineNames.map { name -> settings.enabledRules(name) }
+        combine(flows) { arrays ->
+            engineNames.zip(arrays.toList()).toMap()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = engineNames.associateWith { EngineProfiles.defaultsFor(it) },
+        )
+    }
+
     /** Persist a new theme preset selection. */
     fun setThemePreset(preset: ThemePreset) {
         viewModelScope.launch {
@@ -103,6 +138,35 @@ class SettingsViewModel @Inject constructor(
     fun setKeepEngineLoaded(value: Boolean) {
         viewModelScope.launch {
             settings.setKeepEngineLoaded(value)
+        }
+    }
+
+    /**
+     * Toggle a single preprocessing [rule] on or off for [engine].
+     *
+     * Reads the latest persisted set with `.first()` rather than the
+     * StateFlow value because a rapid double-tap on two different rules
+     * could otherwise both compute "based on the previous emission" and
+     * the second write would clobber the first. `.first()` waits for the
+     * Flow's current state, which is always consistent with the last
+     * write the same coroutine did.
+     */
+    fun toggleRule(engine: String, rule: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val current = settings.enabledRules(engine).first()
+            val next = if (enabled) current + rule else current - rule
+            settings.setEnabledRules(engine, next)
+        }
+    }
+
+    /**
+     * Restore [engine]'s preprocessing rules to the CLI defaults from
+     * [EngineProfiles.DEFAULT_PROFILES]. Used by the "Reset to defaults"
+     * button in the Settings UI.
+     */
+    fun resetRules(engine: String) {
+        viewModelScope.launch {
+            settings.setEnabledRules(engine, EngineProfiles.defaultsFor(engine))
         }
     }
 

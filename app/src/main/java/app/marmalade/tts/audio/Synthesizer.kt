@@ -4,11 +4,17 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
+import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.engine.KokoroEngine
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.preprocessing.Preprocessor
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
@@ -19,8 +25,18 @@ import kotlinx.coroutines.withContext
 //     ▼
 //   Synthesizer.speak(text, voiceId, speed, effect)
 //     │
-//     ├── KittenEngine.synthesize(text, voiceId, speed) ──► SynthAudio(pcm, sr)
-//     │     (CPU-bound; runs on Dispatchers.Default inside the engine)
+//     ├── engineNameFor(voiceId) ──► "kokoro" | "kitten"
+//     │     (split on ':' — voice IDs use "<engine>:<voiceName>")
+//     │
+//     ├── settings.enabledRules(engineName).first() ──► Set<String>
+//     ├── Preprocessor.apply(text, enabled)         ──► normalized text
+//     │     (HTML decode, currency, numbers-to-words, etc. per user's
+//     │      Settings → Text preprocessing toggles)
+//     │
+//     ├── synthesizeForEngine(engineName, ...)
+//     │     ├── "kokoro" → KokoroEngine.synthesize(...) ──► SynthAudio
+//     │     └── "kitten" → KittenEngine.synthesize(...) ──► SynthAudio
+//     │     (both CPU-bound; engines hop onto Dispatchers.Default)
 //     │
 //     ├── EffectChain.apply(pcm, sampleRate, effect)
 //     │     (pure-Kotlin DSP; NONE returns the input array unchanged)
@@ -48,7 +64,7 @@ sealed class SynthesizerException(message: String, cause: Throwable? = null) :
     Exception(message, cause) {
 
     /** Engine assets haven't been downloaded yet. UI routes user to Engines screen. */
-    object ModelMissing : SynthesizerException("Kitten engine not installed")
+    object ModelMissing : SynthesizerException("TTS engine not installed")
 
     /** Anything else — JNI failure, invalid voice ID, AudioTrack init, etc. */
     class SynthesisFailed(cause: Throwable) :
@@ -104,6 +120,9 @@ interface SpeechPlayer {
 @Singleton
 class Synthesizer @Inject constructor(
     private val engine: KittenEngine,
+    private val kokoroEngine: KokoroEngine,
+    private val preprocessor: Preprocessor,
+    private val settings: SettingsRepository,
 ) : SpeechPlayer {
 
     @Volatile
@@ -129,8 +148,19 @@ class Synthesizer @Inject constructor(
     ): Result<Unit> {
         cancelled = false
 
+        // Route by the engine the voice belongs to. Voice IDs follow the
+        // "<engine>:<voiceName>" convention, so the part before the first
+        // colon is the routing key.
+        val engineName = engineNameFor(voiceId)
+
+        // Apply the user's per-engine preprocessing profile before the
+        // engine sees the text. Each engine has its own profile so users
+        // can curate kokoro's rules separately from kitten's.
+        val enabled = settings.enabledRules(engineName).first()
+        val preprocessed = preprocessor.apply(text, enabled)
+
         val audio: SynthAudio = try {
-            engine.synthesize(text, voiceId, speed)
+            synthesizeForEngine(engineName, preprocessed, voiceId, speed)
         } catch (_: UnsupportedOperationException) {
             // Engine clearly signals "model isn't installed" — propagate as
             // a typed result so the UI can show the right copy.
@@ -172,6 +202,35 @@ class Synthesizer @Inject constructor(
     }
 
     // -- private --------------------------------------------------------------
+
+    /**
+     * Engine name embedded in [voiceId] (everything before the first `:`).
+     * Falls back to `"kokoro"` (the recommended-engine default) for
+     * malformed inputs.
+     */
+    private fun engineNameFor(voiceId: String): String {
+        val sep = voiceId.indexOf(':')
+        if (sep <= 0) return KokoroVoiceCatalog.ENGINE
+        val name = voiceId.substring(0, sep)
+        return when (name) {
+            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> name
+            else -> KokoroVoiceCatalog.ENGINE
+        }
+    }
+
+    /** Route synthesis to the right engine handle. */
+    private suspend fun synthesizeForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): SynthAudio = when (engineName) {
+        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
+        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
+        // Defensive: engineNameFor already narrows to known values, but
+        // the exhaustive `when` keeps the compiler honest.
+        else -> engine.synthesize(text, voiceId, speed)
+    }
 
     /**
      * Allocate an AudioTrack at [sampleRate] (mono PCM16), write the full

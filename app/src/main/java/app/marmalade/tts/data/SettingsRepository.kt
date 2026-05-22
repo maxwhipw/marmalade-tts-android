@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.ui.theme.ThemePreset
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,6 +26,12 @@ import kotlinx.coroutines.flow.map
 //                   │
 //                   ▼
 //                 DataStore.edit { it[KEY] = value }
+//
+//   Per-engine preprocessing rule sets:
+//     enabledRules(engine)        ──► Flow<Set<String>>
+//        falls back to EngineProfiles.defaultsFor(engine) when unset.
+//     setEnabledRules(engine, …)  ──► CSV-joined string stored under
+//                                       "preprocessing_rules_<engine>"
 // -----------------------------------------------------------------------------
 
 /**
@@ -129,6 +136,52 @@ open class SettingsRepository @Inject constructor(
             prefs[KEY_KEEP_LOADED] = value
         }
     }
+
+    /**
+     * The set of enabled text-preprocessing rule names for [engineName].
+     *
+     * Stored as a comma-separated string under
+     * `preprocessing_rules_<engineName>` to avoid pulling in
+     * kotlinx-serialization just for this — rule names are stable
+     * identifiers from `PreprocessingRules.ALL` (no commas, no special
+     * chars to escape).
+     *
+     * Falls back to [EngineProfiles.defaultsFor] when nothing is
+     * persisted yet. That gives a fresh install the CLI's per-engine
+     * defaults without us having to seed DataStore on first launch
+     * (the seed would race with first-read collectors in the UI).
+     *
+     * The empty-string case is treated as "user disabled everything"
+     * (returns the empty set), distinct from "nothing stored yet"
+     * (returns the defaults).
+     */
+    open fun enabledRules(engineName: String): Flow<Set<String>> {
+        val key = preprocessingKeyFor(engineName)
+        return dataStore.data.map { prefs ->
+            val stored = prefs[key]
+            when {
+                stored == null -> EngineProfiles.defaultsFor(engineName)
+                stored.isEmpty() -> emptySet()
+                else -> stored.split(",").filter { it.isNotBlank() }.toSet()
+            }
+        }
+    }
+
+    /**
+     * Persist [rules] as the enabled set for [engineName]. Stored
+     * verbatim as a comma-joined string; the empty set is stored as
+     * `""` (not removed) so the "user disabled everything" state
+     * round-trips correctly.
+     */
+    open suspend fun setEnabledRules(engineName: String, rules: Set<String>) {
+        val key = preprocessingKeyFor(engineName)
+        dataStore.edit { prefs ->
+            prefs[key] = rules.joinToString(",")
+        }
+    }
+
+    private fun preprocessingKeyFor(engineName: String) =
+        stringPreferencesKey("preprocessing_rules_$engineName")
 
     companion object {
         // Stable key names — part of the v1.0 public surface per SPEC.md's

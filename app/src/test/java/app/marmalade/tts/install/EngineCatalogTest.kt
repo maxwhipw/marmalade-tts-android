@@ -18,48 +18,95 @@ import org.junit.Test
 class EngineCatalogTest {
 
     @Test
-    fun kittenIsTheOnlyEngineInV01() {
-        assertEquals(listOf("kitten"), EngineCatalog.all.map { it.name })
+    fun catalogContainsKokoroAndKitten() {
+        // Order is the display order in onboarding + Settings → Engines.
+        // Kokoro first because it is the recommended default starting v0.1.9.
+        assertEquals(listOf("kokoro", "kitten"), EngineCatalog.all.map { it.name })
     }
 
     @Test
-    fun kittenIsRecommendedAndMatchesEngineKey() {
-        val kitten = EngineCatalog.byName("kitten")!!
-        assertTrue(kitten.isRecommended)
-        // Engine identifier must match the directory name KittenEngine uses.
-        // Catching a rename here saves us from a silent install-vs-load
-        // mismatch (`isInstalled()` looks at filesDir/engines/kitten).
-        assertEquals("kitten", kitten.name)
-    }
-
-    @Test
-    fun kittenArchiveUrlIsHttps() {
+    fun kokoroIsRecommendedAndKittenIsNot() {
+        val kokoro = EngineCatalog.byName("kokoro")!!
         val kitten = EngineCatalog.byName("kitten")!!
         assertTrue(
-            "archive url must be HTTPS, was '${kitten.archive.url}'",
-            kitten.archive.url.startsWith("https://"),
+            "kokoro should be the recommended default",
+            kokoro.isRecommended,
+        )
+        assertEquals(
+            "kitten should no longer be flagged recommended (kokoro is now)",
+            false,
+            kitten.isRecommended,
+        )
+        // Exactly one recommended engine — the onboarding pre-selection
+        // logic reads the boolean per engine; multiple recommendations
+        // would over-pre-select on first launch.
+        assertEquals(
+            "exactly one recommended engine expected",
+            1,
+            EngineCatalog.all.count { it.isRecommended },
         )
     }
 
     @Test
-    fun kittenArchiveShaIs64HexLowercase() {
-        val kitten = EngineCatalog.byName("kitten")!!
-        val sha = kitten.archive.sha256
-        assertEquals("sha256 must be 64 hex chars, was '$sha'", 64, sha.length)
-        assertTrue(
-            "sha256 must be lowercase hex, was '$sha'",
-            sha.all { it in '0'..'9' || it in 'a'..'f' },
-        )
+    fun engineNameMatchesEngineKey() {
+        // Engine identifier must match the directory name the engine class
+        // uses (filesDir/engines/<name>). Catching a rename here saves us
+        // from a silent install-vs-load mismatch.
+        assertEquals("kokoro", EngineCatalog.byName("kokoro")!!.name)
+        assertEquals("kitten", EngineCatalog.byName("kitten")!!.name)
     }
 
     @Test
-    fun kittenArchiveSizeIsPositiveAndReasonable() {
-        val kitten = EngineCatalog.byName("kitten")!!
-        // > 1 MB guards against a "0" or sentinel size slipping in;
-        // we don't pin the upper bound because bundle refreshes change it.
+    fun everyArchiveUrlIsHttps() {
+        for (engine in EngineCatalog.all) {
+            assertTrue(
+                "archive url for ${engine.name} must be HTTPS, was '${engine.archive.url}'",
+                engine.archive.url.startsWith("https://"),
+            )
+        }
+    }
+
+    @Test
+    fun everyArchiveShaIs64HexLowercase() {
+        for (engine in EngineCatalog.all) {
+            val sha = engine.archive.sha256
+            assertEquals(
+                "${engine.name}: sha256 must be 64 hex chars, was '$sha'",
+                64,
+                sha.length,
+            )
+            assertTrue(
+                "${engine.name}: sha256 must be lowercase hex, was '$sha'",
+                sha.all { it in '0'..'9' || it in 'a'..'f' },
+            )
+        }
+    }
+
+    @Test
+    fun everyArchiveSizeIsPositiveAndReasonable() {
+        for (engine in EngineCatalog.all) {
+            // > 1 MB guards against a "0" or sentinel size slipping in;
+            // we don't pin the upper bound because bundle refreshes change it.
+            assertTrue(
+                "${engine.name}: archive.sizeBytes must be > 1 MB, was ${engine.archive.sizeBytes}",
+                engine.archive.sizeBytes > 1L * 1024L * 1024L,
+            )
+        }
+    }
+
+    @Test
+    fun kokoroPointsAtV4Release() {
+        // The engines repo's `v4` release is what the catalog must
+        // reference for Kokoro. Catching a typo here saves a real
+        // install failure (404) on the first launch after upgrade.
+        val kokoro = EngineCatalog.byName("kokoro")!!
         assertTrue(
-            "archive.sizeBytes must be > 1 MB, was ${kitten.archive.sizeBytes}",
-            kitten.archive.sizeBytes > 1L * 1024L * 1024L,
+            "kokoro must reference the v4 engines-repo release, was '${kokoro.archive.url}'",
+            kokoro.archive.url.contains("/releases/download/v4/"),
+        )
+        assertTrue(
+            "kokoro archive should be the kokoro-int8-en-v0_19 bundle",
+            kokoro.archive.url.endsWith("kokoro-int8-en-v0_19.tar.bz2"),
         )
     }
 
@@ -92,17 +139,18 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kittenArchiveRootEndsWithSlash() {
+    fun everyArchiveRootEndsWithSlash() {
         // archiveRoot's contract is "directory prefix to strip" — if it
         // doesn't end with "/" the prefix match will eat partial filenames.
         // Empty string is allowed (means "no stripping").
-        val kitten = EngineCatalog.byName("kitten")!!
-        val root = kitten.archive.archiveRoot
-        if (root.isNotEmpty()) {
-            assertTrue(
-                "archiveRoot must end with '/', was '$root'",
-                root.endsWith("/"),
-            )
+        for (engine in EngineCatalog.all) {
+            val root = engine.archive.archiveRoot
+            if (root.isNotEmpty()) {
+                assertTrue(
+                    "${engine.name}: archiveRoot must end with '/', was '$root'",
+                    root.endsWith("/"),
+                )
+            }
         }
     }
 
@@ -117,13 +165,15 @@ class EngineCatalogTest {
     @Test
     fun licenseSummaryFlagsGplComponent() {
         // GPL disclosure is part of the install consent UX — it must show
-        // up in the catalog string so the UI cards reflect it.
-        val kitten = EngineCatalog.byName("kitten")!!
-        val haystack = kitten.licenseSummary.lowercase()
-        assertTrue(
-            "kitten.licenseSummary should mention GPL — was '${kitten.licenseSummary}'",
-            haystack.contains("gpl"),
-        )
+        // up in the catalog string so the UI cards reflect it. Both
+        // engines pull in espeak-ng-data (GPL-3.0) via Sherpa-ONNX.
+        for (engine in EngineCatalog.all) {
+            val haystack = engine.licenseSummary.lowercase()
+            assertTrue(
+                "${engine.name}.licenseSummary should mention GPL — was '${engine.licenseSummary}'",
+                haystack.contains("gpl"),
+            )
+        }
     }
 
     @Test

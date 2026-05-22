@@ -12,10 +12,13 @@ import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.engine.KokoroEngine
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
 import app.marmalade.tts.install.UrlHttpFetcher
+import app.marmalade.tts.preprocessing.Preprocessor
+import app.marmalade.tts.preprocessing.PreprocessingRules
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -93,14 +96,22 @@ object AppModule {
         EngineFilesDir { ctx.filesDir }
 
     /**
-     * Routes the installer's `NativeEngineHandle` to the live
-     * [KittenEngine] so uninstalls can release the JNI handle before
-     * deleting the model files. Unit tests substitute a no-op handle.
+     * Routes the installer's `NativeEngineHandle` to the live engine
+     * singletons so uninstalls can release JNI handles before deleting
+     * the model files. We release both — the installer doesn't tell us
+     * which engine is being uninstalled, and `release()` is idempotent
+     * on an unloaded engine, so releasing the wrong one is a harmless
+     * no-op. Unit tests substitute a no-op handle.
      */
     @Provides
     @Singleton
-    fun provideNativeEngineHandle(engine: KittenEngine): NativeEngineHandle =
-        NativeEngineHandle { engine.release() }
+    fun provideNativeEngineHandle(
+        kitten: KittenEngine,
+        kokoro: KokoroEngine,
+    ): NativeEngineHandle = NativeEngineHandle {
+        kitten.release()
+        kokoro.release()
+    }
 
     /**
      * HTTP fetcher used by [EngineInstaller]. Production uses
@@ -110,4 +121,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideHttpFetcher(): HttpFetcher = UrlHttpFetcher
+
+    /**
+     * Single shared [Preprocessor], initialised from the static
+     * [PreprocessingRules.ALL] catalog. Stateless; the rules-by-name
+     * map is constructed once at injection time.
+     */
+    @Provides
+    @Singleton
+    fun providePreprocessor(): Preprocessor = Preprocessor(
+        rulesByName = PreprocessingRules.ALL.associateBy { it.name },
+    )
 }

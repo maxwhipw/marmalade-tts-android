@@ -59,14 +59,14 @@ class OnboardingViewModelTest {
     @Test
     fun toggleFlipsSelection() = runTest {
         val vm = newViewModel()
-        // Kitten is recommended → pre-selected.
-        assertTrue(vm.selectedEngineIds.value.contains("kitten"))
+        // Kokoro is the recommended default → pre-selected.
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro"))
 
-        vm.toggle("kitten")
-        assertTrue(!vm.selectedEngineIds.value.contains("kitten"))
+        vm.toggle("kokoro")
+        assertTrue(!vm.selectedEngineIds.value.contains("kokoro"))
 
-        vm.toggle("kitten")
-        assertTrue(vm.selectedEngineIds.value.contains("kitten"))
+        vm.toggle("kokoro")
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro"))
     }
 
     @Test
@@ -77,15 +77,16 @@ class OnboardingViewModelTest {
         vm.installSelected()
 
         assertEquals(OnboardingStep.Installing, vm.step.value)
-        assertEquals(listOf("kitten"), installer.installCalls)
-        assertEquals(InstallState.Installed, vm.installStates.value["kitten"])
+        // Only the recommended engine (kokoro) is pre-selected.
+        assertEquals(listOf("kokoro"), installer.installCalls)
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro"])
     }
 
     @Test
     fun installSelectedWithNoSelectionsIsNoop() = runTest {
         val installer = RecordingInstaller(behaviour = { Result.success(Unit) })
         val vm = newViewModel(installer = installer)
-        vm.toggle("kitten") // un-select Kitten
+        vm.toggle("kokoro") // un-select the recommended default
 
         vm.installSelected()
 
@@ -102,7 +103,7 @@ class OnboardingViewModelTest {
 
         vm.installSelected()
 
-        val state = vm.installStates.value["kitten"]
+        val state = vm.installStates.value["kokoro"]
         assertTrue("expected Failed, got $state", state is InstallState.Failed)
         assertEquals("net dropped", (state as InstallState.Failed).reason)
     }
@@ -114,9 +115,11 @@ class OnboardingViewModelTest {
         vm.installSelected()
         assertEquals(1, installer.installCalls.size)
 
-        vm.retry("kitten")
+        // Retry the same engine the recommended default lands on
+        // (kokoro), so the running count grows by exactly one.
+        vm.retry("kokoro")
         assertEquals(2, installer.installCalls.size)
-        assertEquals(InstallState.Installed, vm.installStates.value["kitten"])
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro"])
     }
 
     @Test

@@ -101,13 +101,22 @@ data class EngineDescriptor(
 }
 
 /**
- * Static catalog of installable engines. Kitten is the only entry in v0.1.
+ * Static catalog of installable engines.
  *
- * Future engines (piper, kokoro, pocket) join this list as their bundles
- * are characterised. The list order is also the display order in the
- * onboarding wizard and Settings → Engines screen.
+ * v0.1.9 ships both Kokoro (recommended default) and Kitten. Future engines
+ * (piper, pocket) join this list as their bundles are characterised. The
+ * list order is also the display order in the onboarding wizard and
+ * Settings → Engines screen.
  */
 object EngineCatalog {
+
+    /**
+     * Sum of unpacked Kokoro v0.19 int8 file sizes. Compute with:
+     *   tar -xjf kokoro-int8-en-v0_19.tar.bz2
+     *   find kokoro-int8-en-v0_19 -type f -exec stat -c %s {} + | \
+     *       awk '{s+=$1} END {print s}'
+     */
+    private const val KOKORO_INSTALLED_SIZE_BYTES: Long = 157_947_103L
 
     /**
      * Sum of unpacked Kitten v0.8 int8 file sizes. Compute with:
@@ -118,6 +127,41 @@ object EngineCatalog {
     private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 45_652_547L
 
     /**
+     * Kokoro TTS — Sherpa-ONNX kokoro-int8-en v0.19 port. ~98 MB compressed
+     * download, ~151 MB on-disk, 11 English voices (American + British,
+     * male + female).
+     *
+     * Recommended default starting v0.1.9: Kokoro sounds meaningfully
+     * better than Kitten at the cost of a ~3x larger download. The Kokoro
+     * model itself is Apache-2.0; the espeak-ng phonemizer it shares with
+     * Kitten is GPL-3.0 — the install card shows that disclosure before
+     * the user opts in.
+     */
+    private val KOKORO: EngineDescriptor = EngineDescriptor(
+        name = "kokoro",
+        displayName = "Kokoro TTS",
+        description = "Higher-quality English TTS with 11 voices (American + British). " +
+            "Sounds noticeably more natural than Kitten — recommended if you have the " +
+            "storage for ~100 MB.",
+        downloadSizeBytes = 103_248_205L,
+        installedSizeBytes = KOKORO_INSTALLED_SIZE_BYTES,
+        isRecommended = true,
+        archive = EngineArchive(
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v4/kokoro-int8-en-v0_19.tar.bz2",
+            sha256 = "c9f0dd393615805b0bab050c340834d5e684e732aec91c0e860cd30e982c08bd",
+            sizeBytes = 103_248_205L,
+            // Sherpa-ONNX's tarball wraps everything in a top-level
+            // directory of this name. The installer strips it during
+            // extraction so the on-device layout is flat under
+            // ${filesDir}/engines/kokoro/.
+            archiveRoot = "kokoro-int8-en-v0_19/",
+        ),
+        licenseNotice = "LICENSES/kokoro-tts.md",
+        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +
+            "Higher-quality alternative to Kitten.",
+    )
+
+    /**
      * Kitten TTS — Sherpa-ONNX nano-en v0.8 int8 port. ~31 MB compressed
      * download, ~44 MB on-disk, 8 English voices.
      *
@@ -125,15 +169,18 @@ object EngineCatalog {
      * v0.8 int8 (same revision the marmalade-tts CLI uses on Linux). The
      * model filename also changed from `model.fp16.onnx` to
      * `model.int8.onnx` — [KittenEngine] reads from the new path.
+     *
+     * Demoted from `isRecommended = true` in v0.1.9 when Kokoro joined the
+     * catalog. Kitten stays available as the smaller-footprint option.
      */
     private val KITTEN: EngineDescriptor = EngineDescriptor(
         name = "kitten",
         displayName = "Kitten TTS",
-        description = "Small, fast English TTS with 8 voices. Recommended starter engine — " +
-            "runs offline on every device and downloads in under a minute.",
+        description = "Small, fast English TTS with 8 voices. Downloads in under a minute " +
+            "and fits in ~45 MB on-disk — the lightweight alternative to Kokoro.",
         downloadSizeBytes = 31_220_690L,
         installedSizeBytes = KITTEN_INSTALLED_SIZE_BYTES,
-        isRecommended = true,
+        isRecommended = false,
         archive = EngineArchive(
             url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v3/kitten-nano-en-v0_8-int8.tar.bz2",
             sha256 = "6fa5be852612ce761094ba74ee6123b4fc4acfefa79bf64dc63acae4a83af2fd",
@@ -148,8 +195,14 @@ object EngineCatalog {
         licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
     )
 
-    /** Every engine the app knows how to install. Read-only. */
-    val all: List<EngineDescriptor> = listOf(KITTEN)
+    /**
+     * Every engine the app knows how to install. Read-only.
+     *
+     * Order is the display order (onboarding cards + Settings → Engines).
+     * Kokoro first because it is the recommended default; Kitten second
+     * as the lightweight alternative.
+     */
+    val all: List<EngineDescriptor> = listOf(KOKORO, KITTEN)
 
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */
     fun byName(name: String): EngineDescriptor? = all.firstOrNull { it.name == name }

@@ -2,6 +2,7 @@ package app.marmalade.tts
 
 import android.app.Application
 import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KokoroVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -9,6 +10,7 @@ import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // -----------------------------------------------------------------------------
@@ -21,19 +23,27 @@ import kotlinx.coroutines.launch
 //     └── applicationScope.launch
 //             │
 //             ▼
-//        voiceDao.count() == 0 ?
-//             │            │
-//             │ yes        │ no
-//             ▼            ▼
-//        upsertAll(...) (no-op, already seeded)
+//        for each catalog (KittenVoiceCatalog, KokoroVoiceCatalog):
+//             │
+//             ▼
+//        dao.getByEngine(<engine>).first().isEmpty() ?
+//             │              │
+//             │ yes          │ no
+//             ▼              ▼
+//        upsertAll(catalog)  (no-op, already seeded)
+//
+//   The per-engine check (rather than `count() == 0`) handles the upgrade
+//   path from v0.1.8 (Kitten-only) to v0.1.9+ (Kitten + Kokoro): users who
+//   already have Kitten voices in the DB still get Kokoro voices inserted
+//   on next launch.
 // -----------------------------------------------------------------------------
 
 /**
  * Application entry point.
  *
  * Owns the one-shot voice-catalog seed: on first launch (or any cold start
- * where the `voice_meta` table is empty), the Kitten voice catalog is
- * inserted so `SpeakViewModel.currentVoice` can resolve immediately.
+ * where a catalog's voices aren't yet present), the matching voice list
+ * is inserted so `SpeakViewModel.currentVoice` can resolve immediately.
  *
  * Seeding moved here from a `RoomDatabase.Callback.onCreate` lambda (see
  * Blocker #2 + Major #4 in the v0.1 whole-project review):
@@ -45,8 +55,9 @@ import kotlinx.coroutines.launch
  *    never cancelled — latent leak.
  *
  * Doing the seed here:
- *  - is gated on `count() == 0` so it's idempotent across cold starts and
- *    survives a destructive migration without duplicating rows;
+ *  - is gated per-engine on `getByEngine(<engine>).first().isEmpty()` so
+ *    it's idempotent across cold starts AND survives the v0.1.8 → v0.1.9
+ *    upgrade (users with Kitten already seeded still get Kokoro inserted);
  *  - uses an application-scoped [CoroutineScope] tied to this Application
  *    instance (one per process, by definition);
  *  - runs before `SpeakViewModel` is constructed in practice — the seed
@@ -82,8 +93,15 @@ class MarmaladeTtsApplication : Application() {
         super.onCreate()
         applicationScope.launch {
             val dao = voiceDao.get()
-            if (dao.count() == 0) {
+            // Per-engine seeding: each catalog only writes its rows if
+            // the DB is missing every voice for that engine. Idempotent
+            // on cold start, and handles the v0.1.8 → v0.1.9 upgrade
+            // (Kitten present, Kokoro absent) without duplicating Kitten.
+            if (dao.getByEngine(KittenVoiceCatalog.ENGINE).first().isEmpty()) {
                 dao.upsertAll(KittenVoiceCatalog.voices)
+            }
+            if (dao.getByEngine(KokoroVoiceCatalog.ENGINE).first().isEmpty()) {
+                dao.upsertAll(KokoroVoiceCatalog.voices)
             }
         }
     }

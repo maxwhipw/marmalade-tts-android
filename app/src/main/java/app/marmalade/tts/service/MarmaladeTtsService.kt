@@ -7,9 +7,14 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
 import android.util.Log
 import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -17,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -25,26 +31,32 @@ import kotlinx.coroutines.runBlocking
 // -----------------------------------------------------------------------------
 //   Android system  ── onSynthesizeText(request, callback) ──▶  this service
 //      │
+//      ├── request.voiceName  →  pickVoiceFromRequest  ──► voiceId
+//      │      │                                           e.g. "kokoro:af_bella"
+//      │      ▼                                           or "kitten:Bella"
+//      │   VoiceMetaDao.findById(voiceId)  (suspend, runBlocking)
+//      │      │
+//      │      ▼                                           fallback when no
+//      │   engineNameFor(voiceId)  ──► "kokoro" | "kitten"   match: kokoro
+//      │
 //      ├── request.charSequenceText  → String (raw, may contain emojis)
 //      │      │
 //      │      ├── EmojiProsody.detect(raw) ──► ProsodyHint(emotion, intensity)
-//      │      └── EmojiProsody.stripEmojis(raw) ──► cleaned text for the engine
-//      │              (Kitten can't phonemize 🤣; espeak would read it as
-//      │               "rolling on the floor laughing face")
-//      │
-//      ├── request.voiceName / language fields → resolveVoiceId()
-//      │      │
-//      │      ▼
-//      │   VoiceMetaDao.findById(voiceId)  (suspend, runBlocking)
-//      │      │
-//      │      ▼
-//      │   "kitten:Bella" (default fallback if request didn't match)
+//      │      ├── settings.enabledRules(engineName).first()  (runBlocking)
+//      │      │     ──► Set<String> of enabled preprocessing rule names
+//      │      ├── Preprocessor.apply(raw, enabled)  ──► normalized text
+//      │      │     (HTML decode, currency, numbers→words, etc.)
+//      │      └── EmojiProsody.stripEmojis(normalized) ──► cleaned text
+//      │              for the engine (Sherpa-ONNX can't phonemize 🤣;
+//      │              espeak would read it as "rolling on the floor
+//      │              laughing face").
+//      ▼
+//   callback.start(sampleRateFor(engineName), ENCODING_PCM_16BIT, mono)
 //      │
 //      ▼
-//   callback.start(sampleRate, ENCODING_PCM_16BIT, mono)
-//      │
-//      ▼
-//   KittenEngine.synthesize(cleanedText, voiceId, speed)   (runBlocking)
+//   synthesizeForEngine(engineName, text, voiceId)   (runBlocking)
+//      │   ├── "kokoro" → KokoroEngine.synthesize(...)
+//      │   └── "kitten" → KittenEngine.synthesize(...)
 //      │  produces SynthAudio(pcm: ShortArray, sampleRate)
 //      ▼
 //   ProsodyApplier.apply(pcm, sampleRate, detectedEmotion)
@@ -57,17 +69,15 @@ import kotlinx.coroutines.runBlocking
 //      ▼
 //   callback.done()   (or callback.error() on any exception)
 //
-//   Voice negotiation (onLoadVoice / onIsLanguageAvailable) is wired to
-//   the same VoiceMetaDao seed (KittenVoiceCatalog) so the system can
-//   enumerate the 8 Kitten voices through Settings → Languages → TTS.
+//   Voice negotiation (onLoadVoice / onIsLanguageAvailable) accepts any
+//   voice belonging to a known engine (kitten or kokoro) so the system
+//   can enumerate both catalogs through Settings → Languages → TTS.
 //
 //   onLoadLanguage additionally fires a background warm-up — calling
-//   KittenEngine.ensureModelLoaded() off-thread — so that the first
+//   ensureModelLoaded() on both engines off-thread — so that the first
 //   onSynthesizeText doesn't pay the ~2–5 s cold-start tax for loading
-//   ~25 MB of model + 19 MB of espeak-ng-data via JNI. Some TTS clients
-//   (screen readers especially) will treat a slow callback.start() as
-//   an engine fault, so we eat the load cost when the user picks us in
-//   Settings → Languages → Text-to-speech rather than on first utterance.
+//   model bytes + espeak-ng-data via JNI. Engines that aren't installed
+//   throw EngineNotInstalledException which the warm-up silently absorbs.
 // -----------------------------------------------------------------------------
 
 /**
@@ -78,14 +88,16 @@ import kotlinx.coroutines.runBlocking
  * → Languages → Text-to-speech can select Marmalade as the device TTS
  * engine.
  *
- * Wires the system synthesis callback contract to [KittenEngine]:
+ * Wires the system synthesis callback contract to [KittenEngine] and
+ * [KokoroEngine], routing each request to the engine the requested voice
+ * belongs to:
  *
  * 1. `onSynthesizeText` resolves the requested voice against [VoiceMetaDao],
- *    asks `KittenEngine` for PCM, and streams it through the callback in
- *    `callback.maxBufferSize` chunks.
- * 2. `onIsLanguageAvailable` / `onLoadLanguage` honour `en-US` only for
- *    v0.1 — the bundled Kitten model is English-only.
- * 3. `onLoadVoice` accepts any voice ID seeded in the database.
+ *    picks the engine from `voice.engine`, asks that engine for PCM, and
+ *    streams it through the callback in `callback.maxBufferSize` chunks.
+ * 2. `onIsLanguageAvailable` / `onLoadLanguage` honour English variants
+ *    only — both installable engines are English-only today.
+ * 3. `onLoadVoice` accepts any voice ID seeded for either engine.
  *
  * Failures (missing model, JNI crash, etc.) surface as `callback.error()`
  * with a logged reason. The system retries or falls back to its default
@@ -97,7 +109,13 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var engine: KittenEngine
 
+    @Inject lateinit var kokoroEngine: KokoroEngine
+
     @Inject lateinit var voiceDao: VoiceMetaDao
+
+    @Inject lateinit var preprocessor: Preprocessor
+
+    @Inject lateinit var settings: SettingsRepository
 
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
@@ -154,21 +172,37 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
-     * Pre-load the Kitten model on a background coroutine so the next
-     * [onSynthesizeText] is fast. Safe to call repeatedly —
-     * [KittenEngine.ensureModelLoaded] is idempotent. Failures are logged
+     * Pre-load every installed engine on a background coroutine so the
+     * next [onSynthesizeText] is fast. Safe to call repeatedly —
+     * each engine's `ensureModelLoaded` is idempotent. Failures are logged
      * and swallowed; the synthesis path's own catch will still surface
-     * [EngineNotInstalledException] correctly if this warm-up fails.
+     * `EngineNotInstalledException` correctly if a warm-up failed.
+     *
+     * We warm both Kitten and Kokoro speculatively. If the user only has
+     * one installed, the other's `isInstalled()` returns false and
+     * `ensureModelLoaded()` throws `EngineNotInstalledException`, which
+     * the catch silently absorbs.
      */
     private fun warmUpEngine() {
         serviceScope.launch {
-            try {
-                engine.ensureModelLoaded()
-                Log.d(TAG, "Engine warm-up complete")
-            } catch (e: Exception) {
-                // Don't crash the service — onSynthesizeText will report
-                // the same error to the system the next time it fires.
-                Log.w(TAG, "Engine warm-up failed (will retry on synthesis)", e)
+            // Walk a list of (name, loader) pairs rather than (name, engine):
+            // KittenEngine and KokoroEngine don't share a base class, so
+            // arrayOf("kitten" to engine, "kokoro" to kokoroEngine) infers
+            // Pair<String, Any> and .ensureModelLoaded() is unresolved. A
+            // function reference per engine keeps the call site monomorphic.
+            val loaders: List<Pair<String, () -> Unit>> = listOf(
+                "kitten" to engine::ensureModelLoaded,
+                "kokoro" to kokoroEngine::ensureModelLoaded,
+            )
+            for ((name, load) in loaders) {
+                try {
+                    load()
+                    Log.d(TAG, "$name engine warm-up complete")
+                } catch (ex: Exception) {
+                    // Don't crash the service — onSynthesizeText will report
+                    // the same error to the system the next time it fires.
+                    Log.w(TAG, "$name engine warm-up skipped/failed", ex)
+                }
             }
         }
     }
@@ -177,13 +211,13 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     /**
      * Called by the system when a voice is selected. Accept any voice ID
-     * the catalog knows about; reject the rest so the system falls back
-     * to the language-level default.
+     * the catalog knows about (kitten or kokoro); reject the rest so the
+     * system falls back to the language-level default.
      */
     override fun onLoadVoice(voiceName: String?): Int {
         if (voiceName.isNullOrEmpty()) return TextToSpeech.ERROR
         val match = runBlocking { voiceDao.findById(voiceName) }
-        return if (match != null && match.engine == KittenVoiceCatalog.ENGINE) {
+        return if (match != null && isKnownEngine(match.engine)) {
             TextToSpeech.SUCCESS
         } else {
             TextToSpeech.ERROR
@@ -197,12 +231,14 @@ class MarmaladeTtsService : TextToSpeechService() {
         country: String?,
         variant: String?,
     ): String {
-        // English request → our default Kitten voice. Otherwise return an
-        // empty string so the system reports "no voice for that language".
+        // English request → the catalog-recommended default voice.
+        // Kokoro is the recommended engine starting v0.1.9; the picker UX
+        // also tracks isRecommended, so this stays in sync without a
+        // separate source of truth.
         return if (onIsLanguageAvailable(lang, country, variant)
             != TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            KittenVoiceCatalog.DEFAULT_VOICE_ID
+            KokoroVoiceCatalog.DEFAULT_VOICE_ID
         } else {
             ""
         }
@@ -212,32 +248,49 @@ class MarmaladeTtsService : TextToSpeechService() {
     // synthesis orchestration without subclassing the framework type.
     public override fun onSynthesizeText(request: SynthesisRequest, callback: SynthesisCallback) {
         val rawText = request.charSequenceText?.toString().orEmpty()
+
+        // Resolve the engine up-front: callback.start() needs a sample
+        // rate, and that's engine-dependent (Kokoro and Kitten v0.8 both
+        // emit at 24 kHz today, but routing through the right object
+        // future-proofs the path).
+        val voiceId = pickVoiceFromRequest(request)
+        val engineName = engineNameFor(voiceId)
+        val activeSampleRate = sampleRateFor(engineName)
+
         if (rawText.isBlank()) {
             // Open + close so the system isn't left waiting on us.
-            callback.start(engine.sampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
+            callback.start(activeSampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
             callback.done()
             return
         }
 
         // Emoji prosody is computed off the *raw* text (the emojis are
-        // the signal). The engine is fed the *stripped* text so it does
-        // not phonemize "😭" as the espeak-ng name for the codepoint.
+        // the signal). The text fed to the engine then goes through:
+        //   1. User-configured text preprocessing (currency, numbers,
+        //      abbreviations, … per Settings → Text preprocessing).
+        //   2. Emotion-emoji stripping — a safety net for the 11 emoji
+        //      in the EmojiProsody set, in case the user disabled the
+        //      preprocessing `emoji` rule.
+        // Rules are looked up per-engine so a user who curates kokoro's
+        // ruleset separately from kitten's gets the right behaviour.
         val hint = EmojiProsody.detect(rawText)
-        val text = EmojiProsody.stripEmojis(rawText)
+        val enabled = runBlocking { settings.enabledRules(engineName).first() }
+        val preprocessed = preprocessor.apply(rawText, enabled)
+        val text = EmojiProsody.stripEmojis(preprocessed)
         if (text.isBlank()) {
             // Stripping left nothing speakable (e.g. input was emojis
             // only). Don't pass a blank line to the engine — close the
             // callback cleanly.
-            callback.start(engine.sampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
+            callback.start(activeSampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
             callback.done()
             return
         }
 
-        val voiceId = pickVoiceFromRequest(request)
-        Log.d(TAG, "onSynthesizeText: voice=$voiceId chars=${text.length} emotion=${hint.emotion}")
+        Log.d(TAG, "onSynthesizeText: voice=$voiceId engine=$engineName " +
+            "chars=${text.length} emotion=${hint.emotion}")
 
         val startResult = callback.start(
-            engine.sampleRate,
+            activeSampleRate,
             AudioFormat.ENCODING_PCM_16BIT,
             1, // mono
         )
@@ -248,12 +301,12 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
 
         try {
-            val audio = runBlocking { engine.synthesize(text, voiceId) }
+            val audio: SynthAudio = runBlocking { synthesizeForEngine(engineName, text, voiceId) }
             val shaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
             streamPcm(callback, shaped)
             callback.done()
         } catch (e: Exception) {
-            // Covers IllegalStateException from KittenEngine (assets
+            // Covers IllegalStateException from either engine (assets
             // missing / corrupt / JNI failure) and any other synthesis
             // exception. The system retries or falls back to its default
             // engine — never produces fake audio.
@@ -281,9 +334,10 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Resolve the voice ID for this synthesis request.
      *
      * Order of precedence:
-     *   1. `request.voiceName` if it exactly matches a seeded voice;
-     *   2. language match → default voice when language is en;
-     *   3. fall back to [KittenVoiceCatalog.DEFAULT_VOICE_ID].
+     *   1. `request.voiceName` if it exactly matches a seeded voice
+     *      (kitten or kokoro);
+     *   2. fall back to [KokoroVoiceCatalog.DEFAULT_VOICE_ID] (the
+     *      recommended-engine default starting v0.1.9).
      *
      * Runs blocking against the DAO — the system invokes this off the
      * main thread per the TextToSpeechService contract.
@@ -292,10 +346,53 @@ class MarmaladeTtsService : TextToSpeechService() {
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
         if (requested != null) {
             val hit = runBlocking { voiceDao.findById(requested) }
-            if (hit != null && hit.engine == KittenVoiceCatalog.ENGINE) return hit.id
+            if (hit != null && isKnownEngine(hit.engine)) return hit.id
         }
-        return KittenVoiceCatalog.DEFAULT_VOICE_ID
+        return KokoroVoiceCatalog.DEFAULT_VOICE_ID
     }
+
+    /**
+     * Engine name embedded in [voiceId] (everything before the first `:`).
+     * Defaults to `"kokoro"` when the form doesn't match — the catch-all
+     * keeps the synthesis path robust against junk input from third-party
+     * TTS clients that bypass the voice negotiation contract.
+     */
+    private fun engineNameFor(voiceId: String): String {
+        val sep = voiceId.indexOf(':')
+        if (sep <= 0) return KokoroVoiceCatalog.ENGINE
+        val name = voiceId.substring(0, sep)
+        return if (isKnownEngine(name)) name else KokoroVoiceCatalog.ENGINE
+    }
+
+    /** Per-engine sample rate. Both ship 24 kHz today; future engines may differ. */
+    private fun sampleRateFor(engineName: String): Int = when (engineName) {
+        KokoroVoiceCatalog.ENGINE -> kokoroEngine.sampleRate
+        KittenVoiceCatalog.ENGINE -> engine.sampleRate
+        else -> engine.sampleRate
+    }
+
+    /**
+     * Route synthesis to the engine identified by [engineName]. Suspending
+     * because both engines hand off to `Dispatchers.Default` internally,
+     * which the caller `runBlocking`s on the system-TTS worker thread.
+     *
+     * Unknown engine names degrade to Kitten — same fallback policy as
+     * [pickVoiceFromRequest]; the upstream voice-negotiation paths already
+     * filtered out engines we don't know about.
+     */
+    private suspend fun synthesizeForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+    ): SynthAudio = when (engineName) {
+        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId)
+        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId)
+        else -> engine.synthesize(text, voiceId)
+    }
+
+    /** True for any engine the catalog ships. Updated whenever a new engine lands. */
+    private fun isKnownEngine(name: String): Boolean =
+        name == KittenVoiceCatalog.ENGINE || name == KokoroVoiceCatalog.ENGINE
 
     /**
      * Stream [pcm] through the synthesis callback in chunks of at most

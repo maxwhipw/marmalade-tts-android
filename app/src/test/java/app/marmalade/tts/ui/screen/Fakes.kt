@@ -7,10 +7,12 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.preprocessing.EngineProfiles
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /**
  * Shared hand-rolled fakes for the ViewModel tests in this package.
@@ -83,6 +85,22 @@ internal class FakeSettings(
     override val onboarded: Flow<Boolean> = onboardedState
     override suspend fun setOnboarded(value: Boolean) {
         onboardedState.value = value
+    }
+
+    // Per-engine preprocessing-rule sets. Defaults to "nothing stored"
+    // — `enabledRules(engine)` falls back to EngineProfiles.defaultsFor.
+    // Tests that want to start from a stored set can call
+    // setEnabledRules() in @Before.
+    private val rulesByEngine =
+        MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+
+    override fun enabledRules(engineName: String): Flow<Set<String>> =
+        rulesByEngine.map { stored ->
+            stored[engineName] ?: EngineProfiles.defaultsFor(engineName)
+        }
+
+    override suspend fun setEnabledRules(engineName: String, rules: Set<String>) {
+        rulesByEngine.value = rulesByEngine.value + (engineName to rules)
     }
 }
 

@@ -22,9 +22,14 @@ import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.KittenEngine
+import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.ArrayDeque
@@ -34,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,10 +51,12 @@ import kotlinx.coroutines.withContext
 //
 //   Extras (sent on the intent):
 //     EXTRA_TEXT   (String, required)   — the text to read aloud.
-//     EXTRA_ENGINE (String, optional)   — engine name; default "kitten".
-//                                          v0.1 only ships kitten.
-//     EXTRA_VOICE  (String, optional)   — voice id e.g. "kitten:Bella".
-//                                          Defaults to KittenVoiceCatalog.DEFAULT_VOICE_ID.
+//     EXTRA_ENGINE (String, optional)   — engine name; default "kokoro".
+//                                          When absent, the engine is derived
+//                                          from EXTRA_VOICE's prefix.
+//     EXTRA_VOICE  (String, optional)   — voice id e.g. "kokoro:af_bella"
+//                                          or "kitten:Bella". Defaults to
+//                                          KokoroVoiceCatalog.DEFAULT_VOICE_ID.
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
 //     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
@@ -87,8 +95,13 @@ import kotlinx.coroutines.withContext
 //     │     - GAIN (after transient loss) → resume
 //     │
 //     ├── EmojiProsody.detect(raw text)  ──► ProsodyHint
-//     ├── EmojiProsody.stripEmojis(raw)  ──► engine-safe text
-//     ├── KittenEngine.synthesize(text, voice, speed) → SynthAudio
+//     ├── settings.enabledRules(engineName).first() ──► Set<String>
+//     ├── Preprocessor.apply(raw, enabled) ──► normalised text
+//     │     (currency, numbers, abbreviations, … per Settings)
+//     ├── EmojiProsody.stripEmojis(normalised) ──► engine-safe text
+//     ├── synthesizeForEngine(engineName, text, voice, speed) → SynthAudio
+//     │     ├── "kokoro" → KokoroEngine.synthesize(...)
+//     │     └── "kitten" → KittenEngine.synthesize(...)
 //     ├── ProsodyApplier.apply(pcm, sr, hint.emotion) → emotion-shaped PCM
 //     ├── EffectChain.apply(pcm, sr, effect)          → effect-shaped PCM
 //     │
@@ -120,6 +133,12 @@ import kotlinx.coroutines.withContext
 class MarmaladeSynthService : Service() {
 
     @Inject lateinit var engine: KittenEngine
+
+    @Inject lateinit var kokoroEngine: KokoroEngine
+
+    @Inject lateinit var preprocessor: Preprocessor
+
+    @Inject lateinit var settings: SettingsRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -199,10 +218,16 @@ class MarmaladeSynthService : Service() {
     private fun parseRequest(intent: Intent): SpeakRequest? {
         val text = intent.getStringExtra(EXTRA_TEXT)?.takeIf { it.isNotBlank() }
             ?: return null
-        val engineName = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
-            ?: DEFAULT_ENGINE
+        // Default voice is Kokoro's recommended voice (matches the
+        // catalog's isRecommended flag). Callers who explicitly want
+        // Kitten pass EXTRA_VOICE = "kitten:<name>".
         val voice = intent.getStringExtra(EXTRA_VOICE)?.takeIf { it.isNotBlank() }
-            ?: KittenVoiceCatalog.DEFAULT_VOICE_ID
+            ?: KokoroVoiceCatalog.DEFAULT_VOICE_ID
+        // Derive the engine name from the voice id (everything before
+        // ':'); the explicit EXTRA_ENGINE wins if present so legacy
+        // callers that send engine without voice still work.
+        val explicitEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
+        val engineName = explicitEngine ?: engineFromVoiceId(voice)
         val speed = if (intent.hasExtra(EXTRA_SPEED)) {
             intent.getFloatExtra(EXTRA_SPEED, 1.0f)
         } else {
@@ -216,6 +241,20 @@ class MarmaladeSynthService : Service() {
             }
             ?: EffectPreset.NONE
         return SpeakRequest(text, engineName, voice, speed, effect)
+    }
+
+    /**
+     * Pull the engine name out of a voice ID (`"<engine>:<voice>"`).
+     * Falls back to Kokoro (the recommended default) for malformed IDs.
+     */
+    private fun engineFromVoiceId(voiceId: String): String {
+        val sep = voiceId.indexOf(':')
+        if (sep <= 0) return DEFAULT_ENGINE
+        val name = voiceId.substring(0, sep)
+        return when (name) {
+            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> name
+            else -> DEFAULT_ENGINE
+        }
     }
 
     private fun enqueue(req: SpeakRequest) {
@@ -253,11 +292,16 @@ class MarmaladeSynthService : Service() {
     }
 
     private suspend fun runOne(req: SpeakRequest) {
-        // v0.1 supports kitten only — other engines fall through to the
-        // default rather than failing loudly. The selection happens in
-        // KittenEngine; speed and voice are honoured directly.
-        if (req.engine != DEFAULT_ENGINE) {
-            Log.w(TAG, "Engine '${req.engine}' not supported in v0.1 — using $DEFAULT_ENGINE")
+        // Route to the engine named by req.engine. Unknown engines warn
+        // and fall through to Kokoro (the recommended default) rather
+        // than failing loudly — keeps the foreground service robust to
+        // third-party callers sending garbage in EXTRA_ENGINE.
+        val engineName = when (req.engine) {
+            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> req.engine
+            else -> {
+                Log.w(TAG, "Engine '${req.engine}' not supported — using $DEFAULT_ENGINE")
+                DEFAULT_ENGINE
+            }
         }
 
         if (!requestFocus()) {
@@ -276,16 +320,23 @@ class MarmaladeSynthService : Service() {
             updateNotification("Speaking: ${req.text.take(40)}")
 
             val hint = EmojiProsody.detect(req.text)
-            val cleaned = EmojiProsody.stripEmojis(req.text)
+            // Per-engine preprocessing (currency, numbers, abbreviations,
+            // …) feeds the engine the same normalised text the user gets
+            // on the CLI. EmojiProsody.stripEmojis runs AFTER, as a safety
+            // net for the 11 emotion emoji in case the preprocessing
+            // `emoji` rule is disabled.
+            val enabled = settings.enabledRules(engineName).first()
+            val preprocessed = preprocessor.apply(req.text, enabled)
+            val cleaned = EmojiProsody.stripEmojis(preprocessed)
             if (cleaned.isBlank()) return
 
-            val audio = try {
-                engine.synthesize(cleaned, req.voice, req.speed)
+            val audio: SynthAudio = try {
+                synthesizeForEngine(engineName, cleaned, req.voice, req.speed)
             } catch (e: EngineNotInstalledException) {
                 // Surface as a notification update so the user sees it; the
                 // app-launcher tap will route them to the Engines screen.
                 Log.w(TAG, "Engine not installed", e)
-                updateNotification("Kitten engine not installed")
+                updateNotification("${displayNameFor(engineName)} engine not installed")
                 return
             } catch (t: Throwable) {
                 Log.e(TAG, "Synthesis failed", t)
@@ -305,6 +356,26 @@ class MarmaladeSynthService : Service() {
         } finally {
             releaseFocus()
         }
+    }
+
+    /** Per-engine synthesis dispatch. Both engines emit at 24 kHz today. */
+    private suspend fun synthesizeForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): SynthAudio = when (engineName) {
+        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
+        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
+        // Defensive: runOne already narrows engineName to known values.
+        else -> engine.synthesize(text, voiceId, speed)
+    }
+
+    /** Human-friendly engine label for notification copy. */
+    private fun displayNameFor(engineName: String): String = when (engineName) {
+        KokoroVoiceCatalog.ENGINE -> "Kokoro"
+        KittenVoiceCatalog.ENGINE -> "Kitten"
+        else -> engineName
     }
 
     // -- transport ------------------------------------------------------------
@@ -593,8 +664,12 @@ class MarmaladeSynthService : Service() {
         private const val CHANNEL_ID = "marmalade_synth"
         private const val NOTIFICATION_ID = 1
 
-        /** Default engine when [EXTRA_ENGINE] is not provided. */
-        const val DEFAULT_ENGINE: String = "kitten"
+        /**
+         * Default engine when [EXTRA_ENGINE] is not provided AND [EXTRA_VOICE]
+         * doesn't disambiguate. Kokoro is the recommended-default engine
+         * starting v0.1.9 — matches `EngineCatalog.KOKORO.isRecommended`.
+         */
+        const val DEFAULT_ENGINE: String = "kokoro"
 
         // -- public intent contract --------------------------------------------
         const val ACTION_SPEAK: String = "app.marmalade.tts.action.SPEAK"
