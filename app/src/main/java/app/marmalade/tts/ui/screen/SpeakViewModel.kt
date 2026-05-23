@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -46,9 +47,13 @@ import kotlinx.coroutines.launch
 //     ├── aliases   ◄──────── SpeakViewModel.aliases (VoiceAliasDao.getAll)
 //     ├── activeAlias ◄────── SpeakViewModel.activeAlias
 //     │                          ▲
-//     │                          │ set by applyAlias(name); cleared when
+//     │                          │ set by applyAlias(name); also auto-set on
+//     │                          │ VM init from settings.primaryAliasName so
+//     │                          │ effects/speed configured on the primary
+//     │                          │ alias fire on first Speak. Cleared when
 //     │                          │ defaultVoiceId emits a value that doesn't
-//     │                          │ match the voice we last applied.
+//     │                          │ match the voice we last applied (manual
+//     │                          │ voice pick wins over auto-applied primary).
 //     │
 //     ├── currentEffect ◄──── SpeakViewModel.currentEffect (set by applyAlias;
 //     │                       passed through to Synthesizer on speak())
@@ -192,6 +197,20 @@ class SpeakViewModel @Inject constructor(
             initialValue = emptyList(),
         )
 
+    init {
+        // v0.1.18: auto-apply the user's primary alias on first composition
+        // so effects/speed configured on that alias actually take effect
+        // when the user opens Speak. Previously the chip had to be tapped
+        // manually for any alias-bound effect to fire, which made it look
+        // like "voice effects don't work."
+        //
+        // Runs once per VM lifecycle (init). If the user manually picks a
+        // different voice later, the onEach side effect on
+        // `settings.defaultVoiceId` clears the alias + effect — that
+        // override sticks until the next ViewModel construction.
+        autoApplyPrimaryAlias()
+    }
+
     /**
      * UI hook for the text field's onValueChange.
      *
@@ -209,6 +228,23 @@ class SpeakViewModel @Inject constructor(
         val state = _playbackState.value
         if (state is PlaybackState.ModelMissing || state is PlaybackState.Error) {
             _playbackState.value = PlaybackState.Idle
+        }
+    }
+
+    /**
+     * Resolve the primary alias from settings and apply it. No-op if none
+     * is set, which is the case right after onboarding for users who
+     * skipped the alias step. Logs (not throws) on misconfiguration so a
+     * stale primary pointer never blocks the Speak screen from rendering.
+     */
+    private fun autoApplyPrimaryAlias() {
+        viewModelScope.launch {
+            val primary = settings.primaryAliasName.first()
+            if (primary.isNullOrBlank()) {
+                Log.d(TAG, "autoApplyPrimaryAlias: no primary set, leaving defaults")
+                return@launch
+            }
+            applyAlias(primary)
         }
     }
 
