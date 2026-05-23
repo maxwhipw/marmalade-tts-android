@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.ui.theme.ThemePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,6 +63,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     voiceAliasDao: VoiceAliasDao,
+    appAliasMappingDao: AppAliasMappingDao,
 ) : ViewModel() {
 
     /**
@@ -106,6 +108,20 @@ class SettingsViewModel @Inject constructor(
      * sync without a dedicated COUNT(*) query.
      */
     val aliasCount: StateFlow<Int> = voiceAliasDao.getAll()
+        .map { it.size }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = 0,
+        )
+
+    /**
+     * Number of saved per-app voice mappings. Drives the subtitle text on
+     * the Per-app voices row ("N apps configured"). Counted via .size on
+     * the existing Flow — Room re-emits when rows change so this stays in
+     * sync without a dedicated COUNT(*) query.
+     */
+    val appMappingCount: StateFlow<Int> = appAliasMappingDao.getAll()
         .map { it.size }
         .stateIn(
             scope = viewModelScope,

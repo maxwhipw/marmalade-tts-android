@@ -24,18 +24,25 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       install state is re-derived from engine-directory existence the
  *       next time a synth attempt happens (KittenEngine.ensureModelLoaded
  *       surfaces missing files as ModelMissing, prompting reinstall).
+ * - v4: adds `app_alias_mapping` table for per-app alias routing — when
+ *       an external app calls the system TTS service without specifying
+ *       a voice, [app.marmalade.tts.service.TtsRouter] looks up the
+ *       caller's package here to decide which voice alias to use.
+ *       v3→v4 uses [MIGRATION_3_4], a clean CREATE TABLE that leaves
+ *       `voice_meta` and `voice_alias` untouched.
  *
  * Schemas are exported under `app/schemas/` so future versions can write
- * migrations against the v3 hash without guesswork.
+ * migrations against the v4 hash without guesswork.
  */
 @Database(
-    entities = [VoiceMeta::class, VoiceAlias::class],
-    version = 3,
+    entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
     abstract fun voiceMetaDao(): VoiceMetaDao
     abstract fun voiceAliasDao(): VoiceAliasDao
+    abstract fun appAliasMappingDao(): AppAliasMappingDao
 }
 
 /**
@@ -60,6 +67,29 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
                 "`effectPreset` TEXT NOT NULL, " +
                 "`createdAt` INTEGER NOT NULL, " +
                 "PRIMARY KEY(`name`))"
+        )
+    }
+}
+
+/**
+ * v3 → v4 non-destructive migration. Adds the `app_alias_mapping` table
+ * for per-app voice routing without touching `voice_meta` or `voice_alias`,
+ * so user data on both surviving tables is preserved. Wired in via
+ * `.addMigrations(MIGRATION_2_3, MIGRATION_3_4)` in [AppModule].
+ *
+ * The CREATE TABLE statement is kept literally in sync with the exported
+ * schema at `app/schemas/.../4.json` — any change to [AppAliasMapping] must
+ * update both.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `app_alias_mapping` (" +
+                "`packageName` TEXT NOT NULL, " +
+                "`aliasName` TEXT NOT NULL, " +
+                "`displayName` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`packageName`))"
         )
     }
 }

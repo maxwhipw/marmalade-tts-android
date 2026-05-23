@@ -7,7 +7,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.Synthesizer
+import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.MIGRATION_2_3
+import app.marmalade.tts.data.db.MIGRATION_3_4
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -52,9 +54,11 @@ object AppModule {
         )
             // v1→v2 is destructive (v1 was a placeholder with no user data).
             // v2→v3 prefers MIGRATION_2_3 so user-toggled isInstalled flags
-            // on voice_meta survive the alias-table add; fallback stays as
-            // a belt-and-braces option for any future hash drift.
-            .addMigrations(MIGRATION_2_3)
+            // on voice_meta survive the alias-table add; v3→v4 prefers
+            // MIGRATION_3_4 (additive CREATE TABLE only — no other tables
+            // touched). Fallback stays as a belt-and-braces option for any
+            // future hash drift.
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -66,6 +70,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVoiceAliasDao(db: MarmaladeDb): VoiceAliasDao = db.voiceAliasDao()
+
+    @Provides
+    @Singleton
+    fun provideAppAliasMappingDao(db: MarmaladeDb): AppAliasMappingDao =
+        db.appAliasMappingDao()
 
     @Provides
     @Singleton

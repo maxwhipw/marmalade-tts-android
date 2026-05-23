@@ -94,6 +94,11 @@ import kotlinx.coroutines.withContext
 //     │     - LOSS           → stop + release; clear queue
 //     │     - GAIN (after transient loss) → resume
 //     │
+//     ├── if (!req.voiceExplicit) — share-sheet / clipboard-tile path,
+//     │     no EXTRA_VOICE on the intent:
+//     │       TtsRouter.resolveAlias(callerPackage = null) ──► primary alias?
+//     │         └── if non-null, replace req.voice/engine/speed/effect with
+//     │             the alias's fields. Else keep the engine defaults.
 //     ├── EmojiProsody.detect(raw text)  ──► ProsodyHint
 //     ├── settings.enabledRules(engineName).first() ──► Set<String>
 //     ├── Preprocessor.apply(raw, enabled) ──► normalised text
@@ -139,6 +144,8 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var preprocessor: Preprocessor
 
     @Inject lateinit var settings: SettingsRepository
+
+    @Inject lateinit var router: TtsRouter
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -218,15 +225,17 @@ class MarmaladeSynthService : Service() {
     private fun parseRequest(intent: Intent): SpeakRequest? {
         val text = intent.getStringExtra(EXTRA_TEXT)?.takeIf { it.isNotBlank() }
             ?: return null
-        // Default voice is Kokoro's recommended voice (matches the
-        // catalog's isRecommended flag). Callers who explicitly want
-        // Kitten pass EXTRA_VOICE = "kitten:<name>".
-        val voice = intent.getStringExtra(EXTRA_VOICE)?.takeIf { it.isNotBlank() }
-            ?: KokoroVoiceCatalog.DEFAULT_VOICE_ID
+        // Track whether the caller specified a voice explicitly. When they
+        // didn't, we leave voice/engine/speed/effect as "default" sentinels
+        // and let runOne ask TtsRouter to resolve them from the primary
+        // alias (or fall back to engine defaults). Callers who explicitly
+        // want Kitten pass EXTRA_VOICE = "kitten:<name>".
+        val explicitVoice = intent.getStringExtra(EXTRA_VOICE)?.takeIf { it.isNotBlank() }
         // Derive the engine name from the voice id (everything before
         // ':'); the explicit EXTRA_ENGINE wins if present so legacy
         // callers that send engine without voice still work.
         val explicitEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
+        val voice = explicitVoice ?: KokoroVoiceCatalog.DEFAULT_VOICE_ID
         val engineName = explicitEngine ?: engineFromVoiceId(voice)
         val speed = if (intent.hasExtra(EXTRA_SPEED)) {
             intent.getFloatExtra(EXTRA_SPEED, 1.0f)
@@ -240,7 +249,17 @@ class MarmaladeSynthService : Service() {
                 EffectPreset.entries.firstOrNull { it.name == name } ?: EffectPreset.NONE
             }
             ?: EffectPreset.NONE
-        return SpeakRequest(text, engineName, voice, speed, effect)
+        // voiceExplicit drives the routing decision in runOne: when false,
+        // the per-app router fires (which for the share-sheet path resolves
+        // to the primary alias — share-sheet doesn't carry a callerUid).
+        return SpeakRequest(
+            text = text,
+            engine = engineName,
+            voice = voice,
+            speed = speed,
+            effect = effect,
+            voiceExplicit = explicitVoice != null,
+        )
     }
 
     /**
@@ -292,14 +311,38 @@ class MarmaladeSynthService : Service() {
     }
 
     private suspend fun runOne(req: SpeakRequest) {
-        // Route to the engine named by req.engine. Unknown engines warn
-        // and fall through to Kokoro (the recommended default) rather
-        // than failing loudly — keeps the foreground service robust to
-        // third-party callers sending garbage in EXTRA_ENGINE.
-        val engineName = when (req.engine) {
-            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> req.engine
+        // Per-app routing: when the caller didn't specify a voice, ask
+        // TtsRouter for the user's primary alias and inject voice + speed
+        // + effect from it. Share-sheet and clipboard-tile callers never
+        // pass EXTRA_VOICE, so this is where the user's primary persona
+        // lands. Caller-package is null on this path — the trampoline
+        // activity runs in our own process and there's no callerUid to
+        // resolve. The router still does the right thing (skip per-app
+        // lookup, return the primary).
+        val resolved: SpeakRequest = if (req.voiceExplicit) {
+            req
+        } else {
+            val alias = router.resolveAlias(callerPackage = null)
+            if (alias != null) {
+                req.copy(
+                    engine = alias.engine,
+                    voice = alias.voiceId,
+                    speed = alias.speed,
+                    effect = decodeEffect(alias.effectPreset),
+                )
+            } else {
+                req
+            }
+        }
+
+        // Route to the engine named by resolved.engine. Unknown engines
+        // warn and fall through to Kokoro (the recommended default)
+        // rather than failing loudly — keeps the foreground service
+        // robust to third-party callers sending garbage in EXTRA_ENGINE.
+        val engineName = when (resolved.engine) {
+            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> resolved.engine
             else -> {
-                Log.w(TAG, "Engine '${req.engine}' not supported — using $DEFAULT_ENGINE")
+                Log.w(TAG, "Engine '${resolved.engine}' not supported — using $DEFAULT_ENGINE")
                 DEFAULT_ENGINE
             }
         }
@@ -331,7 +374,7 @@ class MarmaladeSynthService : Service() {
             if (cleaned.isBlank()) return
 
             val audio: SynthAudio = try {
-                synthesizeForEngine(engineName, cleaned, req.voice, req.speed)
+                synthesizeForEngine(engineName, cleaned, resolved.voice, resolved.speed)
             } catch (e: EngineNotInstalledException) {
                 // Surface as a notification update so the user sees it; the
                 // app-launcher tap will route them to the Engines screen.
@@ -347,7 +390,7 @@ class MarmaladeSynthService : Service() {
             val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
             // EffectChain is a no-op for NONE (returns the same array unchanged),
             // so the dry path adds no extra allocation.
-            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, req.effect)
+            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, resolved.effect)
             try {
                 playPcm(shaped, audio.sampleRate)
             } catch (t: Throwable) {
@@ -377,6 +420,15 @@ class MarmaladeSynthService : Service() {
         KittenVoiceCatalog.ENGINE -> "Kitten"
         else -> engineName
     }
+
+    /**
+     * Map the persisted [app.marmalade.tts.data.db.VoiceAlias.effectPreset]
+     * string back to the enum. Defaults to NONE for unknown values so a
+     * stale alias from before a hypothetical preset rename doesn't crash
+     * the playback path.
+     */
+    private fun decodeEffect(raw: String): EffectPreset =
+        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
 
     // -- transport ------------------------------------------------------------
 
@@ -657,6 +709,13 @@ class MarmaladeSynthService : Service() {
         val voice: String,
         val speed: Float,
         val effect: EffectPreset,
+        /**
+         * True iff the caller passed [EXTRA_VOICE] on the intent. When
+         * false, [runOne] consults [TtsRouter] to apply the user's
+         * primary alias (the share-sheet / clipboard-tile path doesn't
+         * specify a voice, so this is where the user's persona kicks in).
+         */
+        val voiceExplicit: Boolean,
     )
 
     companion object {

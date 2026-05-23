@@ -19,6 +19,23 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Per-app voice routing (Settings → "Per-app voices") enumerates the
+      device's launchable apps so the user can pick one. Android 11+
+      requires explicit visibility declarations to see other packages;
+      we limit ourselves to apps that have a LAUNCHER category (UI apps
+      the user could conceivably invoke TTS from), which is the minimal
+      query Google Play's "permission for less" review considers
+      acceptable. We do NOT request QUERY_ALL_PACKAGES — that would
+      flag the listing for additional review and we don't need it.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name="app.marmalade.tts.MarmaladeTtsApplication"
         android:allowBackup="false"

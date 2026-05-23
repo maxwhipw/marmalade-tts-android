@@ -41,6 +41,7 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //     │              SettingsViewModel.themeMode         (StateFlow<String>)
 //     │              SettingsViewModel.keepEngineLoaded  (StateFlow<Boolean>)
 //     │              SettingsViewModel.aliasCount        (StateFlow<Int>)
+//     │              SettingsViewModel.appMappingCount   (StateFlow<Int>)
 //     │
 //     └── writes ──► SettingsViewModel.setThemePreset(ThemePreset)
 //                    SettingsViewModel.setThemeMode(String)
@@ -56,6 +57,11 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //     │
 //     ▼
 //   onNavigateToAliases()  ──► AppRoot routes to AliasScreen
+//
+//   Tap on "Per-app voices" row
+//     │
+//     ▼
+//   onNavigateToAppMappings()  ──► AppRoot routes to AppMappingsScreen
 //
 //   Text preprocessing lives in EngineDetailScreen, reachable from the
 //   Engines tab (Engines → tap card → "Engine settings"). It used to be a
@@ -83,12 +89,14 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @Composable
 fun SettingsScreen(
     onNavigateToAliases: () -> Unit,
+    onNavigateToAppMappings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val keepLoaded by viewModel.keepEngineLoaded.collectAsStateWithLifecycle()
     val aliasCount by viewModel.aliasCount.collectAsStateWithLifecycle()
+    val mappingCount by viewModel.appMappingCount.collectAsStateWithLifecycle()
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -126,6 +134,13 @@ fun SettingsScreen(
             AliasesSection(
                 aliasCount = aliasCount,
                 onClick = onNavigateToAliases,
+            )
+
+            HorizontalDivider()
+
+            AppMappingsSection(
+                mappingCount = mappingCount,
+                onClick = onNavigateToAppMappings,
             )
 
             HorizontalDivider()
@@ -237,6 +252,33 @@ private fun AliasesSection(
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text("Voice aliases / personas") },
+        supportingContent = { Text(subtitle) },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
+}
+
+@Composable
+private fun AppMappingsSection(
+    mappingCount: Int,
+    onClick: () -> Unit,
+) {
+    SectionHeader("Per-app voices")
+
+    val subtitle = when (mappingCount) {
+        0 -> "No per-app routes configured"
+        1 -> "1 app configured"
+        else -> "$mappingCount apps configured"
+    }
+
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        headlineContent = { Text("Per-app voices") },
         supportingContent = { Text(subtitle) },
         trailingContent = {
             Icon(

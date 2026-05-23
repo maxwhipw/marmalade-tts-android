@@ -6,9 +6,12 @@ import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
 import android.util.Log
+import app.marmalade.tts.audio.EffectChain
+import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.KokoroVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
 import app.marmalade.tts.engine.KokoroEngine
@@ -39,6 +42,14 @@ import kotlinx.coroutines.runBlocking
 //      │      ▼                                           fallback when no
 //      │   engineNameFor(voiceId)  ──► "kokoro" | "kitten"   match: kokoro
 //      │
+//      ├── if no explicit voiceName: per-app routing fires
+//      │      packageManager.getNameForUid(request.callerUid) ──► pkg?
+//      │      TtsRouter.resolveAlias(pkg)  (suspend, runBlocking)
+//      │        ├── per-app mapping (com.spotify → "narrator") wins, OR
+//      │        ├── primary alias is the next fallback, OR
+//      │        └── null → engine default voice (existing behaviour)
+//      │      Resolved alias supplies voiceId + speed + effectPreset.
+//      │
 //      ├── request.charSequenceText  → String (raw, may contain emojis)
 //      │      │
 //      │      ├── EmojiProsody.detect(raw) ──► ProsodyHint(emotion, intensity)
@@ -61,6 +72,10 @@ import kotlinx.coroutines.runBlocking
 //      ▼
 //   ProsodyApplier.apply(pcm, sampleRate, detectedEmotion)
 //      │  pitch/rate/volume/extras per emotion; Neutral is identity.
+//      ▼
+//   EffectChain.apply(pcm, sampleRate, effectPreset)
+//      │  reverb/robotization/bandpass per resolved alias's effectPreset.
+//      │  NONE is identity (no allocation).
 //      ▼
 //   pcm → little-endian ByteArray → chunked writes via
 //          callback.audioAvailable(buf, offset, n)  while
@@ -116,6 +131,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var preprocessor: Preprocessor
 
     @Inject lateinit var settings: SettingsRepository
+
+    @Inject lateinit var router: TtsRouter
 
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
@@ -249,11 +266,14 @@ class MarmaladeTtsService : TextToSpeechService() {
     public override fun onSynthesizeText(request: SynthesisRequest, callback: SynthesisCallback) {
         val rawText = request.charSequenceText?.toString().orEmpty()
 
-        // Resolve the engine up-front: callback.start() needs a sample
-        // rate, and that's engine-dependent (Kokoro and Kitten v0.8 both
-        // emit at 24 kHz today, but routing through the right object
-        // future-proofs the path).
-        val voiceId = pickVoiceFromRequest(request)
+        // Voice negotiation. Order of precedence (most-specific wins):
+        //   1. Caller-specified voice (request.voiceName, if known).
+        //   2. Per-app mapping for the caller's package name.
+        //   3. Primary alias.
+        //   4. Engine default voice (current behaviour).
+        // resolveSynthParams encodes this; see the helper kdoc.
+        val params = resolveSynthParams(request)
+        val voiceId = params.voiceId
         val engineName = engineNameFor(voiceId)
         val activeSampleRate = sampleRateFor(engineName)
 
@@ -286,8 +306,12 @@ class MarmaladeTtsService : TextToSpeechService() {
             return
         }
 
-        Log.d(TAG, "onSynthesizeText: voice=$voiceId engine=$engineName " +
-            "chars=${text.length} emotion=${hint.emotion}")
+        Log.d(
+            TAG,
+            "onSynthesizeText: voice=$voiceId engine=$engineName " +
+                "speed=${params.speed} effect=${params.effect} " +
+                "chars=${text.length} emotion=${hint.emotion}",
+        )
 
         val startResult = callback.start(
             activeSampleRate,
@@ -301,8 +325,13 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
 
         try {
-            val audio: SynthAudio = runBlocking { synthesizeForEngine(engineName, text, voiceId) }
-            val shaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+            val audio: SynthAudio = runBlocking {
+                synthesizeForEngine(engineName, text, voiceId, params.speed)
+            }
+            val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
+            // EffectChain is a no-op for NONE (returns the same array unchanged),
+            // so the dry path adds no extra allocation.
+            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, params.effect)
             streamPcm(callback, shaped)
             callback.done()
         } catch (e: Exception) {
@@ -331,25 +360,108 @@ class MarmaladeTtsService : TextToSpeechService() {
     // -- helpers --------------------------------------------------------------
 
     /**
-     * Resolve the voice ID for this synthesis request.
-     *
-     * Order of precedence:
-     *   1. `request.voiceName` if it exactly matches a seeded voice
-     *      (kitten or kokoro);
-     *   2. fall back to [KokoroVoiceCatalog.DEFAULT_VOICE_ID] (the
-     *      recommended-engine default starting v0.1.9).
-     *
-     * Runs blocking against the DAO — the system invokes this off the
-     * main thread per the TextToSpeechService contract.
+     * Bundle of synthesis parameters resolved for the current request.
+     * Returned from [resolveSynthParams] so the precedence rule lives in
+     * exactly one place.
      */
-    internal fun pickVoiceFromRequest(request: SynthesisRequest): String {
+    internal data class SynthParams(
+        val voiceId: String,
+        val speed: Float,
+        val effect: EffectPreset,
+    )
+
+    /**
+     * Resolve the voice/speed/effect bundle for this synthesis request.
+     *
+     * Order of precedence (most-specific wins):
+     *   1. Caller-specified [SynthesisRequest.getVoiceName] when it
+     *      matches a seeded voice — engine-default speed (1.0×) and
+     *      NONE effect, because the caller asked for that exact voice.
+     *   2. Per-app mapping for the caller's package name — voice + speed
+     *      + effect all come from the mapped alias.
+     *   3. Primary alias — same fields from the user-designated primary.
+     *   4. Engine default voice + 1.0× speed + NONE effect (the v0.1.10
+     *      pre-routing behaviour).
+     *
+     * Runs blocking on the synth-worker thread per the TextToSpeechService
+     * contract (the system explicitly calls `onSynthesizeText` off the
+     * main thread).
+     */
+    internal fun resolveSynthParams(request: SynthesisRequest): SynthParams {
+        // 1. Honor an explicit, known voice request — never override.
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
         if (requested != null) {
             val hit = runBlocking { voiceDao.findById(requested) }
-            if (hit != null && isKnownEngine(hit.engine)) return hit.id
+            if (hit != null && isKnownEngine(hit.engine)) {
+                return SynthParams(
+                    voiceId = hit.id,
+                    speed = 1.0f,
+                    effect = EffectPreset.NONE,
+                )
+            }
         }
-        return KokoroVoiceCatalog.DEFAULT_VOICE_ID
+
+        // 2 + 3. Per-app routing → primary fallback. resolveCallerPackage
+        // returns null when the UID can't be resolved (shared UID, etc.)
+        // which TtsRouter.resolveAlias handles by skipping straight to
+        // the primary lookup.
+        val callerPackage = resolveCallerPackage(request)
+        val alias: VoiceAlias? = runBlocking { router.resolveAlias(callerPackage) }
+        if (alias != null) {
+            return SynthParams(
+                voiceId = alias.voiceId,
+                speed = alias.speed,
+                effect = decodeEffect(alias.effectPreset),
+            )
+        }
+
+        // 4. Absolute fallback — the engine's default voice with
+        // unchanged speed/effect. Matches v0.1.10 behaviour.
+        return SynthParams(
+            voiceId = KokoroVoiceCatalog.DEFAULT_VOICE_ID,
+            speed = 1.0f,
+            effect = EffectPreset.NONE,
+        )
     }
+
+    /**
+     * Look up the calling app's package name from
+     * [SynthesisRequest.getCallerUid]. Returns null when the UID is
+     * shared between multiple apps (PackageManager returns null in that
+     * case) — the router treats null as "skip per-app routing, use the
+     * primary directly".
+     *
+     * Wrapped in a try/catch because PackageManager can throw on hostile
+     * input; we degrade gracefully rather than crashing the synth worker.
+     */
+    private fun resolveCallerPackage(request: SynthesisRequest): String? {
+        return try {
+            packageManager.getNameForUid(request.callerUid)
+        } catch (t: Throwable) {
+            Log.w(TAG, "getNameForUid failed for uid=${request.callerUid}", t)
+            null
+        }
+    }
+
+    /**
+     * Map the persisted effect-preset string back to the enum. Defaults
+     * to NONE for unknown values — keeps the synth path robust against
+     * a future enum addition that lands in DataStore before the runtime
+     * code knows about it.
+     */
+    private fun decodeEffect(raw: String): EffectPreset =
+        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
+
+    /**
+     * Resolve the voice ID for this synthesis request (legacy shape).
+     *
+     * Retained as a thin wrapper over [resolveSynthParams] so existing
+     * call sites that only want the voice ID don't have to deal with the
+     * triple-bundle. Tests still pin this via reflection on the older
+     * shape — see MarmaladeTtsServiceTest.
+     */
+    internal fun pickVoiceFromRequest(request: SynthesisRequest): String =
+        resolveSynthParams(request).voiceId
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
@@ -384,10 +496,11 @@ class MarmaladeTtsService : TextToSpeechService() {
         engineName: String,
         text: String,
         voiceId: String,
+        speed: Float,
     ): SynthAudio = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId)
-        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId)
-        else -> engine.synthesize(text, voiceId)
+        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
+        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
+        else -> engine.synthesize(text, voiceId, speed)
     }
 
     /** True for any engine the catalog ships. Updated whenever a new engine lands. */

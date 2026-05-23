@@ -90,6 +90,34 @@ class MarmaladeTtsServiceTest {
         setField(service, "voiceDao", fakeDao)
         setField(service, "preprocessor", preprocessor)
         setField(service, "settings", fakeSettings)
+        // TtsRouter takes a (mappingDao, aliasDao, settings) triple. The
+        // existing service tests don't exercise per-app routing — they
+        // hand off voice IDs explicitly — but the field must be set or
+        // the lateinit guard fires. Empty inline fakes are simpler than
+        // mocking; resolveAlias returns null (no per-app match, no
+        // primary set on FakePreprocessSettings) which is what these
+        // tests expect (= service falls back to engine default).
+        setField(service, "router", TtsRouter(
+            mappingDao = EmptyMappingDao,
+            aliasDao = EmptyAliasDao,
+            settings = fakeSettings,
+        ))
+    }
+
+    private object EmptyMappingDao : app.marmalade.tts.data.db.AppAliasMappingDao {
+        override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.AppAliasMapping>> =
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        override suspend fun findByPackage(packageName: String) = null
+        override suspend fun upsert(mapping: app.marmalade.tts.data.db.AppAliasMapping) = Unit
+        override suspend fun delete(packageName: String) = Unit
+    }
+
+    private object EmptyAliasDao : app.marmalade.tts.data.db.VoiceAliasDao {
+        override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        override suspend fun findByName(name: String) = null
+        override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
+        override suspend fun delete(name: String) = Unit
     }
 
     // -- 1. happy path: start → audioAvailable* → done --------------------
@@ -501,6 +529,15 @@ internal class FakePreprocessSettings(
     override suspend fun setEnabledRules(engineName: String, rules: Set<String>) {
         this.rules.value = rules
     }
+
+    // TtsRouter.resolveAlias calls settings.primaryAliasName.first() —
+    // the parent's flow is built on the no-op DataStore which emits
+    // nothing, causing first() to fail. Override with a real flow that
+    // emits null (= no primary set) so the router falls through to
+    // "use engine default."
+    private val primary = MutableStateFlow<String?>(null)
+    override val primaryAliasName: Flow<String?> = primary
+    override suspend fun setPrimaryAliasName(value: String?) { primary.value = value }
 }
 
 private val NoOpPreferencesDataStoreForService =

@@ -37,6 +37,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
+import app.marmalade.tts.ui.screen.AppMappingsScreen
 import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
@@ -62,13 +63,15 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                                ├── Routes.Settings     → SettingsScreen
 //                                ├── Routes.Aliases      → AliasScreen
 //                                │                         (detail; no nav bar)
+//                                ├── Routes.AppMappings  → AppMappingsScreen
+//                                │                         (detail; no nav bar)
 //                                └── engine/{name}        → EngineDetailScreen
 //                                                          (detail; no nav bar)
 //
 //   Bottom-nav tabs use popUpTo(startDestinationId) + saveState/restoreState
 //   so tab switching never grows the back stack — matches marmalade-android.
-//   Aliases + engine/{name} are reachable from Settings/Engines respectively;
-//   both are detail screens with the nav bar hidden.
+//   Aliases, AppMappings, and engine/{name} are reachable from Settings or
+//   Engines respectively; all are detail screens with the nav bar hidden.
 // -----------------------------------------------------------------------------
 
 /** Route identifiers for the top-level nav graph. */
@@ -78,6 +81,12 @@ object Routes {
     const val Engines = "engines"
     const val Settings = "settings"
     const val Aliases = "aliases"
+
+    /**
+     * Per-app voice routing — reached from Settings → "Per-app voices".
+     * Leaf detail screen; the bottom nav bar is hidden while this is open.
+     */
+    const val AppMappings = "app_mappings"
 
     /** Detail screen for one engine. Use [engineDetail] to build the concrete route. */
     const val EngineDetail = "engine"
@@ -123,10 +132,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
 
-    // Bottom bar hides on detail destinations: the alias editor and the
-    // per-engine detail page (whose route is "engine/<name>", so a
-    // startsWith check is the cheapest way to match the whole family).
+    // Bottom bar hides on detail destinations: the alias editor, the
+    // per-app mappings screen, and the per-engine detail page (whose
+    // route is "engine/<name>", so a startsWith check is the cheapest
+    // way to match the whole family).
     val showBottomBar = currentRoute != Routes.Aliases &&
+        currentRoute != Routes.AppMappings &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true
 
     Scaffold(
@@ -189,10 +200,14 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToAliases = { navController.navigate(Routes.Aliases) },
+                    onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
                 )
             }
             composable(Routes.Aliases) {
                 AliasScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.AppMappings) {
+                AppMappingsScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Routes.EngineDetail}/{name}",
