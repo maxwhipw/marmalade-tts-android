@@ -63,7 +63,11 @@ app/src/main/
   alias, per-engine preprocessing rule toggles).
 - **Engines**: Vendored Sherpa-ONNX AAR (`libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar`).
   Models download separately per engine (Kokoro recommended, Kitten
-  optional).
+  optional). Since v0.1.19 Kokoro is **multi-language** — 53 voices
+  across American + British English, Spanish, French, Hindi, Italian,
+  Japanese, Brazilian Portuguese, and Mandarin. Voice/language
+  orthogonality holds at the synthesizer (non-English voice speaks
+  English with the voice's accent).
 
 ## Key files by concern
 
@@ -88,7 +92,10 @@ When investigating **{concern}**, start at **{files}**:
   ~100 lines each; only override `buildModelConfig`, `speakerIdFor`,
   `engineName`, `modelFileName`, `defaultSampleRate`
 - `data/KittenVoiceCatalog.kt`, `data/KokoroVoiceCatalog.kt` — static
-  voice metadata (seeded into Room at app startup)
+  voice metadata (seeded into Room at app startup).
+  `KokoroVoiceCatalog.languageFor(voiceKey)` derives the natural BCP-47
+  language code from the upstream voice-key prefix (a=en-US, b=en-GB,
+  e=es-ES, f=fr-FR, h=hi-IN, i=it-IT, j=ja-JP, p=pt-BR, z=zh-CN).
 
 ### Install / download
 - `install/EngineCatalog.kt` — descriptors for installable engines
@@ -111,6 +118,14 @@ When investigating **{concern}**, start at **{files}**:
 ### Persistence
 - `data/db/MarmaladeDb.kt` — RoomDatabase, schema v4. Migrations
   v1→v4 are CREATE TABLE-only (no data loss paths).
+- **Catalog versioning**: `MarmaladeTtsApplication.CATALOG_VERSION` (int,
+  bumped on every catalog content change) gates a one-shot `upsertAll`
+  re-seed on cold start; the last-applied version lives in DataStore via
+  `SettingsRepository.catalogVersion`. Pre-v0.1.19 the seed used a
+  "rows-absent" gate which left existing installs stranded when a
+  catalog *expanded* (the bug that hid 52 of the 53 multi-lang Kokoro
+  voices from upgraders). Bump the constant when you change any
+  `*VoiceCatalog`.
 - `data/db/VoiceMeta.kt` + DAO — installed voices (engine, voice id,
   display name, gender, language, isInstalled flag)
 - `data/db/VoiceAlias.kt` + DAO — user "personas" (name + engine +
