@@ -11,9 +11,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -57,12 +59,11 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                    │
 //                    └── else: Scaffold { bottomBar = NavigationBar(...) }
 //                              NavHost(startDestination = Routes.Speak)
-//                                ├── Routes.Speak        → SpeakScreen
-//                                ├── Routes.Voices       → VoicePickerScreen
-//                                ├── Routes.Engines      → EnginesScreen
-//                                ├── Routes.Settings     → SettingsScreen
-//                                ├── Routes.Aliases      → AliasScreen
-//                                │                         (detail; no nav bar)
+//                                ├── Routes.Speak        → SpeakScreen     (tab)
+//                                ├── Routes.Voices       → VoicePickerScreen (tab)
+//                                ├── Routes.Aliases      → AliasScreen     (tab, v0.1.18+)
+//                                ├── Routes.Engines      → EnginesScreen   (tab)
+//                                ├── Routes.Settings     → SettingsScreen  (tab)
 //                                ├── Routes.AppMappings  → AppMappingsScreen
 //                                │                         (detail; no nav bar)
 //                                └── engine/{name}        → EngineDetailScreen
@@ -70,8 +71,8 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //
 //   Bottom-nav tabs use popUpTo(startDestinationId) + saveState/restoreState
 //   so tab switching never grows the back stack — matches marmalade-android.
-//   Aliases, AppMappings, and engine/{name} are reachable from Settings or
-//   Engines respectively; all are detail screens with the nav bar hidden.
+//   AppMappings and engine/{name} are reachable from Settings or Engines
+//   respectively; both are detail screens with the nav bar hidden.
 // -----------------------------------------------------------------------------
 
 /** Route identifiers for the top-level nav graph. */
@@ -106,6 +107,7 @@ private data class NavTab(
 private val NAV_TABS = listOf(
     NavTab(Routes.Speak, "Speak", Icons.Filled.PlayArrow, Icons.Outlined.PlayArrow),
     NavTab(Routes.Voices, "Voices", Icons.AutoMirrored.Filled.List, Icons.AutoMirrored.Outlined.List),
+    NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Outlined.Person),
     NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Outlined.Build),
     NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
@@ -132,12 +134,13 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
 
-    // Bottom bar hides on detail destinations: the alias editor, the
-    // per-app mappings screen, and the per-engine detail page (whose
-    // route is "engine/<name>", so a startsWith check is the cheapest
-    // way to match the whole family).
-    val showBottomBar = currentRoute != Routes.Aliases &&
-        currentRoute != Routes.AppMappings &&
+    // Bottom bar hides on detail destinations: the per-app mappings
+    // screen and the per-engine detail page (whose route is
+    // "engine/<name>", so a startsWith check is the cheapest way to
+    // match the whole family). Aliases used to be a detail route too;
+    // promoted to a top-level tab in v0.1.18 so the nav bar stays
+    // visible on that screen now.
+    val showBottomBar = currentRoute != Routes.AppMappings &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true
 
     Scaffold(
@@ -180,7 +183,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 SpeakScreen(
                     onNavigateToVoices = { navController.navigateToTab(Routes.Voices) },
                     onNavigateToEngines = { navController.navigateToTab(Routes.Engines) },
-                    onNavigateToAliases = { navController.navigate(Routes.Aliases) },
+                    onNavigateToAliases = { navController.navigateToTab(Routes.Aliases) },
                 )
             }
             composable(Routes.Voices) {
@@ -199,12 +202,15 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.Settings) {
                 SettingsScreen(
-                    onNavigateToAliases = { navController.navigate(Routes.Aliases) },
                     onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
                 )
             }
             composable(Routes.Aliases) {
-                AliasScreen(onBack = { navController.popBackStack() })
+                // v0.1.18 promoted Aliases to a top-level tab. onBack goes
+                // back to Speak (the canonical "home" tab) rather than
+                // popping the back stack — there's no detail-route ancestor
+                // anymore.
+                AliasScreen(onBack = { navController.navigateToTab(Routes.Speak) })
             }
             composable(Routes.AppMappings) {
                 AppMappingsScreen(onBack = { navController.popBackStack() })

@@ -39,7 +39,6 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //     │
 //     ├── reads  ◄── SettingsViewModel.themePreset       (StateFlow<ThemePreset>)
 //     │              SettingsViewModel.themeMode         (StateFlow<String>)
-//     │              SettingsViewModel.aliasCount        (StateFlow<Int>)
 //     │              SettingsViewModel.appMappingCount   (StateFlow<Int>)
 //     │
 //     └── writes ──► SettingsViewModel.setThemePreset(ThemePreset)
@@ -57,10 +56,10 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //   The storage and SettingsRepository accessor stay; the UI will return
 //   when the engines actually honour the flag (v0.2).
 //
-//   Tap on "Voice aliases / personas" row
-//     │
-//     ▼
-//   onNavigateToAliases()  ──► AppRoot routes to AliasScreen
+//   Voice aliases used to be a Settings row that routed to AliasScreen.
+//   In v0.1.18 Aliases was promoted to its own bottom-nav tab, so the
+//   Settings entry was removed (duplication is worse than redundancy
+//   for a top-level concept).
 //
 //   Tap on "Per-app voices" row
 //     │
@@ -81,14 +80,14 @@ import app.marmalade.tts.ui.theme.ThemePreset
  *
  * Sections (separated by HorizontalDivider):
  *  1. Appearance     — mode (system/light/dark) + color preset chips.
- *  2. Voice aliases  — chevron row routing to the alias editor.
- *  3. Per-app voices — chevron row routing to the app-mapping editor.
- *  4. System default — opens Android's TTS engine picker.
- *  5. About          — version string from [BuildConfig].
+ *  2. Per-app voices — chevron row routing to the app-mapping editor.
+ *  3. System default — opens Android's TTS engine picker.
+ *  4. About          — version string from [BuildConfig].
  *
  * Text preprocessing toggles used to live here. They're per-engine settings
  * and now live on [EngineDetailScreen] — see Engines tab → tap a card →
- * "Engine settings".
+ * "Engine settings". Voice aliases used to live here as a chevron row too;
+ * in v0.1.18 it became its own bottom-nav tab.
  *
  * The "Engine behavior" section (a single Switch to keep the engine resident
  * between utterances) was removed in v0.1.16: the engines never honoured the
@@ -99,13 +98,11 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateToAliases: () -> Unit,
     onNavigateToAppMappings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-    val aliasCount by viewModel.aliasCount.collectAsStateWithLifecycle()
     val mappingCount by viewModel.appMappingCount.collectAsStateWithLifecycle()
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -135,13 +132,6 @@ fun SettingsScreen(
                 onPresetSelected = viewModel::setThemePreset,
                 currentMode = themeMode,
                 onModeSelected = viewModel::setThemeMode,
-            )
-
-            HorizontalDivider()
-
-            AliasesSection(
-                aliasCount = aliasCount,
-                onClick = onNavigateToAliases,
             )
 
             HorizontalDivider()
@@ -217,33 +207,6 @@ private fun AppearanceSection(
             )
         }
     }
-}
-
-@Composable
-private fun AliasesSection(
-    aliasCount: Int,
-    onClick: () -> Unit,
-) {
-    SectionHeader("Voice aliases")
-
-    val subtitle = when (aliasCount) {
-        0 -> "No aliases saved yet"
-        1 -> "1 alias saved"
-        else -> "$aliasCount aliases saved"
-    }
-
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Voice aliases / personas") },
-        supportingContent = { Text(subtitle) },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
 }
 
 @Composable

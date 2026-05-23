@@ -149,10 +149,11 @@ When investigating **{concern}**, start at **{files}**:
   intent for in-app and external callers
 
 ### Navigation
-- `ui/AppRoot.kt` — Scaffold + NavigationBar (4 tabs) + NavHost.
-  Tabs: **Speak / Voices / Engines / Settings**. Detail routes:
-  Aliases, EngineDetail/{name}, AppMappings. Bottom bar hides on
-  detail routes (`isDetailRoute()` predicate).
+- `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
+  Tabs: **Speak / Voices / Aliases / Engines / Settings** (Aliases was
+  promoted from a detail route to a top-level tab in v0.1.18). Detail
+  routes: EngineDetail/{name}, AppMappings. Bottom bar hides on detail
+  routes (`showBottomBar` predicate at the top of AppRoot).
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —
@@ -234,13 +235,18 @@ flip their `isInstalled` flag.
 - **Hilt + saved-state-registry-owner**: composables outside
   NavBackStackEntry can't use `hiltViewModel()`. Use `viewModel()` at
   the AppRoot + OnboardingScreen entry points.
-- **Effect framework status**: `EffectChain.kt` ported from CLI; the
-  Android port's runtime behaviour was flagged in v0.1.18
-  investigation — verify it's not a no-op before assuming it works.
-- **Voice list filtering**: `VoiceMetaDao.getAll()` returns every
-  seeded voice regardless of whether the engine is installed.
-  Filtering by installed state is the screen's job. v0.1.18 fix
-  pending.
+- **Effect framework status**: `EffectChain.kt` is real pure-Kotlin
+  DSP (3-tap comb-filter reverb for CAVE, bit-crush + LPF + vibrato
+  for ROBOT, HPF+LPF+softclip for TELEPHONE). Not a stub. Effects
+  bind to aliases (`VoiceAlias.effectPreset`), not voices, so they
+  only fire when an alias is active. `SpeakViewModel` auto-applies
+  the primary alias on init (v0.1.18) so effects fire on first
+  Speak without needing the user to tap the alias chip manually.
+- **Voice list filtering**: `VoicePickerViewModel` combines
+  `voiceDao.getAll()` with a per-engine `installer.verify()` probe
+  and filters to engines whose layout passes verification (v0.1.18).
+  Pre-fix this screen used `getByEngine("kitten")` and showed those
+  rows regardless of install state.
 
 ## Where the docs live
 

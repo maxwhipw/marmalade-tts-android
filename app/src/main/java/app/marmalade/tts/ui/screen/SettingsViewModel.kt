@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.AppAliasMappingDao
-import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.ui.theme.ThemePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -27,11 +26,6 @@ import kotlinx.coroutines.launch
 //     ├── themeMode        ◄────── SettingsViewModel.themeMode
 //     │                                ▲
 //     │                          SettingsRepository.themeMode (Flow<String>)
-//     │
-//     ├── aliasCount       ◄────── SettingsViewModel.aliasCount
-//     │                                ▲
-//     │                                │ map { it.size }
-//     │                          VoiceAliasDao.getAll() (Flow<List<VoiceAlias>>)
 //     │
 //     └── actions ──► setThemePreset(ThemePreset)
 //                     setThemeMode(String)
@@ -62,7 +56,6 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
-    voiceAliasDao: VoiceAliasDao,
     appAliasMappingDao: AppAliasMappingDao,
 ) : ViewModel() {
 
@@ -88,20 +81,6 @@ class SettingsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
             initialValue = "system",
-        )
-
-    /**
-     * Number of saved voice aliases. Drives the subtitle text on the
-     * Voice Aliases row ("N aliases saved"). Counted via .size on the
-     * existing Flow — Room re-emits when rows change, so this stays in
-     * sync without a dedicated COUNT(*) query.
-     */
-    val aliasCount: StateFlow<Int> = voiceAliasDao.getAll()
-        .map { it.size }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = 0,
         )
 
     /**
