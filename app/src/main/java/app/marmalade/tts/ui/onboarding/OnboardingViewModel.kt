@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 //     └── settings.setOnboarded(true)
 // -----------------------------------------------------------------------------
 
-/** Four-step onboarding flow. */
+/** Five-step onboarding flow. */
 enum class OnboardingStep {
     /** Welcome screen — mascot + pitch + "Get started" CTA. */
     Welcome,
@@ -92,6 +92,15 @@ enum class OnboardingStep {
      * fresh-install + sideloaded-data edge case.
      */
     CreateAlias,
+
+    /**
+     * Final step — explains that the user has to manually pick
+     * Marmalade in system Settings → Languages → Text-to-speech, and
+     * provides a button that launches the TTS settings intent. The app
+     * being installed isn't enough; until the OS-level default engine
+     * is set to ours, none of the system-TTS path actually routes here.
+     */
+    SystemDefault,
 }
 
 /**
@@ -173,7 +182,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.Welcome -> OnboardingStep.EnginePick
             OnboardingStep.EnginePick -> OnboardingStep.Installing
             OnboardingStep.Installing -> OnboardingStep.CreateAlias
-            OnboardingStep.CreateAlias -> OnboardingStep.CreateAlias
+            OnboardingStep.CreateAlias -> OnboardingStep.SystemDefault
+            OnboardingStep.SystemDefault -> OnboardingStep.SystemDefault
         }
     }
 
@@ -184,6 +194,7 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.EnginePick -> OnboardingStep.Welcome
             OnboardingStep.Installing -> OnboardingStep.EnginePick
             OnboardingStep.CreateAlias -> OnboardingStep.Installing
+            OnboardingStep.SystemDefault -> OnboardingStep.CreateAlias
         }
     }
 
@@ -400,7 +411,10 @@ class OnboardingViewModel @Inject constructor(
                 ),
             )
             settings.setPrimaryAliasName(name)
-            settings.setOnboarded(true)
+            // Advance to SystemDefault step instead of finishing — the user
+            // still needs to be told to set Marmalade as their system TTS
+            // engine before any external app can route through us.
+            _step.value = OnboardingStep.SystemDefault
         }
         return true
     }
@@ -443,7 +457,8 @@ class OnboardingViewModel @Inject constructor(
                 ),
             )
             settings.setPrimaryAliasName("default")
-            settings.setOnboarded(true)
+            // Advance to SystemDefault step — see saveAliasAndContinue.
+            _step.value = OnboardingStep.SystemDefault
         }
     }
 
@@ -460,6 +475,26 @@ class OnboardingViewModel @Inject constructor(
      * @return true if onboarded was flipped, false if blocked by the
      *   "must create at least one alias" gate.
      */
+    /**
+     * Sideloaded-data path: an alias already exists when the wizard runs
+     * (rare), so the user has skipped through the CreateAlias step via
+     * "Finish setup". Self-heal the primary if it's unset, then advance
+     * to the SystemDefault step — they still need to be prompted to
+     * pick Marmalade as their system TTS engine.
+     */
+    fun advanceToSystemDefault(): Boolean {
+        if (!aliasCreated.value) return false
+        viewModelScope.launch {
+            if (settings.primaryAliasName.first() == null) {
+                aliasDao.getAll().first().firstOrNull()?.let { first ->
+                    settings.setPrimaryAliasName(first.name)
+                }
+            }
+        }
+        _step.value = OnboardingStep.SystemDefault
+        return true
+    }
+
     fun finish(): Boolean {
         if (!aliasCreated.value) return false
         viewModelScope.launch {

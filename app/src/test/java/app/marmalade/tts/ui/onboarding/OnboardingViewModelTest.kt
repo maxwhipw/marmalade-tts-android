@@ -185,7 +185,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun saveAliasAndContinueCreatesAliasMarksPrimaryAndFlipsOnboarded() = runTest {
+    fun saveAliasAndContinueCreatesAliasMarksPrimaryAndAdvancesToSystemDefault() = runTest {
         val settings = FakeSettings(
             initialId = "kitten:Bella",
             initialOnboarded = false,
@@ -202,7 +202,11 @@ class OnboardingViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         assertEquals("narrator", aliasDao.upsertedAliases.single().name)
         assertEquals("narrator", settings.primaryAliasName.first())
-        assertEquals(true, settings.onboarded.first())
+        // v0.1.13: advances to SystemDefault instead of finishing — the
+        // user still has to be told to pick Marmalade as the system TTS
+        // engine. onboarded stays false until finish() lands.
+        assertEquals(false, settings.onboarded.first())
+        assertEquals(OnboardingStep.SystemDefault, vm.step.first())
     }
 
     @Test
@@ -221,7 +225,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun useDefaultsAndContinueCreatesDefaultAliasAndFlipsOnboarded() = runTest {
+    fun useDefaultsAndContinueCreatesDefaultAliasAndAdvancesToSystemDefault() = runTest {
         val settings = FakeSettings(
             initialId = "kitten:Bella",
             initialOnboarded = false,
@@ -239,7 +243,9 @@ class OnboardingViewModelTest {
         assertEquals("default", row.name)
         assertEquals("kokoro", row.engine)
         assertEquals("default", settings.primaryAliasName.first())
-        assertEquals(true, settings.onboarded.first())
+        // v0.1.13: advances to SystemDefault instead of finishing.
+        assertEquals(false, settings.onboarded.first())
+        assertEquals(OnboardingStep.SystemDefault, vm.step.first())
     }
 
     @Test

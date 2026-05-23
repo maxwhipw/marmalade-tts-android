@@ -52,6 +52,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
@@ -118,6 +119,7 @@ fun OnboardingScreen(
     val aliasCreated by viewModel.aliasCreated.collectAsStateWithLifecycle()
     val aliasEditor by viewModel.aliasEditorState.collectAsStateWithLifecycle()
     val installedVoices by viewModel.installedVoices.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Scaffold { padding ->
         when (step) {
@@ -164,17 +166,25 @@ fun OnboardingScreen(
                 onVoiceChange = viewModel::onAliasVoiceChange,
                 onSpeedChange = viewModel::onAliasSpeedChange,
                 onEffectChange = viewModel::onAliasEffectChange,
-                onSave = {
-                    if (viewModel.saveAliasAndContinue()) onComplete()
+                // saveAliasAndContinue + useDefaultsAndContinue now both
+                // advance to SystemDefault rather than completing — the
+                // user still needs to enable us as their system TTS
+                // engine before the system-TTS path actually routes here.
+                onSave = { viewModel.saveAliasAndContinue() },
+                onUseDefaults = { viewModel.useDefaultsAndContinue() },
+                onFinish = {
+                    // "Finish setup" branch when an alias already exists
+                    // (sideloaded data). Skip directly to SystemDefault
+                    // so the user still gets the system-TTS-pick prompt.
+                    if (viewModel.advanceToSystemDefault()) {
+                        // step has been moved; the screen recomposes
+                    }
                 },
-                onUseDefaults = {
-                    viewModel.useDefaultsAndContinue()
-                    // Optimistic dismissal — the coroutine flips
-                    // onboarded inside the VM, and the AppRoot recomposes
-                    // when the flag changes. onComplete() is also safe to
-                    // call directly because the host doesn't depend on
-                    // the flag being flipped already.
-                    onComplete()
+            )
+            OnboardingStep.SystemDefault -> SystemDefaultStep(
+                padding = padding,
+                onOpenSystemSettings = {
+                    app.marmalade.tts.ui.openSystemTtsSettings(context)
                 },
                 onFinish = {
                     if (viewModel.finish()) onComplete()
@@ -811,6 +821,74 @@ private fun downloadDetail(state: InstallState.Downloading): String {
         "$fetched / $total — ${state.currentFile}"
     } else {
         "$fetched / $total"
+    }
+}
+
+/**
+ * Final onboarding step: prompts the user to pick Marmalade as their
+ * system TTS engine. The app being installed isn't enough — until the
+ * OS-level default is set to ours, no external app's TTS request
+ * routes through us.
+ */
+@Composable
+private fun SystemDefaultStep(
+    padding: PaddingValues,
+    onOpenSystemSettings: () -> Unit,
+    onFinish: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.mascot_happy),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "One more step",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "To let other apps speak through Marmalade, you have to pick it " +
+                "as your system text-to-speech engine. Android won't route TTS to " +
+                "us until you do.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Tap the button below — most phones land directly on the right " +
+                "page. If yours doesn't, look for \"Text-to-speech\" under " +
+                "System → Languages, Accessibility → Audio, or Languages & input.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(24.dp))
+        Button(
+            onClick = onOpenSystemSettings,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Open system TTS settings") }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onFinish,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Finish — I'll do this later") }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "You can re-open this from Settings → Set as system TTS engine.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

@@ -145,6 +145,10 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
+            SystemDefaultSection()
+
+            HorizontalDivider()
+
             AboutSection()
         }
     }
@@ -280,6 +284,31 @@ private fun AppMappingsSection(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text("Per-app voices") },
         supportingContent = { Text(subtitle) },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
+}
+
+@Composable
+private fun SystemDefaultSection() {
+    SectionHeader("System integration")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    ListItem(
+        modifier = Modifier.clickable {
+            app.marmalade.tts.ui.openSystemTtsSettings(context)
+        },
+        headlineContent = { Text("Set as system TTS engine") },
+        supportingContent = {
+            Text(
+                text = "Opens Android's text-to-speech settings so you can pick Marmalade " +
+                    "as the default engine. Required for external apps to route TTS through us.",
+            )
+        },
         trailingContent = {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
