@@ -45,7 +45,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MarmaladeTts">
 
-        <!-- Main Activity -->
+        <!--
+          Main Activity. Doubles as the engine's CONFIGURE_ENGINE target so
+          the cog next to "Marmalade TTS" in Android's TTS picker opens our
+          settings UI. The DEFAULT category is required for the implicit
+          intent the framework dispatches.
+        -->
         <activity
             android:name="app.marmalade.tts.MainActivity"
             android:exported="true"
@@ -54,9 +59,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.CONFIGURE_ENGINE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
-        <!-- System TTS engine — registered so Android Settings can select it -->
+        <!--
+          System TTS engine — registered so Android Settings can select it.
+          The DEFAULT category on TTS_SERVICE is required: Android enumerates
+          engines via an implicit intent and won't see a service that lacks
+          DEFAULT. (We learned this the hard way — see v0.1.15 release notes.)
+        -->
         <service
             android:name="app.marmalade.tts.service.MarmaladeTtsService"
             android:exported="true"
@@ -64,11 +78,44 @@
             android:permission="android.permission.BIND_TEXT_TO_SPEECH_SERVICE">
             <intent-filter>
                 <action android:name="android.intent.action.TTS_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <meta-data
                 android:name="android.speech.tts"
                 android:resource="@xml/tts_engine" />
         </service>
+
+        <!--
+          CHECK_TTS_DATA — Android invokes this activity to confirm voice
+          data is present before listing the engine in the picker. We
+          report installed voices by querying VoiceMetaDao; if none are
+          installed we still return RESULT_OK but with an empty available
+          list, which is sufficient for the engine to be listed (the user
+          can then install voices via Marmalade's own UI).
+        -->
+        <activity
+            android:name="app.marmalade.tts.service.CheckVoiceDataActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.CHECK_TTS_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          GET_SAMPLE_TEXT — returns the string the Settings picker reads
+          aloud when the user taps "Play". No UI; finishes itself.
+        -->
+        <activity
+            android:name="app.marmalade.tts.service.GetSampleTextActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Foreground synthesis service (long-form playback) -->
         <service

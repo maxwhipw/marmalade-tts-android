@@ -14,8 +14,8 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.1.14"
+        versionCode = 16
+        versionName = "0.1.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

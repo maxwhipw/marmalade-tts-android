@@ -2,5 +2,11 @@
 <!--
     TTS engine descriptor. Android reads this when the user selects
     Marmalade TTS in Settings → Languages → Text-to-speech.
+
+    `settingsActivity` is required by some OEM skins (Samsung One UI,
+    MIUI) which hide engines that declare no settings UI. Points at
+    MainActivity, which also carries the CONFIGURE_ENGINE intent-filter
+    so the cog in stock Android's TTS picker opens the same screen.
 -->
-<tts-engine xmlns:android="http://schemas.android.com/apk/res/android" />
+<tts-engine xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="app.marmalade.tts.MainActivity" />
