@@ -107,13 +107,31 @@ class CheckVoiceDataActivity : ComponentActivity() {
         // map small + obviously correct rather than pulling in
         // `Locale.getISO3Language()` which depends on the device's ICU
         // tables and has been known to disagree across OEMs.
+        //
+        // v0.1.19: expanded for the multi-lang Kokoro upgrade. Every code
+        // pair below is exercised by at least one shipped Kokoro voice
+        // (see KokoroVoiceCatalog.languageFor).
         private val LANG_2_TO_3: Map<String, String> = mapOf(
             "en" to "eng",
+            "es" to "spa",
+            "fr" to "fra",
+            "hi" to "hin",
+            "it" to "ita",
+            "ja" to "jpn",
+            "pt" to "por",
+            "zh" to "zho",
         )
 
         private val REGION_2_TO_3: Map<String, String> = mapOf(
             "US" to "USA",
             "GB" to "GBR",
+            "ES" to "ESP",
+            "FR" to "FRA",
+            "IN" to "IND",
+            "IT" to "ITA",
+            "JP" to "JPN",
+            "BR" to "BRA",
+            "CN" to "CHN",
         )
     }
 }

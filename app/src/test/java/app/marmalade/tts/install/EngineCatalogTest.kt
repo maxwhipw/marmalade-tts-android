@@ -95,18 +95,19 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kokoroPointsAtV4Release() {
-        // The engines repo's `v4` release is what the catalog must
-        // reference for Kokoro. Catching a typo here saves a real
-        // install failure (404) on the first launch after upgrade.
+    fun kokoroPointsAtV5MultiLangRelease() {
+        // v0.1.19 upgraded the Kokoro bundle from v4 (English-only,
+        // kokoro-int8-en-v0_19) to v5 (multi-language,
+        // kokoro-int8-multi-lang-v1_0). Catching a URL typo here saves a
+        // real install failure (404) on the first launch after upgrade.
         val kokoro = EngineCatalog.byName("kokoro")!!
         assertTrue(
-            "kokoro must reference the v4 engines-repo release, was '${kokoro.archive.url}'",
-            kokoro.archive.url.contains("/releases/download/v4/"),
+            "kokoro must reference the v5 engines-repo release, was '${kokoro.archive.url}'",
+            kokoro.archive.url.contains("/releases/download/v5/"),
         )
         assertTrue(
-            "kokoro archive should be the kokoro-int8-en-v0_19 bundle",
-            kokoro.archive.url.endsWith("kokoro-int8-en-v0_19.tar.bz2"),
+            "kokoro archive should be the kokoro-int8-multi-lang-v1_0 bundle",
+            kokoro.archive.url.endsWith("kokoro-int8-multi-lang-v1_0.tar.bz2"),
         )
     }
 
