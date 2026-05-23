@@ -216,7 +216,7 @@ private fun EmptyState() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Pick a voice persona for each app that asks marmalade-tts " +
+            text = "Pick a voice persona for each app that asks Marmalade TTS " +
                 "to speak. Anything you don't configure uses your primary alias. " +
                 "Tap + to add one.",
             style = MaterialTheme.typography.bodyMedium,

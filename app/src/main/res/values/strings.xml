@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">marmalade-tts</string>
+    <string name="app_name">Marmalade TTS</string>
     <string name="share_to_marmalade_tts">Speak with Marmalade</string>
     <string name="quick_tile_label">Speak clipboard</string>
 </resources>

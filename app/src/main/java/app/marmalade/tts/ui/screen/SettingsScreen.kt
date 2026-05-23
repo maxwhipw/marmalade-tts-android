@@ -303,7 +303,7 @@ private fun AboutSection() {
     SectionHeader("About")
 
     ListItem(
-        headlineContent = { Text("marmalade-tts") },
+        headlineContent = { Text("Marmalade TTS") },
         supportingContent = { Text("Version ${BuildConfig.VERSION_NAME}") },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )

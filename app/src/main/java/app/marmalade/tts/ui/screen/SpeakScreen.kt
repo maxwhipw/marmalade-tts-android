@@ -111,7 +111,7 @@ import app.marmalade.tts.install.EngineCatalog
  * Primary screen — the user's "type something, hear it spoken" surface.
  *
  * Layout (top to bottom):
- *  - Top app bar: title "marmalade-tts", trailing IconButton → voices.
+ *  - Top app bar: title "Marmalade TTS", trailing IconButton → voices.
  *  - Mascot (~64dp) — `mascot_speaking` while audio plays, `mascot_happy` otherwise.
  *  - OutlinedTextField, multi-line (~5 lines visible).
  *  - AssistChip showing the current voice — tap to navigate to picker.
@@ -147,7 +147,7 @@ fun SpeakScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("marmalade-tts") },
+                title = { Text("Marmalade TTS") },
                 windowInsets = WindowInsets(0),
                 actions = {
                     // The bottom nav exposes Voices as a tab; this in-bar
