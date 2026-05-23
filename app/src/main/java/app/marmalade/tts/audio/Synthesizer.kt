@@ -157,10 +157,23 @@ class Synthesizer @Inject constructor(
         // engine sees the text. Each engine has its own profile so users
         // can curate kokoro's rules separately from kitten's.
         val enabled = settings.enabledRules(engineName).first()
-        val preprocessed = preprocessor.apply(text, enabled)
 
-        val audio: SynthAudio = try {
-            synthesizeForEngine(engineName, preprocessed, voiceId, speed)
+        // Canonical pipeline (shared with MarmaladeTtsService and
+        // MarmaladeSynthService): emoji-detect → preprocess → strip → synth
+        // → emotion shaping → effect chain. v0.1.16 and earlier skipped
+        // emoji prosody on this path, so the same input could sound
+        // different depending on whether the user pressed Speak in-app vs.
+        // routed the text through their system TTS engine.
+        val result = try {
+            runSynthesisPipeline(
+                rawText = text,
+                voiceId = voiceId,
+                speed = speed,
+                enabledRules = enabled,
+                effect = effect,
+                preprocessor = preprocessor,
+                synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
+            )
         } catch (_: UnsupportedOperationException) {
             // Engine clearly signals "model isn't installed" — propagate as
             // a typed result so the UI can show the right copy.
@@ -170,12 +183,16 @@ class Synthesizer @Inject constructor(
             return Result.failure(SynthesizerException.SynthesisFailed(t))
         }
 
-        // EffectChain.apply is a no-op for NONE (returns the same array), so
-        // the dry path stays allocation-free.
-        val shaped = EffectChain.apply(audio.pcm, audio.sampleRate, effect)
+        // Empty input (blank text, or emoji-only that stripped to nothing)
+        // returns success without invoking AudioTrack. Matches the existing
+        // contract: callers see success even when there's nothing to play.
+        val shaped = when (result) {
+            is PipelineResult.Empty -> return Result.success(Unit)
+            is PipelineResult.Audio -> result
+        }
 
         return try {
-            playPcm(shaped, audio.sampleRate)
+            playPcm(shaped.pcm, shaped.sampleRate)
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.w(TAG, "Playback failed", t)

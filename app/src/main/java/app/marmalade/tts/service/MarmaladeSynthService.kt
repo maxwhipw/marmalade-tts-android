@@ -20,8 +20,9 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.marmalade.tts.R
-import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.PipelineResult
+import app.marmalade.tts.audio.runSynthesisPipeline
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.KokoroVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -29,9 +30,7 @@ import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.KittenEngine
 import app.marmalade.tts.engine.KokoroEngine
 import app.marmalade.tts.engine.SynthAudio
-import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Preprocessor
-import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.ArrayDeque
 import javax.inject.Inject
@@ -377,19 +376,23 @@ class MarmaladeSynthService : Service() {
         try {
             updateNotification("Speaking: ${req.text.take(40)}")
 
-            val hint = EmojiProsody.detect(req.text)
             // Per-engine preprocessing (currency, numbers, abbreviations,
             // …) feeds the engine the same normalised text the user gets
-            // on the CLI. EmojiProsody.stripEmojis runs AFTER, as a safety
-            // net for the 11 emotion emoji in case the preprocessing
-            // `emoji` rule is disabled.
+            // on the CLI. The shared SynthesisPipeline owns the canonical
+            // chain: emoji-detect → preprocess → strip → synth → emotion
+            // shaping → effect chain.
             val enabled = settings.enabledRules(engineName).first()
-            val preprocessed = preprocessor.apply(req.text, enabled)
-            val cleaned = EmojiProsody.stripEmojis(preprocessed)
-            if (cleaned.isBlank()) return
 
-            val audio: SynthAudio = try {
-                synthesizeForEngine(engineName, cleaned, resolved.voice, resolved.speed)
+            val result = try {
+                runSynthesisPipeline(
+                    rawText = req.text,
+                    voiceId = resolved.voice,
+                    speed = resolved.speed,
+                    enabledRules = enabled,
+                    effect = resolved.effect,
+                    preprocessor = preprocessor,
+                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
+                )
             } catch (e: EngineNotInstalledException) {
                 // Surface as a notification update so the user sees it; the
                 // app-launcher tap will route them to the Engines screen.
@@ -402,12 +405,14 @@ class MarmaladeSynthService : Service() {
                 return
             }
 
-            val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
-            // EffectChain is a no-op for NONE (returns the same array unchanged),
-            // so the dry path adds no extra allocation.
-            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, resolved.effect)
+            val shaped = when (result) {
+                // Input collapsed to nothing speakable (blank text or
+                // emoji-only that stripped to "") — nothing to play.
+                is PipelineResult.Empty -> return
+                is PipelineResult.Audio -> result
+            }
             try {
-                playPcm(shaped, audio.sampleRate)
+                playPcm(shaped.pcm, shaped.sampleRate)
             } catch (t: Throwable) {
                 Log.e(TAG, "Playback failed", t)
             }

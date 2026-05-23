@@ -6,8 +6,9 @@ import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
 import android.util.Log
-import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.PipelineResult
+import app.marmalade.tts.audio.runSynthesisPipeline
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.KokoroVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -16,9 +17,7 @@ import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.KittenEngine
 import app.marmalade.tts.engine.KokoroEngine
 import app.marmalade.tts.engine.SynthAudio
-import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Preprocessor
-import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -342,40 +341,22 @@ class MarmaladeTtsService : TextToSpeechService() {
             return
         }
 
-        // Emoji prosody is computed off the *raw* text (the emojis are
-        // the signal). The text fed to the engine then goes through:
-        //   1. User-configured text preprocessing (currency, numbers,
-        //      abbreviations, … per Settings → Text preprocessing).
-        //   2. Emotion-emoji stripping — a safety net for the 11 emoji
-        //      in the EmojiProsody set, in case the user disabled the
-        //      preprocessing `emoji` rule.
-        // Rules are looked up per-engine so a user who curates kokoro's
-        // ruleset separately from kitten's gets the right behaviour.
-        val hint = EmojiProsody.detect(rawText)
         // Hot path: prefer the cache (populated by the onLoadLanguage warm-up
         // collector). Cache miss means either (a) onLoadLanguage hasn't fired
         // yet for this engine, or (b) the engine name is unknown. In either
         // case fall back to a single runBlocking pull so correctness is
-        // preserved even on first synthesis after install.
+        // preserved even on first synthesis after install. Rules are
+        // looked up per-engine so a user who curates kokoro's ruleset
+        // separately from kitten's gets the right behaviour.
         val enabled = rulesCache[engineName]
             ?: runBlocking { settings.enabledRules(engineName).first() }
                 .also { rulesCache[engineName] = it }
-        val preprocessed = preprocessor.apply(rawText, enabled)
-        val text = EmojiProsody.stripEmojis(preprocessed)
-        if (text.isBlank()) {
-            // Stripping left nothing speakable (e.g. input was emojis
-            // only). Don't pass a blank line to the engine — close the
-            // callback cleanly.
-            callback.start(activeSampleRate, AudioFormat.ENCODING_PCM_16BIT, 1)
-            callback.done()
-            return
-        }
 
         Log.d(
             TAG,
             "onSynthesizeText: voice=$voiceId engine=$engineName " +
                 "speed=${params.speed} effect=${params.effect} " +
-                "chars=${text.length} emotion=${hint.emotion}",
+                "chars=${rawText.length}",
         )
 
         val startResult = callback.start(
@@ -390,15 +371,29 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
 
         try {
-            val audio: SynthAudio = runBlocking {
-                synthesizeForEngine(engineName, text, voiceId, params.speed)
+            val result = runBlocking {
+                runSynthesisPipeline(
+                    rawText = rawText,
+                    voiceId = voiceId,
+                    speed = params.speed,
+                    enabledRules = enabled,
+                    effect = params.effect,
+                    preprocessor = preprocessor,
+                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
+                )
             }
-            val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
-            // EffectChain is a no-op for NONE (returns the same array unchanged),
-            // so the dry path adds no extra allocation.
-            val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, params.effect)
-            streamPcm(callback, shaped)
-            callback.done()
+            when (result) {
+                is PipelineResult.Empty -> {
+                    // Input collapsed to nothing speakable (e.g. emoji-only
+                    // text stripped to ""). Close the callback cleanly so
+                    // the system isn't left waiting.
+                    callback.done()
+                }
+                is PipelineResult.Audio -> {
+                    streamPcm(callback, result.pcm)
+                    callback.done()
+                }
+            }
         } catch (e: Exception) {
             // Covers IllegalStateException from either engine (assets
             // missing / corrupt / JNI failure) and any other synthesis
