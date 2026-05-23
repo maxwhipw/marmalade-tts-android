@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -135,9 +136,17 @@ fun SpeakScreen(
     val isModelMissing = playbackState is PlaybackState.ModelMissing
 
     Scaffold(
+        // Nested-Scaffold inset handoff: AppRoot's outer Scaffold already
+        // consumes the status-bar inset, so this inner Scaffold and its
+        // TopAppBar must opt out — otherwise the top app bar adds a second
+        // status-bar's worth of padding inside itself and renders at ~2×
+        // the expected height. Same pattern marmalade-android uses on every
+        // per-screen Scaffold. See AppRoot.kt for the outer Scaffold.
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("marmalade-tts") },
+                windowInsets = WindowInsets(0),
                 actions = {
                     // The bottom nav exposes Voices as a tab; this in-bar
                     // shortcut stays for now because it's the single

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -102,9 +103,14 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
+        // AppRoot's outer Scaffold owns status-bar insets; opt this inner
+        // Scaffold + its TopAppBar out so the bar doesn't double-pad itself.
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
+                windowInsets = WindowInsets(0),
                 scrollBehavior = scrollBehavior,
             )
         },

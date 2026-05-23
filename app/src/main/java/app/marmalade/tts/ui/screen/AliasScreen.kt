@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -97,9 +98,14 @@ fun AliasScreen(
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
     Scaffold(
+        // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
+        // AppRoot's outer Scaffold owns status-bar insets; opt this inner
+        // Scaffold + its TopAppBar out so the bar doesn't double-pad itself.
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Voice aliases") },
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
