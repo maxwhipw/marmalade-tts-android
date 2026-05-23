@@ -8,9 +8,6 @@
     <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Declared but not yet requested at runtime — voice cloning is v0.4 -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
     <!--
       INTERNET is used exclusively for engine model downloads via
       EngineInstaller. No telemetry, no analytics, no other network use.

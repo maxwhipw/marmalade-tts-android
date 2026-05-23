@@ -181,10 +181,13 @@ open class SettingsRepository @Inject constructor(
      * (faster speak-onset, costs ~40 MB resident memory). Default is
      * `true` — matches the v0.1.x behavior pre-toggle.
      *
-     * NOTE: the `false` branch (release engine between utterances) is not
-     * yet wired into [KittenEngine] / [Synthesizer]. The storage exists so
-     * the Settings UI can land; a follow-up agent ties it to the engine
-     * lifecycle. See STUBS.md.
+     * TODO(v0.2): the `false` branch (release engine between utterances)
+     * is not yet wired into [KittenEngine] / [KokoroEngine]. The Settings
+     * UI toggle was *hidden in v0.1.16* because the engines ignored this
+     * flag — surfacing a dead control as a real Switch was misleading.
+     * The storage stays in place (cheap, doesn't hurt, keeps the key
+     * stable across the rename) so we can re-add the UI without a
+     * migration when the engines start honouring it. See STUBS.md.
      */
     open val keepEngineLoaded: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_KEEP_LOADED] ?: true

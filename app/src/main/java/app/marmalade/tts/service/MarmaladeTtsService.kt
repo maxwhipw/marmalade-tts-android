@@ -20,6 +20,7 @@ import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.ProsodyApplier
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -140,6 +141,44 @@ class MarmaladeTtsService : TextToSpeechService() {
     private val serviceScope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // --- Hot-path caches -----------------------------------------------------
+    //
+    // Pre-resolved at onCreate / onLoadLanguage to keep onSynthesizeText off
+    // the four-runBlocking spin it used through v0.1.15. On cold start with
+    // Room/DataStore checkpointing under load, that spin flirted with
+    // Android's ~10 s synthesis watchdog; the cache lookups are O(1) and
+    // never block. A single defensive runBlocking fallback remains in
+    // resolveSynthParams for voices that arrive after the service started
+    // (e.g. a freshly-installed engine seeds new rows), so correctness is
+    // preserved even on a cache miss.
+    //
+    // voiceId → engine name, populated from voiceDao.getAll() in onCreate.
+    private val voiceEngineCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
+
+    // engineName → enabled preprocessing rules. Populated lazily from
+    // onLoadLanguage (the framework's documented warm-up hook). Reads in
+    // onSynthesizeText fall back to the default set if the cache hasn't
+    // been populated yet, then trigger an async refresh.
+    private val rulesCache: ConcurrentHashMap<String, Set<String>> = ConcurrentHashMap()
+
+    override fun onCreate() {
+        super.onCreate()
+        // Mirror voice catalog into the engine-routing cache. Collection runs
+        // on the service scope so it stays in sync with later upserts (e.g.
+        // an engine install seeds new rows after launch).
+        serviceScope.launch {
+            voiceDao.getAll().collect { voices ->
+                // Rebuild rather than incrementally update — the catalog is
+                // tiny (≤ 20 entries) and a full replace keeps removals
+                // honest if a future revision deletes voices.
+                voiceEngineCache.clear()
+                for (v in voices) {
+                    voiceEngineCache[v.id] = v.engine
+                }
+            }
+        }
+    }
+
     // Widened to public so MarmaladeTtsServiceTest can exercise the
     // language-negotiation logic without subclassing the framework type.
     public override fun onIsLanguageAvailable(
@@ -201,6 +240,18 @@ class MarmaladeTtsService : TextToSpeechService() {
      * the catch silently absorbs.
      */
     private fun warmUpEngine() {
+        // Seed the per-engine preprocessing-rule cache off the synth-worker
+        // thread so onSynthesizeText doesn't have to runBlocking on the
+        // DataStore round-trip. Each engine is collected independently and
+        // the cache stays live for later edits (a Settings → Engine detail
+        // toggle re-emits, refreshing the entry).
+        for (engineName in listOf(KittenVoiceCatalog.ENGINE, KokoroVoiceCatalog.ENGINE)) {
+            serviceScope.launch {
+                settings.enabledRules(engineName).collect { rules ->
+                    rulesCache[engineName] = rules
+                }
+            }
+        }
         serviceScope.launch {
             // Walk a list of (name, loader) pairs rather than (name, engine):
             // KittenEngine and KokoroEngine don't share a base class, so
@@ -233,8 +284,15 @@ class MarmaladeTtsService : TextToSpeechService() {
      */
     override fun onLoadVoice(voiceName: String?): Int {
         if (voiceName.isNullOrEmpty()) return TextToSpeech.ERROR
-        val match = runBlocking { voiceDao.findById(voiceName) }
-        return if (match != null && isKnownEngine(match.engine)) {
+        // Cache-first: every voice the catalog ships gets seeded into
+        // voiceEngineCache by the onCreate collector. Defensive runBlocking
+        // fallback covers the race where the framework asks about a voice
+        // that arrived since the service started.
+        val cached = voiceEngineCache[voiceName]
+        val engineName = cached ?: runBlocking { voiceDao.findById(voiceName) }
+            ?.also { voiceEngineCache[it.id] = it.engine }
+            ?.engine
+        return if (engineName != null && isKnownEngine(engineName)) {
             TextToSpeech.SUCCESS
         } else {
             TextToSpeech.ERROR
@@ -294,7 +352,14 @@ class MarmaladeTtsService : TextToSpeechService() {
         // Rules are looked up per-engine so a user who curates kokoro's
         // ruleset separately from kitten's gets the right behaviour.
         val hint = EmojiProsody.detect(rawText)
-        val enabled = runBlocking { settings.enabledRules(engineName).first() }
+        // Hot path: prefer the cache (populated by the onLoadLanguage warm-up
+        // collector). Cache miss means either (a) onLoadLanguage hasn't fired
+        // yet for this engine, or (b) the engine name is unknown. In either
+        // case fall back to a single runBlocking pull so correctness is
+        // preserved even on first synthesis after install.
+        val enabled = rulesCache[engineName]
+            ?: runBlocking { settings.enabledRules(engineName).first() }
+                .also { rulesCache[engineName] = it }
         val preprocessed = preprocessor.apply(rawText, enabled)
         val text = EmojiProsody.stripEmojis(preprocessed)
         if (text.isBlank()) {
@@ -388,32 +453,56 @@ class MarmaladeTtsService : TextToSpeechService() {
      * main thread).
      */
     internal fun resolveSynthParams(request: SynthesisRequest): SynthParams {
-        // 1. Honor an explicit, known voice request — never override.
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
-        if (requested != null) {
-            val hit = runBlocking { voiceDao.findById(requested) }
-            if (hit != null && isKnownEngine(hit.engine)) {
-                return SynthParams(
-                    voiceId = hit.id,
-                    speed = 1.0f,
-                    effect = EffectPreset.NONE,
-                )
-            }
-        }
-
-        // 2 + 3. Per-app routing → primary fallback. resolveCallerPackage
-        // returns null when the UID can't be resolved (shared UID, etc.)
-        // which TtsRouter.resolveAlias handles by skipping straight to
-        // the primary lookup.
         val callerPackage = resolveCallerPackage(request)
-        val alias: VoiceAlias? = runBlocking { router.resolveAlias(callerPackage) }
-        if (alias != null) {
+
+        // 1. Honor an explicit, known voice request — cache-first so the
+        // common "request specifies a voice that was seeded at install" path
+        // stays off the synth-worker's blocking road. Falls through to the
+        // combined router pass below on cache miss; that block does one
+        // runBlocking that covers both the voice-id lookup and the alias
+        // resolution (down from two serial blocks in v0.1.15).
+        val cachedEngine = requested?.let { voiceEngineCache[it] }
+        if (requested != null && cachedEngine != null && isKnownEngine(cachedEngine)) {
             return SynthParams(
-                voiceId = alias.voiceId,
-                speed = alias.speed,
-                effect = decodeEffect(alias.effectPreset),
+                voiceId = requested,
+                speed = 1.0f,
+                effect = EffectPreset.NONE,
             )
         }
+
+        // 2 + 3 + 1-fallback. Single defensive runBlocking that covers:
+        //   - the voice-id DAO lookup (when the cache missed — voice may
+        //     have arrived after onCreate's collector started),
+        //   - the per-app router → primary alias resolution.
+        // resolveCallerPackage returns null when the UID can't be resolved
+        // (shared UID, etc.) which TtsRouter.resolveAlias handles by
+        // skipping straight to the primary lookup.
+        val resolved: SynthParams? = runBlocking {
+            if (requested != null) {
+                val hit = voiceDao.findById(requested)
+                if (hit != null && isKnownEngine(hit.engine)) {
+                    // Seed the cache so the next request takes the fast path.
+                    voiceEngineCache[hit.id] = hit.engine
+                    return@runBlocking SynthParams(
+                        voiceId = hit.id,
+                        speed = 1.0f,
+                        effect = EffectPreset.NONE,
+                    )
+                }
+            }
+            val alias: VoiceAlias? = router.resolveAlias(callerPackage)
+            if (alias != null) {
+                SynthParams(
+                    voiceId = alias.voiceId,
+                    speed = alias.speed,
+                    effect = decodeEffect(alias.effectPreset),
+                )
+            } else {
+                null
+            }
+        }
+        if (resolved != null) return resolved
 
         // 4. Absolute fallback — the engine's default voice with
         // unchanged speed/effect. Matches v0.1.10 behaviour.

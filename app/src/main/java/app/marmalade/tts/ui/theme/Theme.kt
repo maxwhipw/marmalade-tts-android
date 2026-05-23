@@ -17,10 +17,10 @@ import androidx.compose.ui.platform.LocalContext
  * - "dark"   -> true  (always dark)
  * - anything else (including "system", "", unknown) -> defer to the system
  *
- * Currently unused by the v0.1 Settings surface (which only exposes the
- * theme preset, not a light/dark/system override). Kept for parity with
- * marmalade-android so a follow-up agent can wire it up without inventing
- * a new helper.
+ * Wired into [app.marmalade.tts.MainActivity], which reads the persisted
+ * `themeMode` and the platform `isSystemInDarkTheme()` then passes the
+ * resolved boolean into [MarmaladeTtsTheme]. Settings → Appearance → Mode
+ * is what flips the persisted value between "system" / "light" / "dark".
  */
 fun resolveThemeIsDark(themeMode: String, isSystemDark: Boolean): Boolean {
     return when (themeMode) {

@@ -55,8 +55,13 @@ sealed class PreviewState {
     /** Indicates which voice is currently being previewed (by voice ID). */
     data class Playing(val voiceId: String) : PreviewState()
 
-    /** Engine assets aren't bundled. Same condition as PlaybackState.ModelMissing. */
-    object ModelMissing : PreviewState()
+    /**
+     * Engine assets aren't bundled. Same condition as
+     * [PlaybackState.ModelMissing]. [engineName] is the engine the failed
+     * preview belonged to (`"kokoro"` / `"kitten"`) so the UI copy can
+     * name the missing engine specifically instead of hardcoding one.
+     */
+    data class ModelMissing(val engineName: String) : PreviewState()
 
     data class Error(val message: String) : PreviewState()
 }
@@ -126,7 +131,8 @@ class VoicePickerViewModel @Inject constructor(
                 onSuccess = { PreviewState.Idle },
                 onFailure = { err ->
                     when (err) {
-                        is SynthesizerException.ModelMissing -> PreviewState.ModelMissing
+                        is SynthesizerException.ModelMissing ->
+                            PreviewState.ModelMissing(voice.engine)
                         is SynthesizerException.SynthesisFailed -> PreviewState.Error(
                             err.message ?: "Preview failed",
                         )

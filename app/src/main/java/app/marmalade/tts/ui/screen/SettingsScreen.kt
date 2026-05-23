@@ -20,7 +20,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -40,19 +39,23 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //     │
 //     ├── reads  ◄── SettingsViewModel.themePreset       (StateFlow<ThemePreset>)
 //     │              SettingsViewModel.themeMode         (StateFlow<String>)
-//     │              SettingsViewModel.keepEngineLoaded  (StateFlow<Boolean>)
 //     │              SettingsViewModel.aliasCount        (StateFlow<Int>)
 //     │              SettingsViewModel.appMappingCount   (StateFlow<Int>)
 //     │
 //     └── writes ──► SettingsViewModel.setThemePreset(ThemePreset)
 //                    SettingsViewModel.setThemeMode(String)
-//                    SettingsViewModel.setKeepEngineLoaded(Boolean)
 //                                 │
 //                                 ▼
 //                          SettingsRepository.setX(...)
 //                                 │
 //                                 ▼
 //                          DataStore<Preferences> edit
+//
+//   The "Keep engine loaded in memory" Switch was removed in v0.1.16 because
+//   neither KittenEngine nor KokoroEngine ever read SettingsRepository.
+//   keepEngineLoaded — the toggle was a no-op surfaced as a real control.
+//   The storage and SettingsRepository accessor stay; the UI will return
+//   when the engines actually honour the flag (v0.2).
 //
 //   Tap on "Voice aliases / personas" row
 //     │
@@ -78,13 +81,20 @@ import app.marmalade.tts.ui.theme.ThemePreset
  *
  * Sections (separated by HorizontalDivider):
  *  1. Appearance     — mode (system/light/dark) + color preset chips.
- *  2. Engine behavior — toggle to keep the engine resident.
- *  3. Voice aliases  — chevron row routing to the alias editor.
- *  4. About          — version string from [BuildConfig].
+ *  2. Voice aliases  — chevron row routing to the alias editor.
+ *  3. Per-app voices — chevron row routing to the app-mapping editor.
+ *  4. System default — opens Android's TTS engine picker.
+ *  5. About          — version string from [BuildConfig].
  *
  * Text preprocessing toggles used to live here. They're per-engine settings
  * and now live on [EngineDetailScreen] — see Engines tab → tap a card →
  * "Engine settings".
+ *
+ * The "Engine behavior" section (a single Switch to keep the engine resident
+ * between utterances) was removed in v0.1.16: the engines never honoured the
+ * flag, so leaving the control wired up was misleading. We'll bring it back
+ * when KittenEngine / KokoroEngine actually read the setting (tracked
+ * against [SettingsRepository.keepEngineLoaded] for v0.2).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +105,6 @@ fun SettingsScreen(
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-    val keepLoaded by viewModel.keepEngineLoaded.collectAsStateWithLifecycle()
     val aliasCount by viewModel.aliasCount.collectAsStateWithLifecycle()
     val mappingCount by viewModel.appMappingCount.collectAsStateWithLifecycle()
 
@@ -126,13 +135,6 @@ fun SettingsScreen(
                 onPresetSelected = viewModel::setThemePreset,
                 currentMode = themeMode,
                 onModeSelected = viewModel::setThemeMode,
-            )
-
-            HorizontalDivider()
-
-            EngineBehaviorSection(
-                keepLoaded = keepLoaded,
-                onKeepLoadedChange = viewModel::setKeepEngineLoaded,
             )
 
             HorizontalDivider()
@@ -215,35 +217,6 @@ private fun AppearanceSection(
             )
         }
     }
-}
-
-@Composable
-private fun EngineBehaviorSection(
-    keepLoaded: Boolean,
-    onKeepLoadedChange: (Boolean) -> Unit,
-) {
-    SectionHeader("Engine behavior")
-
-    // TODO(v0.2): wire `keepLoaded = false` to release KittenEngine between
-    // utterances (currently the storage exists but the engine ignores it —
-    // tracked in STUBS.md).
-    ListItem(
-        modifier = Modifier.clickable { onKeepLoadedChange(!keepLoaded) },
-        headlineContent = { Text("Keep engine loaded in memory") },
-        supportingContent = {
-            Text(
-                "Faster speak; uses ~40 MB of RAM when idle. " +
-                    "Turn off to release the model between utterances.",
-            )
-        },
-        trailingContent = {
-            Switch(
-                checked = keepLoaded,
-                onCheckedChange = onKeepLoadedChange,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
 }
 
 @Composable

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
@@ -179,7 +180,21 @@ class MarmaladeSynthService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Always promote to foreground before doing any work — Android 12+
         // throws ForegroundServiceStartNotAllowedException if we delay.
-        startForeground(NOTIFICATION_ID, buildNotification(stateText = "Preparing…"))
+        // Android 14+ (API 34) additionally requires the type argument to
+        // match the manifest declaration (mediaPlayback) — otherwise we get
+        // a MissingForegroundServiceTypeException at runtime. The 3-arg
+        // overload exists since API 29 (Q), so we guard the type pass on Q+.
+        val notification = buildNotification(stateText = "Preparing…")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         if (intent == null) {
             // System restart with no intent — START_NOT_STICKY means this

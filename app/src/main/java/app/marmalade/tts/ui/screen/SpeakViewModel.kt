@@ -11,6 +11,7 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.install.EngineCatalog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -232,10 +233,14 @@ class SpeakViewModel @Inject constructor(
                 return@launch
             }
 
-            if (alias.engine != "kitten") {
+            // Warn only on truly unknown engines. EngineCatalog enumerates
+            // every engine the app knows how to install (kokoro + kitten as
+            // of v0.1.16); anything outside that set is a stale alias from
+            // a future build that downgraded, or junk we shouldn't trust.
+            if (EngineCatalog.byName(alias.engine) == null) {
                 Log.w(
                     TAG,
-                    "applyAlias($name): engine '${alias.engine}' not supported in v0.1; " +
+                    "applyAlias($name): engine '${alias.engine}' not in catalog; " +
                         "proceeding with voice/speed/effect only",
                 )
             }

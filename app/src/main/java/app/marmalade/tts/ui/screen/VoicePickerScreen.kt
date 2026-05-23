@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.data.db.VoiceMeta
+import app.marmalade.tts.install.EngineCatalog
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -81,7 +82,8 @@ fun VoicePickerScreen(
     val selectedId by viewModel.selectedId.collectAsStateWithLifecycle()
     val previewState by viewModel.previewState.collectAsStateWithLifecycle()
 
-    val modelMissing = previewState is PreviewState.ModelMissing
+    val modelMissingState = previewState as? PreviewState.ModelMissing
+    val modelMissing = modelMissingState != null
 
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
@@ -109,9 +111,12 @@ fun VoicePickerScreen(
                 .padding(innerPadding),
         ) {
             // Inline status hint when the engine signals missing assets.
-            if (modelMissing) {
+            if (modelMissingState != null) {
+                val engineDisplay = EngineCatalog.byName(modelMissingState.engineName)
+                    ?.displayName
+                    ?: "TTS"
                 Text(
-                    text = "Kitten engine not installed yet — install it from Settings → Engines to enable previews.",
+                    text = "$engineDisplay engine not installed yet — install it from Settings → Engines to enable previews.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,

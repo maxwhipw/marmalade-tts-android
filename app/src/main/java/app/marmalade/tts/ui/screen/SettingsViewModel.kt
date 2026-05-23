@@ -28,10 +28,6 @@ import kotlinx.coroutines.launch
 //     │                                ▲
 //     │                          SettingsRepository.themeMode (Flow<String>)
 //     │
-//     ├── keepEngineLoaded ◄────── SettingsViewModel.keepEngineLoaded
-//     │                                ▲
-//     │                          SettingsRepository.keepEngineLoaded (Flow<Boolean>)
-//     │
 //     ├── aliasCount       ◄────── SettingsViewModel.aliasCount
 //     │                                ▲
 //     │                                │ map { it.size }
@@ -39,10 +35,14 @@ import kotlinx.coroutines.launch
 //     │
 //     └── actions ──► setThemePreset(ThemePreset)
 //                     setThemeMode(String)
-//                     setKeepEngineLoaded(Boolean)
 //                          │
 //                          ▼
 //                     SettingsRepository.set...(value)  (DataStore round-trip)
+//
+//   `keepEngineLoaded` / `setKeepEngineLoaded` were removed in v0.1.16
+//   when the Settings Switch was hidden — the engines never honoured the
+//   flag. The storage on SettingsRepository stays; this ViewModel will
+//   re-expose it when KittenEngine / KokoroEngine actually wire it up.
 //
 //   Text preprocessing was hosted here in v0.1.10 and earlier. It moved to
 //   the per-engine EngineDetailScreen (EngineDetailViewModel) in v0.1.11 —
@@ -91,17 +91,6 @@ class SettingsViewModel @Inject constructor(
         )
 
     /**
-     * Whether the engine should remain resident in RAM between utterances.
-     * Defaults to `true` (pre-toggle behavior).
-     */
-    val keepEngineLoaded: StateFlow<Boolean> = settings.keepEngineLoaded
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = true,
-        )
-
-    /**
      * Number of saved voice aliases. Drives the subtitle text on the
      * Voice Aliases row ("N aliases saved"). Counted via .size on the
      * existing Flow — Room re-emits when rows change, so this stays in
@@ -140,13 +129,6 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: String) {
         viewModelScope.launch {
             settings.setThemeMode(mode)
-        }
-    }
-
-    /** Persist the keep-loaded toggle. */
-    fun setKeepEngineLoaded(value: Boolean) {
-        viewModelScope.launch {
-            settings.setKeepEngineLoaded(value)
         }
     }
 

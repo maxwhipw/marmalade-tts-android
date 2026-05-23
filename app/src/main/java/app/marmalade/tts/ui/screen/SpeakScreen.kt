@@ -43,6 +43,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceMeta
+import app.marmalade.tts.install.EngineCatalog
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -237,6 +239,7 @@ fun SpeakScreen(
             Spacer(Modifier.height(12.dp))
 
             // Status line — single source of truth for "what's going on."
+            val installCta = installCtaFor(currentVoice)
             Box(modifier = Modifier.fillMaxWidth()) {
                 if (isModelMissing) {
                     // Make the missing-engine state actionable: a text button
@@ -246,14 +249,14 @@ fun SpeakScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = "Tap to install Kitten engine",
+                            text = installCta,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                         )
                     }
                 } else {
                     Text(
-                        text = statusText(playbackState),
+                        text = statusText(playbackState, installCta),
                         style = MaterialTheme.typography.bodyMedium,
                         color = when (playbackState) {
                             is PlaybackState.Error -> MaterialTheme.colorScheme.error
@@ -324,9 +327,27 @@ private fun AliasChipRow(
     }
 }
 
-private fun statusText(state: PlaybackState): String = when (state) {
+private fun statusText(state: PlaybackState, installCta: String): String = when (state) {
     is PlaybackState.Idle -> "Ready"
     is PlaybackState.Speaking -> "Speaking…"
-    is PlaybackState.ModelMissing -> "Tap to install Kitten engine"
+    is PlaybackState.ModelMissing -> installCta
     is PlaybackState.Error -> state.message
+}
+
+/**
+ * Build the "Tap to install <engine>" call-to-action for the model-missing
+ * state. Resolves the engine from the currently-selected voice via
+ * [EngineCatalog] so the copy stays correct when the user switches between
+ * Kokoro and Kitten voices. Falls back to a neutral "a TTS engine" label
+ * when no voice is resolved yet (initial-load flicker) or the engine
+ * isn't in the catalog (would be a bug, but the neutral copy is safe).
+ */
+private fun installCtaFor(voice: VoiceMeta?): String {
+    val displayName = voice?.engine
+        ?.let { EngineCatalog.byName(it)?.displayName }
+    return if (displayName != null) {
+        "Tap to install $displayName"
+    } else {
+        "Tap to install a TTS engine"
+    }
 }
