@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.ui.theme.ThemePreset
@@ -201,6 +202,35 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
+     * The catalog version that the on-device DB was last seeded against.
+     *
+     * `MarmaladeTtsApplication.onCreate` compares this against the current
+     * [app.marmalade.tts.MarmaladeTtsApplication.CATALOG_VERSION] constant
+     * and re-runs `voiceDao.upsertAll(...)` for every catalog whose
+     * version increased. That keeps users on the same DB-row set as the
+     * shipped app, without ever destructively wiping the table — Room's
+     * REPLACE-on-conflict upsert just refreshes the metadata.
+     *
+     * Stored as an integer rather than a hash so the upgrade path is
+     * monotonic and trivially comparable; bump by 1 in
+     * `MarmaladeTtsApplication` every time a catalog's voice rows change
+     * (add/remove a voice, change a language code, etc.).
+     *
+     * Defaults to 0 — fresh installs go through the same code path as an
+     * upgrade and pick up the latest catalog on first run.
+     */
+    open val catalogVersion: Flow<Int> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_VERSION] ?: 0
+    }
+
+    /** Persist [version] as the latest catalog version seeded into Room. */
+    open suspend fun setCatalogVersion(version: Int) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CATALOG_VERSION] = version
+        }
+    }
+
+    /**
      * The set of enabled text-preprocessing rule names for [engineName].
      *
      * Stored as a comma-separated string under
@@ -270,5 +300,11 @@ open class SettingsRepository @Inject constructor(
         // Primary alias pointer (nullable). Null is encoded as
         // "key absent from DataStore" — see [setPrimaryAliasName].
         private val KEY_PRIMARY_ALIAS = stringPreferencesKey("primary_alias_name")
+
+        // Last-seeded catalog version. v0.1.19 introduces this so that
+        // expanding KokoroVoiceCatalog (11 → 53 voices for multi-lang)
+        // automatically re-seeds existing installs whose DB still has the
+        // pre-expansion rows.
+        private val KEY_CATALOG_VERSION = intPreferencesKey("catalog_version")
     }
 }
