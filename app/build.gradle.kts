@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    // SPIKE — see top-level build.gradle.kts comment.
+    id("com.chaquo.python")
 }
 
 android {
@@ -22,12 +24,36 @@ android {
             useSupportLibrary = true
         }
 
-        // Real Android devices are arm64-v8a (modern) or armeabi-v7a (older
-        // 32-bit ARM). x86 / x86_64 are emulator-only; shipping their
-        // libsherpa-onnx-jni + libonnxruntime cost ~58 MB of APK with zero
-        // real-device benefit. Drop them. Anyone running the app in an x86
-        // emulator can do a from-source build.
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        // SPIKE: Chaquopy 3.12 doesn't ship armeabi-v7a wheels — Python
+        // 3.12 dropped 32-bit ARM as a tier-1 platform. Drop armeabi-v7a
+        // for this spike branch; if we commit to Chaquopy for real, we
+        // lose support for 32-bit ARM devices entirely. Realistic but
+        // worth flagging — there are still some 32-bit-only devices in
+        // the install base.
+        ndk { abiFilters += listOf("arm64-v8a") }
+
+    }
+
+    // SPIKE — Chaquopy embeds CPython for Misaki phonemiser eval.
+    // Goal: prove on-device that `misaki[en]` and `misaki[ja]`
+    // (the latter pulls pyopenjtalk + unidic) install and run.
+    // If pyopenjtalk's wheel isn't available for Android ARM, this
+    // whole experiment is moot and the branch is discarded.
+    //
+    // NOTE: Chaquopy's Kotlin DSL uses a top-level `chaquopy { ... }`
+    // block (NOT `android.defaultConfig.python`) — that surprised me.
+    chaquopy {
+        defaultConfig {
+            // CPython 3.12 lines up with Misaki's tested matrix.
+            version = "3.12"
+            pip {
+                // Spike attempt 2: install bare misaki first to see if
+                // the base library has Android-compatible deps. The
+                // [en] extra pulled in spacy + espeakng-loader, both of
+                // which have no Android wheels.
+                install("misaki")
+            }
+        }
     }
 
     buildTypes {
