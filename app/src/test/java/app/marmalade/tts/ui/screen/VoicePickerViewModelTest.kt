@@ -3,6 +3,8 @@ package app.marmalade.tts.ui.screen
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.KittenVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.install.EngineInstaller
+import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -72,6 +74,25 @@ class VoicePickerViewModelTest {
             voiceDao = dao,
             settings = settings,
             synthesizer = player,
+            installer = PickerFakeInstaller(),
         )
     }
+}
+
+/**
+ * Test double for [EngineInstaller]: stubs out file I/O + HTTP and lets
+ * the caller declare which engines should report installed. v0.1.18's
+ * voice-filter logic calls `verify(engineName)` on every catalog engine
+ * at VM init; this fake answers that without standing up the real
+ * installer (which needs disk + DI scaffolding).
+ */
+private class PickerFakeInstaller(
+    private val installedEngines: Set<String> = setOf("kitten", "kokoro"),
+) : EngineInstaller(
+    filesDir = { java.io.File("/tmp/voicepicker-test-unused") },
+    kittenEngine = { /* no-op release */ },
+    httpFetcher = { _ -> throw java.io.IOException("not used in this test") },
+) {
+    override suspend fun verify(engineName: String): InstallState =
+        if (engineName in installedEngines) InstallState.Installed else InstallState.NotInstalled
 }

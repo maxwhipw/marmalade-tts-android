@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,8 +40,11 @@ import app.marmalade.tts.install.EngineCatalog
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   VoiceMetaDao.getByEngine("kitten") (Flow<List<VoiceMeta>>)
-//     │
+//   VoiceMetaDao.getAll() (Flow<List<VoiceMeta>>)
+//     │   ──► filtered by VoicePickerViewModel against the installed
+//     │       engine set (see v0.1.18 — pre-fix this screen hardcoded
+//     │       getByEngine("kitten") and showed those rows even when the
+//     │       Kitten engine wasn't installed).
 //     ▼
 //   VoicePickerViewModel.voices  ───► LazyColumn rows
 //   VoicePickerViewModel.selectedId ► check icon on the matching row
@@ -79,11 +83,19 @@ fun VoicePickerScreen(
     viewModel: VoicePickerViewModel = hiltViewModel(),
 ) {
     val voices by viewModel.voices.collectAsStateWithLifecycle()
+    val installedEngines by viewModel.installedEngines.collectAsStateWithLifecycle()
     val selectedId by viewModel.selectedId.collectAsStateWithLifecycle()
     val previewState by viewModel.previewState.collectAsStateWithLifecycle()
 
     val modelMissingState = previewState as? PreviewState.ModelMissing
     val modelMissing = modelMissingState != null
+
+    // Re-probe engine install state every time the screen becomes the
+    // active destination. The init block in the VM does an initial probe;
+    // this catches the Voices → Engines → install → back-to-Voices flow.
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
@@ -124,6 +136,22 @@ fun VoicePickerScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
+            }
+
+            // Empty state: no engines installed at all (which is what the
+            // v0.1.18 fix exposes — pre-fix the screen showed Kitten voices
+            // regardless of install state, hiding this condition).
+            if (voices.isEmpty() && installedEngines.isEmpty()) {
+                Text(
+                    text = "No engines installed yet. Open the Engines tab to install Kokoro or Kitten — voices will appear here once you do.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                )
+                return@Column
             }
 
             // Group by engine so the user can see at a glance which engine
