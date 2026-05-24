@@ -24,6 +24,18 @@ import javax.inject.Singleton
  * runtime based on the text's character set, and prosody comes from the
  * voice embedding. That's why a Japanese voice speaking English produces
  * Japanese-accented English — the original ask for v0.1.19.
+ *
+ * v0.1.20 swapped the int8-v1.0 export for the fp32 `kokoro-multi-lang-v1_0`
+ * bundle. The int8-v1.0 export turned out to be an unblessed power-user
+ * artefact: PR k2-fsa/sherpa-onnx#2137 added the file but the official APK
+ * build script (`scripts/apk/generate-tts-apk-script.py`) never picked it
+ * up — the team did a second int8 export (v1.1) and shipped that instead.
+ * Naive dynamic int8 quantisation on a vocoder produces the "tinny /
+ * staticy" output we heard. fp32 is ~2.6x larger on disk but renders the
+ * voices the model was trained to produce.
+ *
+ * Also bumped `numThreads` from 2 → 4. The Tensor G3 SoC (Pixel 8a) has
+ * 4 P-cores (Cortex-A715); inference benefits from filling them.
  */
 // `open` exists only to let MarmaladeTtsServiceTest substitute a JVM-safe
 // fake engine (the real one calls into Sherpa-ONNX JNI which won't load in
@@ -40,19 +52,34 @@ open class KokoroEngine @Inject constructor(
     override fun buildModelConfig(modelDir: File): OfflineTtsModelConfig {
         // OfflineTtsKokoroModelConfig in Sherpa-ONNX 1.13.2 takes
         // (model, voices, tokens, dataDir, lexicon, lang, dictDir,
-        //  lengthScale). For the multi-lang v1.0 bundle:
-        //   - `lexicon` is a comma-separated list of absolute paths to
-        //     the lexicon files inside the bundle. The runtime routes
-        //     text to a lexicon based on character set (ASCII → us-en,
-        //     CJK → zh); both must be configured or only the first
-        //     ASCII voice would work.
-        //   - `lang` left empty lets the per-voice natural language drive
-        //     prosody. Forcing it to a specific value would override the
-        //     voice's natural pronunciation for all text.
-        //   - `dictDir` left empty: Sherpa-ONNX locates the jieba `dict/`
-        //     directory relative to the lexicon paths on its own. The
-        //     official `scripts/apk/generate-tts-apk-script.py` confirms
-        //     the field is unset for v1.0 / v1.1 multi-lang bundles.
+        //  lengthScale). For the multi-lang v1.0 bundle the official
+        // sherpa-onnx Android sample (Example 10 in TtsEngine.kt) sets:
+        //   - lexicon = "<modelDir>/lexicon-us-en.txt,<modelDir>/lexicon-zh.txt"
+        //   - lang    = "en"   (primary; English — ISO 639-1)
+        //   - lang2   = "zh"   (secondary; Mandarin)
+        //
+        // CRITICAL #1: setting `lang = ""` silently disables the
+        // lexicon-driven phonemiser and falls back to pure espeak — that's
+        // what produced the tinny / staticy v0.1.19 output. With a valid
+        // 2-letter code the English lexicon is the primary route and
+        // espeak is the OOV fallback, which is the path the model was
+        // trained against.
+        //
+        // CRITICAL #2: the lang code must be ISO 639-1 (`"en"`), not
+        // ISO 639-3 (`"eng"`). The Kotlin sample app's Example 10 has a
+        // misleading `"eng"` comment, but Sherpa-ONNX's C++ source
+        // (offline-tts-kokoro-model-config.h) and the official APK build
+        // script both use the 2-letter form. Passing `"eng"` lands in an
+        // unknown-language branch and crashes inside generate.
+        //
+        // The Kotlin API of OfflineTtsKokoroModelConfig in 1.13.2 doesn't
+        // expose a `lang2` field directly. Sherpa-ONNX's multi-lang Kokoro
+        // C++ implementation (`KokoroMultiLangLexicon`) routes by text
+        // character set anyway — ASCII to lexicon-us-en, CJK to
+        // lexicon-zh — so omitting lang2 doesn't break Mandarin via voice
+        // selection; it just means we don't get the Chinese rule-FST
+        // text normalisation (handled separately at the outer config
+        // level — TODO follow-up).
         val lexicon = listOf(
             File(modelDir, "lexicon-us-en.txt").absolutePath,
             File(modelDir, "lexicon-zh.txt").absolutePath,
@@ -64,13 +91,18 @@ open class KokoroEngine @Inject constructor(
             tokens = File(modelDir, TOKENS_FILE).absolutePath,
             dataDir = File(modelDir, DATA_DIR).absolutePath,
             lexicon = lexicon,
-            lang = "",
+            lang = "en",
             dictDir = "",
             lengthScale = 1.0f,
         )
         return OfflineTtsModelConfig(
             kokoro = kokoroCfg,
-            numThreads = 2,
+            // numThreads = 4 fills the Tensor G3 P-cluster (4× Cortex-A715).
+            // XNNPACK/NNAPI providers are available in the AAR (Apache-2.0,
+            // verified via upstream source); we stay on `"cpu"` for v0.1.20
+            // and revisit acceleration as a separate change so any audio
+            // regression is unambiguously attributable.
+            numThreads = 4,
             debug = false,
             provider = "cpu",
         )
@@ -92,11 +124,11 @@ open class KokoroEngine @Inject constructor(
         /** Engine identifier matched against `VoiceMeta.engine` and used as the install dir name. */
         const val ENGINE_NAME = "kokoro"
 
-        // Matches Sherpa-ONNX's released `kokoro-int8-multi-lang-v1_0.tar.bz2`
-        // layout — same model filename as the v0.19 English-only bundle, but
-        // larger because it carries embeddings for all 53 voices and the
-        // multi-lingual front-end weights.
-        private const val MODEL_FILE = "model.int8.onnx"
+        // Matches Sherpa-ONNX's released `kokoro-multi-lang-v1_0.tar.bz2`
+        // layout (fp32 — note no `.int8` infix). The voices.bin, tokens, and
+        // lexicons are byte-identical to the int8-v1.0 bundle; only the
+        // model weights changed. See class doc for why we left int8-v1.0.
+        private const val MODEL_FILE = "model.onnx"
 
         /**
          * Display name → Sherpa-ONNX speaker index.

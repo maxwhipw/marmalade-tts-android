@@ -111,12 +111,12 @@ data class EngineDescriptor(
 object EngineCatalog {
 
     /**
-     * Sum of unpacked Kokoro v1.0 multi-lang int8 file sizes. Compute with:
-     *   tar -xjf kokoro-int8-multi-lang-v1_0.tar.bz2
-     *   find kokoro-int8-multi-lang-v1_0 -type f -exec stat -c %s {} + | \
+     * Sum of unpacked Kokoro v1.0 multi-lang **fp32** file sizes. Compute with:
+     *   tar -xjf kokoro-multi-lang-v1_0.tar.bz2
+     *   find kokoro-multi-lang-v1_0 -type f -exec stat -c %s {} + | \
      *       awk '{s+=$1} END {print s}'
      */
-    private const val KOKORO_INSTALLED_SIZE_BYTES: Long = 189_453_314L
+    private const val KOKORO_INSTALLED_SIZE_BYTES: Long = 400_786_089L
 
     /**
      * Sum of unpacked Kitten v0.8 int8 file sizes. Compute with:
@@ -127,17 +127,20 @@ object EngineCatalog {
     private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 45_652_547L
 
     /**
-     * Kokoro TTS — Sherpa-ONNX kokoro-int8-multi-lang v1.0 port. ~126 MB
-     * compressed download, ~181 MB on-disk, **53 voices across 9
+     * Kokoro TTS — Sherpa-ONNX kokoro-multi-lang v1.0 (**fp32**) port. ~333 MB
+     * compressed download, ~382 MB on-disk, **53 voices across 9
      * languages**: American English (11), British English (8), Spanish (2),
      * French (1), Hindi (4), Italian (2), Japanese (5), Brazilian
      * Portuguese (3), Mandarin (8).
      *
      * Recommended default since v0.1.9: Kokoro sounds meaningfully better
-     * than Kitten at the cost of a ~3x larger download. The v0.1.19
-     * multi-language upgrade adds ~28 MB on the wire over the v0.19
-     * English-only bundle — the new payload is mostly the additional
-     * language lexicons + the Mandarin jieba dict.
+     * than Kitten at the cost of a larger download.
+     *
+     * v0.1.20 swapped from the int8-v1.0 export to fp32. The int8-v1.0
+     * artefact was an unblessed power-user export — sherpa-onnx's own APK
+     * build script never picked it up, and naive dynamic quantisation of
+     * a vocoder produced audibly tinny output. fp32 is ~2.6× larger on
+     * disk but renders the voices the model was trained to produce.
      *
      * Voice/language orthogonality (Kokoro's claim that any voice can
      * speak any supported language) holds at the synthesizer level: the
@@ -155,22 +158,22 @@ object EngineCatalog {
         description = "Higher-quality TTS with 53 voices across 9 languages " +
             "(English variants + Spanish, French, Hindi, Italian, Japanese, Portuguese, " +
             "Mandarin). Sounds noticeably more natural than Kitten — recommended if " +
-            "you have the storage for ~125 MB.",
-        downloadSizeBytes = 131_839_838L,
+            "you have the storage for ~333 MB download (~382 MB installed).",
+        downloadSizeBytes = 349_418_188L,
         installedSizeBytes = KOKORO_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
-            // v0.1.19 mirror lives at v5 of marmalade-tts-android-engines.
+            // v0.1.20 mirror lives at v6 of marmalade-tts-android-engines.
             // Source: github.com/k2-fsa/sherpa-onnx/releases/download/
-            // tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2.
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v5/kokoro-int8-multi-lang-v1_0.tar.bz2",
-            sha256 = "75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3",
-            sizeBytes = 131_839_838L,
+            // tts-models/kokoro-multi-lang-v1_0.tar.bz2 (fp32).
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v6/kokoro-multi-lang-v1_0.tar.bz2",
+            sha256 = "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+            sizeBytes = 349_418_188L,
             // Sherpa-ONNX's tarball wraps everything in a top-level
             // directory of this name. The installer strips it during
             // extraction so the on-device layout is flat under
             // ${filesDir}/engines/kokoro/.
-            archiveRoot = "kokoro-int8-multi-lang-v1_0/",
+            archiveRoot = "kokoro-multi-lang-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-tts.md",
         licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +

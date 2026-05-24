@@ -95,19 +95,19 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kokoroPointsAtV5MultiLangRelease() {
-        // v0.1.19 upgraded the Kokoro bundle from v4 (English-only,
-        // kokoro-int8-en-v0_19) to v5 (multi-language,
-        // kokoro-int8-multi-lang-v1_0). Catching a URL typo here saves a
-        // real install failure (404) on the first launch after upgrade.
+    fun kokoroPointsAtV6FpThirtyTwoMultiLangRelease() {
+        // v0.1.20 upgraded the Kokoro bundle from v5 (int8-v1.0 — the
+        // unblessed power-user export that produced tinny audio) to v6
+        // (fp32 `kokoro-multi-lang-v1_0`). Catching a URL typo here saves
+        // a real install failure (404) on the first launch after upgrade.
         val kokoro = EngineCatalog.byName("kokoro")!!
         assertTrue(
-            "kokoro must reference the v5 engines-repo release, was '${kokoro.archive.url}'",
-            kokoro.archive.url.contains("/releases/download/v5/"),
+            "kokoro must reference the v6 engines-repo release, was '${kokoro.archive.url}'",
+            kokoro.archive.url.contains("/releases/download/v6/"),
         )
         assertTrue(
-            "kokoro archive should be the kokoro-int8-multi-lang-v1_0 bundle",
-            kokoro.archive.url.endsWith("kokoro-int8-multi-lang-v1_0.tar.bz2"),
+            "kokoro archive should be the fp32 kokoro-multi-lang-v1_0 bundle",
+            kokoro.archive.url.endsWith("kokoro-multi-lang-v1_0.tar.bz2"),
         )
     }
 

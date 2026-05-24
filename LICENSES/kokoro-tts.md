@@ -1,7 +1,7 @@
 # Kokoro TTS model — third-party license notice
 
 The Kokoro TTS model is **not bundled in the APK**. It is downloaded
-on-demand from `marmalade-tts-android-engines` (release `v4`) into
+on-demand from `marmalade-tts-android-engines` (release `v6`) into
 `${filesDir}/engines/kokoro/` when the user opts in via the onboarding
 wizard or Settings → Engines.
 
@@ -9,7 +9,7 @@ Three upstream projects contribute to the downloaded bundle:
 
 ## 1. Acoustic model — hexgrad/Kokoro-82M
 
-- **Files:** `model.int8.onnx`, `voices.bin`, `tokens.txt`
+- **Files:** `model.onnx`, `voices.bin`, `tokens.txt`
 - **Upstream:** https://huggingface.co/hexgrad/Kokoro-82M
 - **License:** Apache License, Version 2.0
 - **Notice:** Copyright (c) hexgrad and contributors. Licensed under the
@@ -19,14 +19,14 @@ Three upstream projects contribute to the downloaded bundle:
 
 ## 2. Conversion + packaging — k2-fsa/sherpa-onnx
 
-- **Bundle:** `kokoro-int8-en-v0_19.tar.bz2`
-- **Source URL:** https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2
+- **Bundle:** `kokoro-multi-lang-v1_0.tar.bz2` (fp32, multi-language)
+- **Source URL:** https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
 - **Upstream:** https://github.com/k2-fsa/sherpa-onnx
 - **License:** Apache License, Version 2.0
 - **Notice:** Copyright (c) k2-fsa / Sherpa-ONNX contributors. The
-  Sherpa-ONNX project converts upstream Kokoro weights into the int8 ONNX
-  layout used by `OfflineTtsKokoroModelConfig` and assembles the packaging
-  used by the runtime.
+  Sherpa-ONNX project converts upstream Kokoro weights into the ONNX
+  layout used by `OfflineTtsKokoroModelConfig` and assembles the
+  packaging used by the runtime.
 
 ## 3. Phonemizer data — espeak-ng
 

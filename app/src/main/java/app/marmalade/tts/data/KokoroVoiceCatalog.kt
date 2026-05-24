@@ -4,15 +4,20 @@ import app.marmalade.tts.data.db.VoiceMeta
 
 /**
  * Static catalog of the 53 Kokoro TTS voices that ship with the
- * Sherpa-ONNX `kokoro-int8-multi-lang-v1_0` port (~126 MB compressed,
- * ~181 MB on-disk).
+ * Sherpa-ONNX `kokoro-multi-lang-v1_0` port (fp32, ~333 MB compressed,
+ * ~382 MB on-disk).
  *
- * v0.1.19 upgrades from the English-only `kokoro-int8-en-v0_19` (11
- * voices) to the multi-language v1.0 bundle. Voice/language orthogonality
- * is preserved at the synthesizer level: any voice can speak any
- * supported language, with the natural language driving prosody and the
- * lexicon-driven phonemiser routing on text content (Sherpa-ONNX picks
- * lexicon-us-en.txt for ASCII text and lexicon-zh.txt for CJK).
+ * v0.1.19 upgraded from the English-only `kokoro-int8-en-v0_19` (11
+ * voices) to the multi-language v1.0 bundle. v0.1.20 swapped the int8-v1.0
+ * weights (unblessed upstream export; produced tinny audio) for the fp32
+ * weights. The voice catalog itself is unchanged — voices.bin is
+ * byte-identical between int8 and fp32 bundles.
+ *
+ * Voice/language orthogonality is preserved at the synthesizer level:
+ * any voice can speak any supported language, with the natural language
+ * driving prosody and the lexicon-driven phonemiser routing on text
+ * content (Sherpa-ONNX picks lexicon-us-en.txt for ASCII text and
+ * lexicon-zh.txt for CJK).
  *
  * Voice IDs follow the project-wide `"<engine>:<displayName>"` convention.
  *

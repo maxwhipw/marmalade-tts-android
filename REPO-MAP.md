@@ -236,6 +236,44 @@ flip their `isInstalled` flag.
   v0.1.17). Package names and applicationId stay lowercase
   (`app.marmalade.tts`).
 
+## Open architectural decision — sherpa-onnx vs onnxruntime-direct
+
+**Current state:** marmalade-tts-android bundles
+`libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar` (Apache-2.0). That AAR
+wraps Microsoft's ONNX Runtime with TTS-specific helpers
+(`OfflineTts`, `OfflineTtsKokoroModelConfig`, voices.bin parsing, lexicon
++ espeak phonemiser, multi-lang routing).
+
+**Alternative:** depend on `com.microsoft.onnxruntime:onnxruntime-android`
+(MIT, v1.26.0+ as of May 2026) directly and write the TTS layer in-app.
+
+**When to consider switching:** every Kokoro audio-quality regression
+we've hit (v0.1.19's `kokoro-int8-multi-lang-v1_0` tinny output is the
+latest) traces back to sherpa-onnx config quirks — lexicon paths,
+`lang="en"` vs `""`, the int8 vs fp32 model pairing, `ruleFsts` on the
+outer config vs inner. Direct onnxruntime would let us feed phoneme IDs
+straight into Kokoro and skip the whole lexicon/espeak class of bugs.
+**Maise** (Mobile-Artificial-Intelligence/maise, MIT) is a working
+reference for this path — ~120 LoC for the Kokoro ONNX session and
+~200 LoC for **OpenPhonemizer** (BSD-3 English G2P, ONNX-based, no
+spaCy/pyopenjtalk/espeak dependency). Audited GREEN 2026-05-23.
+
+**Trade-off:** sherpa-onnx gives multi-language G2P routing for free
+(via lexicon + jieba + espeak fallback); onnxruntime-direct + a single
+phonemiser is English-only. For the "accented English via non-English
+Kokoro voices" use case (the actual goal of v0.1.19), English-only
+G2P is sufficient — the voice embedding alone produces the accent.
+For real multi-language *text* synthesis (Japanese text → Japanese
+speech), you'd need a Misaki-equivalent G2P per language.
+
+**GPL boundary note:** `woheller69/ttsengine` (SherpaTTS, the engine
+Max uses as fallback on his device) is **GPL-3.0**. Its
+`TtsEngine.kt` Kokoro setup confirms the team uses fp32 `model.onnx`,
+not the int8 variant we shipped — independent corroboration of the
+v0.1.19 bug. But we **cannot port any code** from it; only observe
+patterns. Don't read SherpaTTS source files into a context that will
+write Marmalade code.
+
 ## Known quirks / recent gotchas
 
 - **TTS engine registration requires `DEFAULT` category** on the
@@ -262,6 +300,14 @@ flip their `isInstalled` flag.
   and filters to engines whose layout passes verification (v0.1.18).
   Pre-fix this screen used `getByEngine("kitten")` and showed those
   rows regardless of install state.
+- **`kokoro-int8-multi-lang-v1_0` is an unblessed power-user export**
+  — added to sherpa-onnx releases by PR #2137 but never included in
+  the team's own APK build script (`scripts/apk/generate-tts-apk-script.py`).
+  Naive dynamic int8 quantization on a vocoder produces the
+  "tinny / staticy" output the v0.1.19 multi-lang Kokoro shipped with.
+  If we ever want multi-lang Kokoro via sherpa-onnx, use either the
+  **fp32 `kokoro-multi-lang-v1_0`** (~349 MB) or the team-validated
+  **`kokoro-int8-multi-lang-v1_1`** (~92 MB). Never int8-v1.0.
 
 ## Where the docs live
 
