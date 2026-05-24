@@ -44,12 +44,12 @@ import kotlinx.coroutines.withContext
  */
 abstract class SherpaEngine(
     protected val ctx: Context,
-) {
+) : TtsEngine {
 
     // -- subclass-supplied configuration --------------------------------------
 
     /** Engine identifier matched against `VoiceMeta.engine` and used as the install dir name. */
-    abstract val engineName: String
+    abstract override val engineName: String
 
     /**
      * Acoustic model filename inside the engine directory. Both engines
@@ -104,7 +104,7 @@ abstract class SherpaEngine(
      * system-TTS callback path, which has to declare a sample rate before
      * any synthesis happens.
      */
-    open val sampleRate: Int get() = tts?.sampleRate() ?: defaultSampleRate
+    override val sampleRate: Int get() = tts?.sampleRate() ?: defaultSampleRate
 
     // -- lifecycle ------------------------------------------------------------
 
@@ -113,7 +113,7 @@ abstract class SherpaEngine(
      * disk. Used by UI to gate "Speak" / "Preview" buttons and to drive
      * the install/uninstall affordances.
      */
-    open fun isInstalled(): Boolean {
+    override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
         val required = listOf(modelFileName, VOICES_FILE, TOKENS_FILE)
         for (name in required) {
@@ -133,7 +133,7 @@ abstract class SherpaEngine(
      * @throws IllegalStateException for genuine init failures
      *   (corrupt model, JNI load error, etc.).
      */
-    fun ensureModelLoaded() {
+    override fun ensureModelLoaded() {
         if (tts != null) return
         synchronized(loadLock) {
             if (tts != null) return
@@ -170,10 +170,10 @@ abstract class SherpaEngine(
      *
      * @param speed length-scale style; 1.0 = native pace, >1 = faster.
      */
-    open suspend fun synthesize(
+    override suspend fun synthesize(
         text: String,
         voiceId: String,
-        speed: Float = 1.0f,
+        speed: Float,
     ): SynthAudio = withContext(Dispatchers.Default) {
         ensureModelLoaded()
         val engine = tts ?: error("OfflineTts vanished after ensureModelLoaded() — impossible state")
@@ -192,7 +192,7 @@ abstract class SherpaEngine(
      * Called by the installer before deleting the engine directory, and
      * by the application on shutdown.
      */
-    fun release() {
+    override fun release() {
         synchronized(loadLock) {
             tts?.release()
             tts = null
