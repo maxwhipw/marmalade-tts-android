@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -233,10 +234,18 @@ private fun EngineCard(
             }
             if (state is InstallState.Extracting) {
                 Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                val fraction = if (state.totalBytes > 0L) {
+                    (state.bytesExtracted.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Installing · unpacking model files…",
+                    text = "Installing · ${formatBytes(state.bytesExtracted)} / ${formatBytes(state.totalBytes)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -272,7 +281,7 @@ private fun StatusChip(state: InstallState) {
     val (label, color) = when (state) {
         InstallState.NotInstalled -> "Not installed" to MaterialTheme.colorScheme.onSurfaceVariant
         is InstallState.Downloading -> "Downloading" to MaterialTheme.colorScheme.primary
-        InstallState.Extracting -> "Installing" to MaterialTheme.colorScheme.primary
+        is InstallState.Extracting -> "Installing" to MaterialTheme.colorScheme.primary
         InstallState.Installed -> "Installed" to MaterialTheme.colorScheme.primary
         is InstallState.Failed -> "Failed" to MaterialTheme.colorScheme.error
         InstallState.Corrupt -> "Corrupt" to MaterialTheme.colorScheme.error
@@ -305,7 +314,7 @@ private fun ActionRow(
             InstallState.NotInstalled -> {
                 Button(onClick = onInstall) { Text("Install") }
             }
-            is InstallState.Downloading, InstallState.Extracting -> {
+            is InstallState.Downloading, is InstallState.Extracting -> {
                 // No buttons during install — the action area is
                 // intentionally just a small spinner. Progress + label
                 // are shown above in the card body.
@@ -314,7 +323,11 @@ private fun ActionRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(
-                        modifier = Modifier.height(24.dp),
+                        // .size() — see EngineDetailScreen for the same
+                        // fix. .height() alone leaves the spinner width
+                        // unconstrained and it draws ~2x larger than the
+                        // declared height. Bug Max reported in v0.1.19.
+                        modifier = Modifier.size(20.dp),
                         strokeWidth = 2.5.dp,
                     )
                 }

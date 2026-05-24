@@ -498,7 +498,15 @@ private fun InstallRow(
                 )
             }
             is InstallState.Extracting -> {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                val extractFraction = if (state.totalBytes > 0L) {
+                    (state.bytesExtracted.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                LinearProgressIndicator(
+                    progress = { extractFraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             is InstallState.Failed -> {
                 Text(
@@ -808,7 +816,7 @@ private fun effectDisplayName(preset: EffectPreset): String = when (preset) {
 private fun statusLabel(state: InstallState): String = when (state) {
     InstallState.NotInstalled -> "Pending"
     is InstallState.Downloading -> "Downloading"
-    InstallState.Extracting -> "Finishing up"
+    is InstallState.Extracting -> "Finishing up"
     InstallState.Installed -> "Installed"
     is InstallState.Failed -> "Failed"
     InstallState.Corrupt -> "Corrupt"

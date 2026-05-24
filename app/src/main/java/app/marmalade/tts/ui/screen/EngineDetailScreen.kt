@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -192,7 +193,12 @@ private fun StatusSection(
                 )
                 if (isInstalling || state is InstallState.Downloading || state is InstallState.Extracting) {
                     CircularProgressIndicator(
-                        modifier = Modifier.height(20.dp),
+                        // .size() is the correct sizing modifier for
+                        // CircularProgressIndicator — .height() alone
+                        // leaves the width unconstrained and the spinner
+                        // ends up much larger than intended (the bug
+                        // Max reported in v0.1.19).
+                        modifier = Modifier.size(20.dp),
                         strokeWidth = 2.5.dp,
                     )
                 }
@@ -226,10 +232,18 @@ private fun StatusSection(
             }
             if (state is InstallState.Extracting) {
                 Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                val fraction = if (state.totalBytes > 0L) {
+                    (state.bytesExtracted.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Installing · unpacking model files…",
+                    text = "Installing · ${formatBytes(state.bytesExtracted)} / ${formatBytes(state.totalBytes)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -405,7 +419,7 @@ private fun DetailSectionHeader(label: String) {
 private fun InstallState.label(): String = when (this) {
     InstallState.NotInstalled -> "Not installed"
     is InstallState.Downloading -> "Downloading"
-    InstallState.Extracting -> "Installing"
+    is InstallState.Extracting -> "Installing"
     InstallState.Installed -> "Installed"
     is InstallState.Failed -> "Failed"
     InstallState.Corrupt -> "Corrupt — needs reinstall"

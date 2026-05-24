@@ -164,10 +164,21 @@ sealed class InstallState {
 
     /**
      * Archive is downloaded + sha256-verified and is now being decompressed
-     * + untarred into the engine directory. For a 27 MB tar.bz2 this is
-     * around 1–3 seconds on a mid-range device.
+     * + untarred into the engine directory. For Kitten's 27 MB tar.bz2 this
+     * runs in ~1-3 seconds; Kokoro's multi-lang 125 MB bundle is closer to
+     * 10-15 seconds and used to sit on an indeterminate spinner that
+     * looked stuck — v0.1.20 added byte-level extraction progress.
+     *
+     * [bytesExtracted] is the cumulative size of files written to disk
+     * during the unpack so far; [totalBytes] is the *estimated* unpacked
+     * size from `EngineDescriptor.installedSizeBytes`. The estimate is
+     * cheap and accurate (we control the bundle layout); UI bars divide
+     * the two for a determinate progress fraction.
      */
-    object Extracting : InstallState()
+    data class Extracting(
+        val bytesExtracted: Long,
+        val totalBytes: Long,
+    ) : InstallState()
 
     /** Engine is ready for use — `KittenEngine.isInstalled()` will return true. */
     object Installed : InstallState()
@@ -335,9 +346,20 @@ open class EngineInstaller @Inject constructor(
                 )
             }
 
-            // 3. Extract.
-            sf.value = InstallState.Extracting
-            extractArchive(archiveTmp, scratchDir, archive.archiveRoot)
+            // 3. Extract. Emit byte-level progress against the descriptor's
+            // declared installed size — the UI shows a determinate bar for
+            // the unpack phase instead of a stuck indeterminate spinner.
+            val totalUnpackedBytes = descriptor.installedSizeBytes
+            sf.value = InstallState.Extracting(
+                bytesExtracted = 0L,
+                totalBytes = totalUnpackedBytes,
+            )
+            extractArchive(archiveTmp, scratchDir, archive.archiveRoot) { bytes ->
+                sf.value = InstallState.Extracting(
+                    bytesExtracted = bytes,
+                    totalBytes = totalUnpackedBytes,
+                )
+            }
 
             // 4. Delete the archive scratch file — it's served its purpose.
             archiveTmp.delete()
@@ -537,8 +559,15 @@ open class EngineInstaller @Inject constructor(
         archiveFile: File,
         destDir: File,
         archiveRoot: String,
+        onProgress: (bytesExtracted: Long) -> Unit = {},
     ) {
         val destCanonical = destDir.canonicalPath
+        // Throttle progress emissions to ~every 1 MB so the StateFlow isn't
+        // flooded during the unpack of a 125 MB Kokoro bundle. The download
+        // path uses the same shape.
+        var bytesWritten = 0L
+        var bytesSinceLastEmit = 0L
+        val emitThreshold = 1024L * 1024L
         BufferedInputStream(archiveFile.inputStream()).use { fileIn ->
             BZip2CompressorInputStream(fileIn).use { bzIn ->
                 TarArchiveInputStream(bzIn).use { tarIn ->
@@ -576,12 +605,23 @@ open class EngineInstaller @Inject constructor(
                                 val read = tarIn.read(buf)
                                 if (read == -1) break
                                 out.write(buf, 0, read)
+                                bytesWritten += read
+                                bytesSinceLastEmit += read
+                                if (bytesSinceLastEmit >= emitThreshold) {
+                                    onProgress(bytesWritten)
+                                    bytesSinceLastEmit = 0L
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        // Final emission so the UI bar lands at the actual extracted total
+        // before we transition to Installed (or, when the bundle's actual
+        // unpacked size differs slightly from the descriptor's declared
+        // installedSizeBytes, so the bar doesn't freeze short of 100%).
+        onProgress(bytesWritten)
     }
 
     /**
