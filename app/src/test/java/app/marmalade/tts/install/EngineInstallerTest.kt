@@ -39,13 +39,13 @@ class EngineInstallerTest {
 
     private lateinit var filesDir: File
     private lateinit var installer: TestInstaller
-    private lateinit var fakeEngine: FakeKittenEngine
+    private lateinit var fakeEngine: FakeKittenNanoEngine
     private lateinit var fetcher: FakeHttpFetcher
 
     @Before
     fun setUp() {
         filesDir = tempFolder.newFolder("files")
-        fakeEngine = FakeKittenEngine()
+        fakeEngine = FakeKittenNanoEngine()
         fetcher = FakeHttpFetcher()
         installer = TestInstaller(
             filesDir = EngineFilesDir { filesDir },
@@ -173,7 +173,7 @@ class EngineInstallerTest {
         engineDir.mkdirs()
         File(engineDir, "model.fp16.onnx").writeText("dummy")
 
-        val result = installer.uninstall("kitten")
+        val result = installer.uninstall("kitten-nano-v0_8")
 
         assertTrue("uninstall should succeed, got $result", result.isSuccess)
         assertFalse("engine dir should be removed", engineDir.exists())
@@ -182,7 +182,7 @@ class EngineInstallerTest {
 
     @Test
     fun uninstallOnNotInstalledEngineIsNoop() = runTest {
-        val result = installer.uninstall("kitten")
+        val result = installer.uninstall("kitten-nano-v0_8")
         assertTrue("uninstall should succeed on absent engine", result.isSuccess)
     }
 
@@ -194,7 +194,7 @@ class EngineInstallerTest {
         // + voices.bin + tokens.txt + espeak-ng-data/ with > 100 entries),
         // so this test uses the kitten name + manually stages the layout.
         val descriptor = engineDescriptor(
-            name = "kitten",
+            name = "kitten-nano-v0_8",
             url = "https://test/kitten.tar.bz2",
             archiveBytes = ByteArray(0), // unused — we only call verify
         )
@@ -224,7 +224,7 @@ class EngineInstallerTest {
     @Test
     fun verifyReturnsCorruptIfModelTooSmall() = runTest {
         val descriptor = engineDescriptor(
-            name = "kitten",
+            name = "kitten-nano-v0_8",
             url = "https://test/kitten.tar.bz2",
             archiveBytes = ByteArray(0),
         )
@@ -373,7 +373,7 @@ internal class TestInstaller(
 }
 
 /** Native-handle double that just records whether `release()` was called. */
-internal class FakeKittenEngine : NativeEngineHandle {
+internal class FakeKittenNanoEngine : NativeEngineHandle {
     var released: Boolean = false
         private set
 

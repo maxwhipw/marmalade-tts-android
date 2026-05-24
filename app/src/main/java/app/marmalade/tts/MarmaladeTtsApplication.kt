@@ -1,8 +1,10 @@
 package app.marmalade.tts
 
 import android.app.Application
-import app.marmalade.tts.data.KittenVoiceCatalog
-import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.KittenMiniVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.HiltAndroidApp
@@ -106,8 +108,10 @@ class MarmaladeTtsApplication : Application() {
                 // get their columns refreshed (e.g. a voice's languageCode
                 // flipping from "en-US" to "ja-JP" in the multi-lang
                 // expansion) without ever wiping the table.
-                dao.upsertAll(KittenVoiceCatalog.voices)
-                dao.upsertAll(KokoroVoiceCatalog.voices)
+                dao.upsertAll(KokoroV10VoiceCatalog.voices)
+                dao.upsertAll(KokoroV11VoiceCatalog.voices)
+                dao.upsertAll(KittenNanoVoiceCatalog.voices)
+                dao.upsertAll(KittenMiniVoiceCatalog.voices)
                 prefs.setCatalogVersion(CATALOG_VERSION)
             }
         }
@@ -127,6 +131,6 @@ class MarmaladeTtsApplication : Application() {
          *    stamp; everyone defaults to 0 on read and so re-seeds on
          *    first launch of v0.1.19.
          */
-        const val CATALOG_VERSION: Int = 1
+        const val CATALOG_VERSION: Int = 2
     }
 }

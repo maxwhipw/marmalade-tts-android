@@ -9,13 +9,17 @@ import android.util.Log
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
-import app.marmalade.tts.data.KittenVoiceCatalog
-import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.KittenMiniVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.engine.KittenEngine
-import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.KittenMiniEngine
+import app.marmalade.tts.engine.KittenNanoEngine
+import app.marmalade.tts.engine.KokoroV10Engine
+import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -122,9 +126,10 @@ import kotlinx.coroutines.runBlocking
 @AndroidEntryPoint
 class MarmaladeTtsService : TextToSpeechService() {
 
-    @Inject lateinit var engine: KittenEngine
-
-    @Inject lateinit var kokoroEngine: KokoroEngine
+    @Inject lateinit var kittenNano: KittenNanoEngine
+    @Inject lateinit var kittenMini: KittenMiniEngine
+    @Inject lateinit var kokoroV10: KokoroV10Engine
+    @Inject lateinit var kokoroV11: KokoroV11Engine
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
@@ -244,7 +249,13 @@ class MarmaladeTtsService : TextToSpeechService() {
         // DataStore round-trip. Each engine is collected independently and
         // the cache stays live for later edits (a Settings → Engine detail
         // toggle re-emits, refreshing the entry).
-        for (engineName in listOf(KittenVoiceCatalog.ENGINE, KokoroVoiceCatalog.ENGINE)) {
+        val knownEngines = listOf(
+            KokoroV10VoiceCatalog.ENGINE,
+            KokoroV11VoiceCatalog.ENGINE,
+            KittenNanoVoiceCatalog.ENGINE,
+            KittenMiniVoiceCatalog.ENGINE,
+        )
+        for (engineName in knownEngines) {
             serviceScope.launch {
                 settings.enabledRules(engineName).collect { rules ->
                     rulesCache[engineName] = rules
@@ -252,22 +263,21 @@ class MarmaladeTtsService : TextToSpeechService() {
             }
         }
         serviceScope.launch {
-            // Walk a list of (name, loader) pairs rather than (name, engine):
-            // KittenEngine and KokoroEngine don't share a base class, so
-            // arrayOf("kitten" to engine, "kokoro" to kokoroEngine) infers
-            // Pair<String, Any> and .ensureModelLoaded() is unresolved. A
-            // function reference per engine keeps the call site monomorphic.
+            // Warm-up: try to load every installed engine so the first synth
+            // call after service start doesn't pay the model-mmap cost.
+            // ensureModelLoaded() throws EngineNotInstalledException for
+            // engines without a bundle on disk — that's fine, just skip.
             val loaders: List<Pair<String, () -> Unit>> = listOf(
-                "kitten" to engine::ensureModelLoaded,
-                "kokoro" to kokoroEngine::ensureModelLoaded,
+                KokoroV10VoiceCatalog.ENGINE to kokoroV10::ensureModelLoaded,
+                KokoroV11VoiceCatalog.ENGINE to kokoroV11::ensureModelLoaded,
+                KittenNanoVoiceCatalog.ENGINE to kittenNano::ensureModelLoaded,
+                KittenMiniVoiceCatalog.ENGINE to kittenMini::ensureModelLoaded,
             )
             for ((name, load) in loaders) {
                 try {
                     load()
                     Log.d(TAG, "$name engine warm-up complete")
                 } catch (ex: Exception) {
-                    // Don't crash the service — onSynthesizeText will report
-                    // the same error to the system the next time it fires.
                     Log.w(TAG, "$name engine warm-up skipped/failed", ex)
                 }
             }
@@ -312,7 +322,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (onIsLanguageAvailable(lang, country, variant)
             != TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            KokoroVoiceCatalog.DEFAULT_VOICE_ID
+            KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
         } else {
             ""
         }
@@ -502,7 +512,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // 4. Absolute fallback — the engine's default voice with
         // unchanged speed/effect. Matches v0.1.10 behaviour.
         return SynthParams(
-            voiceId = KokoroVoiceCatalog.DEFAULT_VOICE_ID,
+            voiceId = KokoroV10VoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
             effect = EffectPreset.NONE,
         )
@@ -549,30 +559,32 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Defaults to `"kokoro"` when the form doesn't match — the catch-all
+     * Defaults to Kokoro v1.0 when the form doesn't match — the catch-all
      * keeps the synthesis path robust against junk input from third-party
      * TTS clients that bypass the voice negotiation contract.
      */
     private fun engineNameFor(voiceId: String): String {
         val sep = voiceId.indexOf(':')
-        if (sep <= 0) return KokoroVoiceCatalog.ENGINE
+        if (sep <= 0) return KokoroV10VoiceCatalog.ENGINE
         val name = voiceId.substring(0, sep)
-        return if (isKnownEngine(name)) name else KokoroVoiceCatalog.ENGINE
+        return if (isKnownEngine(name)) name else KokoroV10VoiceCatalog.ENGINE
     }
 
-    /** Per-engine sample rate. Both ship 24 kHz today; future engines may differ. */
+    /** Per-engine sample rate. All four engines ship 24 kHz today. */
     private fun sampleRateFor(engineName: String): Int = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> kokoroEngine.sampleRate
-        KittenVoiceCatalog.ENGINE -> engine.sampleRate
-        else -> engine.sampleRate
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.sampleRate
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.sampleRate
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.sampleRate
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.sampleRate
+        else -> kokoroV10.sampleRate
     }
 
     /**
      * Route synthesis to the engine identified by [engineName]. Suspending
-     * because both engines hand off to `Dispatchers.Default` internally,
+     * because each engine hands off to `Dispatchers.Default` internally,
      * which the caller `runBlocking`s on the system-TTS worker thread.
      *
-     * Unknown engine names degrade to Kitten — same fallback policy as
+     * Unknown engine names degrade to Kokoro v1.0 — same fallback as
      * [pickVoiceFromRequest]; the upstream voice-negotiation paths already
      * filtered out engines we don't know about.
      */
@@ -582,14 +594,19 @@ class MarmaladeTtsService : TextToSpeechService() {
         voiceId: String,
         speed: Float,
     ): SynthAudio = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
-        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
-        else -> engine.synthesize(text, voiceId, speed)
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
+        else -> kokoroV10.synthesize(text, voiceId, speed)
     }
 
-    /** True for any engine the catalog ships. Updated whenever a new engine lands. */
+    /** True for any engine the catalog ships. */
     private fun isKnownEngine(name: String): Boolean =
-        name == KittenVoiceCatalog.ENGINE || name == KokoroVoiceCatalog.ENGINE
+        name == KokoroV10VoiceCatalog.ENGINE ||
+            name == KokoroV11VoiceCatalog.ENGINE ||
+            name == KittenNanoVoiceCatalog.ENGINE ||
+            name == KittenMiniVoiceCatalog.ENGINE
 
     /**
      * Stream [pcm] through the synthesis callback in chunks of at most

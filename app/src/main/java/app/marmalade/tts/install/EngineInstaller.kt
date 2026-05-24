@@ -415,10 +415,10 @@ open class EngineInstaller @Inject constructor(
         try {
             // Release first — deleting an mmap'd file can leak the mapping
             // on some Android versions, even though the file system entry
-            // disappears immediately.
-            if (descriptor.name == "kitten") {
-                kittenEngine.release()
-            }
+            // disappears immediately. The injected NativeEngineHandle
+            // releases all four sherpa-onnx engines; release() is
+            // idempotent on engines that aren't currently loaded.
+            kittenEngine.release()
 
             val dir = engineDirFor(engineName)
             if (dir.exists() && !dir.deleteRecursively()) {

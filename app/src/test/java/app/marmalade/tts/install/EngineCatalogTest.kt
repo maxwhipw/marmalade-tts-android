@@ -18,25 +18,17 @@ import org.junit.Test
 class EngineCatalogTest {
 
     @Test
-    fun catalogContainsKokoroAndKitten() {
+    fun catalogContainsAllFourVariants() {
         // Order is the display order in onboarding + Settings → Engines.
-        // Kokoro first because it is the recommended default starting v0.1.9.
-        assertEquals(listOf("kokoro", "kitten"), EngineCatalog.all.map { it.name })
+        // Kokoro v1.0 first because it is the recommended default.
+        assertEquals(
+            listOf("kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8"),
+            EngineCatalog.all.map { it.name },
+        )
     }
 
     @Test
-    fun kokoroIsRecommendedAndKittenIsNot() {
-        val kokoro = EngineCatalog.byName("kokoro")!!
-        val kitten = EngineCatalog.byName("kitten")!!
-        assertTrue(
-            "kokoro should be the recommended default",
-            kokoro.isRecommended,
-        )
-        assertEquals(
-            "kitten should no longer be flagged recommended (kokoro is now)",
-            false,
-            kitten.isRecommended,
-        )
+    fun kokoroV10IsRecommended_othersAreNot() {
         // Exactly one recommended engine — the onboarding pre-selection
         // logic reads the boolean per engine; multiple recommendations
         // would over-pre-select on first launch.
@@ -45,6 +37,10 @@ class EngineCatalogTest {
             1,
             EngineCatalog.all.count { it.isRecommended },
         )
+        assertTrue(
+            "kokoro-v1_0 should be the recommended default",
+            EngineCatalog.byName("kokoro-v1_0")!!.isRecommended,
+        )
     }
 
     @Test
@@ -52,8 +48,9 @@ class EngineCatalogTest {
         // Engine identifier must match the directory name the engine class
         // uses (filesDir/engines/<name>). Catching a rename here saves us
         // from a silent install-vs-load mismatch.
-        assertEquals("kokoro", EngineCatalog.byName("kokoro")!!.name)
-        assertEquals("kitten", EngineCatalog.byName("kitten")!!.name)
+        for (engine in EngineCatalog.all) {
+            assertEquals(engine.name, EngineCatalog.byName(engine.name)!!.name)
+        }
     }
 
     @Test
@@ -100,7 +97,7 @@ class EngineCatalogTest {
         // unblessed power-user export that produced tinny audio) to v6
         // (fp32 `kokoro-multi-lang-v1_0`). Catching a URL typo here saves
         // a real install failure (404) on the first launch after upgrade.
-        val kokoro = EngineCatalog.byName("kokoro")!!
+        val kokoro = EngineCatalog.byName("kokoro-v1_0")!!
         assertTrue(
             "kokoro must reference the v6 engines-repo release, was '${kokoro.archive.url}'",
             kokoro.archive.url.contains("/releases/download/v6/"),

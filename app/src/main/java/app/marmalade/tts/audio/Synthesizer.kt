@@ -4,11 +4,15 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
-import app.marmalade.tts.data.KittenVoiceCatalog
-import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.KittenMiniVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
-import app.marmalade.tts.engine.KittenEngine
-import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.KittenMiniEngine
+import app.marmalade.tts.engine.KittenNanoEngine
+import app.marmalade.tts.engine.KokoroV10Engine
+import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import javax.inject.Inject
@@ -119,8 +123,10 @@ interface SpeechPlayer {
  */
 @Singleton
 class Synthesizer @Inject constructor(
-    private val engine: KittenEngine,
-    private val kokoroEngine: KokoroEngine,
+    private val kittenNano: KittenNanoEngine,
+    private val kittenMini: KittenMiniEngine,
+    private val kokoroV10: KokoroV10Engine,
+    private val kokoroV11: KokoroV11Engine,
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
 ) : SpeechPlayer {
@@ -222,16 +228,18 @@ class Synthesizer @Inject constructor(
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Falls back to `"kokoro"` (the recommended-engine default) for
-     * malformed inputs.
+     * Falls back to the Kokoro v1.0 default for malformed inputs.
      */
     private fun engineNameFor(voiceId: String): String {
         val sep = voiceId.indexOf(':')
-        if (sep <= 0) return KokoroVoiceCatalog.ENGINE
+        if (sep <= 0) return KokoroV10VoiceCatalog.ENGINE
         val name = voiceId.substring(0, sep)
         return when (name) {
-            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> name
-            else -> KokoroVoiceCatalog.ENGINE
+            KokoroV10VoiceCatalog.ENGINE,
+            KokoroV11VoiceCatalog.ENGINE,
+            KittenNanoVoiceCatalog.ENGINE,
+            KittenMiniVoiceCatalog.ENGINE -> name
+            else -> KokoroV10VoiceCatalog.ENGINE
         }
     }
 
@@ -242,11 +250,13 @@ class Synthesizer @Inject constructor(
         voiceId: String,
         speed: Float,
     ): SynthAudio = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
-        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest.
-        else -> engine.synthesize(text, voiceId, speed)
+        else -> kokoroV10.synthesize(text, voiceId, speed)
     }
 
     /**

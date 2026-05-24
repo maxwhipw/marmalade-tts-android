@@ -45,21 +45,37 @@ object EngineProfiles {
      * of a List avoids the question "do duplicates matter?" — they
      * don't.
      */
+    /** Kitten family default rules — applies to both nano and mini. */
+    private val KITTEN_DEFAULTS: Set<String> = setOf(
+        "markdown", "html",
+        "currency", "percentage", "ordinal", "time", "date",
+        "email", "url", "filename", "abbreviation", "number",
+        "math", "ampersand", "hashtag", "emoji",
+    )
+
+    /**
+     * Kokoro family default rules — applies to both v1.0 and v1.1.
+     * Kokoro (via misaki upstream) handles numbers, abbreviations, and
+     * some symbols natively — skip those rules.
+     */
+    private val KOKORO_DEFAULTS: Set<String> = setOf(
+        "markdown", "html",
+        "currency", "percentage", "time", "date",
+        "email", "url", "filename",
+        "math", "ampersand", "hashtag", "emoji",
+    )
+
+    /**
+     * Default preprocessing rule sets per engine name. The four sherpa-onnx
+     * engines we ship (Kokoro v1.0 + v1.1, Kitten Nano + Mini) all share
+     * the same upstream phoneme conventions per family, so v1.0 / v1.1 of
+     * Kokoro use the same defaults, and Kitten Nano / Mini share theirs.
+     */
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
-        "kitten" to setOf(
-            "markdown", "html",
-            "currency", "percentage", "ordinal", "time", "date",
-            "email", "url", "filename", "abbreviation", "number",
-            "math", "ampersand", "hashtag", "emoji",
-        ),
-        "kokoro" to setOf(
-            // Kokoro (via misaki) handles numbers, abbreviations, and some
-            // symbols natively — skip those rules.
-            "markdown", "html",
-            "currency", "percentage", "time", "date",
-            "email", "url", "filename",
-            "math", "ampersand", "hashtag", "emoji",
-        ),
+        "kitten-nano-v0_8" to KITTEN_DEFAULTS,
+        "kitten-mini-v0_8" to KITTEN_DEFAULTS,
+        "kokoro-v1_0" to KOKORO_DEFAULTS,
+        "kokoro-v1_1" to KOKORO_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
             "markdown", "html",
@@ -103,10 +119,8 @@ object EngineProfiles {
 
     /**
      * Look up the default rule set for [engineName], falling back to the
-     * `kitten` profile for any unknown engine. Matches the CLI's
-     * `ENGINE_PROFILES.get(engine, ENGINE_PROFILES["kitten"])` fallback
-     * behaviour.
+     * Kitten Nano profile for any unknown engine.
      */
     fun defaultsFor(engineName: String): Set<String> =
-        DEFAULT_PROFILES[engineName] ?: DEFAULT_PROFILES.getValue("kitten")
+        DEFAULT_PROFILES[engineName] ?: KITTEN_DEFAULTS
 }

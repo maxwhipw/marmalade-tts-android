@@ -1,7 +1,7 @@
 package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.audio.SpeechPlayer
-import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -29,29 +29,29 @@ class VoicePickerViewModelTest {
 
     @Test
     fun selectVoiceWritesToSettings() = runTest {
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         val vm = newViewModel(settings = settings)
 
-        vm.selectVoice("kitten:Kiki")
+        vm.selectVoice("kitten-nano-v0_8:Kiki")
 
-        assertEquals("kitten:Kiki", settings.defaultVoiceId.first())
+        assertEquals("kitten-nano-v0_8:Kiki", settings.defaultVoiceId.first())
     }
 
     @Test
     fun selectedIdReflectsCurrentSetting() = runTest {
-        val settings = FakeSettings(initialId = "kitten:Leo")
+        val settings = FakeSettings(initialId = "kitten-nano-v0_8:Leo")
         val vm = newViewModel(settings = settings)
 
         // stateIn(Eagerly) + an UnconfinedTestDispatcher means the first
         // emission has already landed by the time we read .value.
-        assertEquals("kitten:Leo", vm.selectedId.value)
+        assertEquals("kitten-nano-v0_8:Leo", vm.selectedId.value)
     }
 
     @Test
     fun previewSendsCannedPhraseThroughPlayer() = runTest {
         val player = RecordingPlayer()
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
-        val voice = KittenVoiceCatalog.voices.first { it.displayName == "Bella" }
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
+        val voice = KittenNanoVoiceCatalog.voices.first { it.displayName == "Bella" }
         val vm = newViewModel(settings = settings, player = player)
 
         vm.preview(voice)
@@ -60,7 +60,7 @@ class VoicePickerViewModelTest {
         assertTrue(player.cancelCount >= 1)
         assertEquals(1, player.calls.size)
         val (text, voiceId) = player.calls.single()
-        assertEquals("kitten:Bella", voiceId)
+        assertEquals("kitten-nano-v0_8:Bella", voiceId)
         // Phrase contains the voice's name so the user hears who is speaking.
         assertTrue("expected name in '$text'", text.contains("Bella"))
     }
@@ -69,7 +69,7 @@ class VoicePickerViewModelTest {
         settings: SettingsRepository,
         player: SpeechPlayer = RecordingPlayer(),
     ): VoicePickerViewModel {
-        val dao = FakeDao(voices = KittenVoiceCatalog.voices)
+        val dao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
         return VoicePickerViewModel(
             voiceDao = dao,
             settings = settings,
@@ -87,7 +87,7 @@ class VoicePickerViewModelTest {
  * installer (which needs disk + DI scaffolding).
  */
 private class PickerFakeInstaller(
-    private val installedEngines: Set<String> = setOf("kitten", "kokoro"),
+    private val installedEngines: Set<String> = setOf("kitten-nano-v0_8", "kokoro-v1_0"),
 ) : EngineInstaller(
     filesDir = { java.io.File("/tmp/voicepicker-test-unused") },
     kittenEngine = { /* no-op release */ },

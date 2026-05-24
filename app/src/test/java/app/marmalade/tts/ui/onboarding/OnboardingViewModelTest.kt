@@ -1,7 +1,7 @@
 package app.marmalade.tts.ui.onboarding
 
 import app.marmalade.tts.audio.EffectPreset
-import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -73,13 +73,13 @@ class OnboardingViewModelTest {
     fun toggleFlipsSelection() = runTest {
         val vm = newViewModel()
         // Kokoro is the recommended default → pre-selected.
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro"))
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro-v1_0"))
 
-        vm.toggle("kokoro")
-        assertTrue(!vm.selectedEngineIds.value.contains("kokoro"))
+        vm.toggle("kokoro-v1_0")
+        assertTrue(!vm.selectedEngineIds.value.contains("kokoro-v1_0"))
 
-        vm.toggle("kokoro")
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro"))
+        vm.toggle("kokoro-v1_0")
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro-v1_0"))
     }
 
     @Test
@@ -91,15 +91,15 @@ class OnboardingViewModelTest {
 
         assertEquals(OnboardingStep.Installing, vm.step.value)
         // Only the recommended engine (kokoro) is pre-selected.
-        assertEquals(listOf("kokoro"), installer.installCalls)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro"])
+        assertEquals(listOf("kokoro-v1_0"), installer.installCalls)
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-v1_0"])
     }
 
     @Test
     fun installSelectedWithNoSelectionsIsNoop() = runTest {
         val installer = RecordingInstaller(behaviour = { Result.success(Unit) })
         val vm = newViewModel(installer = installer)
-        vm.toggle("kokoro") // un-select the recommended default
+        vm.toggle("kokoro-v1_0") // un-select the recommended default
 
         vm.installSelected()
 
@@ -116,7 +116,7 @@ class OnboardingViewModelTest {
 
         vm.installSelected()
 
-        val state = vm.installStates.value["kokoro"]
+        val state = vm.installStates.value["kokoro-v1_0"]
         assertTrue("expected Failed, got $state", state is InstallState.Failed)
         assertEquals("net dropped", (state as InstallState.Failed).reason)
     }
@@ -130,16 +130,16 @@ class OnboardingViewModelTest {
 
         // Retry the same engine the recommended default lands on
         // (kokoro), so the running count grows by exactly one.
-        vm.retry("kokoro")
+        vm.retry("kokoro-v1_0")
         assertEquals(2, installer.installCalls.size)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro"])
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-v1_0"])
     }
 
     @Test
     fun finishWithoutAliasIsBlocked() = runTest {
         // No aliases in the DB → finish() must refuse to flip onboarded.
         val settings = FakeSettings(
-            initialId = "kitten:Bella",
+            initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
@@ -159,14 +159,14 @@ class OnboardingViewModelTest {
         // when no primary is set yet.
         val existing = VoiceAlias(
             name = "narrator",
-            engine = "kitten",
-            voiceId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            engine = "kitten-nano-v0_8",
+            voiceId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
             effectPreset = EffectPreset.NONE.name,
             createdAt = 0L,
         )
         val settings = FakeSettings(
-            initialId = "kitten:Bella",
+            initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao(initial = listOf(existing))
@@ -187,15 +187,15 @@ class OnboardingViewModelTest {
     @Test
     fun saveAliasAndContinueCreatesAliasMarksPrimaryAndAdvancesToSystemDefault() = runTest {
         val settings = FakeSettings(
-            initialId = "kitten:Bella",
+            initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(settings = settings, aliasDao = aliasDao)
 
         vm.onAliasNameChange("narrator")
-        vm.onAliasEngineChange("kitten")
-        vm.onAliasVoiceChange("kitten:Bella")
+        vm.onAliasEngineChange("kitten-nano-v0_8")
+        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
         val ok = vm.saveAliasAndContinue()
 
         assertTrue("saveAliasAndContinue should succeed with valid fields", ok)
@@ -215,8 +215,8 @@ class OnboardingViewModelTest {
         val vm = newViewModel(aliasDao = aliasDao)
 
         vm.onAliasNameChange("Has Spaces!")
-        vm.onAliasEngineChange("kitten")
-        vm.onAliasVoiceChange("kitten:Bella")
+        vm.onAliasEngineChange("kitten-nano-v0_8")
+        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
         val ok = vm.saveAliasAndContinue()
 
         assertFalse("Invalid name must not save", ok)
@@ -227,7 +227,7 @@ class OnboardingViewModelTest {
     @Test
     fun useDefaultsAndContinueCreatesDefaultAliasAndAdvancesToSystemDefault() = runTest {
         val settings = FakeSettings(
-            initialId = "kitten:Bella",
+            initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
@@ -241,7 +241,7 @@ class OnboardingViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         val row = aliasDao.upsertedAliases.single()
         assertEquals("default", row.name)
-        assertEquals("kokoro", row.engine)
+        assertEquals("kokoro-v1_0", row.engine)
         assertEquals("default", settings.primaryAliasName.first())
         // v0.1.13: advances to SystemDefault instead of finishing.
         assertEquals(false, settings.onboarded.first())
@@ -255,8 +255,8 @@ class OnboardingViewModelTest {
         assertFalse("aliasCreated should be false on empty DB", vm.aliasCreated.first { !it })
 
         vm.onAliasNameChange("narrator")
-        vm.onAliasEngineChange("kitten")
-        vm.onAliasVoiceChange("kitten:Bella")
+        vm.onAliasEngineChange("kitten-nano-v0_8")
+        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
         vm.saveAliasAndContinue()
 
         assertTrue("aliasCreated should flip to true after save", vm.aliasCreated.first { it })
@@ -267,12 +267,12 @@ class OnboardingViewModelTest {
     private fun newViewModel(
         installer: EngineInstaller = RecordingInstaller(behaviour = { Result.success(Unit) }),
         settings: FakeSettings = FakeSettings(
-            initialId = "kitten:Bella",
+            initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
         ),
         aliasDao: FakeAliasDao = FakeAliasDao(),
     ): OnboardingViewModel {
-        val voiceDao = FakeDao(voices = KittenVoiceCatalog.voices)
+        val voiceDao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
         return OnboardingViewModel(installer, settings, aliasDao, voiceDao)
     }
 }

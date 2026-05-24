@@ -42,7 +42,7 @@ import kotlinx.coroutines.flow.map
  * Room for content (voices, aliases, history), DataStore for preferences.
  *
  * The fallback voice — `kitten:Bella` — is the documented default in
- * [KittenVoiceCatalog.DEFAULT_VOICE_ID]. We don't seed DataStore on first
+ * [KittenNanoVoiceCatalog.DEFAULT_VOICE_ID]. We don't seed DataStore on first
  * launch; the Flow's map applies the fallback transparently until the
  * user picks something explicit.
  */
@@ -52,7 +52,7 @@ open class SettingsRepository @Inject constructor(
 ) {
     /**
      * Emits the persisted default voice ID, falling back to
-     * [KittenVoiceCatalog.DEFAULT_VOICE_ID] when nothing is stored.
+     * [KittenNanoVoiceCatalog.DEFAULT_VOICE_ID] when nothing is stored.
      *
      * Cold Flow — every collector triggers a fresh read; downstream
      * `stateIn(...)` in ViewModels caches the latest value.
@@ -62,7 +62,7 @@ open class SettingsRepository @Inject constructor(
      * the open modifier — final isn't required for `@Inject` providers.)
      */
     open val defaultVoiceId: Flow<String> = dataStore.data.map { prefs ->
-        prefs[KEY_DEFAULT_VOICE_ID] ?: KittenVoiceCatalog.DEFAULT_VOICE_ID
+        prefs[KEY_DEFAULT_VOICE_ID] ?: KittenNanoVoiceCatalog.DEFAULT_VOICE_ID
     }
 
     /**
@@ -302,7 +302,7 @@ open class SettingsRepository @Inject constructor(
         private val KEY_PRIMARY_ALIAS = stringPreferencesKey("primary_alias_name")
 
         // Last-seeded catalog version. v0.1.19 introduces this so that
-        // expanding KokoroVoiceCatalog (11 → 53 voices for multi-lang)
+        // expanding KokoroV10VoiceCatalog (11 → 53 voices for multi-lang)
         // automatically re-seeds existing installs whose DB still has the
         // pre-expansion rows.
         private val KEY_CATALOG_VERSION = intPreferencesKey("catalog_version")

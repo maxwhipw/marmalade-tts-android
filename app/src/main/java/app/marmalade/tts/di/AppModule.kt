@@ -13,8 +13,10 @@ import app.marmalade.tts.data.db.MIGRATION_3_4
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.engine.KittenEngine
-import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.KittenMiniEngine
+import app.marmalade.tts.engine.KittenNanoEngine
+import app.marmalade.tts.engine.KokoroV10Engine
+import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
@@ -107,19 +109,23 @@ object AppModule {
     /**
      * Routes the installer's `NativeEngineHandle` to the live engine
      * singletons so uninstalls can release JNI handles before deleting
-     * the model files. We release both — the installer doesn't tell us
-     * which engine is being uninstalled, and `release()` is idempotent
-     * on an unloaded engine, so releasing the wrong one is a harmless
-     * no-op. Unit tests substitute a no-op handle.
+     * the model files. We release all engines — the installer doesn't
+     * tell us which engine is being uninstalled, and `release()` is
+     * idempotent on an unloaded engine, so releasing the wrong one is
+     * a harmless no-op. Unit tests substitute a no-op handle.
      */
     @Provides
     @Singleton
     fun provideNativeEngineHandle(
-        kitten: KittenEngine,
-        kokoro: KokoroEngine,
+        kittenNano: KittenNanoEngine,
+        kittenMini: KittenMiniEngine,
+        kokoroV10: KokoroV10Engine,
+        kokoroV11: KokoroV11Engine,
     ): NativeEngineHandle = NativeEngineHandle {
-        kitten.release()
-        kokoro.release()
+        kittenNano.release()
+        kittenMini.release()
+        kokoroV10.release()
+        kokoroV11.release()
     }
 
     /**

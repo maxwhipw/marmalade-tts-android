@@ -49,22 +49,22 @@ class SettingsRepositoryTest {
     fun defaultValueFallsBackToBellaWhenUnset() = runTest {
         val repo = newRepo()
         // Nothing written yet → fallback to the catalog default.
-        assertEquals(KittenVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
+        assertEquals(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
     }
 
     @Test
     fun setDefaultVoiceIdRoundTrips() = runTest {
         val repo = newRepo()
-        repo.setDefaultVoiceId("kitten:Kiki")
-        assertEquals("kitten:Kiki", repo.defaultVoiceId.first())
+        repo.setDefaultVoiceId("kitten-nano-v0_8:Kiki")
+        assertEquals("kitten-nano-v0_8:Kiki", repo.defaultVoiceId.first())
     }
 
     @Test
     fun overwriteReplacesPreviousValue() = runTest {
         val repo = newRepo()
-        repo.setDefaultVoiceId("kitten:Bella")
-        repo.setDefaultVoiceId("kitten:Leo")
-        assertEquals("kitten:Leo", repo.defaultVoiceId.first())
+        repo.setDefaultVoiceId("kitten-nano-v0_8:Bella")
+        repo.setDefaultVoiceId("kitten-nano-v0_8:Leo")
+        assertEquals("kitten-nano-v0_8:Leo", repo.defaultVoiceId.first())
     }
 
     // -- primaryAliasName -----------------------------------------------------

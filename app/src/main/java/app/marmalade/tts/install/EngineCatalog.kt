@@ -110,69 +110,37 @@ data class EngineDescriptor(
  */
 object EngineCatalog {
 
-    /**
-     * Sum of unpacked Kokoro v1.0 multi-lang **fp32** file sizes. Compute with:
-     *   tar -xjf kokoro-multi-lang-v1_0.tar.bz2
-     *   find kokoro-multi-lang-v1_0 -type f -exec stat -c %s {} + | \
-     *       awk '{s+=$1} END {print s}'
-     */
-    private const val KOKORO_INSTALLED_SIZE_BYTES: Long = 400_786_089L
+    // Unpacked sizes (sum of file sizes after tar extraction). Compute via
+    //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
+    private const val KOKORO_V1_0_INSTALLED_SIZE_BYTES: Long = 400_786_089L
+    private const val KOKORO_V1_1_INSTALLED_SIZE_BYTES: Long = 426_654_376L
+    private const val KITTEN_NANO_INSTALLED_SIZE_BYTES: Long = 78_049_671L
+    private const val KITTEN_MINI_INSTALLED_SIZE_BYTES: Long = 99_550_582L
 
     /**
-     * Sum of unpacked Kitten Nano v0.8 **fp32** file sizes. Compute with:
-     *   tar -xjf kitten-nano-en-v0_8-fp32.tar.bz2
-     *   find kitten-nano-en-v0_8-fp32 -type f -exec stat -c %s {} + | \
-     *       awk '{s+=$1} END {print s}'
+     * Kokoro v1.0 multi-lang fp32 (`kokoro-multi-lang-v1_0`). 53 voices
+     * across 9 languages — American + British English, Spanish, French,
+     * Hindi, Italian, Japanese, Brazilian Portuguese, Mandarin.
+     *
+     * Recommended default since v0.2.0 split the Kokoro engine family.
+     * v1.0 has noticeably better English audio quality than v1.1 per
+     * pre-ship A/B; v1.1 ships alongside for users who want its 100
+     * Mandarin voices.
      */
-    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 78_049_671L
-
-    /**
-     * Kokoro TTS — Sherpa-ONNX kokoro-multi-lang v1.0 (**fp32**) port. ~333 MB
-     * compressed download, ~382 MB on-disk, **53 voices across 9
-     * languages**: American English (11), British English (8), Spanish (2),
-     * French (1), Hindi (4), Italian (2), Japanese (5), Brazilian
-     * Portuguese (3), Mandarin (8).
-     *
-     * Recommended default since v0.1.9: Kokoro sounds meaningfully better
-     * than Kitten at the cost of a larger download.
-     *
-     * v0.1.20 swapped from the int8-v1.0 export to fp32. The int8-v1.0
-     * artefact was an unblessed power-user export — sherpa-onnx's own APK
-     * build script never picked it up, and naive dynamic quantisation of
-     * a vocoder produced audibly tinny output. fp32 is ~2.6× larger on
-     * disk but renders the voices the model was trained to produce.
-     *
-     * Voice/language orthogonality (Kokoro's claim that any voice can
-     * speak any supported language) holds at the synthesizer level: the
-     * runtime routes by text character set, not by voice. A Japanese
-     * voice given English text produces Japanese-accented English.
-     *
-     * The Kokoro model itself is Apache-2.0; the espeak-ng phonemiser it
-     * shares with Kitten is GPL-3.0 — same license profile as the v0.19
-     * bundle. The install card shows that disclosure before the user
-     * opts in.
-     */
-    private val KOKORO: EngineDescriptor = EngineDescriptor(
-        name = "kokoro",
-        displayName = "Kokoro TTS",
-        description = "Higher-quality TTS with 53 voices across 9 languages " +
-            "(English variants + Spanish, French, Hindi, Italian, Japanese, Portuguese, " +
-            "Mandarin). Sounds noticeably more natural than Kitten — recommended if " +
-            "you have the storage for ~333 MB download (~382 MB installed).",
+    private val KOKORO_V1_0: EngineDescriptor = EngineDescriptor(
+        name = "kokoro-v1_0",
+        displayName = "Kokoro v1.0",
+        description = "53 voices across 9 languages. Recommended for " +
+            "English-primary use — best audio quality in the Kokoro family. " +
+            "Covers American + British English, Spanish, French, Hindi, Italian, " +
+            "Japanese, Brazilian Portuguese, and Mandarin.",
         downloadSizeBytes = 349_418_188L,
-        installedSizeBytes = KOKORO_INSTALLED_SIZE_BYTES,
+        installedSizeBytes = KOKORO_V1_0_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
-            // v0.1.20 mirror lives at v6 of marmalade-tts-android-engines.
-            // Source: github.com/k2-fsa/sherpa-onnx/releases/download/
-            // tts-models/kokoro-multi-lang-v1_0.tar.bz2 (fp32).
             url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v6/kokoro-multi-lang-v1_0.tar.bz2",
             sha256 = "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
             sizeBytes = 349_418_188L,
-            // Sherpa-ONNX's tarball wraps everything in a top-level
-            // directory of this name. The installer strips it during
-            // extraction so the on-device layout is flat under
-            // ${filesDir}/engines/kokoro/.
             archiveRoot = "kokoro-multi-lang-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-tts.md",
@@ -181,46 +149,81 @@ object EngineCatalog {
     )
 
     /**
-     * Kitten TTS — Sherpa-ONNX nano-en v0.8 **fp32** port. ~61 MB compressed
-     * download, ~74 MB on-disk, 8 English voices.
+     * Kokoro v1.1 multi-lang fp32 (`kokoro-multi-lang-v1_1`). 103 voices —
+     * only 3 English (af_maple, af_sol, bf_vale) and 100 Mandarin
+     * (zf_001..zm_100). Mandarin-specialist variant; English audio
+     * quality is lower than v1.0 per pre-ship A/B, so v1.0 stays the
+     * recommended default for English-primary use.
      *
-     * v0.1.0–v0.1.3 shipped the older v0.1 fp16 port; v0.1.4–v0.1.21
-     * shipped v0.8 int8. v0.1.22 swaps to v0.8 fp32 because the int8
-     * variant was audibly grainy (dynamic int8 quantisation, no
-     * per-channel calibration). Same 15M-parameter model + same 8 voices;
-     * just no quantisation artifacts. ~2x the download size.
-     *
-     * Per project policy ([feedback_verify_model_licence_before_recommending]
-     * and the highest-quant default): default to fp32 unless a lower-quant
-     * variant has been explicitly validated. nano-int8 failed validation.
-     *
-     * v0.1.23 will add a separate `kitten-mini` engine for the larger
-     * 80M-parameter variant as a quality-upgrade opt-in. This descriptor
-     * stays as the lightweight default.
-     *
-     * Demoted from `isRecommended = true` in v0.1.9 when Kokoro joined the
-     * catalog. Kitten stays available as the smaller-footprint option.
+     * Installs alongside v1.0 — they're independent engines with disjoint
+     * voice IDs. Users opt into v1.1 if they want the Mandarin catalog.
      */
-    private val KITTEN: EngineDescriptor = EngineDescriptor(
-        name = "kitten",
-        displayName = "Kitten TTS",
-        description = "Small, fast English TTS with 8 voices. Downloads in about a minute " +
-            "and fits in ~75 MB on-disk — the lightweight alternative to Kokoro.",
-        downloadSizeBytes = 63_815_222L,
-        installedSizeBytes = KITTEN_INSTALLED_SIZE_BYTES,
+    private val KOKORO_V1_1: EngineDescriptor = EngineDescriptor(
+        name = "kokoro-v1_1",
+        displayName = "Kokoro v1.1 (Mandarin)",
+        description = "100 Mandarin voices plus 3 English (af_maple, af_sol, " +
+            "bf_vale). Install for Mandarin TTS — v1.0 has better English " +
+            "audio quality, so install both if you need both languages.",
+        downloadSizeBytes = 364_816_464L,
+        installedSizeBytes = KOKORO_V1_1_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
-            // v0.1.22 mirror lives at v7 of marmalade-tts-android-engines.
-            // Source: github.com/k2-fsa/sherpa-onnx/releases/download/
-            // tts-models/kitten-nano-en-v0_8-fp32.tar.bz2.
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v8/kokoro-multi-lang-v1_1.tar.bz2",
+            sha256 = "a3f4c73d043860e3fd2e5b06f36795eb81de0fc8e8de6df703245edddd87dbad",
+            sizeBytes = 364_816_464L,
+            archiveRoot = "kokoro-multi-lang-v1_1/",
+        ),
+        licenseNotice = "LICENSES/kokoro-tts.md",
+        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +
+            "103 voices (3 English + 100 Mandarin) — Mandarin specialist.",
+    )
+
+    /**
+     * Kitten Nano v0.8 fp32 (`kitten-nano-en-v0_8-fp32`). 15M-parameter
+     * English model, 8 voices, ~61 MB compressed. The lightweight
+     * default Kitten variant. v0.1.22 swapped from int8 to fp32 due to
+     * audible quantisation artifacts in the int8 build.
+     */
+    private val KITTEN_NANO: EngineDescriptor = EngineDescriptor(
+        name = "kitten-nano-v0_8",
+        displayName = "Kitten Nano (v0.8)",
+        description = "Small, fast English TTS — 8 voices, 15M parameters. " +
+            "The lightweight alternative to Kokoro. Kitten Mini ships " +
+            "alongside as a quality upgrade at roughly the same download size.",
+        downloadSizeBytes = 63_815_222L,
+        installedSizeBytes = KITTEN_NANO_INSTALLED_SIZE_BYTES,
+        isRecommended = false,
+        archive = EngineArchive(
             url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v7/kitten-nano-en-v0_8-fp32.tar.bz2",
             sha256 = "16092117bfe591ddcd58d078e1454603b8e1caea46f85653b2c2efae76bd883e",
             sizeBytes = 63_815_222L,
-            // Sherpa-ONNX's tarball wraps everything in a top-level
-            // directory of this name. The installer strips it during
-            // extraction so the on-device layout is flat under
-            // ${filesDir}/engines/kitten/.
             archiveRoot = "kitten-nano-en-v0_8-fp32/",
+        ),
+        licenseNotice = "LICENSES/kitten-tts.md",
+        licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
+    )
+
+    /**
+     * Kitten Mini v0.8 (`kitten-mini-en-v0_8`). 80M-parameter English
+     * model with upstream's deliberate mixed-precision quantisation
+     * (fp32 + fp16 + selective int8/uint8 — NOT blanket dynamic int8).
+     * ~5.3x more parameters than nano; marginal but audible quality lift
+     * per the pre-ship A/B. Same compressed bundle size as nano (~64 MB).
+     */
+    private val KITTEN_MINI: EngineDescriptor = EngineDescriptor(
+        name = "kitten-mini-v0_8",
+        displayName = "Kitten Mini (v0.8)",
+        description = "Larger English TTS — 8 voices, 80M parameters. " +
+            "Same voice names as Kitten Nano but a fundamentally larger " +
+            "model with marginally better audio.",
+        downloadSizeBytes = 67_547_594L,
+        installedSizeBytes = KITTEN_MINI_INSTALLED_SIZE_BYTES,
+        isRecommended = false,
+        archive = EngineArchive(
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v8/kitten-mini-en-v0_8.tar.bz2",
+            sha256 = "518f9b130320f690d5b5476df77bde4215fca67773cda16710318e5081234b9d",
+            sizeBytes = 67_547_594L,
+            archiveRoot = "kitten-mini-en-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-tts.md",
         licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
@@ -229,11 +232,15 @@ object EngineCatalog {
     /**
      * Every engine the app knows how to install. Read-only.
      *
-     * Order is the display order (onboarding cards + Settings → Engines).
-     * Kokoro first because it is the recommended default; Kitten second
-     * as the lightweight alternative.
+     * Order is the display order: Kokoro family first (recommended
+     * default = v1.0), then Kitten family (lighter alternatives).
      */
-    val all: List<EngineDescriptor> = listOf(KOKORO, KITTEN)
+    val all: List<EngineDescriptor> = listOf(
+        KOKORO_V1_0,
+        KOKORO_V1_1,
+        KITTEN_NANO,
+        KITTEN_MINI,
+    )
 
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */
     fun byName(name: String): EngineDescriptor? = all.firstOrNull { it.name == name }

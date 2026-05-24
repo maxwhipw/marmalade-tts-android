@@ -1,7 +1,7 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.SavedStateHandle
-import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.preprocessing.EngineProfiles
@@ -28,7 +28,7 @@ import org.junit.Test
  *
  * Also exercises:
  * - navArg routing via [SavedStateHandle] (a programming error would
- *   silently make every engine look like "kitten").
+ *   silently make every engine look like "kitten-nano-v0_8").
  * - install-state flow-through (the screen consumes this for its status
  *   header — regressing it would render every card "not installed").
  */
@@ -40,21 +40,21 @@ class EngineDetailViewModelTest {
 
     @Test
     fun enabledRules_initially_reflects_default_profile() = runTest {
-        val vm = newViewModel(engineName = "kitten")
+        val vm = newViewModel(engineName = "kitten-nano-v0_8")
         val emitted = vm.enabledRules.filter { it.isNotEmpty() }.first()
-        assertEquals(EngineProfiles.defaultsFor("kitten"), emitted)
+        assertEquals(EngineProfiles.defaultsFor("kitten-nano-v0_8"), emitted)
     }
 
     @Test
     fun toggleRule_off_removes_rule_from_set() = runTest {
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
-        val vm = newViewModel(engineName = "kitten", settings = settings)
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
+        val vm = newViewModel(engineName = "kitten-nano-v0_8", settings = settings)
         // Let the StateFlow seed with the default set first.
         vm.enabledRules.filter { it.isNotEmpty() }.first()
 
         vm.toggleRule(rule = "currency", enabled = false)
 
-        val persisted = settings.enabledRules("kitten")
+        val persisted = settings.enabledRules("kitten-nano-v0_8")
             .filter { "currency" !in it }
             .first()
         assertFalse("currency must be removed from persisted set", "currency" in persisted)
@@ -64,15 +64,15 @@ class EngineDetailViewModelTest {
 
     @Test
     fun toggleRule_on_adds_rule_to_set() = runTest {
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         // Seed empty so we have something to add to. ("user disabled all".)
-        settings.setEnabledRules("kitten", emptySet())
-        val vm = newViewModel(engineName = "kitten", settings = settings)
+        settings.setEnabledRules("kitten-nano-v0_8", emptySet())
+        val vm = newViewModel(engineName = "kitten-nano-v0_8", settings = settings)
         vm.enabledRules.first()  // let it settle
 
         vm.toggleRule(rule = "html", enabled = true)
 
-        val persisted = settings.enabledRules("kitten")
+        val persisted = settings.enabledRules("kitten-nano-v0_8")
             .filter { "html" in it }
             .first()
         assertTrue("html should be added to stored set", "html" in persisted)
@@ -80,29 +80,29 @@ class EngineDetailViewModelTest {
 
     @Test
     fun resetRules_restores_default_profile() = runTest {
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         // Stash a non-default state.
-        settings.setEnabledRules("kitten", setOf("emoji"))
-        val vm = newViewModel(engineName = "kitten", settings = settings)
+        settings.setEnabledRules("kitten-nano-v0_8", setOf("emoji"))
+        val vm = newViewModel(engineName = "kitten-nano-v0_8", settings = settings)
         vm.enabledRules.first()
 
         vm.resetRules()
 
-        val persisted = settings.enabledRules("kitten").first()
-        assertEquals(EngineProfiles.defaultsFor("kitten"), persisted)
+        val persisted = settings.enabledRules("kitten-nano-v0_8").first()
+        assertEquals(EngineProfiles.defaultsFor("kitten-nano-v0_8"), persisted)
     }
 
     @Test
     fun toggleRule_off_then_on_round_trips_to_same_set() = runTest {
         // No-side-state invariant: off+on lands on the starting set.
-        val settings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID)
-        val vm = newViewModel(engineName = "kitten", settings = settings)
-        val before = settings.enabledRules("kitten").first()
+        val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
+        val vm = newViewModel(engineName = "kitten-nano-v0_8", settings = settings)
+        val before = settings.enabledRules("kitten-nano-v0_8").first()
 
         vm.toggleRule(rule = "currency", enabled = false)
-        settings.enabledRules("kitten").filter { "currency" !in it }.first()
+        settings.enabledRules("kitten-nano-v0_8").filter { "currency" !in it }.first()
         vm.toggleRule(rule = "currency", enabled = true)
-        val after = settings.enabledRules("kitten").filter { "currency" in it }.first()
+        val after = settings.enabledRules("kitten-nano-v0_8").filter { "currency" in it }.first()
 
         assertEquals(before, after)
     }
@@ -110,15 +110,15 @@ class EngineDetailViewModelTest {
     @Test
     fun engineName_is_honored_from_nav_arg() = runTest {
         // The VM picks up the engine name from SavedStateHandle["name"].
-        // Use "kokoro" — its default profile is intentionally different
-        // from "kitten" (Kokoro skips number / abbreviation / ordinal),
+        // Use "kokoro-v1_0" — its default profile is intentionally different
+        // from "kitten-nano-v0_8" (Kokoro skips number / abbreviation / ordinal),
         // so a misrouted VM that ignored the arg would show kitten's
         // defaults and this assertion would catch it.
-        val vm = newViewModel(engineName = "kokoro")
-        assertEquals("kokoro", vm.engineName)
+        val vm = newViewModel(engineName = "kokoro-v1_0")
+        assertEquals("kokoro-v1_0", vm.engineName)
 
         val emitted = vm.enabledRules.filter { it.isNotEmpty() }.first()
-        assertEquals(EngineProfiles.defaultsFor("kokoro"), emitted)
+        assertEquals(EngineProfiles.defaultsFor("kokoro-v1_0"), emitted)
     }
 
     @Test
@@ -127,9 +127,9 @@ class EngineDetailViewModelTest {
         // installState StateFlow. We seed an on-disk engine directory so
         // the installer's internal stateFlow() initialises to Installed,
         // then assert that the VM's StateFlow surfaces that value.
-        val tmpDir = createTempDirAndEngine("kitten")
+        val tmpDir = createTempDirAndEngine("kitten-nano-v0_8")
         val installer = FakeInstaller(tmpDir)
-        val vm = newViewModel(engineName = "kitten", installer = installer)
+        val vm = newViewModel(engineName = "kitten-nano-v0_8", installer = installer)
 
         val seen = vm.installState.filter { it is InstallState.Installed }.first()
         assertEquals(InstallState.Installed, seen)
@@ -151,7 +151,7 @@ class EngineDetailViewModelTest {
 
     private fun newViewModel(
         engineName: String,
-        settings: FakeSettings = FakeSettings(initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID),
+        settings: FakeSettings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID),
         installer: EngineInstaller = FakeInstaller(),
     ): EngineDetailViewModel {
         val savedState = SavedStateHandle(mapOf(EngineDetailViewModel.NAV_ARG_NAME to engineName))

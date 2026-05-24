@@ -23,12 +23,16 @@ import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
-import app.marmalade.tts.data.KittenVoiceCatalog
-import app.marmalade.tts.data.KokoroVoiceCatalog
+import app.marmalade.tts.data.KittenMiniVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
-import app.marmalade.tts.engine.KittenEngine
-import app.marmalade.tts.engine.KokoroEngine
+import app.marmalade.tts.engine.KittenMiniEngine
+import app.marmalade.tts.engine.KittenNanoEngine
+import app.marmalade.tts.engine.KokoroV10Engine
+import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -56,7 +60,7 @@ import kotlinx.coroutines.withContext
 //                                          from EXTRA_VOICE's prefix.
 //     EXTRA_VOICE  (String, optional)   — voice id e.g. "kokoro:af_bella"
 //                                          or "kitten:Bella". Defaults to
-//                                          KokoroVoiceCatalog.DEFAULT_VOICE_ID.
+//                                          KokoroV10VoiceCatalog.DEFAULT_VOICE_ID.
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
 //     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
@@ -137,9 +141,10 @@ import kotlinx.coroutines.withContext
 @AndroidEntryPoint
 class MarmaladeSynthService : Service() {
 
-    @Inject lateinit var engine: KittenEngine
-
-    @Inject lateinit var kokoroEngine: KokoroEngine
+    @Inject lateinit var kittenNano: KittenNanoEngine
+    @Inject lateinit var kittenMini: KittenMiniEngine
+    @Inject lateinit var kokoroV10: KokoroV10Engine
+    @Inject lateinit var kokoroV11: KokoroV11Engine
 
     @Inject lateinit var preprocessor: Preprocessor
 
@@ -249,7 +254,7 @@ class MarmaladeSynthService : Service() {
         // ':'); the explicit EXTRA_ENGINE wins if present so legacy
         // callers that send engine without voice still work.
         val explicitEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
-        val voice = explicitVoice ?: KokoroVoiceCatalog.DEFAULT_VOICE_ID
+        val voice = explicitVoice ?: KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
         val engineName = explicitEngine ?: engineFromVoiceId(voice)
         val speed = if (intent.hasExtra(EXTRA_SPEED)) {
             intent.getFloatExtra(EXTRA_SPEED, 1.0f)
@@ -285,7 +290,10 @@ class MarmaladeSynthService : Service() {
         if (sep <= 0) return DEFAULT_ENGINE
         val name = voiceId.substring(0, sep)
         return when (name) {
-            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> name
+            KokoroV10VoiceCatalog.ENGINE,
+            KokoroV11VoiceCatalog.ENGINE,
+            KittenNanoVoiceCatalog.ENGINE,
+            KittenMiniVoiceCatalog.ENGINE -> name
             else -> DEFAULT_ENGINE
         }
     }
@@ -354,7 +362,10 @@ class MarmaladeSynthService : Service() {
         // rather than failing loudly — keeps the foreground service
         // robust to third-party callers sending garbage in EXTRA_ENGINE.
         val engineName = when (resolved.engine) {
-            KokoroVoiceCatalog.ENGINE, KittenVoiceCatalog.ENGINE -> resolved.engine
+            KokoroV10VoiceCatalog.ENGINE,
+            KokoroV11VoiceCatalog.ENGINE,
+            KittenNanoVoiceCatalog.ENGINE,
+            KittenMiniVoiceCatalog.ENGINE -> resolved.engine
             else -> {
                 Log.w(TAG, "Engine '${resolved.engine}' not supported — using $DEFAULT_ENGINE")
                 DEFAULT_ENGINE
@@ -421,23 +432,27 @@ class MarmaladeSynthService : Service() {
         }
     }
 
-    /** Per-engine synthesis dispatch. Both engines emit at 24 kHz today. */
+    /** Per-engine synthesis dispatch. All four engines emit at 24 kHz today. */
     private suspend fun synthesizeForEngine(
         engineName: String,
         text: String,
         voiceId: String,
         speed: Float,
     ): SynthAudio = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> kokoroEngine.synthesize(text, voiceId, speed)
-        KittenVoiceCatalog.ENGINE -> engine.synthesize(text, voiceId, speed)
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
         // Defensive: runOne already narrows engineName to known values.
-        else -> engine.synthesize(text, voiceId, speed)
+        else -> kokoroV10.synthesize(text, voiceId, speed)
     }
 
     /** Human-friendly engine label for notification copy. */
     private fun displayNameFor(engineName: String): String = when (engineName) {
-        KokoroVoiceCatalog.ENGINE -> "Kokoro"
-        KittenVoiceCatalog.ENGINE -> "Kitten"
+        KokoroV10VoiceCatalog.ENGINE -> "Kokoro v1.0"
+        KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1"
+        KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano"
+        KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini"
         else -> engineName
     }
 
@@ -748,7 +763,7 @@ class MarmaladeSynthService : Service() {
          * doesn't disambiguate. Kokoro is the recommended-default engine
          * starting v0.1.9 — matches `EngineCatalog.KOKORO.isRecommended`.
          */
-        const val DEFAULT_ENGINE: String = "kokoro"
+        const val DEFAULT_ENGINE: String = "kokoro-v1_0"
 
         // -- public intent contract --------------------------------------------
         const val ACTION_SPEAK: String = "app.marmalade.tts.action.SPEAK"

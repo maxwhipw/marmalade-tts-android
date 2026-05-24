@@ -1,7 +1,7 @@
 package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.audio.EffectPreset
-import app.marmalade.tts.data.KittenVoiceCatalog
+import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -59,7 +59,7 @@ class AliasViewModelTest {
         // (Validation runs in save(), not on each keystroke, so we have to
         //  poke save() to seed the error.)
         vm.onEditorNameChange("has space")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         vm.save()
         assertNotNull(
             "Invalid name should produce an error after save()",
@@ -84,7 +84,7 @@ class AliasViewModelTest {
         // a blank name is rejected we feed it through save() and check the
         // resulting editor error.
         vm.onEditorNameChange("   ")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         val saved = vm.save()
         assertFalse("Blank name must not save", saved)
         assertNotNull(
@@ -102,7 +102,7 @@ class AliasViewModelTest {
             val vm = newViewModel()
             vm.openEditor()
             vm.onEditorNameChange(bad)
-            vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+            vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
             val saved = vm.save()
             assertFalse("'$bad' must not save", saved)
             assertNotNull(
@@ -119,7 +119,7 @@ class AliasViewModelTest {
             val vm = newViewModel()
             vm.openEditor()
             vm.onEditorNameChange(good)
-            vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+            vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
             val saved = vm.save()
             assertTrue("'$good' should save", saved)
             // save() clears editorState on success, so error is null and the
@@ -141,7 +141,7 @@ class AliasViewModelTest {
 
         vm.openEditor() // create mode (existing = null)
         vm.onEditorNameChange("narrator")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         val saved = vm.save()
 
         assertFalse("Save with colliding name must be rejected", saved)
@@ -175,8 +175,8 @@ class AliasViewModelTest {
         val vm = newViewModel(aliasDao = aliasDao)
         vm.openEditor()
         vm.onEditorNameChange("storyteller")
-        vm.onEditorEngineChange("kitten")
-        vm.onEditorVoiceChange("kitten:Hugo")
+        vm.onEditorEngineChange("kitten-nano-v0_8")
+        vm.onEditorVoiceChange("kitten-nano-v0_8:Hugo")
         vm.onEditorSpeedChange(1.25f)
         vm.onEditorEffectChange(EffectPreset.CAVE)
 
@@ -186,8 +186,8 @@ class AliasViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         val row = aliasDao.upsertedAliases.single()
         assertEquals("storyteller", row.name)
-        assertEquals("kitten", row.engine)
-        assertEquals("kitten:Hugo", row.voiceId)
+        assertEquals("kitten-nano-v0_8", row.engine)
+        assertEquals("kitten-nano-v0_8:Hugo", row.voiceId)
         assertEquals(1.25f, row.speed, 0.0f)
         assertEquals("CAVE", row.effectPreset)
     }
@@ -199,7 +199,7 @@ class AliasViewModelTest {
         vm.openEditor()
         // Invalid: leading uppercase fails the regex.
         vm.onEditorNameChange("Invalid Name")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
 
         val saved = vm.save()
         assertFalse(saved)
@@ -228,7 +228,7 @@ class AliasViewModelTest {
 
         vm.openEditor(existing) // edit mode for "narrator"
         vm.onEditorNameChange("storyteller")
-        vm.onEditorVoiceChange("kitten:Luna")
+        vm.onEditorVoiceChange("kitten-nano-v0_8:Luna")
         vm.onEditorEffectChange(EffectPreset.ROBOT)
         vm.onEditorSpeedChange(0.9f)
 
@@ -245,7 +245,7 @@ class AliasViewModelTest {
             "A row named 'storyteller' should be upserted on rename",
             inserted,
         )
-        assertEquals("kitten:Luna", inserted!!.voiceId)
+        assertEquals("kitten-nano-v0_8:Luna", inserted!!.voiceId)
         assertEquals("ROBOT", inserted.effectPreset)
         assertEquals(0.9f, inserted.speed, 0.0f)
     }
@@ -255,7 +255,7 @@ class AliasViewModelTest {
         val vm = newViewModel()
         vm.openEditor()
         vm.onEditorNameChange("narrator")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
 
         val saved = vm.save()
         assertTrue(saved)
@@ -270,7 +270,7 @@ class AliasViewModelTest {
     @Test
     fun firstCreatedAlias_becomesPrimary() = runTest {
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         assertNull("Primary should start null", settings.primaryAliasName.first())
@@ -278,7 +278,7 @@ class AliasViewModelTest {
         val vm = newViewModel(settings = settings)
         vm.openEditor()
         vm.onEditorNameChange("narrator")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         val ok = vm.save()
         assertTrue(ok)
 
@@ -292,7 +292,7 @@ class AliasViewModelTest {
     @Test
     fun creatingSecondAlias_doesNotOverridePrimary() = runTest {
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         val vm = newViewModel(settings = settings)
@@ -300,14 +300,14 @@ class AliasViewModelTest {
         // First alias — auto-promotes.
         vm.openEditor()
         vm.onEditorNameChange("narrator")
-        vm.onEditorVoiceChange(KittenVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         vm.save()
         assertEquals("narrator", settings.primaryAliasName.first())
 
         // Second alias — primary should NOT change.
         vm.openEditor()
         vm.onEditorNameChange("storyteller")
-        vm.onEditorVoiceChange("kitten:Hugo")
+        vm.onEditorVoiceChange("kitten-nano-v0_8:Hugo")
         vm.save()
 
         assertEquals(
@@ -321,7 +321,7 @@ class AliasViewModelTest {
     fun deletingPrimaryAlias_clearsPrimaryPointer() = runTest {
         val existing = alias("narrator")
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         settings.setPrimaryAliasName("narrator")
@@ -344,7 +344,7 @@ class AliasViewModelTest {
         val primary = alias("narrator")
         val other = alias("storyteller")
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         settings.setPrimaryAliasName("narrator")
@@ -368,7 +368,7 @@ class AliasViewModelTest {
         val first = alias("narrator")
         val second = alias("storyteller")
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         settings.setPrimaryAliasName("narrator")
@@ -391,7 +391,7 @@ class AliasViewModelTest {
     fun renamingPrimaryAlias_retargetsPointer() = runTest {
         val existing = alias("narrator")
         val settings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         settings.setPrimaryAliasName("narrator")
@@ -442,14 +442,14 @@ class AliasViewModelTest {
 
     @Test
     fun onEditorEngineChange_resetsVoiceWhenIncompatible() = runTest {
-        // Set up: editor in create mode (defaults to engine = "kitten"),
+        // Set up: editor in create mode (defaults to engine = "kitten-nano-v0_8"),
         // pick a Kitten voice, then flip engine. The voice ID should clear
         // — otherwise a Kitten voice ID would be smuggled into a non-Kitten
         // alias row.
         val vm = newViewModel()
         vm.openEditor()
-        vm.onEditorVoiceChange("kitten:Bella")
-        assertEquals("kitten:Bella", vm.editorState.first().voiceId)
+        vm.onEditorVoiceChange("kitten-nano-v0_8:Bella")
+        assertEquals("kitten-nano-v0_8:Bella", vm.editorState.first().voiceId)
 
         // Engine names are accepted as opaque strings — no need for a real
         // second engine in the catalog to exercise this branch.
@@ -476,7 +476,7 @@ class AliasViewModelTest {
         aliasDao: FakeAliasDao? = null,
         aliases: List<VoiceAlias> = emptyList(),
         settings: FakeSettings = FakeSettings(
-            initialId = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+            initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         ),
     ): AliasViewModel {
@@ -484,14 +484,14 @@ class AliasViewModelTest {
             "Pass either aliasDao or aliases, not both"
         }
         val dao = aliasDao ?: FakeAliasDao(initial = aliases)
-        val voiceDao = FakeDao(voices = KittenVoiceCatalog.voices)
+        val voiceDao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
         return AliasViewModel(aliasDao = dao, voiceDao = voiceDao, settings = settings)
     }
 
     private fun alias(
         name: String,
-        engine: String = "kitten",
-        voiceId: String = KittenVoiceCatalog.DEFAULT_VOICE_ID,
+        engine: String = "kitten-nano-v0_8",
+        voiceId: String = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
         speed: Float = 1.0f,
         effectPreset: String = "NONE",
         createdAt: Long = 0L,
