@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Kitten variants A/B</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #faf6f0;
+      --fg: #1e1812;
+      --muted: #6b5e4f;
+      --card: #fff;
+      --border: #e6dccb;
+      --accent: #d27a2c;
+      --warn: #c73e1d;
+      --good: #3e8e41;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1612;
+        --fg: #f0e8d8;
+        --muted: #9a8d7a;
+        --card: #2a241c;
+        --border: #3a3328;
+        --accent: #ffae5e;
+        --warn: #ff7a5a;
+        --good: #7ad27a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font: 16px/1.55 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--fg);
+      margin: 0; padding: 2rem 1rem 4rem;
+    }
+    main { max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
+    .lead { color: var(--muted); margin: 0 0 1.5rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 0.55rem 0.5rem;
+      text-align: left;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td.variant { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    td.detail { color: var(--muted); font-size: 0.85rem; }
+    audio { width: 100%; min-width: 220px; }
+    .pill {
+      display: inline-block; font-size: 0.7rem; font-weight: 600;
+      padding: 0.1rem 0.45rem; border-radius: 99px; margin-left: 0.35rem;
+    }
+    .pill-bad { background: rgba(199, 62, 29, 0.15); color: var(--warn); }
+    .pill-good { background: rgba(62, 142, 65, 0.15); color: var(--good); }
+    .pill-cur { background: rgba(107, 94, 79, 0.18); color: var(--muted); }
+    .footnote { color: var(--muted); font-size: 0.85rem; margin-top: 2rem; line-height: 1.55; }
+    .footnote code, p code {
+      background: var(--card); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em;
+    }
+    blockquote {
+      border-left: 3px solid var(--border);
+      margin: 0.5rem 0;
+      padding: 0.25rem 0 0.25rem 1rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kitten variants A/B</h1>
+    <p class="lead">
+      Same test sentence through four Kitten v0.8 variants. Listen for
+      graininess, sibilant artifacts, vowel clarity, and overall naturalness.
+      Each row is one variant; columns are female (<em>Bella</em>) and male
+      (<em>Hugo</em>) voices.
+    </p>
+
+    <blockquote>&ldquo;Hello world. The Lord is my shepherd. Susan said the schedule was tight.&rdquo;</blockquote>
+
+    <h2>Side-by-side</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Variant</th>
+          <th>Details</th>
+          <th>Bella (♀)</th>
+          <th>Hugo (♂)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="variant">nano-int8 <span class="pill pill-cur">current</span> <span class="pill pill-bad">bad</span></td>
+          <td class="detail">15M params, dynamic int8.<br>~30 MB compressed.</td>
+          <td><audio controls preload="metadata" src="kitten-nano-int8-Bella.wav"></audio></td>
+          <td><audio controls preload="metadata" src="kitten-nano-int8-Hugo.wav"></audio></td>
+        </tr>
+        <tr>
+          <td class="variant">nano-fp32</td>
+          <td class="detail">15M params, pure fp32.<br>~61 MB compressed.</td>
+          <td><audio controls preload="metadata" src="kitten-nano-fp32-Bella.wav"></audio></td>
+          <td><audio controls preload="metadata" src="kitten-nano-fp32-Hugo.wav"></audio></td>
+        </tr>
+        <tr>
+          <td class="variant">micro</td>
+          <td class="detail">40M params, mixed precision.<br>~42 MB compressed.</td>
+          <td><audio controls preload="metadata" src="kitten-micro-Bella.wav"></audio></td>
+          <td><audio controls preload="metadata" src="kitten-micro-Hugo.wav"></audio></td>
+        </tr>
+        <tr>
+          <td class="variant">mini <span class="pill pill-good">candidate</span></td>
+          <td class="detail">80M params, mixed precision.<br>~64 MB compressed.</td>
+          <td><audio controls preload="metadata" src="kitten-mini-Bella.wav"></audio></td>
+          <td><audio controls preload="metadata" src="kitten-mini-Hugo.wav"></audio></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>What we&rsquo;re choosing between</h2>
+    <p class="lead" style="font-size:0.9rem;">
+      Your stated policy: default to highest-quant unless lower-quant is
+      validated. Strict reading says <code>nano-fp32</code> is the only
+      pure-fp32 option. But upstream <code>mini</code> ships with a
+      hand-picked mixed-precision quantization (fp32 + fp16 + selective
+      int8/uint8), which is materially different from the blanket dynamic
+      int8 that sinks <code>nano-int8</code>. Mixed-precision is a
+      quantize-aware design choice, not a careless squeeze.
+    </p>
+    <p class="lead" style="font-size:0.9rem;">
+      Pick what passes your ear. After you decide:
+    </p>
+    <ul class="lead" style="font-size:0.9rem;">
+      <li>If <strong>mini</strong> sounds good &rarr; mini is recommended default, nano-fp32 + micro are opt-in alternatives.</li>
+      <li>If <strong>mini</strong> sounds bad too &rarr; nano-fp32 is the only validated option; mini ships labelled experimental or doesn&rsquo;t ship at all.</li>
+      <li>If <strong>micro</strong> wins (40M params, smaller than mini) &rarr; ship that as default.</li>
+    </ul>
+
+    <p class="footnote">
+      Generated via desktop sherpa-onnx 1.13.2 Python bindings, same pipeline
+      the Android app uses. Served via <code>raw.githack.com</code> so audio
+      plays inline.
+    </p>
+  </main>
+</body>
+</html>
