@@ -1,14 +1,16 @@
 # Kitten TTS model — third-party license notice
 
-The Kitten TTS model bundled under `app/src/main/assets/kitten/` is the
-Sherpa-ONNX-repackaged form of KittenML's nano-0.1 model. Three
-upstream projects contribute to what ships in the APK:
+The Kitten TTS model is **not bundled in the APK**. It is downloaded
+on-demand from `marmalade-tts-android-engines` (release `v7`) into
+`${filesDir}/engines/kitten/` when the user opts in via the onboarding
+wizard or Settings → Engines. Three upstream projects contribute to the
+downloaded bundle:
 
-## 1. Acoustic model — KittenML/kitten-tts-nano-0.1
+## 1. Acoustic model — KittenML/kitten-tts-nano-0.8
 
-- **Files:** `model.fp16.onnx`, `voices.bin`, `tokens.txt`
+- **Files:** `model.fp32.onnx`, `voices.bin`, `tokens.txt`
 - **Upstream:** https://github.com/KittenML/KittenTTS
-- **Distribution:** https://huggingface.co/KittenML/kitten-tts-nano-0.1
+- **Distribution:** https://huggingface.co/KittenML/kitten-tts-nano-0.8-fp32
 - **License:** Apache License, Version 2.0
 - **Notice:** Copyright (c) KittenML contributors. Licensed under the
   Apache License, Version 2.0; you may not use this file except in
@@ -17,8 +19,8 @@ upstream projects contribute to what ships in the APK:
 
 ## 2. Conversion + packaging — k2-fsa/sherpa-onnx
 
-- **Bundle:** `kitten-nano-en-v0_1-fp16.tar.bz2`
-- **Source URL:** https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_1-fp16.tar.bz2
+- **Bundle:** `kitten-nano-en-v0_8-fp32.tar.bz2`
+- **Source URL:** https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_8-fp32.tar.bz2
 - **Upstream:** https://github.com/k2-fsa/sherpa-onnx
 - **License:** Apache License, Version 2.0
 - **Notice:** Copyright (c) k2-fsa / Sherpa-ONNX contributors. The
@@ -28,7 +30,7 @@ upstream projects contribute to what ships in the APK:
 
 ## 3. Phonemizer data — espeak-ng
 
-- **Files:** everything under `app/src/main/assets/kitten/espeak-ng-data/`
+- **Files:** everything under `${filesDir}/engines/kitten/espeak-ng-data/`
 - **Upstream:** https://github.com/espeak-ng/espeak-ng
 - **License:** GNU General Public License v3.0
 - **Notice:** Copyright (c) The espeak-ng authors. The `espeak-ng-data`
@@ -40,21 +42,14 @@ upstream projects contribute to what ships in the APK:
 
 espeak-ng is GPL-3.0. The Sherpa-ONNX AAR vendored in `app/libs/`
 statically links espeak-ng for phonemization, so this project already
-distributes GPL-licensed code regardless of whether the data files
-are bundled here. Bundling the data files under
-`app/src/main/assets/kitten/espeak-ng-data/` is a packaging convenience
-— it does not change the underlying license situation introduced by
-linking against espeak-ng.
+distributes GPL-licensed code regardless of whether the user installs
+the Kitten engine. The downloadable Kitten bundle additionally ships
+the `espeak-ng-data` directory needed at runtime.
 
-If MIT-only distribution is a hard requirement, the alternatives are:
+The Kitten model itself is Apache 2.0 — the GPL contamination comes
+exclusively from the phonemizer path Sherpa-ONNX wires into both
+engines. The install dialog discloses this before the user accepts
+the download.
 
-1. Swap espeak-ng for a permissively-licensed phonemizer
-   (e.g. open-phonemizer, MIT). Requires a different Sherpa-ONNX build
-   that does not link espeak-ng, or a different inference path entirely.
-2. Use a model that does not need a phonemizer (e.g. Piper variants
-   trained on graphemes). Out of scope for the v0.1 Kitten engine.
-
-For v0.1, this project ships an MIT codebase that includes GPL-3.0
-phonemizer data and links a GPL-3.0 phonemizer library through the
-Sherpa-ONNX AAR. Source for espeak-ng is available at the upstream URL
-above per the GPL-3.0 source-availability requirement.
+Source for espeak-ng is available at the upstream URL above per the
+GPL-3.0 source-availability requirement.

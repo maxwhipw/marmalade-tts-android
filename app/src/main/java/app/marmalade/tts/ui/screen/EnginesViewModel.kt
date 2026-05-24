@@ -11,6 +11,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -66,22 +67,31 @@ class EnginesViewModel @Inject constructor(
     }
 
     /**
-     * Start an install for [engineName]. The progress callback updates the
-     * state map; the terminal state (Installed/Failed) overwrites it on
-     * completion.
+     * Start an install for [engineName]. Subscribes to the installer's full
+     * state flow so every transition (Downloading → Extracting → Installed)
+     * reaches the UI map. The `onProgress` callback that `installer.install`
+     * accepts only fires for Downloading updates — relying on it alone left
+     * the Extracting phase invisible to the engines list (the 5–15 second
+     * tarball unpack looked like a frozen UI). The terminal state from
+     * `result.fold` is kept as a defensive fallback in case the state flow
+     * gets cancelled before the final emission lands.
      */
     fun install(engineName: String) {
         _installStates.update { it + (engineName to InstallState.Downloading(0L, 0L, "")) }
         viewModelScope.launch {
-            val result = installer.install(engineName) { progress ->
-                _installStates.update { it + (engineName to progress) }
+            val stateJob = launch {
+                installer.state(engineName).collect { s ->
+                    _installStates.update { it + (engineName to s) }
+                }
             }
+            val result = installer.install(engineName) { /* state flow handles updates */ }
             _installStates.update {
                 it + (engineName to result.fold(
                     onSuccess = { InstallState.Installed },
                     onFailure = { err -> InstallState.Failed(err.message ?: "Install failed") },
                 ))
             }
+            stateJob.cancel()
         }
     }
 

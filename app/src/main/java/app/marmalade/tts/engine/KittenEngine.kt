@@ -94,9 +94,12 @@ open class KittenEngine @Inject constructor(
         /** Engine identifier matched against `VoiceMeta.engine` and used as the install dir name. */
         const val ENGINE_NAME = "kitten"
 
-        // Matches Sherpa-ONNX's released `kitten-nano-en-v0_8-int8.tar.bz2`
-        // layout — keep in sync with EngineInstaller's extraction logic.
-        private const val MODEL_FILE = "model.int8.onnx"
+        // Matches Sherpa-ONNX's released `kitten-nano-en-v0_8-fp32.tar.bz2`
+        // layout (fp32 — note no `.int8` infix). v0.1.4–v0.1.21 used the
+        // int8 variant; v0.1.22 swapped to fp32 because the dynamic int8
+        // quantisation (no per-channel calibration) made nano sound
+        // audibly grainy. Same 15M-parameter model, ~2x the download.
+        private const val MODEL_FILE = "model.fp32.onnx"
 
         /**
          * Friendly-name → Sherpa-ONNX speaker index.

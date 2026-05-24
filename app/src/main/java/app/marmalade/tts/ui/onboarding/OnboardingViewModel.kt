@@ -218,18 +218,7 @@ class OnboardingViewModel @Inject constructor(
 
         for (name in toInstall) {
             updateInstallState(name, InstallState.Downloading(0L, 0L, ""))
-            viewModelScope.launch {
-                val result = installer.install(name) { progress ->
-                    updateInstallState(name, progress)
-                }
-                val terminal: InstallState = result.fold(
-                    onSuccess = { InstallState.Installed },
-                    onFailure = { err ->
-                        InstallState.Failed(err.message ?: "Install failed")
-                    },
-                )
-                updateInstallState(name, terminal)
-            }
+            viewModelScope.launch { runInstall(name) }
         }
     }
 
@@ -239,20 +228,38 @@ class OnboardingViewModel @Inject constructor(
      */
     fun retry(engineName: String) {
         updateInstallState(engineName, InstallState.Downloading(0L, 0L, ""))
-        viewModelScope.launch {
-            val result = installer.install(engineName) { progress ->
-                updateInstallState(engineName, progress)
+        viewModelScope.launch { runInstall(engineName) }
+    }
+
+    /**
+     * Drive the installer and mirror every state transition (Downloading,
+     * Extracting, Installed/Failed) into [_installStates] so the
+     * onboarding progress UI never freezes mid-install. The `onProgress`
+     * callback that `installer.install` accepts only fires for Downloading
+     * updates — subscribing to the installer's state flow is the only way
+     * the Extracting phase reaches the UI.
+     *
+     * The `result.fold` block at the end is kept as a defensive fallback
+     * for the (rare) case where the state-flow collector gets cancelled
+     * before the final emission lands.
+     */
+    private suspend fun runInstall(engineName: String) {
+        val stateJob = viewModelScope.launch {
+            installer.state(engineName).collect { s ->
+                updateInstallState(engineName, s)
             }
-            updateInstallState(
-                engineName,
-                result.fold(
-                    onSuccess = { InstallState.Installed },
-                    onFailure = { err ->
-                        InstallState.Failed(err.message ?: "Install failed")
-                    },
-                ),
-            )
         }
+        val result = installer.install(engineName) { /* state flow handles updates */ }
+        updateInstallState(
+            engineName,
+            result.fold(
+                onSuccess = { InstallState.Installed },
+                onFailure = { err ->
+                    InstallState.Failed(err.message ?: "Install failed")
+                },
+            ),
+        )
+        stateJob.cancel()
     }
 
     // -- CreateAlias step state ------------------------------------------------

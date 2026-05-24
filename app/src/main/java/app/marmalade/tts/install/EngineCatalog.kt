@@ -119,12 +119,12 @@ object EngineCatalog {
     private const val KOKORO_INSTALLED_SIZE_BYTES: Long = 400_786_089L
 
     /**
-     * Sum of unpacked Kitten v0.8 int8 file sizes. Compute with:
-     *   tar -xjf kitten-nano-en-v0_8-int8.tar.bz2
-     *   find kitten-nano-en-v0_8-int8 -type f -exec stat -c %s {} + | \
+     * Sum of unpacked Kitten Nano v0.8 **fp32** file sizes. Compute with:
+     *   tar -xjf kitten-nano-en-v0_8-fp32.tar.bz2
+     *   find kitten-nano-en-v0_8-fp32 -type f -exec stat -c %s {} + | \
      *       awk '{s+=$1} END {print s}'
      */
-    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 45_652_547L
+    private const val KITTEN_INSTALLED_SIZE_BYTES: Long = 78_049_671L
 
     /**
      * Kokoro TTS — Sherpa-ONNX kokoro-multi-lang v1.0 (**fp32**) port. ~333 MB
@@ -181,13 +181,22 @@ object EngineCatalog {
     )
 
     /**
-     * Kitten TTS — Sherpa-ONNX nano-en v0.8 int8 port. ~31 MB compressed
-     * download, ~44 MB on-disk, 8 English voices.
+     * Kitten TTS — Sherpa-ONNX nano-en v0.8 **fp32** port. ~61 MB compressed
+     * download, ~74 MB on-disk, 8 English voices.
      *
-     * v0.1.0–v0.1.3 shipped the older v0.1 fp16 port; v0.1.4 upgrades to
-     * v0.8 int8 (same revision the marmalade-tts CLI uses on Linux). The
-     * model filename also changed from `model.fp16.onnx` to
-     * `model.int8.onnx` — [KittenEngine] reads from the new path.
+     * v0.1.0–v0.1.3 shipped the older v0.1 fp16 port; v0.1.4–v0.1.21
+     * shipped v0.8 int8. v0.1.22 swaps to v0.8 fp32 because the int8
+     * variant was audibly grainy (dynamic int8 quantisation, no
+     * per-channel calibration). Same 15M-parameter model + same 8 voices;
+     * just no quantisation artifacts. ~2x the download size.
+     *
+     * Per project policy ([feedback_verify_model_licence_before_recommending]
+     * and the highest-quant default): default to fp32 unless a lower-quant
+     * variant has been explicitly validated. nano-int8 failed validation.
+     *
+     * v0.1.23 will add a separate `kitten-mini` engine for the larger
+     * 80M-parameter variant as a quality-upgrade opt-in. This descriptor
+     * stays as the lightweight default.
      *
      * Demoted from `isRecommended = true` in v0.1.9 when Kokoro joined the
      * catalog. Kitten stays available as the smaller-footprint option.
@@ -195,20 +204,23 @@ object EngineCatalog {
     private val KITTEN: EngineDescriptor = EngineDescriptor(
         name = "kitten",
         displayName = "Kitten TTS",
-        description = "Small, fast English TTS with 8 voices. Downloads in under a minute " +
-            "and fits in ~45 MB on-disk — the lightweight alternative to Kokoro.",
-        downloadSizeBytes = 31_220_690L,
+        description = "Small, fast English TTS with 8 voices. Downloads in about a minute " +
+            "and fits in ~75 MB on-disk — the lightweight alternative to Kokoro.",
+        downloadSizeBytes = 63_815_222L,
         installedSizeBytes = KITTEN_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v3/kitten-nano-en-v0_8-int8.tar.bz2",
-            sha256 = "6fa5be852612ce761094ba74ee6123b4fc4acfefa79bf64dc63acae4a83af2fd",
-            sizeBytes = 31_220_690L,
+            // v0.1.22 mirror lives at v7 of marmalade-tts-android-engines.
+            // Source: github.com/k2-fsa/sherpa-onnx/releases/download/
+            // tts-models/kitten-nano-en-v0_8-fp32.tar.bz2.
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v7/kitten-nano-en-v0_8-fp32.tar.bz2",
+            sha256 = "16092117bfe591ddcd58d078e1454603b8e1caea46f85653b2c2efae76bd883e",
+            sizeBytes = 63_815_222L,
             // Sherpa-ONNX's tarball wraps everything in a top-level
             // directory of this name. The installer strips it during
             // extraction so the on-device layout is flat under
             // ${filesDir}/engines/kitten/.
-            archiveRoot = "kitten-nano-en-v0_8-int8/",
+            archiveRoot = "kitten-nano-en-v0_8-fp32/",
         ),
         licenseNotice = "LICENSES/kitten-tts.md",
         licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
