@@ -36,6 +36,12 @@ import javax.inject.Singleton
  *
  * Also bumped `numThreads` from 2 → 4. The Tensor G3 SoC (Pixel 8a) has
  * 4 P-cores (Cortex-A715); inference benefits from filling them.
+ *
+ * v0.1.21 fixed the "Lord"-as-"lawd" bug by changing `lang` from `"en"`
+ * to `"en-us"`. See [buildModelConfig] for the empirical proof — the
+ * multi-lang Kokoro pipeline routes English text through espeak, and
+ * espeak treats bare "en" as British. The lexicon-us-en.txt file the
+ * bundle ships is loaded but never consulted for English words.
  */
 // `open` exists only to let MarmaladeTtsServiceTest substitute a JVM-safe
 // fake engine (the real one calls into Sherpa-ONNX JNI which won't load in
@@ -50,36 +56,29 @@ open class KokoroEngine @Inject constructor(
     override val defaultSampleRate: Int = KokoroVoiceCatalog.SAMPLE_RATE
 
     override fun buildModelConfig(modelDir: File): OfflineTtsModelConfig {
-        // OfflineTtsKokoroModelConfig in Sherpa-ONNX 1.13.2 takes
-        // (model, voices, tokens, dataDir, lexicon, lang, dictDir,
-        //  lengthScale). For the multi-lang v1.0 bundle the official
-        // sherpa-onnx Android sample (Example 10 in TtsEngine.kt) sets:
-        //   - lexicon = "<modelDir>/lexicon-us-en.txt,<modelDir>/lexicon-zh.txt"
-        //   - lang    = "en"   (primary; English — ISO 639-1)
-        //   - lang2   = "zh"   (secondary; Mandarin)
+        // The `lang` field on OfflineTtsKokoroModelConfig is passed through
+        // to espeak-ng as its voice code. Sherpa-onnx's multi-lang Kokoro
+        // implementation routes every English (non-CJK) word straight to
+        // espeak — the `lexicon-us-en.txt` file the bundle ships is loaded
+        // but never consulted for English text. So `lang` is what actually
+        // decides US-vs-UK pronunciation.
         //
-        // CRITICAL #1: setting `lang = ""` silently disables the
-        // lexicon-driven phonemiser and falls back to pure espeak — that's
-        // what produced the tinny / staticy v0.1.19 output. With a valid
-        // 2-letter code the English lexicon is the primary route and
-        // espeak is the OOV fallback, which is the path the model was
-        // trained against.
+        // espeak-ng treats "en" as British English by default (no rhotic r,
+        // long vowel marker). v0.1.19 / v0.1.20 used `lang = "en"` per the
+        // upstream sherpa-onnx APK script, which is why American voices
+        // pronounced "Lord" as "lawd". Passing "en-us" makes espeak emit
+        // the rhotic `ɹ` token (id 123) the model expects, and the voice
+        // embedding then renders correct American English.
         //
-        // CRITICAL #2: the lang code must be ISO 639-1 (`"en"`), not
-        // ISO 639-3 (`"eng"`). The Kotlin sample app's Example 10 has a
-        // misleading `"eng"` comment, but Sherpa-ONNX's C++ source
-        // (offline-tts-kokoro-model-config.h) and the official APK build
-        // script both use the 2-letter form. Passing `"eng"` lands in an
-        // unknown-language branch and crashes inside generate.
+        // Empirical confirmation: desktop sherpa-onnx 1.13.2 against the
+        // same bundle produces token stream
+        //   lang="en"     -> [l, ˈ, ɔ, ː, d]          (no r)
+        //   lang="en-us"  -> [l, ˈ, ɔ, ː, ɹ, d]       (rhotic)
         //
-        // The Kotlin API of OfflineTtsKokoroModelConfig in 1.13.2 doesn't
-        // expose a `lang2` field directly. Sherpa-ONNX's multi-lang Kokoro
-        // C++ implementation (`KokoroMultiLangLexicon`) routes by text
-        // character set anyway — ASCII to lexicon-us-en, CJK to
-        // lexicon-zh — so omitting lang2 doesn't break Mandarin via voice
-        // selection; it just means we don't get the Chinese rule-FST
-        // text normalisation (handled separately at the outer config
-        // level — TODO follow-up).
+        // The lang code must be a value espeak-ng recognises. "en" and
+        // "en-us" both work; "eng" / "" crash inside generate. We do not
+        // try "en-gb" for British voices — the voice embedding alone
+        // produces British accent regardless of espeak's r choice.
         val lexicon = listOf(
             File(modelDir, "lexicon-us-en.txt").absolutePath,
             File(modelDir, "lexicon-zh.txt").absolutePath,
@@ -91,15 +90,19 @@ open class KokoroEngine @Inject constructor(
             tokens = File(modelDir, TOKENS_FILE).absolutePath,
             dataDir = File(modelDir, DATA_DIR).absolutePath,
             lexicon = lexicon,
-            lang = "en",
-            dictDir = "",
+            lang = "en-us",
+            // dict/ holds jieba's Chinese segmentation model. Pointing at
+            // it matches the upstream APK script convention; harmless for
+            // ASCII text but enables proper routing if a user feeds the
+            // engine Mandarin input.
+            dictDir = File(modelDir, "dict").absolutePath,
             lengthScale = 1.0f,
         )
         return OfflineTtsModelConfig(
             kokoro = kokoroCfg,
             // numThreads = 4 fills the Tensor G3 P-cluster (4× Cortex-A715).
             // XNNPACK/NNAPI providers are available in the AAR (Apache-2.0,
-            // verified via upstream source); we stay on `"cpu"` for v0.1.20
+            // verified via upstream source); we stay on `"cpu"` for now
             // and revisit acceleration as a separate change so any audio
             // regression is unambiguously attributable.
             numThreads = 4,
