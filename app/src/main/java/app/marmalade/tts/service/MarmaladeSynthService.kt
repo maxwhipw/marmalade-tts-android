@@ -27,12 +27,14 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
+import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -145,6 +147,7 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var kittenMini: KittenMiniEngine
     @Inject lateinit var kokoroV10: KokoroV10Engine
     @Inject lateinit var kokoroV11: KokoroV11Engine
+    @Inject lateinit var pocket: PocketEngine
 
     @Inject lateinit var preprocessor: Preprocessor
 
@@ -293,7 +296,8 @@ class MarmaladeSynthService : Service() {
             KokoroV10VoiceCatalog.ENGINE,
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE -> name
+            KittenMiniVoiceCatalog.ENGINE,
+            PocketVoiceCatalog.ENGINE -> name
             else -> DEFAULT_ENGINE
         }
     }
@@ -365,7 +369,8 @@ class MarmaladeSynthService : Service() {
             KokoroV10VoiceCatalog.ENGINE,
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE -> resolved.engine
+            KittenMiniVoiceCatalog.ENGINE,
+            PocketVoiceCatalog.ENGINE -> resolved.engine
             else -> {
                 Log.w(TAG, "Engine '${resolved.engine}' not supported — using $DEFAULT_ENGINE")
                 DEFAULT_ENGINE
@@ -432,7 +437,7 @@ class MarmaladeSynthService : Service() {
         }
     }
 
-    /** Per-engine synthesis dispatch. All four engines emit at 24 kHz today. */
+    /** Per-engine synthesis dispatch. All five engines emit at 24 kHz today. */
     private suspend fun synthesizeForEngine(
         engineName: String,
         text: String,
@@ -443,6 +448,7 @@ class MarmaladeSynthService : Service() {
         KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
         KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
         KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed)
         // Defensive: runOne already narrows engineName to known values.
         else -> kokoroV10.synthesize(text, voiceId, speed)
     }
@@ -453,6 +459,7 @@ class MarmaladeSynthService : Service() {
         KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1"
         KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano"
         KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini"
+        PocketVoiceCatalog.ENGINE -> "Pocket TTS"
         else -> engineName
     }
 

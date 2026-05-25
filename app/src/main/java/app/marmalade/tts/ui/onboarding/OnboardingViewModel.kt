@@ -7,6 +7,7 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
@@ -529,6 +530,7 @@ class OnboardingViewModel @Inject constructor(
         KokoroV11VoiceCatalog.ENGINE -> KokoroV11VoiceCatalog.DEFAULT_VOICE_ID
         KittenNanoVoiceCatalog.ENGINE -> KittenNanoVoiceCatalog.DEFAULT_VOICE_ID
         KittenMiniVoiceCatalog.ENGINE -> KittenMiniVoiceCatalog.DEFAULT_VOICE_ID
+        PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID
         else -> ""
     }
 

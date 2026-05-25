@@ -13,6 +13,7 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -20,6 +21,7 @@ import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
+import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -130,6 +132,7 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var kittenMini: KittenMiniEngine
     @Inject lateinit var kokoroV10: KokoroV10Engine
     @Inject lateinit var kokoroV11: KokoroV11Engine
+    @Inject lateinit var pocket: PocketEngine
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
@@ -254,6 +257,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
+            PocketVoiceCatalog.ENGINE,
         )
         for (engineName in knownEngines) {
             serviceScope.launch {
@@ -272,6 +276,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                 KokoroV11VoiceCatalog.ENGINE to kokoroV11::ensureModelLoaded,
                 KittenNanoVoiceCatalog.ENGINE to kittenNano::ensureModelLoaded,
                 KittenMiniVoiceCatalog.ENGINE to kittenMini::ensureModelLoaded,
+                PocketVoiceCatalog.ENGINE to pocket::ensureModelLoaded,
             )
             for ((name, load) in loaders) {
                 try {
@@ -570,12 +575,13 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (isKnownEngine(name)) name else KokoroV10VoiceCatalog.ENGINE
     }
 
-    /** Per-engine sample rate. All four engines ship 24 kHz today. */
+    /** Per-engine sample rate. All five engines ship 24 kHz today. */
     private fun sampleRateFor(engineName: String): Int = when (engineName) {
         KokoroV10VoiceCatalog.ENGINE -> kokoroV10.sampleRate
         KokoroV11VoiceCatalog.ENGINE -> kokoroV11.sampleRate
         KittenNanoVoiceCatalog.ENGINE -> kittenNano.sampleRate
         KittenMiniVoiceCatalog.ENGINE -> kittenMini.sampleRate
+        PocketVoiceCatalog.ENGINE -> pocket.sampleRate
         else -> kokoroV10.sampleRate
     }
 
@@ -598,6 +604,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
         KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
         KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed)
         else -> kokoroV10.synthesize(text, voiceId, speed)
     }
 
@@ -606,7 +613,8 @@ class MarmaladeTtsService : TextToSpeechService() {
         name == KokoroV10VoiceCatalog.ENGINE ||
             name == KokoroV11VoiceCatalog.ENGINE ||
             name == KittenNanoVoiceCatalog.ENGINE ||
-            name == KittenMiniVoiceCatalog.ENGINE
+            name == KittenMiniVoiceCatalog.ENGINE ||
+            name == PocketVoiceCatalog.ENGINE
 
     /**
      * Stream [pcm] through the synthesis callback in chunks of at most

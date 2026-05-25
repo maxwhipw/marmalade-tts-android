@@ -5,6 +5,7 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.HiltAndroidApp
@@ -112,6 +113,7 @@ class MarmaladeTtsApplication : Application() {
                 dao.upsertAll(KokoroV11VoiceCatalog.voices)
                 dao.upsertAll(KittenNanoVoiceCatalog.voices)
                 dao.upsertAll(KittenMiniVoiceCatalog.voices)
+                dao.upsertAll(PocketVoiceCatalog.voices)
                 prefs.setCatalogVersion(CATALOG_VERSION)
             }
         }
@@ -130,7 +132,11 @@ class MarmaladeTtsApplication : Application() {
          *    expansion (multi-lang). The pre-v0.1.19 schema didn't have a
          *    stamp; everyone defaults to 0 on read and so re-seeds on
          *    first launch of v0.1.19.
+         *  - v2: v0.2.0 — Kokoro + Kitten split into v1.0/v1.1 and Nano/Mini
+         *    engines with new IDs (`kokoro-v1_0`, `kitten-mini-v0_8`, …).
+         *  - v3: v0.3.0-alpha.1 — added Pocket TTS catalog (8 voices,
+         *    `pocket-tts-en-v2026_04:<name>`).
          */
-        const val CATALOG_VERSION: Int = 2
+        const val CATALOG_VERSION: Int = 3
     }
 }

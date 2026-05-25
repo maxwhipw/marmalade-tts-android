@@ -18,11 +18,18 @@ import org.junit.Test
 class EngineCatalogTest {
 
     @Test
-    fun catalogContainsAllFourVariants() {
+    fun catalogContainsAllFiveVariants() {
         // Order is the display order in onboarding + Settings → Engines.
-        // Kokoro v1.0 first because it is the recommended default.
+        // Kokoro v1.0 first because it is the recommended default; Pocket
+        // last because it's the alpha-quality non-sherpa engine.
         assertEquals(
-            listOf("kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8"),
+            listOf(
+                "kokoro-v1_0",
+                "kokoro-v1_1",
+                "kitten-nano-v0_8",
+                "kitten-mini-v0_8",
+                "pocket-tts-en-v2026_04",
+            ),
             EngineCatalog.all.map { it.name },
         )
     }
@@ -162,16 +169,25 @@ class EngineCatalogTest {
 
     @Test
     fun licenseSummaryFlagsGplComponent() {
-        // GPL disclosure is part of the install consent UX — it must show
-        // up in the catalog string so the UI cards reflect it. Both
-        // engines pull in espeak-ng-data (GPL-3.0) via Sherpa-ONNX.
-        for (engine in EngineCatalog.all) {
+        // GPL disclosure is part of the install consent UX — sherpa-onnx
+        // engines pull in espeak-ng-data (GPL-3.0) via Sherpa-ONNX, so
+        // their licenseSummary must mention "GPL" so install cards reflect
+        // it. Pocket runs on Microsoft onnxruntime-android directly and
+        // has no GPL components, so it's exempt — and its licenseSummary
+        // must explicitly state "no GPL" so users can see the difference.
+        val sherpaEngines = EngineCatalog.all.filter { it.name != "pocket-tts-en-v2026_04" }
+        for (engine in sherpaEngines) {
             val haystack = engine.licenseSummary.lowercase()
             assertTrue(
                 "${engine.name}.licenseSummary should mention GPL — was '${engine.licenseSummary}'",
                 haystack.contains("gpl"),
             )
         }
+        val pocket = EngineCatalog.byName("pocket-tts-en-v2026_04")!!
+        assertTrue(
+            "pocket licenseSummary should explicitly state it has no GPL — was '${pocket.licenseSummary}'",
+            pocket.licenseSummary.lowercase().contains("no gpl"),
+        )
     }
 
     @Test

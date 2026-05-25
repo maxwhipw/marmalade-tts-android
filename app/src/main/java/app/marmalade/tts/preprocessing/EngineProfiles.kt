@@ -70,12 +70,16 @@ object EngineProfiles {
      * engines we ship (Kokoro v1.0 + v1.1, Kitten Nano + Mini) all share
      * the same upstream phoneme conventions per family, so v1.0 / v1.1 of
      * Kokoro use the same defaults, and Kitten Nano / Mini share theirs.
+     * Pocket TTS does no native text normalization upstream (per
+     * NekoSpeak's reverse-engineering of the pipeline), so it gets the
+     * full Kitten rule set — same surface as Kitten Nano / Mini.
      */
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
         "kitten-nano-v0_8" to KITTEN_DEFAULTS,
         "kitten-mini-v0_8" to KITTEN_DEFAULTS,
         "kokoro-v1_0" to KOKORO_DEFAULTS,
         "kokoro-v1_1" to KOKORO_DEFAULTS,
+        "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
             "markdown", "html",

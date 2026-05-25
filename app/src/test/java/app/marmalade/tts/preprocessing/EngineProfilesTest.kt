@@ -23,8 +23,9 @@ class EngineProfilesTest {
     fun kitten_includes_every_rule() {
         // Kitten ships no native text normalization — its default profile
         // contains every rule we offer. This is the CLI's invariant; if
-        // someone trims kitten's defaults they should know it.
-        val profile = EngineProfiles.defaultsFor("kitten")
+        // someone trims kitten's defaults they should know it. Both v0.8
+        // variants share the same profile, so either is a fair witness.
+        val profile = EngineProfiles.defaultsFor("kitten-nano-v0_8")
         val allNames = PreprocessingRules.ALL.map { it.name }.toSet()
         assertEquals(allNames, profile)
     }
@@ -46,8 +47,9 @@ class EngineProfilesTest {
     fun kokoro_omits_what_misaki_handles_natively() {
         // misaki (kokoro's text frontend) handles numbers + abbreviations
         // + ordinals natively. Re-running our generic rules over what
-        // misaki already normalized would garble the output.
-        val profile = EngineProfiles.defaultsFor("kokoro")
+        // misaki already normalized would garble the output. Both v1.0
+        // and v1.1 share the profile — assert on v1.0 (the default).
+        val profile = EngineProfiles.defaultsFor("kokoro-v1_0")
         assertFalse("kokoro skips `number` (misaki handles)", "number" in profile)
         assertFalse("kokoro skips `abbreviation` (misaki handles)", "abbreviation" in profile)
         assertFalse("kokoro skips `ordinal` (misaki handles)", "ordinal" in profile)
@@ -68,7 +70,7 @@ class EngineProfilesTest {
         // Matches the CLI's `ENGINE_PROFILES.get(engine, ENGINE_PROFILES["kitten"])`
         // shape. A misspelled or future engine name shouldn't crash —
         // it should yield the "everything on" safe default.
-        val kitten = EngineProfiles.defaultsFor("kitten")
+        val kitten = EngineProfiles.defaultsFor("kitten-nano-v0_8")
         val unknown = EngineProfiles.defaultsFor("nonexistent-engine")
         assertEquals(kitten, unknown)
     }
@@ -91,11 +93,14 @@ class EngineProfilesTest {
 
     @Test
     fun every_engine_in_catalog_has_a_profile_defined() {
-        // Forward-compat with the install catalog — once an engine ships,
-        // it must have a profile or the Settings UI shows it with empty
-        // toggles. Currently kitten is the only catalog entry and has a
-        // profile; this guards the invariant for the next engine.
-        val kitten = EngineProfiles.DEFAULT_PROFILES["kitten"]
-        assertNotNull("kitten profile must exist", kitten)
+        // Forward-compat with the install catalog — every engine the
+        // user can install MUST have a non-fallback profile or Settings →
+        // Text preprocessing renders an empty toggle list for it.
+        for (engine in app.marmalade.tts.install.EngineCatalog.all) {
+            assertNotNull(
+                "engine '${engine.name}' has no entry in DEFAULT_PROFILES",
+                EngineProfiles.DEFAULT_PROFILES[engine.name],
+            )
+        }
     }
 }

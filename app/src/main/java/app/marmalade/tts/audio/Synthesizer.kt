@@ -8,11 +8,13 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
+import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import javax.inject.Inject
@@ -127,6 +129,7 @@ class Synthesizer @Inject constructor(
     private val kittenMini: KittenMiniEngine,
     private val kokoroV10: KokoroV10Engine,
     private val kokoroV11: KokoroV11Engine,
+    private val pocket: PocketEngine,
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
 ) : SpeechPlayer {
@@ -238,7 +241,8 @@ class Synthesizer @Inject constructor(
             KokoroV10VoiceCatalog.ENGINE,
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE -> name
+            KittenMiniVoiceCatalog.ENGINE,
+            PocketVoiceCatalog.ENGINE -> name
             else -> KokoroV10VoiceCatalog.ENGINE
         }
     }
@@ -254,6 +258,7 @@ class Synthesizer @Inject constructor(
         KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
         KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
         KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed)
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest.
         else -> kokoroV10.synthesize(text, voiceId, speed)

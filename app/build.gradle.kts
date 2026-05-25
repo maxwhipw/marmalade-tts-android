@@ -14,8 +14,8 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 24
-        versionName = "0.2.0"
+        versionCode = 25
+        versionName = "0.3.0-alpha.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -135,6 +135,15 @@ dependencies {
     // release with KittenTTS v0.8 support — anything older crashes mid-
     // synthesis against our v0.8 int8 bundle.
     implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar"))
+
+    // Microsoft onnxruntime-android (MIT). Used directly by the Pocket TTS
+    // engine (v0.3.0+) — Pocket isn't a sherpa-onnx pipeline, it's a
+    // 5-graph LSD model we run ourselves. Coexists with sherpa-onnx: the
+    // vendored AAR statically links its own ORT 1.13.2 so this dep
+    // doesn't replace it. The `jniLibs.pickFirsts` block below absorbs
+    // the duplicate `libonnxruntime.so` / JNI shim that both providers
+    // bundle for `arm64-v8a` and `armeabi-v7a`.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
 
     // Media session (lock-screen + BT transport controls in MarmaladeSynthService).
     // Provides MediaSessionCompat / PlaybackStateCompat / MediaButtonReceiver.

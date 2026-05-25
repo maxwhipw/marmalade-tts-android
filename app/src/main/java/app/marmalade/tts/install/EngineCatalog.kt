@@ -116,6 +116,7 @@ object EngineCatalog {
     private const val KOKORO_V1_1_INSTALLED_SIZE_BYTES: Long = 426_654_376L
     private const val KITTEN_NANO_INSTALLED_SIZE_BYTES: Long = 78_049_671L
     private const val KITTEN_MINI_INSTALLED_SIZE_BYTES: Long = 99_550_582L
+    private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 151_977_382L
 
     /**
      * Kokoro v1.0 multi-lang fp32 (`kokoro-multi-lang-v1_0`). 53 voices
@@ -230,16 +231,56 @@ object EngineCatalog {
     )
 
     /**
+     * Pocket TTS English v2026_04 (`pocket-tts-en-v2026_04-int8`). Kyutai
+     * Labs' Latent Space Diffusion model, run on Microsoft
+     * `onnxruntime-android` directly (no sherpa-onnx in this path). 8
+     * predefined voices plus user-cloned voices via the `mimi_encoder`
+     * pipeline (cloning UX lands in v0.3.0).
+     *
+     * Synthesis itself is stubbed in v0.3.0-alpha.1 — installing this
+     * engine puts the bundle on disk and registers its voices, but
+     * pressing Speak on a Pocket voice surfaces a "not implemented"
+     * error until the LSD inference loop lands in alpha.2.
+     *
+     * Apache-2.0 throughout: model weights, runtime, and the tokenizer.
+     * No espeak dependency — Pocket does its own phonemization upstream
+     * of the ONNX export, so this is the only catalog entry whose
+     * `licenseSummary` doesn't flag GPL contamination.
+     */
+    private val POCKET_TTS_EN: EngineDescriptor = EngineDescriptor(
+        name = "pocket-tts-en-v2026_04",
+        displayName = "Pocket TTS (English, 2026-04)",
+        description = "Kyutai Labs' Pocket TTS — 8 expressive English voices " +
+            "plus voice cloning from your own audio. Synthesis lands in " +
+            "v0.3.0-alpha.2; this build installs the bundle and registers " +
+            "the voices but cannot yet generate speech.",
+        downloadSizeBytes = 81_669_744L,
+        installedSizeBytes = POCKET_TTS_INSTALLED_SIZE_BYTES,
+        isRecommended = false,
+        archive = EngineArchive(
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v9/pocket-tts-en-v2026_04-int8.tar.bz2",
+            sha256 = "c246948d80db8f569c49b35c6f05e7ab330ec144dc42c752e0103e4e87effd7e",
+            sizeBytes = 81_669_744L,
+            archiveRoot = "pocket-tts-en/",
+        ),
+        licenseNotice = "LICENSES/pocket-tts.md",
+        licenseSummary = "Apache-2.0 model + MIT runtime (onnxruntime-android). " +
+            "No GPL components.",
+    )
+
+    /**
      * Every engine the app knows how to install. Read-only.
      *
      * Order is the display order: Kokoro family first (recommended
-     * default = v1.0), then Kitten family (lighter alternatives).
+     * default = v1.0), then Kitten family (lighter alternatives), then
+     * Pocket (cloning-capable engine on a different runtime).
      */
     val all: List<EngineDescriptor> = listOf(
         KOKORO_V1_0,
         KOKORO_V1_1,
         KITTEN_NANO,
         KITTEN_MINI,
+        POCKET_TTS_EN,
     )
 
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */

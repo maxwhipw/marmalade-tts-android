@@ -17,6 +17,7 @@ import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
+import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
@@ -121,11 +122,13 @@ object AppModule {
         kittenMini: KittenMiniEngine,
         kokoroV10: KokoroV10Engine,
         kokoroV11: KokoroV11Engine,
+        pocket: PocketEngine,
     ): NativeEngineHandle = NativeEngineHandle {
         kittenNano.release()
         kittenMini.release()
         kokoroV10.release()
         kokoroV11.release()
+        pocket.release()
     }
 
     /**
