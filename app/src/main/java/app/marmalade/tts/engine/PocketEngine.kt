@@ -12,6 +12,9 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.engine.pocket.NpyReader
 import app.marmalade.tts.engine.pocket.PocketAudio
 import app.marmalade.tts.engine.pocket.PocketBundle
+import app.marmalade.tts.engine.pocket.PocketClonedVoice
+import app.marmalade.tts.engine.pocket.PocketClonedVoiceStore
+import app.marmalade.tts.engine.pocket.PocketClonedVoiceSummary
 import app.marmalade.tts.engine.pocket.PocketStates
 import app.marmalade.tts.engine.pocket.PocketTokenizer
 import app.marmalade.tts.engine.pocket.bindStateInputs
@@ -76,6 +79,7 @@ open class PocketEngine @Inject constructor(
     private val engineDir: File get() = File(ctx.filesDir, "engines/$ENGINE_NAME")
     private val voicesDir: File get() = File(engineDir, "voices")
     private val voiceCacheDir: File get() = File(engineDir, "voice_cache")
+    private val clonedVoicesDir: File get() = File(engineDir, "cloned_voices")
 
     private val loadLock = Mutex()
     private val synthLock = Mutex()
@@ -280,12 +284,22 @@ open class PocketEngine @Inject constructor(
      *
      * Order of resolution:
      *   1. In-memory cache.
-     *   2. On-disk `.emb` cache (binary: `int numFrames` + raw float32s).
-     *   3. Encode from `voices/<name>.wav` via `mimi_encoder`, write the
+     *   2. If `voiceName` starts with `"cloned-"`: read from
+     *      `cloned_voices/<voiceName>.bin` (PVS1 format).
+     *   3. On-disk built-in `.emb` cache.
+     *   4. Encode from `voices/<name>.wav` via `mimi_encoder`, write the
      *      .emb cache, then return.
      */
     private fun embeddingForVoice(voiceName: String): FloatArray {
         voiceEmbeddings[voiceName]?.let { return it }
+
+        if (voiceName.startsWith(CLONED_VOICE_PREFIX)) {
+            val cacheFile = File(clonedVoicesDir, "$voiceName.bin")
+            check(cacheFile.isFile) { "Cloned voice missing: $cacheFile" }
+            val cloned = PocketClonedVoiceStore.read(cacheFile)
+            voiceEmbeddings[voiceName] = cloned.embedding
+            return cloned.embedding
+        }
 
         if (!voiceCacheDir.exists()) voiceCacheDir.mkdirs()
         val cacheFile = File(voiceCacheDir, "$voiceName.emb")
@@ -302,7 +316,8 @@ open class PocketEngine @Inject constructor(
 
         val wavFile = File(voicesDir, "$voiceName.wav")
         check(wavFile.isFile) { "Voice WAV missing: $wavFile" }
-        val embedding = encodeVoiceWav(wavFile)
+        val wav = PocketAudio.readWav(wavFile)
+        val embedding = encodePcm(wav.samples, wav.sampleRate)
         try {
             writeEmbCache(cacheFile, embedding)
         } catch (t: Throwable) {
@@ -312,25 +327,36 @@ open class PocketEngine @Inject constructor(
         return embedding
     }
 
-    private fun encodeVoiceWav(file: File): FloatArray {
+    /**
+     * Run [pcm] (at [srcSampleRate], in [-1, 1] float range) through the
+     * `mimi_encoder` and return the flat `[numFrames, 1024]` embedding.
+     *
+     * Pre-processing matches the Python ground truth:
+     *   - resample to the bundle's sample rate (24 kHz for english_2026-04),
+     *   - divide by peak if any sample exceeds 1.0,
+     *   - truncate to 30 s (the encoder's effective receptive field).
+     *
+     * Shared between the built-in voice encoder (called lazily on first
+     * use of each Kyutai-supplied WAV) and the [cloneVoice] path
+     * (called when the user supplies their own audio).
+     */
+    private fun encodePcm(pcm: FloatArray, srcSampleRate: Int): FloatArray {
         val bundle = bundle ?: error("bundle missing")
         val ort = env ?: error("ORT env missing")
         val session = mimiEncoderSession ?: error("mimi encoder session missing")
 
-        val wav = PocketAudio.readWav(file)
-        var pcm = PocketAudio.resample(wav.samples, wav.sampleRate, bundle.sampleRate)
-        pcm = PocketAudio.normalizeIfClipping(pcm)
-        // 30 s cap matches the Python ground truth `truncate=True`.
+        var processed = PocketAudio.resample(pcm, srcSampleRate, bundle.sampleRate)
+        processed = PocketAudio.normalizeIfClipping(processed)
         val cap = 30 * bundle.sampleRate
-        if (pcm.size > cap) pcm = pcm.copyOf(cap)
+        if (processed.size > cap) processed = processed.copyOf(cap)
 
         // mimi_encoder input: `audio` float32 [1, 1, T]
-        val buf = ByteBuffer.allocateDirect(pcm.size * 4)
+        val buf = ByteBuffer.allocateDirect(processed.size * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
-        buf.put(pcm)
+        buf.put(processed)
         buf.rewind()
-        OnnxTensor.createTensor(ort, buf, longArrayOf(1, 1, pcm.size.toLong())).use { audioTensor ->
+        OnnxTensor.createTensor(ort, buf, longArrayOf(1, 1, processed.size.toLong())).use { audioTensor ->
             session.run(mapOf("audio" to audioTensor)).use { result ->
                 val out = result.get("latents").orElseThrow {
                     IllegalStateException("mimi_encoder did not return 'latents'")
@@ -346,6 +372,84 @@ open class PocketEngine @Inject constructor(
                 return flat
             }
         }
+    }
+
+    // -- voice cloning (backend) --------------------------------------------
+    //
+    // Surface area only. There is NO user-facing affordance yet — the
+    // cloning UX (recorder, file picker, consent dialog, alias editor
+    // entry) is deliberately deferred pending the ethical/UX call on
+    // whether and how to expose this capability. These methods exist so
+    // the eventual UI can wire up without further engine changes, and
+    // so we can exercise the encode path end-to-end in isolation.
+    //
+    // The cloned voice's mimi embedding is computed once at clone time
+    // and persisted to disk (PVS1 binary format) — synthesis just
+    // reads the file. No live audio leaves the device.
+
+    /**
+     * Clone a voice from arbitrary PCM input. The audio is resampled +
+     * normalised + capped to 30 s before being fed through
+     * `mimi_encoder`. The resulting embedding is written to
+     * `cloned_voices/cloned-<uuid>.bin` and returned via its full voice
+     * ID (`pocket-tts-en-v2026_04:cloned-<uuid>`).
+     *
+     * Idempotent w.r.t. failure: if the encode succeeds but the file
+     * write fails, no state survives the throw. The cloned voice is
+     * also added to the in-memory cache so the first synth call after
+     * cloning doesn't pay the file-read cost.
+     *
+     * @param displayName user-facing label (≤ 256 UTF-8 bytes)
+     * @param pcm mono float32 PCM in [-1, 1]
+     * @param srcSampleRate sample rate of [pcm]
+     * @return full voice ID, e.g. `"pocket-tts-en-v2026_04:cloned-abc..."`
+     */
+    suspend fun cloneVoice(
+        displayName: String,
+        pcm: FloatArray,
+        srcSampleRate: Int,
+    ): String = withContext(Dispatchers.Default) {
+        require(displayName.isNotBlank()) { "Cloned voice display name must not be blank" }
+        require(pcm.isNotEmpty()) { "Cloned voice PCM is empty" }
+        ensureLoadedSuspending()
+        val bundle = bundle ?: error("bundle missing after load")
+
+        synthLock.withLock {
+            val embedding = encodePcm(pcm, srcSampleRate)
+            val numFrames = embedding.size / bundle.conditioningDim
+            val localId = CLONED_VOICE_PREFIX + java.util.UUID.randomUUID().toString()
+            val voice = PocketClonedVoice(
+                id = localId,
+                displayName = displayName,
+                createdAtMillis = System.currentTimeMillis(),
+                numFrames = numFrames,
+                embedding = embedding,
+            )
+            PocketClonedVoiceStore.write(clonedVoicesDir, voice)
+            voiceEmbeddings[localId] = embedding
+            Log.i(TAG, "Cloned voice '$displayName' as $localId ($numFrames frames)")
+            "${PocketVoiceCatalog.ENGINE}:$localId"
+        }
+    }
+
+    /**
+     * List every cloned voice on disk. Reads only the headers — does
+     * NOT load embeddings into memory. Cheap to call from a UI flow.
+     */
+    suspend fun listClonedVoices(): List<PocketClonedVoiceSummary> = withContext(Dispatchers.IO) {
+        PocketClonedVoiceStore.list(clonedVoicesDir)
+    }
+
+    /**
+     * Delete the cloned voice with [voiceId] (the full
+     * `pocket-tts-en-v2026_04:cloned-<uuid>` form, or just the local
+     * `cloned-<uuid>` part). Returns true if a file was removed.
+     * Also drops the in-memory cache entry.
+     */
+    suspend fun deleteClonedVoice(voiceId: String): Boolean = withContext(Dispatchers.IO) {
+        val localId = voiceId.substringAfter(':', voiceId)
+        voiceEmbeddings.remove(localId)
+        PocketClonedVoiceStore.delete(clonedVoicesDir, localId)
     }
 
     private fun readEmbCache(file: File): FloatArray {
@@ -787,6 +891,14 @@ open class PocketEngine @Inject constructor(
 
         /** Belt-and-braces ceiling. Should never trip under normal use. */
         private const val MAX_FRAMES_HARD_CAP = 500
+
+        /**
+         * Voice-name prefix that marks a cloned voice. Built-in voices
+         * use Kyutai's reference names (alba/azelma/...). Cloned voices
+         * carry a UUID with this prefix so the lookup in
+         * [embeddingForVoice] can route to the right on-disk format.
+         */
+        const val CLONED_VOICE_PREFIX = "cloned-"
 
         // Reused across calls; ThreadLocal so two simultaneous engines
         // wouldn't share a Random (we serialise via synthLock anyway, but
