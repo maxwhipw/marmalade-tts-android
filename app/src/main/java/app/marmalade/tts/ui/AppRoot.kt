@@ -37,9 +37,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.AppMappingsScreen
+import app.marmalade.tts.ui.screen.BenchmarkScreen
 import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
@@ -94,6 +96,14 @@ object Routes {
 
     /** Build the navigation route for [name]'s per-engine detail screen. */
     fun engineDetail(name: String): String = "$EngineDetail/$name"
+
+    /**
+     * Debug-only benchmark surface — measures per-engine synth timings
+     * across the installed engines. Reachable from Settings only in
+     * `BuildConfig.DEBUG` builds; the composable + route still exist in
+     * release builds (dead code, ~5 KB) but no surface routes to it.
+     */
+    const val Benchmark = "benchmark"
 }
 
 /** Tabs that show in the bottom NavigationBar. Order = display order. */
@@ -141,6 +151,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     // promoted to a top-level tab in v0.1.18 so the nav bar stays
     // visible on that screen now.
     val showBottomBar = currentRoute != Routes.AppMappings &&
+        currentRoute != Routes.Benchmark &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true
 
     Scaffold(
@@ -203,6 +214,11 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
+                    onNavigateToBenchmark = if (BuildConfig.DEBUG) {
+                        { navController.navigate(Routes.Benchmark) }
+                    } else {
+                        null
+                    },
                 )
             }
             composable(Routes.Aliases) {
@@ -214,6 +230,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.AppMappings) {
                 AppMappingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.Benchmark) {
+                BenchmarkScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Routes.EngineDetail}/{name}",

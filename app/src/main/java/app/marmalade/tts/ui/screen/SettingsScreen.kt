@@ -99,6 +99,12 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @Composable
 fun SettingsScreen(
     onNavigateToAppMappings: () -> Unit,
+    /**
+     * Nav callback for the debug-only Benchmark entry. Null in release
+     * builds — the row is hidden when this is null. AppRoot passes the
+     * actual nav lambda only when `BuildConfig.DEBUG`.
+     */
+    onNavigateToBenchmark: (() -> Unit)? = null,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
@@ -144,6 +150,11 @@ fun SettingsScreen(
             HorizontalDivider()
 
             SystemDefaultSection()
+
+            if (onNavigateToBenchmark != null) {
+                HorizontalDivider()
+                BenchmarkSection(onClick = onNavigateToBenchmark)
+            }
 
             HorizontalDivider()
 
@@ -249,6 +260,34 @@ private fun SystemDefaultSection() {
             Text(
                 text = "Opens Android's text-to-speech settings so you can pick Marmalade " +
                     "as the default engine. Required for external apps to route TTS through us.",
+            )
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
+}
+
+/**
+ * Debug-only entry point to the benchmark surface. Only shown when
+ * `BuildConfig.DEBUG` (gated by AppRoot passing a non-null lambda to
+ * [SettingsScreen]). Release builds never render this section.
+ */
+@Composable
+private fun BenchmarkSection(onClick: () -> Unit) {
+    SectionHeader("Debug")
+
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        headlineContent = { Text("Benchmark") },
+        supportingContent = {
+            Text(
+                text = "Measure per-engine synth timings. Pocket shows a phase " +
+                    "breakdown; sherpa engines get load + total + realtime ratio.",
             )
         },
         trailingContent = {

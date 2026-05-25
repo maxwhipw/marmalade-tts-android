@@ -54,4 +54,78 @@ interface TtsEngine {
      * Safe to call from any thread.
      */
     fun release()
+
+    /**
+     * Synthesize + return timing breakdown alongside the audio.
+     *
+     * Default implementation measures only the coarse wall-clock spans
+     * (load, total) — adequate for engines whose synth pipeline is a
+     * single opaque native call (the sherpa-backed engines all fall
+     * here: `OfflineTts.generate` is a black box from our side, so
+     * decomposing it would mean forking sherpa-onnx).
+     *
+     * Engines that own their inference pipeline (currently
+     * [app.marmalade.tts.engine.PocketEngine]) override this to attach
+     * per-phase detail (tokenize, voice-encode, text conditioner,
+     * autoregressive loop, decoder, ...).
+     *
+     * Only used by the debug benchmark screen — production callers
+     * stay on plain [synthesize] to avoid the (tiny) overhead.
+     */
+    suspend fun synthesizeWithTimings(
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): TimedSynthAudio {
+        val loadStart = System.currentTimeMillis()
+        ensureModelLoaded()
+        val loadMs = System.currentTimeMillis() - loadStart
+        val t0 = System.currentTimeMillis()
+        val audio = synthesize(text, voiceId, speed)
+        val totalMs = System.currentTimeMillis() - t0
+        return TimedSynthAudio(
+            audio = audio,
+            timings = EnginePhaseTimings(
+                engineName = engineName,
+                totalMs = totalMs,
+                loadMs = loadMs,
+            ),
+        )
+    }
 }
+
+/**
+ * Wall-clock measurements from one [TtsEngine.synthesizeWithTimings]
+ * call. The `phases` list is empty for engines whose synth is a single
+ * opaque call; Pocket TTS populates it with its tokenize / voice-encode
+ * / text-conditioner / AR-loop / decoder breakdown.
+ */
+data class EnginePhaseTimings(
+    val engineName: String,
+    /** Wall-clock spent in [TtsEngine.synthesize] proper (excludes load). */
+    val totalMs: Long,
+    /**
+     * Wall-clock spent in `ensureModelLoaded`. 0 on the warm path; only
+     * non-zero on the first synth after process start (or after release).
+     */
+    val loadMs: Long,
+    /**
+     * Optional per-phase breakdown. Order is meaningful (phases run
+     * sequentially in the order they appear here).
+     */
+    val phases: List<PhaseSpan> = emptyList(),
+)
+
+/** Named span of measured wall-clock work. */
+data class PhaseSpan(
+    val name: String,
+    val ms: Long,
+    /** Optional one-liner shown alongside the duration (e.g. `"167 frames @ 4.3 ms/frame"`). */
+    val detail: String? = null,
+)
+
+/** Synth output + timing metadata. Returned by [TtsEngine.synthesizeWithTimings]. */
+data class TimedSynthAudio(
+    val audio: SynthAudio,
+    val timings: EnginePhaseTimings,
+)

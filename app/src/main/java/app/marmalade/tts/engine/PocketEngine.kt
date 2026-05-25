@@ -102,6 +102,19 @@ open class PocketEngine @Inject constructor(
     /** In-memory cache of voice embeddings (built-in + user-cloned). */
     private val voiceEmbeddings: ConcurrentHashMap<String, FloatArray> = ConcurrentHashMap()
 
+    /**
+     * Detailed phase timings from the most recent [synthesize] call.
+     * Read by [synthesizeWithTimings] to attach to the returned
+     * [EnginePhaseTimings]. Protected by [synthLock] — never read while
+     * a synth is in flight.
+     *
+     * Bench-only. Plain [synthesize] callers ignore this; the overhead
+     * is a handful of `System.currentTimeMillis()` calls per synth so
+     * we always populate it.
+     */
+    @Volatile
+    private var lastDetailedPhases: List<PhaseSpan> = emptyList()
+
     override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
         for (name in REQUIRED_FILES) {
@@ -212,14 +225,28 @@ open class PocketEngine @Inject constructor(
         val tokenizer = tokenizer ?: error("tokenizer missing after load")
 
         synthLock.withLock {
+            val phases = ArrayList<PhaseSpan>(8)
             val voiceName = voiceId.substringAfter(':', voiceId)
+
+            val voiceEncStart = System.currentTimeMillis()
+            val voiceWasCached = voiceEmbeddings.containsKey(voiceName)
             val voiceEmb = embeddingForVoice(voiceName)
+            val voiceEncMs = System.currentTimeMillis() - voiceEncStart
+            if (!voiceWasCached) {
+                phases.add(PhaseSpan("voice-encode (cold)", voiceEncMs))
+            } else if (voiceEncMs > 0) {
+                // Sub-ms warm hit; only record if it actually showed up.
+                phases.add(PhaseSpan("voice-encode (warm)", voiceEncMs))
+            }
 
             // Tokenize. Apply the preprocessing flags the bundle exposes
             // (semicolons, short-input padding); these are no-ops for the
             // common case but matter for short / punctuation-heavy inputs.
+            val tokStart = System.currentTimeMillis()
             val preprocessed = preprocessForPocket(text, bundle)
             val tokens = tokenizer.encode(preprocessed)
+            val tokMs = System.currentTimeMillis() - tokStart
+            phases.add(PhaseSpan("tokenize", tokMs, detail = "${tokens.size} tokens"))
             if (tokens.size > bundle.maxTokenPerChunk) {
                 Log.w(
                     TAG,
@@ -238,11 +265,68 @@ open class PocketEngine @Inject constructor(
                 Log.d(TAG, "Pocket TTS ignores speed=$speed (not exposed natively in this build)")
             }
 
-            val latents = runFlowLm(bundle, voiceEmb, tokens)
-            val pcmFloat = runMimiDecoder(bundle, latents)
+            val flowStart = System.currentTimeMillis()
+            val flowResult = runFlowLm(bundle, voiceEmb, tokens, phases)
+            val flowMs = System.currentTimeMillis() - flowStart
+            // The phase spans for phase-1, phase-2, AR loop are added by runFlowLm.
+            // This "flow-lm total" is just a sanity sum for the bench UI.
+            phases.add(
+                PhaseSpan(
+                    "flow-lm total",
+                    flowMs,
+                    detail = "${flowResult.numFrames} latent frames" +
+                        if (flowResult.eosFiredAt >= 0) ", EOS at #${flowResult.eosFiredAt}"
+                        else ", no EOS (capped)",
+                ),
+            )
+
+            val decStart = System.currentTimeMillis()
+            val pcmFloat = runMimiDecoder(bundle, flowResult.latents)
+            val decMs = System.currentTimeMillis() - decStart
+            val audioSeconds = pcmFloat.size.toDouble() / bundle.sampleRate.toDouble()
+            phases.add(
+                PhaseSpan(
+                    "mimi-decode",
+                    decMs,
+                    detail = "→ %.2f s of audio".format(audioSeconds),
+                ),
+            )
+
+            val pcm16Start = System.currentTimeMillis()
             val pcm16 = floatToPcm16(pcmFloat)
+            val pcm16Ms = System.currentTimeMillis() - pcm16Start
+            if (pcm16Ms > 0) phases.add(PhaseSpan("pcm16 convert", pcm16Ms))
+
+            lastDetailedPhases = phases
             SynthAudio(pcm = pcm16, sampleRate = bundle.sampleRate)
         }
+    }
+
+    /**
+     * Override the default timed-synth wrapper so the bench UI gets our
+     * detailed phase breakdown. Production callers stay on plain
+     * [synthesize] and never trip this path.
+     */
+    override suspend fun synthesizeWithTimings(
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): TimedSynthAudio = withContext(Dispatchers.Default) {
+        val loadStart = System.currentTimeMillis()
+        ensureLoadedSuspending()
+        val loadMs = System.currentTimeMillis() - loadStart
+        val t0 = System.currentTimeMillis()
+        val audio = synthesize(text, voiceId, speed)
+        val totalMs = System.currentTimeMillis() - t0
+        TimedSynthAudio(
+            audio = audio,
+            timings = EnginePhaseTimings(
+                engineName = engineName,
+                totalMs = totalMs,
+                loadMs = loadMs,
+                phases = lastDetailedPhases,
+            ),
+        )
     }
 
     override fun release() {
@@ -484,11 +568,20 @@ open class PocketEngine @Inject constructor(
      * Run all three flow_lm_main phases + the autoregressive Euler loop.
      * Returns the flat latent buffer (length = `numFrames * latentDim`).
      */
+    /** Return-shape from [runFlowLm]: flattened latents + telemetry for the bench. */
+    private data class FlowLmResult(
+        val latents: FloatArray,
+        val numFrames: Int,
+        /** Frame index at which the EOS logit first crossed the threshold, or -1 if it never did. */
+        val eosFiredAt: Int,
+    )
+
     private fun runFlowLm(
         bundle: PocketBundle,
         voiceEmbedding: FloatArray,
         tokens: IntArray,
-    ): FloatArray {
+        phases: MutableList<PhaseSpan>,
+    ): FlowLmResult {
         val ort = env ?: error("ORT env missing")
         val main = flowLmMainSession ?: error("flow_lm_main session missing")
         val flow = flowLmFlowSession ?: error("flow_lm_flow session missing")
@@ -499,6 +592,7 @@ open class PocketEngine @Inject constructor(
         // PHASE 1: voice conditioning.
         // text_embeddings = bos_before_voice ++ voice_embedding, shape [1, V+1, conditioningDim]
         // sequence = empty [1, 0, latentDim]
+        val phase1Start = System.currentTimeMillis()
         run {
             val bos = bosBeforeVoice ?: error("bos_before_voice missing")
             val voiceFrames = voiceEmbedding.size / bundle.conditioningDim
@@ -523,12 +617,16 @@ open class PocketEngine @Inject constructor(
                 captureConditioning = false,
             )
         }
+        phases.add(PhaseSpan("flow-lm phase 1 (voice cond)", System.currentTimeMillis() - phase1Start))
 
         // PHASE 2: text conditioning.
         // text_embeddings = text_conditioner(tokens), shape [1, T, conditioningDim]
         // sequence = empty [1, 0, latentDim]
+        val phase2Start = System.currentTimeMillis()
         run {
+            val tcStart = System.currentTimeMillis()
             val textEmbeds = runTextConditioner(textCond, tokens, bundle, ort)
+            val tcMs = System.currentTimeMillis() - tcStart
             runFlowLmMain(
                 session = main,
                 bundle = bundle,
@@ -540,6 +638,15 @@ open class PocketEngine @Inject constructor(
                 textEmbedsShape = longArrayOf(1, tokens.size.toLong(), bundle.conditioningDim.toLong()),
                 captureConditioning = false,
             )
+            // Note the conditioner is included in phase 2 total; surface its
+            // sub-contribution as a detail string for the bench UI.
+            phases.add(
+                PhaseSpan(
+                    "flow-lm phase 2 (text cond)",
+                    System.currentTimeMillis() - phase2Start,
+                    detail = "incl. text_conditioner $tcMs ms",
+                ),
+            )
         }
 
         // PHASE 3: autoregressive generation.
@@ -550,7 +657,9 @@ open class PocketEngine @Inject constructor(
         val latents = ArrayList<FloatArray>(maxFrames)
         var previousLatent = FloatArray(bundle.latentDim) { Float.NaN }
         var eosFired = false
+        var eosFiredAtFrame = -1
         var framesPostEos = 0
+        val arStart = System.currentTimeMillis()
 
         for (frame in 0 until maxFrames) {
             val capture = runFlowLmMain(
@@ -570,6 +679,7 @@ open class PocketEngine @Inject constructor(
 
             if (!eosFired && capture.eosLogit > EOS_THRESHOLD) {
                 eosFired = true
+                eosFiredAtFrame = frame
                 Log.d(TAG, "EOS at frame $frame (logit=${capture.eosLogit}); generating $framesAfterEos more")
             }
             if (eosFired) {
@@ -577,6 +687,24 @@ open class PocketEngine @Inject constructor(
                 if (framesPostEos >= framesAfterEos) break
             }
         }
+
+        val arMs = System.currentTimeMillis() - arStart
+        val perFrameUs = if (latents.isNotEmpty()) (arMs * 1000.0 / latents.size) else 0.0
+        // Estimated realtime headroom: frame_rate (12.5 Hz) means each frame
+        // is ~80 ms of audio. If per-frame compute < 80 ms we're faster
+        // than realtime → streaming is a clear win.
+        val msPerFrameRealtime = 1000.0 / bundle.frameRate
+        val realtimeRatio = if (perFrameUs > 0) (msPerFrameRealtime / (perFrameUs / 1000.0)) else 0.0
+        phases.add(
+            PhaseSpan(
+                "flow-lm phase 3 (AR loop)",
+                arMs,
+                detail = "${latents.size} frames @ %.1f ms/frame, %.2fx realtime".format(
+                    perFrameUs / 1000.0,
+                    realtimeRatio,
+                ),
+            ),
+        )
 
         if (!eosFired) {
             Log.w(TAG, "Hit max frames ($maxFrames) without EOS — output may be truncated")
@@ -589,7 +717,7 @@ open class PocketEngine @Inject constructor(
             System.arraycopy(frame, 0, flat, pos, bundle.latentDim)
             pos += bundle.latentDim
         }
-        return flat
+        return FlowLmResult(latents = flat, numFrames = latents.size, eosFiredAt = eosFiredAtFrame)
     }
 
     /** Result of a `flow_lm_main` call when phase 3 captures the value outputs. */
