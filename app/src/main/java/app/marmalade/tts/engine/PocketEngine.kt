@@ -3,6 +3,8 @@ package app.marmalade.tts.engine
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import java.nio.FloatBuffer
+import java.nio.LongBuffer
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -10,10 +12,11 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.engine.pocket.NpyReader
 import app.marmalade.tts.engine.pocket.PocketAudio
 import app.marmalade.tts.engine.pocket.PocketBundle
+import app.marmalade.tts.engine.pocket.PocketStates
 import app.marmalade.tts.engine.pocket.PocketTokenizer
-import app.marmalade.tts.engine.pocket.closeStates
-import app.marmalade.tts.engine.pocket.cycleStates
+import app.marmalade.tts.engine.pocket.bindStateInputs
 import app.marmalade.tts.engine.pocket.initStates
+import app.marmalade.tts.engine.pocket.updateStatesFromResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.nio.ByteBuffer
@@ -387,210 +390,187 @@ open class PocketEngine @Inject constructor(
         val flow = flowLmFlowSession ?: error("flow_lm_flow session missing")
         val textCond = textCondSession ?: error("text_conditioner session missing")
 
-        var state = initStates(ort, bundle.flowLmStateManifest)
+        val state = initStates(bundle.flowLmStateManifest)
 
-        try {
-            // PHASE 1: voice conditioning
-            // text_embeddings: bos_before_voice ++ voice_embedding, shape [1, V+1, conditioningDim]
-            // sequence: empty [1, 0, latentDim]
-            run {
-                val bos = bosBeforeVoice ?: error("bos_before_voice missing")
-                val voiceFrames = voiceEmbedding.size / bundle.conditioningDim
-                val totalFrames = voiceFrames + if (bundle.insertBosBeforeVoice) 1 else 0
-                val condBuf = ByteBuffer.allocateDirect(totalFrames * bundle.conditioningDim * 4)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                if (bundle.insertBosBeforeVoice) condBuf.put(bos)
-                condBuf.put(voiceEmbedding)
-                condBuf.rewind()
-
-                val emptySeq = ByteBuffer.allocateDirect(0)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                OnnxTensor.createTensor(
-                    ort, emptySeq, longArrayOf(1, 0, bundle.latentDim.toLong()),
-                ).use { seqT ->
-                    OnnxTensor.createTensor(
-                        ort, condBuf,
-                        longArrayOf(1, totalFrames.toLong(), bundle.conditioningDim.toLong()),
-                    ).use { condT ->
-                        state = runFlowLmMain(main, bundle, seqT, condT, state)
-                    }
-                }
-            }
-
-            // PHASE 2: text conditioning
-            // text_embeddings: text_conditioner(tokens), shape [1, T, conditioningDim]
-            // sequence: empty [1, 0, latentDim]
-            run {
-                val textEmbeds = runTextConditioner(textCond, tokens, bundle, ort)
-                textEmbeds.use { textT ->
-                    val emptySeq = ByteBuffer.allocateDirect(0)
-                        .order(ByteOrder.nativeOrder())
-                        .asFloatBuffer()
-                    OnnxTensor.createTensor(
-                        ort, emptySeq, longArrayOf(1, 0, bundle.latentDim.toLong()),
-                    ).use { seqT ->
-                        state = runFlowLmMain(main, bundle, seqT, textT, state)
-                    }
-                }
-            }
-
-            // PHASE 3: autoregressive generation
-            // For each frame: sequence=[1,1,32] (NaN→BOS first iter,
-            // previous latent thereafter), text_embeddings=empty[1,0,1024].
-            val maxFrames = estimateMaxFrames(bundle, tokens.size)
-            val framesAfterEos = framesAfterEosFor(bundle, tokens)
-            val latents = ArrayList<FloatArray>(maxFrames)
-            // first iteration sees a NaN-filled latent → model substitutes
-            // its learned bos_emb internally.
-            var previousLatent = FloatArray(bundle.latentDim) { Float.NaN }
-            var eosFired = false
-            var framesPostEos = 0
-
-            for (frame in 0 until maxFrames) {
-                val seqBuf = ByteBuffer.allocateDirect(bundle.latentDim * 4)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                seqBuf.put(previousLatent)
-                seqBuf.rewind()
-                val emptyCond = ByteBuffer.allocateDirect(0)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-
-                val conditioning: FloatArray
-                val eosLogit: Float
-                OnnxTensor.createTensor(
-                    ort, seqBuf, longArrayOf(1, 1, bundle.latentDim.toLong()),
-                ).use { seqT ->
-                    OnnxTensor.createTensor(
-                        ort, emptyCond, longArrayOf(1, 0, bundle.conditioningDim.toLong()),
-                    ).use { condT ->
-                        val (next, cond, eos) =
-                            runFlowLmMainCapturingConditioning(main, bundle, seqT, condT, state)
-                        state = next
-                        conditioning = cond
-                        eosLogit = eos
-                    }
-                }
-
-                // Euler-integrated flow matching to turn the
-                // conditioning vector + noise into the next latent.
-                val nextLatent = runFlowEuler(flow, ort, conditioning, bundle.latentDim)
-                latents.add(nextLatent)
-                previousLatent = nextLatent
-
-                if (!eosFired && eosLogit > EOS_THRESHOLD) {
-                    eosFired = true
-                    Log.d(TAG, "EOS at frame $frame (logit=$eosLogit); generating $framesAfterEos more")
-                }
-                if (eosFired) {
-                    framesPostEos++
-                    if (framesPostEos >= framesAfterEos) break
-                }
-            }
-
-            if (!eosFired) {
-                Log.w(TAG, "Hit max frames ($maxFrames) without EOS — output may be truncated")
-            }
-
-            // Flatten latents into a single contiguous [N, latentDim] buffer.
-            val flat = FloatArray(latents.size * bundle.latentDim)
+        // PHASE 1: voice conditioning.
+        // text_embeddings = bos_before_voice ++ voice_embedding, shape [1, V+1, conditioningDim]
+        // sequence = empty [1, 0, latentDim]
+        run {
+            val bos = bosBeforeVoice ?: error("bos_before_voice missing")
+            val voiceFrames = voiceEmbedding.size / bundle.conditioningDim
+            val totalFrames = voiceFrames + if (bundle.insertBosBeforeVoice) 1 else 0
+            val concat = FloatArray(totalFrames * bundle.conditioningDim)
             var pos = 0
-            for (frame in latents) {
-                System.arraycopy(frame, 0, flat, pos, bundle.latentDim)
-                pos += bundle.latentDim
+            if (bundle.insertBosBeforeVoice) {
+                System.arraycopy(bos, 0, concat, pos, bos.size)
+                pos += bos.size
             }
-            return flat
-        } finally {
-            closeStates(state)
+            System.arraycopy(voiceEmbedding, 0, concat, pos, voiceEmbedding.size)
+
+            runFlowLmMain(
+                session = main,
+                bundle = bundle,
+                ort = ort,
+                state = state,
+                sequenceData = FloatArray(0),
+                sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
+                textEmbedsData = concat,
+                textEmbedsShape = longArrayOf(1, totalFrames.toLong(), bundle.conditioningDim.toLong()),
+                captureConditioning = false,
+            )
         }
+
+        // PHASE 2: text conditioning.
+        // text_embeddings = text_conditioner(tokens), shape [1, T, conditioningDim]
+        // sequence = empty [1, 0, latentDim]
+        run {
+            val textEmbeds = runTextConditioner(textCond, tokens, bundle, ort)
+            runFlowLmMain(
+                session = main,
+                bundle = bundle,
+                ort = ort,
+                state = state,
+                sequenceData = FloatArray(0),
+                sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
+                textEmbedsData = textEmbeds,
+                textEmbedsShape = longArrayOf(1, tokens.size.toLong(), bundle.conditioningDim.toLong()),
+                captureConditioning = false,
+            )
+        }
+
+        // PHASE 3: autoregressive generation.
+        // For each frame: sequence=[1,1,32] (NaN→BOS on first iter,
+        // previous latent thereafter), text_embeddings=empty[1,0,1024].
+        val maxFrames = estimateMaxFrames(bundle, tokens.size)
+        val framesAfterEos = framesAfterEosFor(bundle, tokens)
+        val latents = ArrayList<FloatArray>(maxFrames)
+        var previousLatent = FloatArray(bundle.latentDim) { Float.NaN }
+        var eosFired = false
+        var framesPostEos = 0
+
+        for (frame in 0 until maxFrames) {
+            val capture = runFlowLmMain(
+                session = main,
+                bundle = bundle,
+                ort = ort,
+                state = state,
+                sequenceData = previousLatent,
+                sequenceShape = longArrayOf(1, 1, bundle.latentDim.toLong()),
+                textEmbedsData = FloatArray(0),
+                textEmbedsShape = longArrayOf(1, 0, bundle.conditioningDim.toLong()),
+                captureConditioning = true,
+            )!!  // captureConditioning=true guarantees non-null
+            val nextLatent = runFlowEuler(flow, ort, capture.conditioning, bundle.latentDim)
+            latents.add(nextLatent)
+            previousLatent = nextLatent
+
+            if (!eosFired && capture.eosLogit > EOS_THRESHOLD) {
+                eosFired = true
+                Log.d(TAG, "EOS at frame $frame (logit=${capture.eosLogit}); generating $framesAfterEos more")
+            }
+            if (eosFired) {
+                framesPostEos++
+                if (framesPostEos >= framesAfterEos) break
+            }
+        }
+
+        if (!eosFired) {
+            Log.w(TAG, "Hit max frames ($maxFrames) without EOS — output may be truncated")
+        }
+
+        // Flatten latents into a single contiguous [N, latentDim] buffer.
+        val flat = FloatArray(latents.size * bundle.latentDim)
+        var pos = 0
+        for (frame in latents) {
+            System.arraycopy(frame, 0, flat, pos, bundle.latentDim)
+            pos += bundle.latentDim
+        }
+        return flat
     }
 
+    /** Result of a `flow_lm_main` call when phase 3 captures the value outputs. */
+    private data class FlowLmCapture(val conditioning: FloatArray, val eosLogit: Float)
+
+    /**
+     * Run `text_conditioner(tokens)` and return the flat embeddings
+     * (shape `[T, conditioningDim]`). Tokenizer output is an int64
+     * tensor; the conditioner is a plain embedding lookup.
+     */
     private fun runTextConditioner(
         session: OrtSession,
         tokens: IntArray,
         bundle: PocketBundle,
         ort: OrtEnvironment,
-    ): OnnxTensor {
-        val buf = ByteBuffer.allocateDirect(tokens.size * 8)
-            .order(ByteOrder.nativeOrder())
-            .asLongBuffer()
-        for (t in tokens) buf.put(t.toLong())
-        buf.rewind()
-        OnnxTensor.createTensor(
-            ort, buf, longArrayOf(1, tokens.size.toLong()),
-        ).use { tokT ->
-            val result = session.run(mapOf("token_ids" to tokT))
-            // Detach the output tensor so it survives Result.close().
-            val out = result.get("embeddings").orElseThrow {
-                IllegalStateException("text_conditioner did not return 'embeddings'")
-            } as OnnxTensor
-            // Copy through a new tensor we own.
-            val flat = FloatArray(tokens.size * bundle.conditioningDim)
-            out.floatBuffer.get(flat)
-            result.close()
-            val ownedBuf = ByteBuffer.allocateDirect(flat.size * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-            ownedBuf.put(flat)
-            ownedBuf.rewind()
-            return OnnxTensor.createTensor(
-                ort, ownedBuf,
-                longArrayOf(1, tokens.size.toLong(), bundle.conditioningDim.toLong()),
-            )
-        }
-    }
-
-    /** Run flow_lm_main once with a pre-built input map. Returns the new state map. */
-    private fun runFlowLmMain(
-        session: OrtSession,
-        bundle: PocketBundle,
-        sequence: OnnxTensor,
-        textEmbeddings: OnnxTensor,
-        prevState: Map<String, OnnxTensor>,
-    ): Map<String, OnnxTensor> {
-        val inputs = LinkedHashMap<String, OnnxTensor>(prevState.size + 2)
-        inputs["sequence"] = sequence
-        inputs["text_embeddings"] = textEmbeddings
-        inputs.putAll(prevState)
-        session.run(inputs).use { result ->
-            // Cycle state forward — closes prevState as part of its job.
-            return cycleStates(bundle.flowLmStateManifest, result, prevState)
+    ): FloatArray {
+        val tokensLong = LongArray(tokens.size) { tokens[it].toLong() }
+        val tokT = OnnxTensor.createTensor(
+            ort, LongBuffer.wrap(tokensLong), longArrayOf(1, tokens.size.toLong()),
+        )
+        try {
+            session.run(mapOf("token_ids" to tokT)).use { result ->
+                val out = result.get("embeddings").orElseThrow {
+                    IllegalStateException("text_conditioner did not return 'embeddings'")
+                } as OnnxTensor
+                val flat = FloatArray(tokens.size * bundle.conditioningDim)
+                out.floatBuffer.get(flat)
+                return flat
+            }
+        } finally {
+            tokT.close()
         }
     }
 
     /**
-     * Like [runFlowLmMain] but also extracts the `conditioning` + `eos_logit`
-     * outputs. Used in the autoregressive phase 3 where those drive the
-     * Euler step + the EOS check.
+     * Run flow_lm_main once. Persistent state lives in [state] as Kotlin
+     * arrays and is updated in place from the session outputs (the only
+     * correct lifecycle with the ORT Java API — see PocketStateManager
+     * for why we can't carry OnnxTensor references across calls).
+     *
+     * @param captureConditioning when true, returns the `conditioning`
+     *   and `eos_logit` outputs (phase 3 needs them). When false (phases
+     *   1 + 2) returns null and skips the extra copies.
      */
-    private fun runFlowLmMainCapturingConditioning(
+    private fun runFlowLmMain(
         session: OrtSession,
         bundle: PocketBundle,
-        sequence: OnnxTensor,
-        textEmbeddings: OnnxTensor,
-        prevState: Map<String, OnnxTensor>,
-    ): Triple<Map<String, OnnxTensor>, FloatArray, Float> {
-        val inputs = LinkedHashMap<String, OnnxTensor>(prevState.size + 2)
-        inputs["sequence"] = sequence
-        inputs["text_embeddings"] = textEmbeddings
-        inputs.putAll(prevState)
-        session.run(inputs).use { result ->
-            val condTensor = result.get("conditioning").orElseThrow {
-                IllegalStateException("flow_lm_main did not return 'conditioning'")
-            } as OnnxTensor
-            val cond = FloatArray(bundle.conditioningDim)
-            condTensor.floatBuffer.get(cond)
+        ort: OrtEnvironment,
+        state: PocketStates,
+        sequenceData: FloatArray,
+        sequenceShape: LongArray,
+        textEmbedsData: FloatArray,
+        textEmbedsShape: LongArray,
+        captureConditioning: Boolean,
+    ): FlowLmCapture? {
+        val inputs = LinkedHashMap<String, OnnxTensor>(state.size + 2)
+        val seqT = OnnxTensor.createTensor(ort, FloatBuffer.wrap(sequenceData), sequenceShape)
+        val textT = OnnxTensor.createTensor(ort, FloatBuffer.wrap(textEmbedsData), textEmbedsShape)
+        inputs["sequence"] = seqT
+        inputs["text_embeddings"] = textT
+        bindStateInputs(ort, bundle.flowLmStateManifest, state, inputs)
 
-            val eosTensor = result.get("eos_logit").orElseThrow {
-                IllegalStateException("flow_lm_main did not return 'eos_logit'")
-            } as OnnxTensor
-            val eos = FloatArray(1)
-            eosTensor.floatBuffer.get(eos)
-
-            val nextState = cycleStates(bundle.flowLmStateManifest, result, prevState)
-            return Triple(nextState, cond, eos[0])
+        try {
+            session.run(inputs).use { result ->
+                val capture = if (captureConditioning) {
+                    val condTensor = result.get("conditioning").orElseThrow {
+                        IllegalStateException("flow_lm_main did not return 'conditioning'")
+                    } as OnnxTensor
+                    val cond = FloatArray(bundle.conditioningDim)
+                    condTensor.floatBuffer.get(cond)
+                    val eosTensor = result.get("eos_logit").orElseThrow {
+                        IllegalStateException("flow_lm_main did not return 'eos_logit'")
+                    } as OnnxTensor
+                    val eos = eosTensor.floatBuffer.get(0)
+                    FlowLmCapture(conditioning = cond, eosLogit = eos)
+                } else {
+                    null
+                }
+                updateStatesFromResult(bundle.flowLmStateManifest, result, state)
+                return capture
+            }
+        } finally {
+            for (t in inputs.values) {
+                try { t.close() } catch (_: Throwable) {}
+            }
         }
     }
 
@@ -664,45 +644,43 @@ open class PocketEngine @Inject constructor(
         val session = mimiDecoderSession ?: error("mimi decoder session missing")
         val numFrames = latents.size / bundle.latentDim
 
-        var state = initStates(ort, bundle.mimiStateManifest)
+        val state = initStates(bundle.mimiStateManifest)
         val pcm = FloatArray(numFrames * bundle.samplesPerFrame)
         var pcmPos = 0
-        try {
-            // Decode in chunks to keep memory bounded for long inputs. The
-            // decoder is stateful so chunk size only affects throughput,
-            // not output. 15 frames ≈ 1.2 s of audio at 12.5 fps.
-            var frame = 0
-            while (frame < numFrames) {
-                val chunk = minOf(MIMI_CHUNK_FRAMES, numFrames - frame)
-                val chunkFloats = chunk * bundle.latentDim
-                val buf = ByteBuffer.allocateDirect(chunkFloats * 4)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                buf.put(latents, frame * bundle.latentDim, chunkFloats)
-                buf.rewind()
 
-                OnnxTensor.createTensor(
-                    ort, buf, longArrayOf(1, chunk.toLong(), bundle.latentDim.toLong()),
-                ).use { latT ->
-                    val inputs = LinkedHashMap<String, OnnxTensor>(state.size + 1)
-                    inputs["latent"] = latT
-                    inputs.putAll(state)
-                    session.run(inputs).use { result ->
-                        val audioTensor = result.get("audio_frame").orElseThrow {
-                            IllegalStateException("mimi_decoder did not return 'audio_frame'")
-                        } as OnnxTensor
-                        val audioFloats = chunk * bundle.samplesPerFrame
-                        val tmp = FloatArray(audioFloats)
-                        audioTensor.floatBuffer.get(tmp)
-                        System.arraycopy(tmp, 0, pcm, pcmPos, audioFloats)
-                        pcmPos += audioFloats
-                        state = cycleStates(bundle.mimiStateManifest, result, state)
-                    }
+        // Decode in chunks to keep memory bounded for long inputs. The
+        // decoder is stateful so chunk size only affects throughput,
+        // not output. 15 frames ≈ 1.2 s of audio at 12.5 fps.
+        var frame = 0
+        while (frame < numFrames) {
+            val chunk = minOf(MIMI_CHUNK_FRAMES, numFrames - frame)
+            val chunkFloats = chunk * bundle.latentDim
+            val chunkData = FloatArray(chunkFloats)
+            System.arraycopy(latents, frame * bundle.latentDim, chunkData, 0, chunkFloats)
+
+            val inputs = LinkedHashMap<String, OnnxTensor>(state.size + 1)
+            val latT = OnnxTensor.createTensor(
+                ort, FloatBuffer.wrap(chunkData),
+                longArrayOf(1, chunk.toLong(), bundle.latentDim.toLong()),
+            )
+            inputs["latent"] = latT
+            bindStateInputs(ort, bundle.mimiStateManifest, state, inputs)
+            try {
+                session.run(inputs).use { result ->
+                    val audioTensor = result.get("audio_frame").orElseThrow {
+                        IllegalStateException("mimi_decoder did not return 'audio_frame'")
+                    } as OnnxTensor
+                    val audioFloats = chunk * bundle.samplesPerFrame
+                    audioTensor.floatBuffer.get(pcm, pcmPos, audioFloats)
+                    pcmPos += audioFloats
+                    updateStatesFromResult(bundle.mimiStateManifest, result, state)
                 }
-                frame += chunk
+            } finally {
+                for (t in inputs.values) {
+                    try { t.close() } catch (_: Throwable) {}
+                }
             }
-        } finally {
-            closeStates(state)
+            frame += chunk
         }
         return pcm
     }

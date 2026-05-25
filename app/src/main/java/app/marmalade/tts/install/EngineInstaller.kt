@@ -377,7 +377,7 @@ open class EngineInstaller @Inject constructor(
             // the bytes are correct, so this just confirms the extraction
             // produced the expected top-level layout — defensive against
             // a malformed bundle slipping through.
-            val verified = verifyLayout(finalDir)
+            val verified = verifyLayout(descriptor, finalDir)
             if (verified is InstallState.Corrupt) {
                 // Extracted shape doesn't match expectations. Tear down so a
                 // retry has a clean slate.
@@ -465,7 +465,7 @@ open class EngineInstaller @Inject constructor(
             val computed = if (!dir.isDirectory) {
                 InstallState.NotInstalled
             } else {
-                verifyLayout(dir)
+                verifyLayout(descriptor, dir)
             }
             stateFlow(engineName).value = computed
             computed
@@ -644,7 +644,24 @@ open class EngineInstaller @Inject constructor(
      *    (Kitten's bundle has ~355; the threshold is a sanity floor that
      *    catches "extraction halfway through" without pinning the count)
      */
-    private fun verifyLayout(dir: File): InstallState {
+    /**
+     * Dispatch the post-extract structural check based on the engine
+     * family. Sherpa-onnx engines (Kokoro v1.*, Kitten *) all share the
+     * `model*.onnx` + `voices.bin` + `tokens.txt` + `espeak-ng-data/`
+     * shape; Pocket has a completely different layout (5 graphs,
+     * sentencepiece tokenizer, npy BOS embedding, no espeak). Adding a
+     * new engine family means adding a branch here.
+     */
+    private fun verifyLayout(descriptor: EngineDescriptor, dir: File): InstallState {
+        return if (descriptor.name == "pocket-tts-en-v2026_04") {
+            verifyPocketLayout(dir)
+        } else {
+            verifySherpaLayout(dir)
+        }
+    }
+
+    /** Sherpa-onnx layout (Kokoro + Kitten). */
+    private fun verifySherpaLayout(dir: File): InstallState {
         val modelCandidates = dir.listFiles { f -> f.isFile && f.name.startsWith("model") && f.name.endsWith(".onnx") }
         val model = modelCandidates?.firstOrNull()
         val voices = File(dir, "voices.bin")
@@ -657,6 +674,48 @@ open class EngineInstaller @Inject constructor(
         if (!espeak.isDirectory) return InstallState.Corrupt
         val entryCount = espeak.list()?.size ?: 0
         if (entryCount < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
+        return InstallState.Installed
+    }
+
+    /**
+     * Pocket TTS layout: 5 ONNX graphs + tokenizer.model +
+     * bos_before_voice.npy + bundle.json + voices/ subdir with one WAV
+     * per predefined voice. Voice cloning lands files under
+     * cloned_voices/ later; their absence at install time is fine.
+     */
+    private fun verifyPocketLayout(dir: File): InstallState {
+        val requiredFiles = listOf(
+            "flow_lm_main_int8.onnx",
+            "flow_lm_flow_int8.onnx",
+            "mimi_encoder_int8.onnx",
+            "mimi_decoder_int8.onnx",
+            "text_conditioner_int8.onnx",
+            "tokenizer.model",
+            "bos_before_voice.npy",
+            "bundle.json",
+        )
+        for (name in requiredFiles) {
+            val f = File(dir, name)
+            if (!f.isFile || f.length() == 0L) return InstallState.Corrupt
+        }
+        // At least one ONNX file should be appreciably-sized — guards against
+        // a truncated extraction where the headers landed but the body
+        // didn't (sherpa's MIN_MODEL_BYTES analogue).
+        val mainOnnx = File(dir, "flow_lm_main_int8.onnx")
+        if (mainOnnx.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+
+        val voicesDir = File(dir, "voices")
+        if (!voicesDir.isDirectory) return InstallState.Corrupt
+        // We need at least one voice WAV; check the eight Kyutai predefined
+        // names match what the catalog promises (PocketVoiceCatalog.voices
+        // is the source of truth, but we can't depend on it from the
+        // installer module without widening the dependency graph — eight
+        // hardcoded names here mirror it).
+        val expectedVoices = listOf("alba", "azelma", "cosette", "eponine", "fantine", "javert", "jean", "marius")
+        for (name in expectedVoices) {
+            val wav = File(voicesDir, "$name.wav")
+            if (!wav.isFile || wav.length() == 0L) return InstallState.Corrupt
+        }
         return InstallState.Installed
     }
 
