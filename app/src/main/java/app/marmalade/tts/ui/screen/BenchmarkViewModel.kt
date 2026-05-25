@@ -8,6 +8,7 @@ import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.engine.EnginePhaseTimings
+import app.marmalade.tts.engine.PhaseSpan
 import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
@@ -123,6 +124,10 @@ class BenchmarkViewModel @Inject constructor(
         }
     }
 
+    fun setStreamingMode(enabled: Boolean) {
+        _state.update { it.copy(streamingMode = enabled) }
+    }
+
     /**
      * Run [BenchmarkState.text] against every selected + installed
      * engine in sequence, replacing the previous results. Stops early
@@ -139,34 +144,19 @@ class BenchmarkViewModel @Inject constructor(
 
         _state.update { it.copy(running = true, results = emptyList(), error = null) }
 
+        val streaming = current.streamingMode
+
         viewModelScope.launch {
             val out = ArrayList<BenchmarkResult>(targets.size)
             for (target in targets) {
                 _state.update { it.copy(currentlyRunning = target.displayName, results = out.toList()) }
                 try {
-                    val timed = target.engine.synthesizeWithTimings(
-                        text = current.text,
-                        voiceId = target.defaultVoiceId,
-                        speed = 1.0f,
-                    )
-                    val audioSeconds = timed.audio.pcm.size.toDouble() /
-                        timed.audio.sampleRate.toDouble()
-                    val realtimeRatio = if (timed.timings.totalMs > 0) {
-                        audioSeconds * 1000.0 / timed.timings.totalMs.toDouble()
+                    val r = if (streaming) {
+                        runOneStreaming(target, current.text)
                     } else {
-                        0.0
+                        runOneBatched(target, current.text)
                     }
-                    out.add(
-                        BenchmarkResult(
-                            engineDisplayName = target.displayName,
-                            engineName = target.engineName,
-                            voiceId = target.defaultVoiceId,
-                            timings = timed.timings,
-                            audioSeconds = audioSeconds,
-                            realtimeRatio = realtimeRatio,
-                            error = null,
-                        ),
-                    )
+                    out.add(r)
                 } catch (t: Throwable) {
                     out.add(
                         BenchmarkResult(
@@ -176,6 +166,8 @@ class BenchmarkViewModel @Inject constructor(
                             timings = EnginePhaseTimings(target.engineName, 0, 0),
                             audioSeconds = 0.0,
                             realtimeRatio = 0.0,
+                            timeToFirstAudioMs = null,
+                            chunkCount = null,
                             error = t.message ?: t::class.java.simpleName,
                         ),
                     )
@@ -189,6 +181,88 @@ class BenchmarkViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun runOneBatched(target: EngineProfile, text: String): BenchmarkResult {
+        val timed = target.engine.synthesizeWithTimings(
+            text = text,
+            voiceId = target.defaultVoiceId,
+            speed = 1.0f,
+        )
+        val audioSeconds = timed.audio.pcm.size.toDouble() / timed.audio.sampleRate.toDouble()
+        val realtimeRatio = if (timed.timings.totalMs > 0) {
+            audioSeconds * 1000.0 / timed.timings.totalMs.toDouble()
+        } else {
+            0.0
+        }
+        return BenchmarkResult(
+            engineDisplayName = target.displayName,
+            engineName = target.engineName,
+            voiceId = target.defaultVoiceId,
+            timings = timed.timings,
+            audioSeconds = audioSeconds,
+            realtimeRatio = realtimeRatio,
+            timeToFirstAudioMs = null,
+            chunkCount = null,
+            error = null,
+        )
+    }
+
+    /**
+     * Streaming-mode run: collects the engine's Flow, captures time
+     * to first emission (TTFA — the headline streaming metric) plus
+     * total time + chunk count. For engines that don't override
+     * `synthesizeStream`, this still works — the default impl wraps
+     * `synthesize` in a single-element flow, so we measure
+     * "one shot" semantics with TTFA == total.
+     */
+    private suspend fun runOneStreaming(target: EngineProfile, text: String): BenchmarkResult {
+        val loadStart = System.currentTimeMillis()
+        target.engine.ensureModelLoaded()
+        val loadMs = System.currentTimeMillis() - loadStart
+
+        val streamStart = System.currentTimeMillis()
+        var ttfaMs = -1L
+        var chunks = 0
+        var totalShorts = 0L
+        var sampleRate = target.engine.sampleRate
+        target.engine.synthesizeStream(
+            text = text,
+            voiceId = target.defaultVoiceId,
+            speed = 1.0f,
+        ).collect { chunk ->
+            if (ttfaMs < 0L) {
+                ttfaMs = System.currentTimeMillis() - streamStart
+                sampleRate = chunk.sampleRate
+            }
+            chunks++
+            totalShorts += chunk.pcm.size
+        }
+        val totalMs = System.currentTimeMillis() - streamStart
+        val audioSeconds = totalShorts.toDouble() / sampleRate.toDouble()
+        val realtimeRatio = if (totalMs > 0) {
+            audioSeconds * 1000.0 / totalMs.toDouble()
+        } else {
+            0.0
+        }
+        return BenchmarkResult(
+            engineDisplayName = target.displayName,
+            engineName = target.engineName,
+            voiceId = target.defaultVoiceId,
+            timings = EnginePhaseTimings(
+                engineName = target.engineName,
+                totalMs = totalMs,
+                loadMs = loadMs,
+                phases = listOf(
+                    PhaseSpan("time-to-first-audio", ttfaMs.coerceAtLeast(0L)),
+                ),
+            ),
+            audioSeconds = audioSeconds,
+            realtimeRatio = realtimeRatio,
+            timeToFirstAudioMs = ttfaMs.coerceAtLeast(0L),
+            chunkCount = chunks,
+            error = null,
+        )
     }
 
     private fun installedEngineNames(): List<String> =
@@ -207,6 +281,12 @@ data class EngineProfile(
 data class BenchmarkState(
     val text: String = DEFAULT_TEXT_MEDIUM,
     val selectedEngines: Set<String> = emptySet(),
+    /**
+     * When true, runs use `engine.synthesizeStream` and capture
+     * time-to-first-audio. When false, runs use the batched
+     * `synthesizeWithTimings` path with full phase breakdown.
+     */
+    val streamingMode: Boolean = false,
     val results: List<BenchmarkResult> = emptyList(),
     val running: Boolean = false,
     val currentlyRunning: String? = null,
@@ -223,6 +303,15 @@ data class BenchmarkResult(
     val audioSeconds: Double,
     /** audioSeconds / totalSeconds. >1 = faster than realtime, <1 = slower. */
     val realtimeRatio: Double,
+    /**
+     * Wall-clock from streaming start to the first emitted chunk.
+     * Null when this run was batched (synthesize, not synthesizeStream).
+     * For engines that don't override `synthesizeStream`, this equals
+     * total time (single-shot semantics).
+     */
+    val timeToFirstAudioMs: Long?,
+    /** Number of chunks emitted by the engine. Null on batched runs. */
+    val chunkCount: Int?,
     /** Non-null if the run failed; shown in the row in place of timings. */
     val error: String?,
 )

@@ -16,10 +16,16 @@ import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
@@ -141,6 +147,18 @@ class Synthesizer @Inject constructor(
     private var cancelled: Boolean = false
 
     /**
+     * Job of the in-flight [speak] call's coroutineScope. Captured so
+     * [cancel] can interrupt the streaming Flow's upstream (the engine's
+     * AR loop). Plain `cancelled` flag was sufficient for the
+     * non-streaming path because `playPcm`'s tight loop polled it; the
+     * streaming flow suspends inside `OrtSession.run` for ~100 ms at a
+     * time, so we need real coroutine cancellation to break it
+     * promptly.
+     */
+    @Volatile
+    private var currentJob: Job? = null
+
+    /**
      * Synthesize [text] using [voiceId], play it, and return when playback
      * has fully drained.
      *
@@ -154,47 +172,104 @@ class Synthesizer @Inject constructor(
         voiceId: String,
         speed: Float,
         effect: EffectPreset,
-    ): Result<Unit> {
+    ): Result<Unit> = coroutineScope {
         cancelled = false
+        currentJob = coroutineContext[Job]
+        try {
+            val engineName = engineNameFor(voiceId)
+            val enabled = settings.enabledRules(engineName).first()
 
-        // Route by the engine the voice belongs to. Voice IDs follow the
-        // "<engine>:<voiceName>" convention, so the part before the first
-        // colon is the routing key.
-        val engineName = engineNameFor(voiceId)
+            // Streaming eligibility: post-processing must be a no-op
+            // (effect=NONE and prosody=neutral) so chunk boundaries
+            // can't introduce DSP discontinuities. CAVE reverb and
+            // ROBOT vibrato are stateful per-sample; ProsodyApplier
+            // shapes the full PCM. Mixed-state DSP across chunks would
+            // produce audible clicks, so the streaming branch is gated.
+            val hint = EmojiProsody.detect(text)
+            val canStream = effect == EffectPreset.NONE && hint.emotion == Emotion.Neutral
 
-        // Apply the user's per-engine preprocessing profile before the
-        // engine sees the text. Each engine has its own profile so users
-        // can curate kokoro's rules separately from kitten's.
-        val enabled = settings.enabledRules(engineName).first()
+            if (canStream) {
+                speakStreaming(text, voiceId, speed, engineName, enabled)
+            } else {
+                speakBatched(text, voiceId, speed, effect, engineName, enabled)
+            }
+        } finally {
+            currentJob = null
+        }
+    }
 
-        // Canonical pipeline (shared with MarmaladeTtsService and
-        // MarmaladeSynthService): emoji-detect → preprocess → strip → synth
-        // → emotion shaping → effect chain. v0.1.16 and earlier skipped
-        // emoji prosody on this path, so the same input could sound
-        // different depending on whether the user pressed Speak in-app vs.
-        // routed the text through their system TTS engine.
+    /**
+     * Streaming path: engines emit audio chunks via `synthesizeStream`
+     * as they're generated. PocketEngine produces multiple chunks
+     * (post-AR-loop, decoded per-chunk through mimi_decoder); sherpa
+     * engines fall back to the default one-element Flow wrapping
+     * `synthesize`.
+     *
+     * Preprocessing (text rules + emoji strip) runs once up front,
+     * matching the canonical pipeline minus the post-synth shaping
+     * steps. Skipping shaping is the whole point — those are the steps
+     * that can't be chunked.
+     */
+    private suspend fun speakStreaming(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        engineName: String,
+        enabledRules: Set<String>,
+    ): Result<Unit> {
+        if (text.isBlank()) return Result.success(Unit)
+        val preprocessed = preprocessor.apply(text, enabledRules)
+        val stripped = EmojiProsody.stripEmojis(preprocessed)
+        if (stripped.isBlank()) return Result.success(Unit)
+
+        return try {
+            val stream = streamForEngine(engineName, stripped, voiceId, speed)
+            playStream(stream)
+            Result.success(Unit)
+        } catch (_: CancellationException) {
+            // Caller (or our own cancel()) tore down the scope — clean exit.
+            Result.success(Unit)
+        } catch (_: UnsupportedOperationException) {
+            Result.failure(SynthesizerException.ModelMissing)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Streaming synthesis failed", t)
+            Result.failure(SynthesizerException.SynthesisFailed(t))
+        }
+    }
+
+    /**
+     * Non-streaming path: the original pipeline. Used when any
+     * post-synth shaping is requested (effect ≠ NONE or emotion-bearing
+     * emojis are present). Collects the full PCM, applies shaping, then
+     * plays.
+     */
+    private suspend fun speakBatched(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        effect: EffectPreset,
+        engineName: String,
+        enabledRules: Set<String>,
+    ): Result<Unit> {
         val result = try {
             runSynthesisPipeline(
                 rawText = text,
                 voiceId = voiceId,
                 speed = speed,
-                enabledRules = enabled,
+                enabledRules = enabledRules,
                 effect = effect,
                 preprocessor = preprocessor,
                 synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
             )
+        } catch (_: CancellationException) {
+            return Result.success(Unit)
         } catch (_: UnsupportedOperationException) {
-            // Engine clearly signals "model isn't installed" — propagate as
-            // a typed result so the UI can show the right copy.
             return Result.failure(SynthesizerException.ModelMissing)
         } catch (t: Throwable) {
             Log.w(TAG, "Synthesis failed", t)
             return Result.failure(SynthesizerException.SynthesisFailed(t))
         }
 
-        // Empty input (blank text, or emoji-only that stripped to nothing)
-        // returns success without invoking AudioTrack. Matches the existing
-        // contract: callers see success even when there's nothing to play.
         val shaped = when (result) {
             is PipelineResult.Empty -> return Result.success(Unit)
             is PipelineResult.Audio -> result
@@ -202,6 +277,8 @@ class Synthesizer @Inject constructor(
 
         return try {
             playPcm(shaped.pcm, shaped.sampleRate)
+            Result.success(Unit)
+        } catch (_: CancellationException) {
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.w(TAG, "Playback failed", t)
@@ -212,9 +289,15 @@ class Synthesizer @Inject constructor(
     /**
      * Stop any in-flight playback. Safe to call from any thread and any
      * state — no-op if nothing is playing.
+     *
+     * For the streaming path: also cancels the engine-side AR loop via
+     * the captured coroutine job. Without this, the loop would keep
+     * generating frames into a Flow that nobody's collecting, holding
+     * the engine's synthLock until natural completion.
      */
     override fun cancel() {
         cancelled = true
+        currentJob?.cancel()
         val track = currentTrack ?: return
         try {
             if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
@@ -262,6 +345,115 @@ class Synthesizer @Inject constructor(
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest.
         else -> kokoroV10.synthesize(text, voiceId, speed)
+    }
+
+    /**
+     * Streaming dispatch counterpart to [synthesizeForEngine]. Returns
+     * a Flow that emits one or more SynthAudio chunks. Pocket overrides
+     * the default to produce multiple chunks (time-to-first-audio win);
+     * sherpa engines inherit the default single-element flow.
+     */
+    private fun streamForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): Flow<SynthAudio> = when (engineName) {
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesizeStream(text, voiceId, speed)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesizeStream(text, voiceId, speed)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesizeStream(text, voiceId, speed)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesizeStream(text, voiceId, speed)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed)
+        else -> kokoroV10.synthesizeStream(text, voiceId, speed)
+    }
+
+    /**
+     * Consume a [Flow] of audio chunks, allocating an AudioTrack on
+     * the first chunk (we need the chunk's sampleRate to configure it)
+     * and writing each subsequent chunk into the same track. AudioTrack
+     * MODE_STREAM handles the seam-free playback across writes.
+     *
+     * Drains after the flow completes — returns when playback head
+     * catches the write head. Same drain pattern as [playPcm].
+     */
+    private suspend fun playStream(stream: Flow<SynthAudio>) = withContext(Dispatchers.IO) {
+        var track: AudioTrack? = null
+        var totalWritten = 0
+        try {
+            stream.collect { chunk ->
+                if (cancelled) {
+                    throw CancellationException("user cancel")
+                }
+                if (track == null) {
+                    val sr = chunk.sampleRate
+                    val minBuf = AudioTrack.getMinBufferSize(
+                        sr,
+                        AudioFormat.CHANNEL_OUT_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                    ).coerceAtLeast(sr * 2 / 4 /* ~250 ms headroom */)
+                    val t = AudioTrack.Builder()
+                        .setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .build(),
+                        )
+                        .setAudioFormat(
+                            AudioFormat.Builder()
+                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                .setSampleRate(sr)
+                                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                .build(),
+                        )
+                        .setBufferSizeInBytes(minBuf)
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build()
+                    track = t
+                    currentTrack = t
+                    t.play()
+                }
+                val t = track!!
+                var off = 0
+                while (off < chunk.pcm.size && !cancelled) {
+                    val n = t.write(
+                        chunk.pcm,
+                        off,
+                        chunk.pcm.size - off,
+                        AudioTrack.WRITE_BLOCKING,
+                    )
+                    if (n <= 0) {
+                        Log.w(TAG, "AudioTrack.write returned $n; aborting stream")
+                        break
+                    }
+                    off += n
+                }
+                totalWritten += off
+            }
+            // Drain — block until the head plays through the last write.
+            val t = track ?: return@withContext
+            while (!cancelled) {
+                val pos = t.playbackHeadPosition
+                if (pos >= totalWritten) break
+                try {
+                    Thread.sleep(10L)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
+        } finally {
+            track?.let { t ->
+                try {
+                    t.pause()
+                    t.flush()
+                    t.stop()
+                } catch (_: IllegalStateException) {
+                    // Already in a terminal state — ignore.
+                }
+                t.release()
+                if (currentTrack === t) currentTrack = null
+            }
+        }
     }
 
     /**

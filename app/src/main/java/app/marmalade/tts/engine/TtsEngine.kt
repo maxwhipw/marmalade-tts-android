@@ -1,5 +1,8 @@
 package app.marmalade.tts.engine
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+
 /**
  * Engine-agnostic TTS surface.
  *
@@ -54,6 +57,33 @@ interface TtsEngine {
      * Safe to call from any thread.
      */
     fun release()
+
+    /**
+     * Streaming variant of [synthesize]: emit one or more PCM chunks as
+     * they become available. Each emitted [SynthAudio] is mono PCM16
+     * at the engine's sample rate.
+     *
+     * Default implementation emits the full synth result as a single
+     * element — back-compatible for engines whose pipeline can't
+     * produce partial output (the sherpa-onnx backed engines all fall
+     * here: `OfflineTts.generate` is a single-shot native call).
+     * PocketEngine overrides this to emit per-chunk during the
+     * autoregressive loop, cutting time-to-first-audio.
+     *
+     * The consumer (Synthesizer / system TTS service) decides whether
+     * to use this path — it must be willing to consume audio
+     * progressively (AudioTrack MODE_STREAM, or per-chunk callback).
+     * Streaming is incompatible with stateful post-processing (CAVE
+     * reverb tail, ROBOT vibrato phase), so the consumer typically
+     * gates the streaming path on effect=NONE and emotion=neutral.
+     *
+     * The flow is cancellable — collectors that throw or cancel will
+     * tear down the engine's generation loop cleanly via structured
+     * concurrency.
+     */
+    fun synthesizeStream(text: String, voiceId: String, speed: Float): Flow<SynthAudio> = flow {
+        emit(synthesize(text, voiceId, speed))
+    }
 
     /**
      * Synthesize + return timing breakdown alongside the audio.

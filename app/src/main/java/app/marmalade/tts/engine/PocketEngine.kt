@@ -29,6 +29,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -303,6 +306,162 @@ open class PocketEngine @Inject constructor(
     }
 
     /**
+     * Streaming variant: emit audio chunks as the autoregressive loop
+     * generates them, decoded per-chunk through mimi_decoder. Lets the
+     * consumer (Synthesizer) push audio to AudioTrack progressively
+     * instead of waiting for the full synth.
+     *
+     * Adaptive buffering per Max's spec:
+     *   1. Run an initial probe of [STREAMING_PROBE_FRAMES] frames.
+     *      Measure actual per-frame compute time.
+     *   2. If gen ≤ realtime (80 ms/frame on this bundle): emit the
+     *      probe chunk immediately, stream subsequent chunks of the
+     *      same size. Audio drains slower than we generate; no buffer
+     *      management needed.
+     *   3. If gen > realtime: compute how much audio we need buffered
+     *      so playback never catches up to generation. Continue the AR
+     *      loop until that buffer is met (or EOS fires), THEN emit.
+     *      After the initial emission, subsequent chunks are smaller
+     *      ([STREAMING_CHUNK_FRAMES]).
+     *
+     * For sub-RTS generation the initial-buffer formula:
+     *   per_frame_deficit = per_frame_gen_ms - frame_duration_ms
+     *   total_deficit = remaining_frames * per_frame_deficit + safety
+     *   initial_buffer_frames = ceil(total_deficit / frame_duration_ms)
+     *                                              + probe_frames
+     *
+     * If `remaining_frames` is overestimated (the input ended up
+     * shorter than the worst-case max), we over-buffer slightly. Fine —
+     * worst case is slightly worse TTFA, never an underrun.
+     *
+     * Chunk boundaries are sample-accurate (mimi_decoder is stateful)
+     * so AudioTrack's MODE_STREAM internal ring buffer plays them
+     * seamlessly.
+     */
+    override fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+    ): Flow<SynthAudio> = flow {
+        ensureLoadedSuspending()
+        val bundle = bundle ?: error("bundle missing after load")
+        val tokenizer = tokenizer ?: error("tokenizer missing after load")
+
+        if (speed != 1.0f) {
+            Log.d(TAG, "Pocket TTS ignores speed=$speed in streaming path")
+        }
+
+        synthLock.withLock {
+            val voiceName = voiceId.substringAfter(':', voiceId)
+            val voiceEmb = embeddingForVoice(voiceName)
+
+            val preprocessed = preprocessForPocket(text, bundle)
+            val tokens = tokenizer.encode(preprocessed)
+            if (tokens.size > bundle.maxTokenPerChunk) {
+                Log.w(
+                    TAG,
+                    "Streaming: input is ${tokens.size} tokens; bundle's " +
+                        "max_token_per_chunk is ${bundle.maxTokenPerChunk}. " +
+                        "Output may skip words.",
+                )
+            }
+
+            val ar = startArSession(bundle, voiceEmb, tokens, phases = null)
+            val mimiState = initStates(bundle.mimiStateManifest)
+            val frameDurationMs = 1000.0 / bundle.frameRate
+            val pending = ArrayList<FloatArray>(STREAMING_PROBE_FRAMES * 2)
+
+            var perFrameMs = -1.0
+            var initialEmitted = false
+            var initialBufferTarget = STREAMING_PROBE_FRAMES
+            val probeStart = System.currentTimeMillis()
+
+            while (true) {
+                val step = stepAr(ar) ?: break
+                pending.add(step.latent)
+
+                // After the probe, measure live per-frame time and decide
+                // initial-buffer target. perFrameMs sentinel < 0 = not measured yet.
+                if (perFrameMs < 0 && ar.frameIdx >= STREAMING_PROBE_FRAMES) {
+                    perFrameMs = (System.currentTimeMillis() - probeStart).toDouble() /
+                        ar.frameIdx.toDouble()
+                    val isRts = perFrameMs <= frameDurationMs
+                    initialBufferTarget = if (isRts) {
+                        Log.d(
+                            TAG,
+                            "Streaming: RTS at %.1f ms/frame (budget %.1f); emit probe immediately"
+                                .format(perFrameMs, frameDurationMs),
+                        )
+                        STREAMING_PROBE_FRAMES
+                    } else {
+                        val deficit = perFrameMs - frameDurationMs
+                        val remainingEst = (ar.maxFrames - ar.frameIdx).coerceAtLeast(0)
+                        val deficitMs = remainingEst * deficit + STREAMING_SAFETY_MS
+                        val needed = STREAMING_PROBE_FRAMES +
+                            Math.ceil(deficitMs / frameDurationMs).toInt()
+                        val target = needed.coerceAtMost(ar.maxFrames)
+                        Log.d(
+                            TAG,
+                            "Streaming: sub-RTS at %.1f ms/frame (budget %.1f); buffer %d frames"
+                                .format(perFrameMs, frameDurationMs, target),
+                        )
+                        target
+                    }
+                }
+
+                if (!initialEmitted) {
+                    // Emit the initial buffer once we've collected enough
+                    // (or the AR loop terminated early via EOS).
+                    if (perFrameMs >= 0 && (pending.size >= initialBufferTarget || ar.done)) {
+                        emitPendingAsChunk(bundle, pending, mimiState)
+                        initialEmitted = true
+                    }
+                } else {
+                    // Streaming mode: emit each chunk as it fills, plus
+                    // the final tail when AR terminates.
+                    if (pending.size >= STREAMING_CHUNK_FRAMES || ar.done) {
+                        emitPendingAsChunk(bundle, pending, mimiState)
+                    }
+                }
+            }
+
+            // Tail: if AR exited with frames buffered and no probe-completion
+            // emit yet (very short utterance) flush them as a single chunk.
+            if (pending.isNotEmpty()) {
+                emitPendingAsChunk(bundle, pending, mimiState)
+            }
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /**
+     * Helper for the streaming flow's body: decode every latent in
+     * [pending] through mimi_decoder, emit the PCM chunk downstream,
+     * clear the buffer. Suspends on the emit (back-pressure from the
+     * collector).
+     *
+     * Must be called inside a `flow { ... }` body (uses the implicit
+     * `emit` from FlowCollector).
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<SynthAudio>.emitPendingAsChunk(
+        bundle: PocketBundle,
+        pending: MutableList<FloatArray>,
+        mimiState: PocketStates,
+    ) {
+        val n = pending.size
+        if (n == 0) return
+        val flat = FloatArray(n * bundle.latentDim)
+        var pos = 0
+        for (l in pending) {
+            System.arraycopy(l, 0, flat, pos, bundle.latentDim)
+            pos += bundle.latentDim
+        }
+        pending.clear()
+        val pcmFloat = decodeMimiChunk(bundle, flat, n, mimiState)
+        val pcm16 = floatToPcm16(pcmFloat)
+        emit(SynthAudio(pcm = pcm16, sampleRate = bundle.sampleRate))
+    }
+
+    /**
      * Override the default timed-synth wrapper so the bench UI gets our
      * detailed phase breakdown. Production callers stay on plain
      * [synthesize] and never trip this path.
@@ -564,10 +723,6 @@ open class PocketEngine @Inject constructor(
 
     // -- flow LM pipeline ----------------------------------------------------
 
-    /**
-     * Run all three flow_lm_main phases + the autoregressive Euler loop.
-     * Returns the flat latent buffer (length = `numFrames * latentDim`).
-     */
     /** Return-shape from [runFlowLm]: flattened latents + telemetry for the bench. */
     private data class FlowLmResult(
         val latents: FloatArray,
@@ -576,12 +731,48 @@ open class PocketEngine @Inject constructor(
         val eosFiredAt: Int,
     )
 
-    private fun runFlowLm(
+    /**
+     * Live state of an in-flight autoregressive synthesis. Held across
+     * many [stepAr] calls; not safe to share between synths.
+     *
+     * Carved out of the old monolithic `runFlowLm` so the AR loop can
+     * be driven frame-by-frame from either the batch path (non-streaming
+     * `synthesize`) or the streaming path (`synthesizeStream`'s flow
+     * builder).
+     */
+    private class ArSession(
+        val bundle: PocketBundle,
+        val ort: OrtEnvironment,
+        val main: OrtSession,
+        val flow: OrtSession,
+        val flowLmState: PocketStates,
+        val maxFrames: Int,
+        val framesAfterEos: Int,
+        var previousLatent: FloatArray,
+        var frameIdx: Int = 0,
+        var eosFired: Boolean = false,
+        var eosFiredAtFrame: Int = -1,
+        var framesPostEos: Int = 0,
+        var done: Boolean = false,
+    )
+
+    private data class ArStepResult(val latent: FloatArray, val eosLogit: Float)
+
+    /**
+     * Run phase 1 (voice conditioning) and phase 2 (text conditioning),
+     * leaving the flow_lm state primed for the autoregressive loop.
+     * Returns the live AR session whose `flowLmState` is the post-
+     * priming state ready for [stepAr] calls.
+     *
+     * [phases] is non-null only when the caller wants timing data
+     * recorded (the bench path); streaming skips it for clarity.
+     */
+    private fun startArSession(
         bundle: PocketBundle,
         voiceEmbedding: FloatArray,
         tokens: IntArray,
-        phases: MutableList<PhaseSpan>,
-    ): FlowLmResult {
+        phases: MutableList<PhaseSpan>?,
+    ): ArSession {
         val ort = env ?: error("ORT env missing")
         val main = flowLmMainSession ?: error("flow_lm_main session missing")
         val flow = flowLmFlowSession ?: error("flow_lm_flow session missing")
@@ -591,133 +782,149 @@ open class PocketEngine @Inject constructor(
 
         // PHASE 1: voice conditioning.
         // text_embeddings = bos_before_voice ++ voice_embedding, shape [1, V+1, conditioningDim]
-        // sequence = empty [1, 0, latentDim]
         val phase1Start = System.currentTimeMillis()
+        val bos = bosBeforeVoice ?: error("bos_before_voice missing")
+        val voiceFrames = voiceEmbedding.size / bundle.conditioningDim
+        val totalFrames = voiceFrames + if (bundle.insertBosBeforeVoice) 1 else 0
+        val concat = FloatArray(totalFrames * bundle.conditioningDim)
         run {
-            val bos = bosBeforeVoice ?: error("bos_before_voice missing")
-            val voiceFrames = voiceEmbedding.size / bundle.conditioningDim
-            val totalFrames = voiceFrames + if (bundle.insertBosBeforeVoice) 1 else 0
-            val concat = FloatArray(totalFrames * bundle.conditioningDim)
             var pos = 0
             if (bundle.insertBosBeforeVoice) {
                 System.arraycopy(bos, 0, concat, pos, bos.size)
                 pos += bos.size
             }
             System.arraycopy(voiceEmbedding, 0, concat, pos, voiceEmbedding.size)
-
-            runFlowLmMain(
-                session = main,
-                bundle = bundle,
-                ort = ort,
-                state = state,
-                sequenceData = FloatArray(0),
-                sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
-                textEmbedsData = concat,
-                textEmbedsShape = longArrayOf(1, totalFrames.toLong(), bundle.conditioningDim.toLong()),
-                captureConditioning = false,
-            )
         }
-        phases.add(PhaseSpan("flow-lm phase 1 (voice cond)", System.currentTimeMillis() - phase1Start))
+        runFlowLmMain(
+            session = main,
+            bundle = bundle,
+            ort = ort,
+            state = state,
+            sequenceData = FloatArray(0),
+            sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
+            textEmbedsData = concat,
+            textEmbedsShape = longArrayOf(1, totalFrames.toLong(), bundle.conditioningDim.toLong()),
+            captureConditioning = false,
+        )
+        phases?.add(PhaseSpan("flow-lm phase 1 (voice cond)", System.currentTimeMillis() - phase1Start))
 
         // PHASE 2: text conditioning.
-        // text_embeddings = text_conditioner(tokens), shape [1, T, conditioningDim]
-        // sequence = empty [1, 0, latentDim]
         val phase2Start = System.currentTimeMillis()
-        run {
-            val tcStart = System.currentTimeMillis()
-            val textEmbeds = runTextConditioner(textCond, tokens, bundle, ort)
-            val tcMs = System.currentTimeMillis() - tcStart
-            runFlowLmMain(
-                session = main,
-                bundle = bundle,
-                ort = ort,
-                state = state,
-                sequenceData = FloatArray(0),
-                sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
-                textEmbedsData = textEmbeds,
-                textEmbedsShape = longArrayOf(1, tokens.size.toLong(), bundle.conditioningDim.toLong()),
-                captureConditioning = false,
-            )
-            // Note the conditioner is included in phase 2 total; surface its
-            // sub-contribution as a detail string for the bench UI.
-            phases.add(
-                PhaseSpan(
-                    "flow-lm phase 2 (text cond)",
-                    System.currentTimeMillis() - phase2Start,
-                    detail = "incl. text_conditioner $tcMs ms",
-                ),
-            )
-        }
+        val tcStart = System.currentTimeMillis()
+        val textEmbeds = runTextConditioner(textCond, tokens, bundle, ort)
+        val tcMs = System.currentTimeMillis() - tcStart
+        runFlowLmMain(
+            session = main,
+            bundle = bundle,
+            ort = ort,
+            state = state,
+            sequenceData = FloatArray(0),
+            sequenceShape = longArrayOf(1, 0, bundle.latentDim.toLong()),
+            textEmbedsData = textEmbeds,
+            textEmbedsShape = longArrayOf(1, tokens.size.toLong(), bundle.conditioningDim.toLong()),
+            captureConditioning = false,
+        )
+        phases?.add(
+            PhaseSpan(
+                "flow-lm phase 2 (text cond)",
+                System.currentTimeMillis() - phase2Start,
+                detail = "incl. text_conditioner $tcMs ms",
+            ),
+        )
 
-        // PHASE 3: autoregressive generation.
-        // For each frame: sequence=[1,1,32] (NaN→BOS on first iter,
-        // previous latent thereafter), text_embeddings=empty[1,0,1024].
-        val maxFrames = estimateMaxFrames(bundle, tokens.size)
-        val framesAfterEos = framesAfterEosFor(bundle, tokens)
-        val latents = ArrayList<FloatArray>(maxFrames)
-        var previousLatent = FloatArray(bundle.latentDim) { Float.NaN }
-        var eosFired = false
-        var eosFiredAtFrame = -1
-        var framesPostEos = 0
+        return ArSession(
+            bundle = bundle,
+            ort = ort,
+            main = main,
+            flow = flow,
+            flowLmState = state,
+            maxFrames = estimateMaxFrames(bundle, tokens.size),
+            framesAfterEos = framesAfterEosFor(bundle, tokens),
+            previousLatent = FloatArray(bundle.latentDim) { Float.NaN },
+        )
+    }
+
+    /**
+     * Advance the AR session by one frame. Returns the new latent +
+     * the raw EOS logit (caller checks against `EOS_THRESHOLD`).
+     * Returns `null` when the session is done (max frames hit, or EOS
+     * fired and the post-EOS tail has elapsed).
+     *
+     * Updates [ar] in place: increments frameIdx, updates state +
+     * previousLatent, sets eosFired / done flags as appropriate.
+     */
+    private fun stepAr(ar: ArSession): ArStepResult? {
+        if (ar.done || ar.frameIdx >= ar.maxFrames) return null
+        val frame = ar.frameIdx
+        val capture = runFlowLmMain(
+            session = ar.main,
+            bundle = ar.bundle,
+            ort = ar.ort,
+            state = ar.flowLmState,
+            sequenceData = ar.previousLatent,
+            sequenceShape = longArrayOf(1, 1, ar.bundle.latentDim.toLong()),
+            textEmbedsData = FloatArray(0),
+            textEmbedsShape = longArrayOf(1, 0, ar.bundle.conditioningDim.toLong()),
+            captureConditioning = true,
+        )!! // captureConditioning=true guarantees non-null
+        val nextLatent = runFlowEuler(ar.flow, ar.ort, capture.conditioning, ar.bundle.latentDim)
+        ar.previousLatent = nextLatent
+        ar.frameIdx++
+
+        if (!ar.eosFired && capture.eosLogit > EOS_THRESHOLD) {
+            ar.eosFired = true
+            ar.eosFiredAtFrame = frame
+            Log.d(TAG, "EOS at frame $frame (logit=${capture.eosLogit}); +${ar.framesAfterEos} more")
+        }
+        if (ar.eosFired) {
+            ar.framesPostEos++
+            if (ar.framesPostEos >= ar.framesAfterEos) ar.done = true
+        }
+        return ArStepResult(nextLatent, capture.eosLogit)
+    }
+
+    /**
+     * Non-streaming AR loop: drive [stepAr] to completion, collect every
+     * latent, return them as one flat buffer. Used by [synthesize]; the
+     * streaming path drives [stepAr] itself with adaptive buffering.
+     */
+    private fun runFlowLm(
+        bundle: PocketBundle,
+        voiceEmbedding: FloatArray,
+        tokens: IntArray,
+        phases: MutableList<PhaseSpan>,
+    ): FlowLmResult {
+        val ar = startArSession(bundle, voiceEmbedding, tokens, phases)
+        val latents = ArrayList<FloatArray>(ar.maxFrames)
         val arStart = System.currentTimeMillis()
-
-        for (frame in 0 until maxFrames) {
-            val capture = runFlowLmMain(
-                session = main,
-                bundle = bundle,
-                ort = ort,
-                state = state,
-                sequenceData = previousLatent,
-                sequenceShape = longArrayOf(1, 1, bundle.latentDim.toLong()),
-                textEmbedsData = FloatArray(0),
-                textEmbedsShape = longArrayOf(1, 0, bundle.conditioningDim.toLong()),
-                captureConditioning = true,
-            )!!  // captureConditioning=true guarantees non-null
-            val nextLatent = runFlowEuler(flow, ort, capture.conditioning, bundle.latentDim)
-            latents.add(nextLatent)
-            previousLatent = nextLatent
-
-            if (!eosFired && capture.eosLogit > EOS_THRESHOLD) {
-                eosFired = true
-                eosFiredAtFrame = frame
-                Log.d(TAG, "EOS at frame $frame (logit=${capture.eosLogit}); generating $framesAfterEos more")
-            }
-            if (eosFired) {
-                framesPostEos++
-                if (framesPostEos >= framesAfterEos) break
-            }
+        while (true) {
+            val step = stepAr(ar) ?: break
+            latents.add(step.latent)
         }
-
         val arMs = System.currentTimeMillis() - arStart
-        val perFrameUs = if (latents.isNotEmpty()) (arMs * 1000.0 / latents.size) else 0.0
-        // Estimated realtime headroom: frame_rate (12.5 Hz) means each frame
-        // is ~80 ms of audio. If per-frame compute < 80 ms we're faster
-        // than realtime → streaming is a clear win.
+        val perFrameMs = if (latents.isNotEmpty()) (arMs.toDouble() / latents.size) else 0.0
         val msPerFrameRealtime = 1000.0 / bundle.frameRate
-        val realtimeRatio = if (perFrameUs > 0) (msPerFrameRealtime / (perFrameUs / 1000.0)) else 0.0
+        val realtimeRatio = if (perFrameMs > 0) (msPerFrameRealtime / perFrameMs) else 0.0
         phases.add(
             PhaseSpan(
                 "flow-lm phase 3 (AR loop)",
                 arMs,
                 detail = "${latents.size} frames @ %.1f ms/frame, %.2fx realtime".format(
-                    perFrameUs / 1000.0,
-                    realtimeRatio,
+                    perFrameMs, realtimeRatio,
                 ),
             ),
         )
-
-        if (!eosFired) {
-            Log.w(TAG, "Hit max frames ($maxFrames) without EOS — output may be truncated")
+        if (!ar.eosFired) {
+            Log.w(TAG, "Hit max frames (${ar.maxFrames}) without EOS — output may be truncated")
         }
 
-        // Flatten latents into a single contiguous [N, latentDim] buffer.
         val flat = FloatArray(latents.size * bundle.latentDim)
         var pos = 0
-        for (frame in latents) {
-            System.arraycopy(frame, 0, flat, pos, bundle.latentDim)
+        for (l in latents) {
+            System.arraycopy(l, 0, flat, pos, bundle.latentDim)
             pos += bundle.latentDim
         }
-        return FlowLmResult(latents = flat, numFrames = latents.size, eosFiredAt = eosFiredAtFrame)
+        return FlowLmResult(latents = flat, numFrames = latents.size, eosFiredAt = ar.eosFiredAtFrame)
     }
 
     /** Result of a `flow_lm_main` call when phase 3 captures the value outputs. */
@@ -870,48 +1077,69 @@ open class PocketEngine @Inject constructor(
 
     // -- mimi decoder --------------------------------------------------------
 
-    private fun runMimiDecoder(bundle: PocketBundle, latents: FloatArray): FloatArray {
-        if (latents.isEmpty()) return FloatArray(0)
+    /**
+     * Decode a single chunk of [latents] through the mimi_decoder,
+     * mutating [mimiState] in place. Caller is responsible for the
+     * state's full lifecycle (init it once at the start of a synth,
+     * carry it across chunks, let it fall out of scope when done).
+     *
+     * Used by both the batch [runMimiDecoder] (one mimi state, many
+     * chunks) and the streaming path (one mimi state across all
+     * emitted chunks).
+     */
+    private fun decodeMimiChunk(
+        bundle: PocketBundle,
+        latents: FloatArray,
+        numFrames: Int,
+        mimiState: PocketStates,
+    ): FloatArray {
         val ort = env ?: error("ORT env missing")
         val session = mimiDecoderSession ?: error("mimi decoder session missing")
-        val numFrames = latents.size / bundle.latentDim
+        val inputs = LinkedHashMap<String, OnnxTensor>(mimiState.size + 1)
+        val latT = OnnxTensor.createTensor(
+            ort, FloatBuffer.wrap(latents),
+            longArrayOf(1, numFrames.toLong(), bundle.latentDim.toLong()),
+        )
+        inputs["latent"] = latT
+        bindStateInputs(ort, bundle.mimiStateManifest, mimiState, inputs)
+        try {
+            val out = FloatArray(numFrames * bundle.samplesPerFrame)
+            session.run(inputs).use { result ->
+                val audioTensor = result.get("audio_frame").orElseThrow {
+                    IllegalStateException("mimi_decoder did not return 'audio_frame'")
+                } as OnnxTensor
+                audioTensor.floatBuffer.get(out)
+                updateStatesFromResult(bundle.mimiStateManifest, result, mimiState)
+            }
+            return out
+        } finally {
+            for (t in inputs.values) {
+                try { t.close() } catch (_: Throwable) {}
+            }
+        }
+    }
 
-        val state = initStates(bundle.mimiStateManifest)
+    /**
+     * Non-streaming mimi decoder: chunks [latents] internally to keep
+     * memory bounded for long inputs, but produces all PCM up front.
+     * Used by [synthesize]; the streaming path calls [decodeMimiChunk]
+     * directly with its own chunking + state lifecycle.
+     */
+    private fun runMimiDecoder(bundle: PocketBundle, latents: FloatArray): FloatArray {
+        if (latents.isEmpty()) return FloatArray(0)
+        val numFrames = latents.size / bundle.latentDim
+        val mimiState = initStates(bundle.mimiStateManifest)
         val pcm = FloatArray(numFrames * bundle.samplesPerFrame)
         var pcmPos = 0
-
-        // Decode in chunks to keep memory bounded for long inputs. The
-        // decoder is stateful so chunk size only affects throughput,
-        // not output. 15 frames ≈ 1.2 s of audio at 12.5 fps.
         var frame = 0
         while (frame < numFrames) {
             val chunk = minOf(MIMI_CHUNK_FRAMES, numFrames - frame)
             val chunkFloats = chunk * bundle.latentDim
             val chunkData = FloatArray(chunkFloats)
             System.arraycopy(latents, frame * bundle.latentDim, chunkData, 0, chunkFloats)
-
-            val inputs = LinkedHashMap<String, OnnxTensor>(state.size + 1)
-            val latT = OnnxTensor.createTensor(
-                ort, FloatBuffer.wrap(chunkData),
-                longArrayOf(1, chunk.toLong(), bundle.latentDim.toLong()),
-            )
-            inputs["latent"] = latT
-            bindStateInputs(ort, bundle.mimiStateManifest, state, inputs)
-            try {
-                session.run(inputs).use { result ->
-                    val audioTensor = result.get("audio_frame").orElseThrow {
-                        IllegalStateException("mimi_decoder did not return 'audio_frame'")
-                    } as OnnxTensor
-                    val audioFloats = chunk * bundle.samplesPerFrame
-                    audioTensor.floatBuffer.get(pcm, pcmPos, audioFloats)
-                    pcmPos += audioFloats
-                    updateStatesFromResult(bundle.mimiStateManifest, result, state)
-                }
-            } finally {
-                for (t in inputs.values) {
-                    try { t.close() } catch (_: Throwable) {}
-                }
-            }
+            val chunkPcm = decodeMimiChunk(bundle, chunkData, chunk, mimiState)
+            System.arraycopy(chunkPcm, 0, pcm, pcmPos, chunkPcm.size)
+            pcmPos += chunkPcm.size
             frame += chunk
         }
         return pcm
@@ -1027,6 +1255,27 @@ open class PocketEngine @Inject constructor(
          * [embeddingForVoice] can route to the right on-disk format.
          */
         const val CLONED_VOICE_PREFIX = "cloned-"
+
+        // -- streaming knobs (synthesizeStream) ----------------------------
+        //
+        // Tuned for Pocket v2026_04 + Pixel 8a, where the AR loop runs at
+        // ~99 ms/frame (0.81x realtime per the alpha.4 bench numbers).
+        // The "audio budget per frame" is 80 ms (12.5 Hz frame rate), so
+        // generation is ~19 ms/frame short of realtime — sub-RTS path
+        // applies and the initial-buffer math kicks in.
+        //
+        // If a future device or bundle pushes per-frame compute below
+        // 80 ms, the RTS branch fires automatically and probe-sized
+        // chunks stream live.
+
+        /** Frames to generate before measuring per-frame ms (the probe). */
+        private const val STREAMING_PROBE_FRAMES = 5
+
+        /** Per-chunk frame count once streaming is established. */
+        private const val STREAMING_CHUNK_FRAMES = 8
+
+        /** Safety margin (ms of audio) above the deficit-derived buffer. */
+        private const val STREAMING_SAFETY_MS = 250.0
 
         // Reused across calls; ThreadLocal so two simultaneous engines
         // wouldn't share a Random (we serialise via synthLock anyway, but

@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -115,6 +116,11 @@ fun BenchmarkScreen(
                 onToggle = viewModel::toggleEngine,
             )
 
+            StreamingModeToggle(
+                enabled = state.streamingMode,
+                onChange = viewModel::setStreamingMode,
+            )
+
             Button(
                 onClick = viewModel::runBenchmark,
                 enabled = !state.running && state.text.isNotBlank() &&
@@ -174,6 +180,31 @@ private fun PresetChip(label: String, onClick: () -> Unit) {
         onClick = onClick,
         label = { Text(label) },
     )
+}
+
+@Composable
+private fun StreamingModeToggle(
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Streaming mode",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = "Measure time-to-first-audio via synthesizeStream. " +
+                    "Sherpa engines fall back to single-shot (TTFA == total).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = enabled, onCheckedChange = onChange)
+    }
 }
 
 @Composable
@@ -252,6 +283,27 @@ private fun ResultCard(result: BenchmarkResult) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 return@Column
+            }
+
+            // For streaming runs, show TTFA prominently — it's the
+            // headline metric that streaming is meant to improve.
+            if (result.timeToFirstAudioMs != null) {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "First audio: ${result.timeToFirstAudioMs} ms",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    if (result.chunkCount != null && result.chunkCount > 0) {
+                        Text(
+                            text = "(${result.chunkCount} chunk${if (result.chunkCount == 1) "" else "s"})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(8.dp))
