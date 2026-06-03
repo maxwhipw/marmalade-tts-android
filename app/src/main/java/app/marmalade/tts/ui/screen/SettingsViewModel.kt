@@ -2,8 +2,11 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.AppAliasMappingDao
+import app.marmalade.tts.service.KeepaliveCoordinator
+import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.theme.ThemePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -57,6 +60,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     appAliasMappingDao: AppAliasMappingDao,
+    private val keepaliveCoordinator: KeepaliveCoordinator,
 ) : ViewModel() {
 
     /**
@@ -97,6 +101,39 @@ class SettingsViewModel @Inject constructor(
             initialValue = 0,
         )
 
+    /**
+     * Manual ONNX-Runtime intra-op thread count, or `null` for the auto
+     * value supplied by [app.marmalade.tts.perf.CpuClusterDetector]. The
+     * setting takes effect on next engine load (cold start, or after a
+     * release-and-reload), not on the current synthesis.
+     */
+    val intraOpThreads: StateFlow<Int?> = settings.intraOpThreads
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = null,
+        )
+
+    /**
+     * The auto-detected perf-cluster size for this device, surfaced to
+     * the UI so the "Auto (N)" radio label can show what auto resolves
+     * to. Computed once at VM init since CPU topology never changes
+     * at runtime.
+     */
+    val autoIntraOpThreads: Int =
+        app.marmalade.tts.perf.CpuClusterDetector.detectPerfCoreCount()
+
+    /**
+     * Whether the legacy sherpa engines are shown in the engine lists.
+     * Defaults to [BuildConfig.DEBUG] until the first DataStore emission.
+     */
+    val showDeveloperEngines: StateFlow<Boolean> = settings.showDeveloperEngines
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = BuildConfig.DEBUG,
+        )
+
     /** Persist a new theme preset selection. */
     fun setThemePreset(preset: ThemePreset) {
         viewModelScope.launch {
@@ -108,6 +145,44 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: String) {
         viewModelScope.launch {
             settings.setThemeMode(mode)
+        }
+    }
+
+    /** Persist a manual thread count, or pass `null` to revert to auto. */
+    fun setIntraOpThreads(count: Int?) {
+        viewModelScope.launch {
+            settings.setIntraOpThreads(count)
+        }
+    }
+
+    /** Persist the show-developer-engines toggle. */
+    fun setShowDeveloperEngines(value: Boolean) {
+        viewModelScope.launch {
+            settings.setShowDeveloperEngines(value)
+        }
+    }
+
+    /**
+     * P-K — current keepalive mode (Off / Smart / Persistent). The
+     * "Smart" default matches the value [SettingsRepository.keepaliveMode]
+     * falls back to when nothing's been stored.
+     */
+    val keepaliveMode: StateFlow<KeepaliveMode> = settings.keepaliveMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = KeepaliveMode.Smart,
+        )
+
+    /**
+     * Persist a new keepalive mode and immediately apply it (start /
+     * stop the keepalive service). Without the explicit apply call, the
+     * change wouldn't take effect until the next synth.
+     */
+    fun setKeepaliveMode(mode: KeepaliveMode) {
+        viewModelScope.launch {
+            settings.setKeepaliveMode(mode)
+            keepaliveCoordinator.applyCurrentMode()
         }
     }
 

@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
+import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
@@ -55,7 +57,7 @@ class SpeakViewModelTest {
         assertEquals("kitten-nano-v0_8:Bella", call.voiceId)
         // Default speed / effect when no alias has been applied.
         assertEquals(1.0f, call.speed, 0.0f)
-        assertEquals(EffectPreset.NONE, call.effect)
+        assertEquals(emptyList<EffectBlock>(), call.effectBlocks)
     }
 
     @Test
@@ -110,6 +112,7 @@ class SpeakViewModelTest {
             speed = 1.25f,
             effectPreset = "ROBOT",
             createdAt = 0L,
+            effectId = BuiltinEffects.ROBOT_ID,
         )
         val player = RecordingPlayer(behaviour = { Result.success(Unit) })
         val vm = newViewModel(player = player, aliases = listOf(alias))
@@ -126,7 +129,133 @@ class SpeakViewModelTest {
         val call = player.calls.single()
         assertEquals("kitten-nano-v0_8:Hugo", call.voiceId)
         assertEquals(1.25f, call.speed, 0.0f)
-        assertEquals(EffectPreset.ROBOT, call.effect)
+        assertEquals(EffectChain.ROBOT_BLOCKS, call.effectBlocks)
+    }
+
+    @Test
+    fun speak_passesPhonemizationLanguageFromActiveAlias() = runTest {
+        // alpha.10.L: F7 plumbing — alias.phonemizationLanguage must reach
+        // the engine via the speak() call. Auto (null) and explicit values
+        // both round-trip.
+        val alias = VoiceAlias(
+            name = "narrator-jp",
+            engine = "kitten-nano-v0_8",
+            voiceId = "kitten-nano-v0_8:Luna",
+            speed = 1.0f,
+            effectPreset = "NONE",
+            createdAt = 0L,
+            phonemizationLanguage = "ja",
+        )
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        val vm = newViewModel(player = player, aliases = listOf(alias))
+        vm.currentVoice.firstNonNull()
+
+        vm.applyAlias("narrator-jp")
+        vm.currentVoice.filter { it?.id == "kitten-nano-v0_8:Luna" }.first()
+
+        vm.onTextChanged("Konnichiwa")
+        vm.speak()
+
+        val call = player.calls.single()
+        assertEquals("ja", call.phonemizationLanguage)
+    }
+
+    @Test
+    fun speak_phonemizationLanguageDefaultsToNullWithoutAlias() = runTest {
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        vm.onTextChanged("Hello")
+        vm.speak()
+
+        assertNull(
+            "Without an active alias, language should be null = engine decides",
+            player.calls.single().phonemizationLanguage,
+        )
+    }
+
+    @Test
+    fun editingActiveAlias_updatesCachedEffectSpeedAndLanguage() = runTest {
+        // alpha.10.M: editing the alias currently active on the Speak screen
+        // must reflect live in the cached StateFlows. Pre-fix the user had
+        // to re-select another alias and come back to pick up edits.
+        val original = VoiceAlias(
+            name = "narrator",
+            engine = "kitten-nano-v0_8",
+            voiceId = "kitten-nano-v0_8:Bella",
+            speed = 1.0f,
+            effectPreset = "NONE",
+            createdAt = 0L,
+            phonemizationLanguage = null,
+        )
+        val aliasDao = FakeAliasDao(initial = listOf(original))
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.currentVoice.firstNonNull()
+
+        vm.applyAlias("narrator")
+        vm.activeAlias.filter { it == "narrator" }.first()
+        // Sanity: cached state matches the original alias.
+        assertEquals(emptyList<EffectBlock>(), vm.currentEffectBlocks.value)
+        assertEquals(1.0f, vm.currentSpeed.value, 0.0f)
+        assertNull(vm.currentPhonemizationLanguage.value)
+
+        // Simulate editing the alias from the Aliases screen — same name,
+        // same voiceId (so the manual-voice-change clearer doesn't fire),
+        // but speed/effect/language all changed.
+        val edited = original.copy(
+            speed = 0.75f,
+            effectPreset = "CAVE",
+            effectId = BuiltinEffects.CAVE_ID,
+            phonemizationLanguage = "en-gb",
+        )
+        aliasDao.upsert(edited)
+
+        // The combine observer in init{} should re-apply the new snapshot.
+        // Wait on the speed StateFlow rather than tail-asserting — the
+        // upsert→DAO flow→combine pipeline has multiple coroutine hops.
+        vm.currentSpeed.filter { it == 0.75f }.first()
+
+        assertEquals(EffectChain.CAVE_BLOCKS, vm.currentEffectBlocks.value)
+        assertEquals(0.75f, vm.currentSpeed.value, 0.0f)
+        assertEquals("en-gb", vm.currentPhonemizationLanguage.value)
+    }
+
+    @Test
+    fun editingInactiveAlias_doesNotTouchSpeakScreenState() = runTest {
+        // Symmetric guard for alpha.10.M: editing a DIFFERENT alias from
+        // the one currently selected must not bleed into the cached state.
+        val active = VoiceAlias(
+            name = "narrator",
+            engine = "kitten-nano-v0_8",
+            voiceId = "kitten-nano-v0_8:Bella",
+            speed = 1.0f,
+            effectPreset = "NONE",
+            createdAt = 0L,
+        )
+        val other = VoiceAlias(
+            name = "robocop",
+            engine = "kitten-nano-v0_8",
+            voiceId = "kitten-nano-v0_8:Hugo",
+            speed = 2.0f,
+            effectPreset = "ROBOT",
+            createdAt = 0L,
+        )
+        val aliasDao = FakeAliasDao(initial = listOf(active, other))
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.currentVoice.firstNonNull()
+
+        vm.applyAlias("narrator")
+        vm.activeAlias.filter { it == "narrator" }.first()
+
+        // Edit the OTHER alias.
+        aliasDao.upsert(other.copy(speed = 0.5f, effectPreset = "TELEPHONE", effectId = BuiltinEffects.TELEPHONE_ID))
+
+        // Cached state of the active alias must remain untouched.
+        // Drain pending coroutines by reading aliases once.
+        vm.aliases.first { it.size == 2 }
+        assertEquals(emptyList<EffectBlock>(), vm.currentEffectBlocks.value)
+        assertEquals(1.0f, vm.currentSpeed.value, 0.0f)
     }
 
     @Test
@@ -138,6 +267,7 @@ class SpeakViewModelTest {
             speed = 0.9f,
             effectPreset = "CAVE",
             createdAt = 0L,
+            effectId = BuiltinEffects.CAVE_ID,
         )
         val settings = FakeSettings(initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         val player = RecordingPlayer(behaviour = { Result.success(Unit) })
@@ -147,7 +277,7 @@ class SpeakViewModelTest {
         vm.applyAlias("echo")
         // Wait for the alias to fully apply before changing voice manually.
         vm.activeAlias.filter { it == "echo" }.first()
-        assertEquals(EffectPreset.CAVE, vm.currentEffect.value)
+        assertEquals(EffectChain.CAVE_BLOCKS, vm.currentEffectBlocks.value)
         assertEquals(0.9f, vm.currentSpeed.value, 0.0f)
 
         // Simulate the user picking a different voice in the picker.
@@ -156,7 +286,7 @@ class SpeakViewModelTest {
 
         // Manual voice pick should drop the alias and reset effect + speed.
         assertEquals(null, vm.activeAlias.value)
-        assertEquals(EffectPreset.NONE, vm.currentEffect.value)
+        assertEquals(emptyList<EffectBlock>(), vm.currentEffectBlocks.value)
         assertEquals(1.0f, vm.currentSpeed.value, 0.0f)
     }
 
@@ -176,6 +306,7 @@ class SpeakViewModelTest {
             settings = settings,
             voiceDao = dao,
             aliasDao = FakeAliasDao(),
+            effectResolver = FakeEffectResolver(),
         )
 
         // Subscribe to keep WhileSubscribed hot. Initially voices is empty,
@@ -241,18 +372,23 @@ class SpeakViewModelTest {
     // -- helpers ---------------------------------------------------------------
 
     private fun newViewModel(
-        player: SpeechPlayer,
+        player: SpeechPlayer = RecordingPlayer(behaviour = { Result.success(Unit) }),
         defaultVoiceId: String = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
         settings: FakeSettings = FakeSettings(initialId = defaultVoiceId),
         aliases: List<VoiceAlias> = emptyList(),
+        aliasDao: FakeAliasDao? = null,
     ): SpeakViewModel {
+        require(aliasDao == null || aliases.isEmpty()) {
+            "Pass either aliasDao or aliases, not both"
+        }
         val dao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
-        val aliasDao = FakeAliasDao(initial = aliases)
+        val resolvedAliasDao = aliasDao ?: FakeAliasDao(initial = aliases)
         return SpeakViewModel(
             synthesizer = player,
             settings = settings,
             voiceDao = dao,
-            aliasDao = aliasDao,
+            aliasDao = resolvedAliasDao,
+            effectResolver = FakeEffectResolver(),
         )
     }
 

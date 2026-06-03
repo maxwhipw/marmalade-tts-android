@@ -181,6 +181,13 @@ fun OnboardingScreen(
                     }
                 },
             )
+            OnboardingStep.BackgroundUnrestricted -> BackgroundUnrestrictedStep(
+                padding = padding,
+                onOpenSettings = {
+                    app.marmalade.tts.ui.openBatteryOptimizationRequest(context)
+                },
+                onContinue = viewModel::advancePastBackground,
+            )
             OnboardingStep.SystemDefault -> SystemDefaultStep(
                 padding = padding,
                 onOpenSystemSettings = {
@@ -601,7 +608,7 @@ private fun CreateAliasStep(
             supportingText = {
                 Text(
                     text = editor.error
-                        ?: "Lower-case letters, digits, dash, underscore.",
+                        ?: "Letters, digits, spaces, dashes — up to 50 characters.",
                     color = if (editor.error != null) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -681,7 +688,7 @@ private fun OnboardingEngineDropdown(
     onPick: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val engines = EngineCatalog.all
+    val engines = EngineCatalog.visibleTo(showDeveloper = false)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
@@ -820,6 +827,7 @@ private fun statusLabel(state: InstallState): String = when (state) {
     InstallState.Installed -> "Installed"
     is InstallState.Failed -> "Failed"
     InstallState.Corrupt -> "Corrupt"
+    is InstallState.Outdated -> "Update available"
 }
 
 private fun downloadDetail(state: InstallState.Downloading): String {
@@ -829,6 +837,102 @@ private fun downloadDetail(state: InstallState.Downloading): String {
         "$fetched / $total — ${state.currentFile}"
     } else {
         "$fetched / $total"
+    }
+}
+
+/**
+ * P-J — onboarding step that asks the user to exempt Marmalade from
+ * Android's battery optimisations. Without the exemption Android may
+ * pause our foreground synth service mid-utterance when the screen
+ * sleeps or the device enters Doze.
+ *
+ * Live-checks [isIgnoringBatteryOptimizations] on every recomposition
+ * + every lifecycle resume so the screen self-updates after the user
+ * returns from the system dialog. If already granted, the explanation
+ * is replaced with a confirmation and the only affordance becomes
+ * "Continue".
+ */
+@Composable
+private fun BackgroundUnrestrictedStep(
+    padding: PaddingValues,
+    onOpenSettings: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var isAllowed by remember {
+        mutableStateOf(app.marmalade.tts.ui.isIgnoringBatteryOptimizations(context))
+    }
+    // Refresh the live state every time the user comes back from the
+    // settings dialog (Lifecycle.Event.ON_RESUME on this screen).
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                isAllowed = app.marmalade.tts.ui.isIgnoringBatteryOptimizations(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.mascot_happy),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = if (isAllowed) "Background allowed" else "Keep speaking with the screen off",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = if (isAllowed) {
+                "Marmalade is exempt from Android's battery restrictions. " +
+                    "Synthesis won't be paused when the screen sleeps."
+            } else {
+                "Android pauses background apps when the screen sleeps or the " +
+                    "battery dips low — that can cut off speech mid-sentence on long " +
+                    "passages. Allowing Marmalade to run unrestricted keeps speech " +
+                    "playing through screen-off."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(24.dp))
+        if (isAllowed) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Continue") }
+        } else {
+            Button(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Allow background activity") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Skip — I'll do this later") }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "You can change this any time in Android Settings → Apps → Marmalade TTS → Battery.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

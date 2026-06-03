@@ -6,7 +6,8 @@ import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
 import android.util.Log
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
 import app.marmalade.tts.data.KittenMiniVoiceCatalog
@@ -22,6 +23,12 @@ import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
+import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -79,9 +86,9 @@ import kotlinx.coroutines.runBlocking
 //   ProsodyApplier.apply(pcm, sampleRate, detectedEmotion)
 //      │  pitch/rate/volume/extras per emotion; Neutral is identity.
 //      ▼
-//   EffectChain.apply(pcm, sampleRate, effectPreset)
-//      │  reverb/robotization/bandpass per resolved alias's effectPreset.
-//      │  NONE is identity (no allocation).
+//   EffectChain.applyChain(pcm, sampleRate, effectBlocks)
+//      │  the chain resolved from the alias's effectId via EffectResolver.
+//      │  An empty chain is identity (no allocation).
 //      ▼
 //   pcm → little-endian ByteArray → chunked writes via
 //          callback.audioAvailable(buf, offset, n)  while
@@ -130,8 +137,11 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var kittenNano: KittenNanoEngine
     @Inject lateinit var kittenMini: KittenMiniEngine
+    @Inject lateinit var kittenDirect: KittenDirectEngine
+    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroV10: KokoroV10Engine
     @Inject lateinit var kokoroV11: KokoroV11Engine
+    @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
 
     @Inject lateinit var voiceDao: VoiceMetaDao
@@ -141,6 +151,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var settings: SettingsRepository
 
     @Inject lateinit var router: TtsRouter
+
+    @Inject lateinit var effectResolver: EffectResolver
 
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
@@ -257,6 +269,8 @@ class MarmaladeTtsService : TextToSpeechService() {
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
+            KittenDirectVoiceCatalog.ENGINE,
+            KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
         )
         for (engineName in knownEngines) {
@@ -274,8 +288,11 @@ class MarmaladeTtsService : TextToSpeechService() {
             val loaders: List<Pair<String, () -> Unit>> = listOf(
                 KokoroV10VoiceCatalog.ENGINE to kokoroV10::ensureModelLoaded,
                 KokoroV11VoiceCatalog.ENGINE to kokoroV11::ensureModelLoaded,
+                KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::ensureModelLoaded,
                 KittenNanoVoiceCatalog.ENGINE to kittenNano::ensureModelLoaded,
                 KittenMiniVoiceCatalog.ENGINE to kittenMini::ensureModelLoaded,
+                KittenDirectVoiceCatalog.ENGINE to kittenDirect::ensureModelLoaded,
+                KittenDirectMiniVoiceCatalog.ENGINE to kittenDirectMini::ensureModelLoaded,
                 PocketVoiceCatalog.ENGINE to pocket::ensureModelLoaded,
             )
             for ((name, load) in loaders) {
@@ -370,7 +387,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         Log.d(
             TAG,
             "onSynthesizeText: voice=$voiceId engine=$engineName " +
-                "speed=${params.speed} effect=${params.effect} " +
+                "speed=${params.speed} effectBlocks=${params.effectBlocks.size} " +
                 "chars=${rawText.length}",
         )
 
@@ -392,9 +409,9 @@ class MarmaladeTtsService : TextToSpeechService() {
                     voiceId = voiceId,
                     speed = params.speed,
                     enabledRules = enabled,
-                    effect = params.effect,
+                    effectBlocks = params.effectBlocks,
                     preprocessor = preprocessor,
-                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
+                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage) },
                 )
             }
             when (result) {
@@ -442,7 +459,9 @@ class MarmaladeTtsService : TextToSpeechService() {
     internal data class SynthParams(
         val voiceId: String,
         val speed: Float,
-        val effect: EffectPreset,
+        val effectBlocks: List<EffectBlock>,
+        /** See [app.marmalade.tts.data.db.VoiceAlias.phonemizationLanguage]. Null = engine default. */
+        val phonemizationLanguage: String? = null,
     )
 
     /**
@@ -451,11 +470,11 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Order of precedence (most-specific wins):
      *   1. Caller-specified [SynthesisRequest.getVoiceName] when it
      *      matches a seeded voice — engine-default speed (1.0×) and
-     *      NONE effect, because the caller asked for that exact voice.
+     *      no effect, because the caller asked for that exact voice.
      *   2. Per-app mapping for the caller's package name — voice + speed
      *      + effect all come from the mapped alias.
      *   3. Primary alias — same fields from the user-designated primary.
-     *   4. Engine default voice + 1.0× speed + NONE effect (the v0.1.10
+     *   4. Engine default voice + 1.0× speed + no effect (the v0.1.10
      *      pre-routing behaviour).
      *
      * Runs blocking on the synth-worker thread per the TextToSpeechService
@@ -477,7 +496,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             return SynthParams(
                 voiceId = requested,
                 speed = 1.0f,
-                effect = EffectPreset.NONE,
+                effectBlocks = emptyList(),
             )
         }
 
@@ -497,7 +516,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     return@runBlocking SynthParams(
                         voiceId = hit.id,
                         speed = 1.0f,
-                        effect = EffectPreset.NONE,
+                        effectBlocks = emptyList(),
                     )
                 }
             }
@@ -506,7 +525,8 @@ class MarmaladeTtsService : TextToSpeechService() {
                 SynthParams(
                     voiceId = alias.voiceId,
                     speed = alias.speed,
-                    effect = decodeEffect(alias.effectPreset),
+                    effectBlocks = effectResolver.blocksFor(alias.effectId),
+                    phonemizationLanguage = alias.phonemizationLanguage,
                 )
             } else {
                 null
@@ -515,11 +535,11 @@ class MarmaladeTtsService : TextToSpeechService() {
         if (resolved != null) return resolved
 
         // 4. Absolute fallback — the engine's default voice with
-        // unchanged speed/effect. Matches v0.1.10 behaviour.
+        // unchanged speed and no effect. Matches v0.1.10 behaviour.
         return SynthParams(
             voiceId = KokoroV10VoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
-            effect = EffectPreset.NONE,
+            effectBlocks = emptyList(),
         )
     }
 
@@ -541,15 +561,6 @@ class MarmaladeTtsService : TextToSpeechService() {
             null
         }
     }
-
-    /**
-     * Map the persisted effect-preset string back to the enum. Defaults
-     * to NONE for unknown values — keeps the synth path robust against
-     * a future enum addition that lands in DataStore before the runtime
-     * code knows about it.
-     */
-    private fun decodeEffect(raw: String): EffectPreset =
-        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
 
     /**
      * Resolve the voice ID for this synthesis request (legacy shape).
@@ -575,12 +586,15 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (isKnownEngine(name)) name else KokoroV10VoiceCatalog.ENGINE
     }
 
-    /** Per-engine sample rate. All five engines ship 24 kHz today. */
+    /** Per-engine sample rate. All engines ship 24 kHz today. */
     private fun sampleRateFor(engineName: String): Int = when (engineName) {
         KokoroV10VoiceCatalog.ENGINE -> kokoroV10.sampleRate
         KokoroV11VoiceCatalog.ENGINE -> kokoroV11.sampleRate
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.sampleRate
         KittenNanoVoiceCatalog.ENGINE -> kittenNano.sampleRate
         KittenMiniVoiceCatalog.ENGINE -> kittenMini.sampleRate
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.sampleRate
         PocketVoiceCatalog.ENGINE -> pocket.sampleRate
         else -> kokoroV10.sampleRate
     }
@@ -599,21 +613,28 @@ class MarmaladeTtsService : TextToSpeechService() {
         text: String,
         voiceId: String,
         speed: Float,
+        phonemizationLanguage: String? = null,
     ): SynthAudio = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed)
-        else -> kokoroV10.synthesize(text, voiceId, speed)
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** True for any engine the catalog ships. */
     private fun isKnownEngine(name: String): Boolean =
         name == KokoroV10VoiceCatalog.ENGINE ||
             name == KokoroV11VoiceCatalog.ENGINE ||
+            name == KokoroDirectVoiceCatalog.ENGINE ||
             name == KittenNanoVoiceCatalog.ENGINE ||
             name == KittenMiniVoiceCatalog.ENGINE ||
+            name == KittenDirectVoiceCatalog.ENGINE ||
+            name == KittenDirectMiniVoiceCatalog.ENGINE ||
             name == PocketVoiceCatalog.ENGINE
 
     /**

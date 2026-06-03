@@ -5,11 +5,17 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import app.marmalade.tts.audio.DefaultEffectResolver
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.Synthesizer
 import app.marmalade.tts.data.db.AppAliasMappingDao
+import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.MIGRATION_2_3
 import app.marmalade.tts.data.db.MIGRATION_3_4
+import app.marmalade.tts.data.db.MIGRATION_4_5
+import app.marmalade.tts.data.db.MIGRATION_5_6
+import app.marmalade.tts.data.db.MIGRATION_6_7
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -17,7 +23,10 @@ import app.marmalade.tts.engine.KittenMiniEngine
 import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
+import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
@@ -61,7 +70,7 @@ object AppModule {
             // MIGRATION_3_4 (additive CREATE TABLE only — no other tables
             // touched). Fallback stays as a belt-and-braces option for any
             // future hash drift.
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -69,6 +78,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVoiceMetaDao(db: MarmaladeDb): VoiceMetaDao = db.voiceMetaDao()
+
+    @Provides
+    @Singleton
+    fun provideEffectDao(db: MarmaladeDb): EffectDao = db.effectDao()
 
     @Provides
     @Singleton
@@ -98,6 +111,16 @@ object AppModule {
     fun provideSpeechPlayer(impl: Synthesizer): SpeechPlayer = impl
 
     /**
+     * Resolves an alias's `effectId` to the playable [EffectBlock] chain.
+     * Wraps [EffectDao] + JSON decode behind the [EffectResolver] seam so the
+     * synth-path callers don't depend on Room/org.json directly.
+     */
+    @Provides
+    @Singleton
+    fun provideEffectResolver(effectDao: EffectDao): EffectResolver =
+        DefaultEffectResolver(effectDao)
+
+    /**
      * Engine install root — wraps the app's private `filesDir` so the
      * installer doesn't pull in a full Context dependency (lets unit
      * tests stand the installer up against a TemporaryFolder).
@@ -120,15 +143,21 @@ object AppModule {
     fun provideNativeEngineHandle(
         kittenNano: KittenNanoEngine,
         kittenMini: KittenMiniEngine,
+        kittenDirect: KittenDirectEngine,
         kokoroV10: KokoroV10Engine,
         kokoroV11: KokoroV11Engine,
+        kokoroDirect: KokoroDirectEngine,
         pocket: PocketEngine,
+        pocketDev: PocketDevEngine,
     ): NativeEngineHandle = NativeEngineHandle {
         kittenNano.release()
         kittenMini.release()
+        kittenDirect.release()
         kokoroV10.release()
         kokoroV11.release()
+        kokoroDirect.release()
         pocket.release()
+        pocketDev.release()
     }
 
     /**

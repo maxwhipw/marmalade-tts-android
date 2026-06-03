@@ -1,6 +1,6 @@
 package app.marmalade.tts.ui.screen
 
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.util.MainDispatcherRule
@@ -57,8 +57,9 @@ class AliasViewModelTest {
 
         // Set an invalid name first so the editor enters an error state.
         // (Validation runs in save(), not on each keystroke, so we have to
-        //  poke save() to seed the error.)
-        vm.onEditorNameChange("has space")
+        //  poke save() to seed the error.) After the validation relaxation,
+        // "@" is one of the few chars still rejected.
+        vm.onEditorNameChange("narrator@home")
         vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
         vm.save()
         assertNotNull(
@@ -95,9 +96,11 @@ class AliasViewModelTest {
 
     @Test
     fun onEditorNameChange_invalidChars_setsCharError() = runTest {
-        // Each of these must be rejected by VoiceAlias.NAME_REGEX
-        // (^[a-z][a-z0-9_-]*$): leading digit, uppercase, space, special chars.
-        val invalid = listOf("narrator's", "narrator!", "narrator@home", "narr ator", "Narrator")
+        // Post-relaxation: letters (any case), digits, spaces, dashes,
+        // underscores, and apostrophes are all OK. Special chars like !
+        // @ # / etc. are rejected, as are strings that exceed
+        // [VoiceAlias.MAX_NAME_LENGTH].
+        val invalid = listOf("narrator!", "narrator@home", "narrator/voice", "x".repeat(51))
         for (bad in invalid) {
             val vm = newViewModel()
             vm.openEditor()
@@ -111,10 +114,15 @@ class AliasViewModelTest {
             )
         }
 
-        // These all match the regex and should clear the error after save().
-        // (Note: save() also requires a voiceId; we set one to isolate the
-        //  name rule from the MissingVoice rule.)
-        val valid = listOf("narrator", "happy-mood", "voice_1")
+        // These all match the new rule and should clear the error after
+        // save(). Includes the names Max specifically called out wanting
+        // to support (uppercase + spaces, e.g. "Max Warren").
+        // (Note: save() also requires a voiceId; we set one to isolate
+        //  the name rule from the MissingVoice rule.)
+        val valid = listOf(
+            "narrator", "happy-mood", "voice_1",
+            "Max Warren", "O'Brien", "Narrator 2",
+        )
         for (good in valid) {
             val vm = newViewModel()
             vm.openEditor()
@@ -178,7 +186,7 @@ class AliasViewModelTest {
         vm.onEditorEngineChange("kitten-nano-v0_8")
         vm.onEditorVoiceChange("kitten-nano-v0_8:Hugo")
         vm.onEditorSpeedChange(1.25f)
-        vm.onEditorEffectChange(EffectPreset.CAVE)
+        vm.onEditorEffectChange(BuiltinEffects.CAVE_ID)
 
         val saved = vm.save()
         assertTrue(saved)
@@ -189,7 +197,10 @@ class AliasViewModelTest {
         assertEquals("kitten-nano-v0_8", row.engine)
         assertEquals("kitten-nano-v0_8:Hugo", row.voiceId)
         assertEquals(1.25f, row.speed, 0.0f)
-        assertEquals("CAVE", row.effectPreset)
+        // E-G: the picker writes effectId directly; effectPreset is the retired
+        // legacy column, now always "NONE".
+        assertEquals(BuiltinEffects.CAVE_ID, row.effectId)
+        assertEquals("NONE", row.effectPreset)
     }
 
     @Test
@@ -197,8 +208,9 @@ class AliasViewModelTest {
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(aliasDao = aliasDao)
         vm.openEditor()
-        // Invalid: leading uppercase fails the regex.
-        vm.onEditorNameChange("Invalid Name")
+        // Invalid: `@` is one of the few characters still rejected after
+        // the validation relaxation (which now accepts uppercase + spaces).
+        vm.onEditorNameChange("Invalid@Name")
         vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
 
         val saved = vm.save()
@@ -229,7 +241,7 @@ class AliasViewModelTest {
         vm.openEditor(existing) // edit mode for "narrator"
         vm.onEditorNameChange("storyteller")
         vm.onEditorVoiceChange("kitten-nano-v0_8:Luna")
-        vm.onEditorEffectChange(EffectPreset.ROBOT)
+        vm.onEditorEffectChange(BuiltinEffects.ROBOT_ID)
         vm.onEditorSpeedChange(0.9f)
 
         val saved = vm.save()
@@ -246,7 +258,8 @@ class AliasViewModelTest {
             inserted,
         )
         assertEquals("kitten-nano-v0_8:Luna", inserted!!.voiceId)
-        assertEquals("ROBOT", inserted.effectPreset)
+        assertEquals(BuiltinEffects.ROBOT_ID, inserted.effectId)
+        assertEquals("NONE", inserted.effectPreset)
         assertEquals(0.9f, inserted.speed, 0.0f)
     }
 
@@ -436,8 +449,72 @@ class AliasViewModelTest {
         val vm = newViewModel()
         vm.openEditor()
 
-        vm.onEditorEffectChange(EffectPreset.CAVE)
-        assertEquals(EffectPreset.CAVE, vm.editorState.first().effect)
+        vm.onEditorEffectChange(BuiltinEffects.CAVE_ID)
+        assertEquals(BuiltinEffects.CAVE_ID, vm.editorState.first().effectId)
+    }
+
+    // -- phonemization language (alpha.10.L / F7) ----------------------------
+
+    @Test
+    fun onEditorPhonemizationLanguageChange_updatesEditorState() = runTest {
+        val vm = newViewModel()
+        vm.openEditor()
+        assertNull(
+            "Default is null (= auto-derive from voice prefix)",
+            vm.editorState.first().phonemizationLanguage,
+        )
+
+        vm.onEditorPhonemizationLanguageChange("ja")
+        assertEquals("ja", vm.editorState.first().phonemizationLanguage)
+
+        // Setting to null clears the override (Auto in the UI).
+        vm.onEditorPhonemizationLanguageChange(null)
+        assertNull(vm.editorState.first().phonemizationLanguage)
+    }
+
+    @Test
+    fun save_writesPhonemizationLanguage() = runTest {
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        vm.onEditorNameChange("narrator-jp")
+        vm.onEditorEngineChange("kokoro-direct-v1_0")
+        vm.onEditorVoiceChange("kokoro-direct-v1_0:jf_alpha")
+        vm.onEditorPhonemizationLanguageChange("ja")
+
+        val saved = vm.save()
+        assertTrue(saved)
+
+        val row = aliasDao.upsertedAliases.single()
+        assertEquals("ja", row.phonemizationLanguage)
+    }
+
+    @Test
+    fun save_phonemizationLanguageDefaultsToNull() = runTest {
+        // Without calling onEditorPhonemizationLanguageChange, the saved
+        // row carries null — that's the "Auto" sentinel the engine resolves
+        // via KokoroDirectVoiceCatalog.espeakVoiceFor.
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        vm.onEditorNameChange("plain")
+        vm.onEditorVoiceChange(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
+
+        vm.save()
+        assertNull(aliasDao.upsertedAliases.single().phonemizationLanguage)
+    }
+
+    @Test
+    fun openEditor_existing_loadsPhonemizationLanguage() = runTest {
+        // Edit-mode loader must round-trip the field — otherwise opening
+        // an alias's editor would silently erase a user's override the
+        // moment they Save.
+        val existing = alias("narrator-jp", phonemizationLanguage = "ja")
+        val vm = newViewModel(aliases = listOf(existing))
+        vm.aliases.first { it.isNotEmpty() }
+
+        vm.openEditor(existing)
+        assertEquals("ja", vm.editorState.first().phonemizationLanguage)
     }
 
     @Test
@@ -485,7 +562,7 @@ class AliasViewModelTest {
         }
         val dao = aliasDao ?: FakeAliasDao(initial = aliases)
         val voiceDao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
-        return AliasViewModel(aliasDao = dao, voiceDao = voiceDao, settings = settings)
+        return AliasViewModel(aliasDao = dao, voiceDao = voiceDao, settings = settings, effectDao = FakeEffectDao())
     }
 
     private fun alias(
@@ -495,6 +572,7 @@ class AliasViewModelTest {
         speed: Float = 1.0f,
         effectPreset: String = "NONE",
         createdAt: Long = 0L,
+        phonemizationLanguage: String? = null,
     ): VoiceAlias = VoiceAlias(
         name = name,
         engine = engine,
@@ -502,5 +580,6 @@ class AliasViewModelTest {
         speed = speed,
         effectPreset = effectPreset,
         createdAt = createdAt,
+        phonemizationLanguage = phonemizationLanguage,
     )
 }

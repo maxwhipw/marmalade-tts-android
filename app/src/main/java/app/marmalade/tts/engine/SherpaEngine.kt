@@ -7,6 +7,10 @@ import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -106,6 +110,18 @@ abstract class SherpaEngine(
      */
     override val sampleRate: Int get() = tts?.sampleRate() ?: defaultSampleRate
 
+    /**
+     * Loose safety cap on input size. Sherpa-onnx's `OfflineTts`
+     * internally splits on sentence boundaries and the streaming path
+     * (see [synthesizeStream]) uses `generateWithCallback` to emit per-
+     * sentence audio, so the chunker at the Synthesizer layer only
+     * kicks in for pathological inputs — e.g. a single 5 kB run-on
+     * sentence with no punctuation. 4000 chars (~700 words) is enough
+     * headroom for any realistic input while keeping any single native
+     * call bounded in case the model trips on something weird.
+     */
+    override val maxInputChars: Int = 4000
+
     // -- lifecycle ------------------------------------------------------------
 
     /**
@@ -174,7 +190,11 @@ abstract class SherpaEngine(
         text: String,
         voiceId: String,
         speed: Float,
+        phonemizationLanguage: String?,
     ): SynthAudio = withContext(Dispatchers.Default) {
+        // Sherpa-backed engines compile in their own piper-phonemize +
+        // lexicon files. `phonemizationLanguage` is honored only by
+        // direct-ORT engines that route through our espeak shim.
         ensureModelLoaded()
         val engine = tts ?: error("OfflineTts vanished after ensureModelLoaded() — impossible state")
 
@@ -185,6 +205,92 @@ abstract class SherpaEngine(
             pcm = floatToPcm16(audio.samples),
             sampleRate = audio.sampleRate,
         )
+    }
+
+    /**
+     * Streaming variant. Uses sherpa-onnx's `OfflineTts.generateWithCallback`
+     * which fires the callback once per sentence (the internal batching
+     * loop sets `batch_size = 1` for the Kokoro/Kitten implementations,
+     * so the firing granularity is per sentence). Each callback's
+     * FloatArray is one sentence of audio; we emit it as a `SynthAudio`
+     * chunk downstream.
+     *
+     * This means callers (Synthesizer + the TTS services) get
+     * per-sentence streaming on sherpa engines without any Kotlin-side
+     * chunking — sherpa already splits text internally. Combined with
+     * the bumped [maxInputChars] of 4000, the chunker at the
+     * Synthesizer layer is a safety net that rarely fires.
+     *
+     * Cancellation: the callback returns `1` to continue, `0` to
+     * abort mid-synth. We poll the coroutine's `isActive` flag (via
+     * `currentCoroutineContext()[Job]?.isActive`) so structured
+     * cancellation propagates into the native synth without waiting
+     * for the whole utterance.
+     *
+     * Why `channelFlow` + `runBlocking` inside the callback: the JNI
+     * callback is invoked from a native thread that doesn't carry
+     * Kotlin coroutine context, so we need a bridge that handles the
+     * cross-thread emit. The native call itself is wrapped in
+     * `withContext(Dispatchers.Default)` so the inference work doesn't
+     * block the collector's dispatcher.
+     */
+    override fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): Flow<SynthAudio> = channelFlow {
+        ensureModelLoaded()
+        val engine = tts ?: error("OfflineTts vanished after ensureModelLoaded() — impossible state")
+        val sid = speakerIdFor(voiceId)
+
+        val producer = this
+
+        // Callback class (not lambda!). Sherpa-onnx's JNI looks up the
+        // specialized `invoke([F)Ljava/lang/Integer;` method on the
+        // implementor — a method that D8 strips when it desugars a
+        // Kotlin trailing-lambda into a `$$ExternalSyntheticLambda` via
+        // `LambdaMetafactory`. A normal object/class expression keeps
+        // the specialized invoke alongside the Object-bridge, so the
+        // JNI's `GetMethodID([F)Ljava/lang/Integer;` succeeds. Without
+        // this, the native side aborts with `JNI DETECTED ERROR IN
+        // APPLICATION: JNI NewFloatArray called with pending exception
+        // java.lang.NoSuchMethodError`.
+        val callback = SherpaTtsCallback(producer, engine)
+
+        // Synthesis runs inside synchronized loadLock so two streamers
+        // can't race on the same OfflineTts handle.
+        synchronized(loadLock) {
+            val handle = tts ?: error("OfflineTts released mid-stream")
+            handle.generateWithCallback(text, sid, speed, callback)
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /**
+     * Explicit class implementing `Function1<FloatArray, Int>` so the
+     * Kotlin compiler emits the specialized `invoke([F)Ljava/lang/Integer;`
+     * method (D8 strips it when our callback is a trailing lambda).
+     * See [synthesizeStream] for the full rationale.
+     */
+    private inner class SherpaTtsCallback(
+        private val producer: kotlinx.coroutines.channels.ProducerScope<SynthAudio>,
+        private val handle: OfflineTts,
+    ) : (FloatArray) -> Int {
+        override fun invoke(samples: FloatArray): Int {
+            // Callback fires on the JNI thread.
+            if (!producer.isActive) return 0
+            return try {
+                producer.trySend(
+                    SynthAudio(
+                        pcm = floatToPcm16(samples),
+                        sampleRate = handle.sampleRate(),
+                    ),
+                )
+                if (producer.isActive) 1 else 0
+            } catch (_: Throwable) {
+                0 // abort native synth on any send-side failure
+            }
+        }
     }
 
     /**

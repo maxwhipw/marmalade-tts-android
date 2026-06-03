@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.net.Uri
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.padding
@@ -42,6 +43,9 @@ import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.AppMappingsScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
+import app.marmalade.tts.ui.screen.EffectEditorScreen
+import app.marmalade.tts.ui.screen.EffectEditorViewModel
+import app.marmalade.tts.ui.screen.EffectsScreen
 import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
@@ -64,8 +68,11 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                                ├── Routes.Speak        → SpeakScreen     (tab)
 //                                ├── Routes.Voices       → VoicePickerScreen (tab)
 //                                ├── Routes.Aliases      → AliasScreen     (tab, v0.1.18+)
-//                                ├── Routes.Engines      → EnginesScreen   (tab)
 //                                ├── Routes.Settings     → SettingsScreen  (tab)
+//                                ├── Routes.Engines      → EnginesScreen
+//                                │                         (detail; reached from
+//                                │                          Settings → Engines or the
+//                                │                          Speak empty-state CTA)
 //                                ├── Routes.AppMappings  → AppMappingsScreen
 //                                │                         (detail; no nav bar)
 //                                └── engine/{name}        → EngineDetailScreen
@@ -73,8 +80,8 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //
 //   Bottom-nav tabs use popUpTo(startDestinationId) + saveState/restoreState
 //   so tab switching never grows the back stack — matches marmalade-android.
-//   AppMappings and engine/{name} are reachable from Settings or Engines
-//   respectively; both are detail screens with the nav bar hidden.
+//   Engines, AppMappings, and engine/{name} are detail screens (nav bar
+//   hidden), reached via navigate() and dismissed with popBackStack().
 // -----------------------------------------------------------------------------
 
 /** Route identifiers for the top-level nav graph. */
@@ -84,6 +91,28 @@ object Routes {
     const val Engines = "engines"
     const val Settings = "settings"
     const val Aliases = "aliases"
+    const val Effects = "effects"
+
+    /**
+     * Full-screen effect editor (E-F). Reached from the Effects tab's FAB
+     * (blank create) or a card's Edit / Duplicate action. The effect id is
+     * passed as an optional **query** arg, not a path segment, because ids
+     * contain a colon (`builtin:cave`, `custom:<uuid>`) which a path segment
+     * can't carry cleanly — see [effectEditorEdit] / [effectEditorDuplicate].
+     * Leaf detail screen; the bottom nav bar hides while it's open.
+     */
+    const val EffectEditor = "effect_editor"
+
+    /** Blank-create route. */
+    fun effectEditorCreate(): String = EffectEditor
+
+    /** Edit an existing custom effect (writes back to the same id). */
+    fun effectEditorEdit(id: String): String =
+        "$EffectEditor?editId=${Uri.encode(id)}"
+
+    /** Duplicate any effect into a new one (the editor mints a fresh id on save). */
+    fun effectEditorDuplicate(id: String): String =
+        "$EffectEditor?dupeId=${Uri.encode(id)}"
 
     /**
      * Per-app voice routing — reached from Settings → "Per-app voices".
@@ -118,7 +147,7 @@ private val NAV_TABS = listOf(
     NavTab(Routes.Speak, "Speak", Icons.Filled.PlayArrow, Icons.Outlined.PlayArrow),
     NavTab(Routes.Voices, "Voices", Icons.AutoMirrored.Filled.List, Icons.AutoMirrored.Outlined.List),
     NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Outlined.Person),
-    NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Outlined.Build),
+    NavTab(Routes.Effects, "Effects", Icons.Filled.Build, Icons.Outlined.Build),
     NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 
@@ -152,7 +181,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     // visible on that screen now.
     val showBottomBar = currentRoute != Routes.AppMappings &&
         currentRoute != Routes.Benchmark &&
-        currentRoute?.startsWith("${Routes.EngineDetail}/") != true
+        currentRoute != Routes.Engines &&
+        currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
+        // The editor's route template carries query args
+        // ("effect_editor?editId={editId}&dupeId={dupeId}"), so match the
+        // family by prefix rather than exact string.
+        currentRoute?.startsWith(Routes.EffectEditor) != true
 
     Scaffold(
         bottomBar = {
@@ -193,7 +227,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Speak) {
                 SpeakScreen(
                     onNavigateToVoices = { navController.navigateToTab(Routes.Voices) },
-                    onNavigateToEngines = { navController.navigateToTab(Routes.Engines) },
+                    // Engines is a detail screen now (off the bottom nav), so
+                    // navigate() into it rather than tab-switching.
+                    onNavigateToEngines = { navController.navigate(Routes.Engines) },
                     onNavigateToAliases = { navController.navigateToTab(Routes.Aliases) },
                 )
             }
@@ -205,7 +241,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.Engines) {
                 EnginesScreen(
-                    onBack = { navController.navigateToTab(Routes.Speak) },
+                    // Reached from Settings (or the Speak empty-state CTA) as a
+                    // detail screen — pop back to wherever we came from.
+                    onBack = { navController.popBackStack() },
                     onEngineSettings = { engine ->
                         navController.navigate(Routes.engineDetail(engine.name))
                     },
@@ -214,6 +252,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
+                    onNavigateToEngines = { navController.navigate(Routes.Engines) },
                     onNavigateToBenchmark = if (BuildConfig.DEBUG) {
                         { navController.navigate(Routes.Benchmark) }
                     } else {
@@ -227,6 +266,31 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 // popping the back stack — there's no detail-route ancestor
                 // anymore.
                 AliasScreen(onBack = { navController.navigateToTab(Routes.Speak) })
+            }
+            composable(Routes.Effects) {
+                EffectsScreen(
+                    onBack = { navController.navigateToTab(Routes.Speak) },
+                    onCreate = { navController.navigate(Routes.effectEditorCreate()) },
+                    onEdit = { id -> navController.navigate(Routes.effectEditorEdit(id)) },
+                    onDuplicate = { id -> navController.navigate(Routes.effectEditorDuplicate(id)) },
+                )
+            }
+            composable(
+                route = "${Routes.EffectEditor}?editId={editId}&dupeId={dupeId}",
+                arguments = listOf(
+                    navArgument(EffectEditorViewModel.ARG_EDIT_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument(EffectEditorViewModel.ARG_DUPE_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) {
+                EffectEditorScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.AppMappings) {
                 AppMappingsScreen(onBack = { navController.popBackStack() })

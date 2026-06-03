@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.preprocessing.EngineProfiles
+import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.theme.ThemePreset
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -202,6 +204,32 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
+     * P-K — engine keepalive mode. Drives [MarmaladeKeepaliveService]:
+     *
+     *   - [KeepaliveMode.Off]:        no service
+     *   - [KeepaliveMode.Smart]:      service starts after each synth,
+     *                                 stops after 10 minutes of idle
+     *   - [KeepaliveMode.Persistent]: service runs forever (opt-in)
+     *
+     * Defaults to [KeepaliveMode.Smart] — sub-realtime synth on Pocket
+     * (per P-V) makes the 1-second cold load the dominant felt-latency
+     * for second-and-later synths, so smoothing it over a 10-minute
+     * window is a near-pure win at zero long-term cost.
+     */
+    open val keepaliveMode: Flow<KeepaliveMode> = dataStore.data.map { prefs ->
+        prefs[KEY_KEEPALIVE_MODE]?.let { name ->
+            KeepaliveMode.entries.firstOrNull { it.name == name }
+        } ?: KeepaliveMode.Smart
+    }
+
+    /** Persist the keepalive mode. */
+    open suspend fun setKeepaliveMode(mode: KeepaliveMode) {
+        dataStore.edit { prefs ->
+            prefs[KEY_KEEPALIVE_MODE] = mode.name
+        }
+    }
+
+    /**
      * The catalog version that the on-device DB was last seeded against.
      *
      * `MarmaladeTtsApplication.onCreate` compares this against the current
@@ -276,6 +304,56 @@ open class SettingsRepository @Inject constructor(
     private fun preprocessingKeyFor(engineName: String) =
         stringPreferencesKey("preprocessing_rules_$engineName")
 
+    /**
+     * Per-device ONNX-Runtime intra-op thread count. `null` means "auto" —
+     * the engine calls [app.marmalade.tts.perf.CpuClusterDetector] at init
+     * time to pick a value matching the CPU's perf-cluster size. Manual
+     * overrides are stored as a positive Int; values ≤ 0 or unset map to
+     * auto.
+     *
+     * Exposed in Settings because the auto heuristic can be wrong on
+     * exotic CPU topologies (some Samsungs split a "prime" core off the
+     * usual big cluster; some MediaTek chips have three-tier hierarchies).
+     * Users with reliable benchmarks can pin their preferred value.
+     */
+    open val intraOpThreads: Flow<Int?> = dataStore.data.map { prefs ->
+        prefs[KEY_INTRA_OP_THREADS]?.takeIf { it > 0 }
+    }
+
+    /** Persist a manual thread count, or pass `null` to revert to auto. */
+    open suspend fun setIntraOpThreads(count: Int?) {
+        dataStore.edit { prefs ->
+            if (count == null || count <= 0) {
+                prefs.remove(KEY_INTRA_OP_THREADS)
+            } else {
+                prefs[KEY_INTRA_OP_THREADS] = count
+            }
+        }
+    }
+
+    /**
+     * Whether the legacy sherpa-onnx engines (Kokoro v1.0/v1.1, Kitten
+     * Nano/Mini) are surfaced in the engine lists. The direct-ORT engines
+     * superseded them; they stay in the catalog for A/B comparison but are
+     * hidden from normal users by default.
+     *
+     * Defaults to [BuildConfig.DEBUG]: shown in debug builds (so we keep
+     * comparing direct vs sherpa), hidden in release builds where they're
+     * an explicit opt-in. The user can flip it either way; routing never
+     * consults this flag, so an alias already pointing at a sherpa engine
+     * keeps synthesizing even while the engine is hidden.
+     */
+    open val showDeveloperEngines: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_DEVELOPER_ENGINES] ?: BuildConfig.DEBUG
+    }
+
+    /** Persist the show-developer-engines toggle. */
+    open suspend fun setShowDeveloperEngines(value: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_DEVELOPER_ENGINES] = value
+        }
+    }
+
     companion object {
         // Stable key names — part of the v1.0 public surface per SPEC.md's
         // "settings keys all frozen per semver" line. Don't rename.
@@ -306,5 +384,19 @@ open class SettingsRepository @Inject constructor(
         // automatically re-seeds existing installs whose DB still has the
         // pre-expansion rows.
         private val KEY_CATALOG_VERSION = intPreferencesKey("catalog_version")
+
+        // Manual ONNX-Runtime intra-op thread count. Absent / ≤0 ⇒ auto-
+        // detect per CPU cluster. Cross-device: hardcoded 6 fits Tensor
+        // G3 well but spills onto efficiency cores on Snapdragon Gen 2/3
+        // and Exynos 2400, regressing 5-20% per ORT bench.
+        private val KEY_INTRA_OP_THREADS = intPreferencesKey("intra_op_threads")
+
+        // Show the legacy sherpa engines in the engine lists. Absent ⇒
+        // BuildConfig.DEBUG (shown in debug, hidden in release). v0.3.0-alpha.10.Z.
+        private val KEY_SHOW_DEVELOPER_ENGINES = booleanPreferencesKey("show_developer_engines")
+
+        // P-K — keepalive mode, stored as KeepaliveMode.name string.
+        // Absent ⇒ Smart (default). Stable key; semver-protected.
+        private val KEY_KEEPALIVE_MODE = stringPreferencesKey("keepalive_mode")
     }
 }

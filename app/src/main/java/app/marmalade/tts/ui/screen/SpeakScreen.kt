@@ -45,6 +45,7 @@ import app.marmalade.tts.R
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
+import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -197,18 +198,14 @@ fun SpeakScreen(
             Spacer(Modifier.height(16.dp))
 
             // Voice chip — opens the picker. Falls back to "Voice…" while
-            // the StateFlow is resolving on first launch.
+            // the StateFlow is resolving on first launch. No leading icon
+            // by design: the alias chips below use Icons.Filled.Person on
+            // the selected one, and having a Person here too made it hard
+            // to tell which chip you'd just selected. Reserved for aliases.
             AssistChip(
                 onClick = onNavigateToVoices,
                 label = {
                     Text(text = currentVoice?.displayName ?: "Voice…")
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(AssistChipDefaults.IconSize),
-                    )
                 },
             )
 
@@ -227,13 +224,18 @@ fun SpeakScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            val canSpeak = text.isNotBlank() && !isSpeaking && !isModelMissing
+            // While speaking, the same button becomes a Stop affordance so
+            // the user can interrupt long synth + playback (Pocket Bible
+            // chapter, slow chunk). When idle, requires non-blank text and
+            // a present engine; while speaking it stays enabled regardless
+            // so cancel is always reachable.
+            val canSpeak = isSpeaking || (text.isNotBlank() && !isModelMissing)
             Button(
-                onClick = { viewModel.speak() },
+                onClick = { if (isSpeaking) viewModel.cancel() else viewModel.speak() },
                 enabled = canSpeak,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (isSpeaking) "Speaking…" else "Speak")
+                Text(if (isSpeaking) "Stop" else "Speak")
             }
 
             Spacer(Modifier.height(12.dp))
@@ -276,6 +278,7 @@ fun SpeakScreen(
  * "Create alias" AssistChip. Extracted so the SpeakScreen body stays
  * legible and so the chip layout is easy to swap later.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AliasChipRow(
     aliases: List<VoiceAlias>,
@@ -283,47 +286,37 @@ private fun AliasChipRow(
     onApplyAlias: (String) -> Unit,
     onCreateAlias: () -> Unit,
 ) {
-    LazyRow(
+    // FlowRow lets long alias lists wrap onto multiple lines instead of
+    // disappearing off the side of the screen — the horizontal scroll was
+    // discoverability-hostile (the chips looked like they could fit but
+    // some were just hidden). 24 chars of alias name fits comfortably 2
+    // per line on a phone-width screen.
+    androidx.compose.foundation.layout.FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(aliases, key = { it.name }) { alias ->
-            FilterChip(
+        for (alias in aliases) {
+            MarmaladeFilterChip(
                 selected = alias.name == activeAlias,
                 onClick = { onApplyAlias(alias.name) },
                 label = { Text(alias.name) },
-                leadingIcon = if (alias.name == activeAlias) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize),
-                        )
-                    }
-                } else {
-                    null
-                },
+                leadingIconWhenSelected = Icons.Filled.Person,
             )
         }
-
-        // Trailing "Create alias" chip — always present so the user can
-        // add more aliases regardless of how many already exist.
-        item(key = "__create_alias__") {
-            AssistChip(
-                onClick = onCreateAlias,
-                label = { Text("Create alias") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(AssistChipDefaults.IconSize),
-                    )
-                },
-            )
-        }
+        AssistChip(
+            onClick = onCreateAlias,
+            label = { Text("Create alias") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(AssistChipDefaults.IconSize),
+                )
+            },
+        )
     }
 }
 

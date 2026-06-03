@@ -73,13 +73,13 @@ class OnboardingViewModelTest {
     fun toggleFlipsSelection() = runTest {
         val vm = newViewModel()
         // Kokoro is the recommended default → pre-selected.
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro-v1_0"))
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
 
-        vm.toggle("kokoro-v1_0")
-        assertTrue(!vm.selectedEngineIds.value.contains("kokoro-v1_0"))
+        vm.toggle("kokoro-direct-v1_0")
+        assertTrue(!vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
 
-        vm.toggle("kokoro-v1_0")
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro-v1_0"))
+        vm.toggle("kokoro-direct-v1_0")
+        assertTrue(vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
     }
 
     @Test
@@ -91,15 +91,15 @@ class OnboardingViewModelTest {
 
         assertEquals(OnboardingStep.Installing, vm.step.value)
         // Only the recommended engine (kokoro) is pre-selected.
-        assertEquals(listOf("kokoro-v1_0"), installer.installCalls)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-v1_0"])
+        assertEquals(listOf("kokoro-direct-v1_0"), installer.installCalls)
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-direct-v1_0"])
     }
 
     @Test
     fun installSelectedWithNoSelectionsIsNoop() = runTest {
         val installer = RecordingInstaller(behaviour = { Result.success(Unit) })
         val vm = newViewModel(installer = installer)
-        vm.toggle("kokoro-v1_0") // un-select the recommended default
+        vm.toggle("kokoro-direct-v1_0") // un-select the recommended default
 
         vm.installSelected()
 
@@ -116,7 +116,7 @@ class OnboardingViewModelTest {
 
         vm.installSelected()
 
-        val state = vm.installStates.value["kokoro-v1_0"]
+        val state = vm.installStates.value["kokoro-direct-v1_0"]
         assertTrue("expected Failed, got $state", state is InstallState.Failed)
         assertEquals("net dropped", (state as InstallState.Failed).reason)
     }
@@ -130,9 +130,9 @@ class OnboardingViewModelTest {
 
         // Retry the same engine the recommended default lands on
         // (kokoro), so the running count grows by exactly one.
-        vm.retry("kokoro-v1_0")
+        vm.retry("kokoro-direct-v1_0")
         assertEquals(2, installer.installCalls.size)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-v1_0"])
+        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-direct-v1_0"])
     }
 
     @Test
@@ -185,7 +185,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun saveAliasAndContinueCreatesAliasMarksPrimaryAndAdvancesToSystemDefault() = runTest {
+    fun saveAliasAndContinueCreatesAliasMarksPrimaryAndAdvancesToBackgroundUnrestricted() = runTest {
         val settings = FakeSettings(
             initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
@@ -202,11 +202,12 @@ class OnboardingViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         assertEquals("narrator", aliasDao.upsertedAliases.single().name)
         assertEquals("narrator", settings.primaryAliasName.first())
-        // v0.1.13: advances to SystemDefault instead of finishing — the
-        // user still has to be told to pick Marmalade as the system TTS
-        // engine. onboarded stays false until finish() lands.
+        // P-J: advances to BackgroundUnrestricted instead of jumping
+        // straight to SystemDefault — the user still has the battery-opt
+        // + system-TTS-pick steps ahead. onboarded stays false until
+        // finish() lands on the final step.
         assertEquals(false, settings.onboarded.first())
-        assertEquals(OnboardingStep.SystemDefault, vm.step.first())
+        assertEquals(OnboardingStep.BackgroundUnrestricted, vm.step.first())
     }
 
     @Test
@@ -241,7 +242,7 @@ class OnboardingViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         val row = aliasDao.upsertedAliases.single()
         assertEquals("default", row.name)
-        assertEquals("kokoro-v1_0", row.engine)
+        assertEquals("kokoro-direct-v1_0", row.engine)
         assertEquals("default", settings.primaryAliasName.first())
         // v0.1.13: advances to SystemDefault instead of finishing.
         assertEquals(false, settings.onboarded.first())

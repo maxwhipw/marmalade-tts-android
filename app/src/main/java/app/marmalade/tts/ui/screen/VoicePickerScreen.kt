@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -86,6 +88,7 @@ fun VoicePickerScreen(
     val installedEngines by viewModel.installedEngines.collectAsStateWithLifecycle()
     val selectedId by viewModel.selectedId.collectAsStateWithLifecycle()
     val previewState by viewModel.previewState.collectAsStateWithLifecycle()
+    val expandedEngines by viewModel.expandedEngines.collectAsStateWithLifecycle()
 
     val modelMissingState = previewState as? PreviewState.ModelMissing
     val modelMissing = modelMissingState != null
@@ -164,36 +167,84 @@ fun VoicePickerScreen(
             val orderedEngines = engineOrder.filter { it in groupedByEngine.keys } +
                 groupedByEngine.keys.filter { it !in engineOrder }.sorted()
 
+            // Seed initial expansion: open the engine that owns the
+            // currently-selected voice; everything else starts collapsed
+            // so a user with all engines installed isn't scrolling past
+            // 240+ voices.
+            LaunchedEffect(groupedByEngine, selectedId) {
+                viewModel.setInitialExpansion(groupedByEngine, selectedId)
+            }
+
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 orderedEngines.forEach { engineName ->
                     val engineVoices = groupedByEngine[engineName].orEmpty()
+                    val isExpanded = engineName in expandedEngines
                     item(key = "header-$engineName") {
-                        Text(
-                            text = displayNameForEngine(engineName),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        EngineSectionHeader(
+                            name = displayNameForEngine(engineName),
+                            voiceCount = engineVoices.size,
+                            isExpanded = isExpanded,
+                            onClick = { viewModel.toggleEngineExpanded(engineName) },
                         )
                     }
-                    items(items = engineVoices, key = { it.id }) { voice ->
-                        VoiceRow(
-                            voice = voice,
-                            isSelected = voice.id == selectedId,
-                            isPreviewing = (previewState as? PreviewState.Playing)?.voiceId == voice.id,
-                            previewEnabled = !modelMissing,
-                            onClick = {
-                                viewModel.selectVoice(voice.id)
-                                onVoiceSelected()
-                            },
-                            onPreview = { viewModel.preview(voice) },
-                        )
-                        HorizontalDivider()
+                    if (isExpanded) {
+                        items(items = engineVoices, key = { it.id }) { voice ->
+                            VoiceRow(
+                                voice = voice,
+                                isSelected = voice.id == selectedId,
+                                isPreviewing = (previewState as? PreviewState.Playing)?.voiceId == voice.id,
+                                previewEnabled = !modelMissing,
+                                onClick = {
+                                    viewModel.selectVoice(voice.id)
+                                    onVoiceSelected()
+                                },
+                                onPreview = { viewModel.preview(voice) },
+                            )
+                            HorizontalDivider()
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * Tappable engine section header. Shows the engine's display name + voice
+ * count and toggles the section's expanded state on click. Uses a Row so
+ * the chevron icon can sit at the trailing edge without separate gravity
+ * hacks.
+ */
+@Composable
+private fun EngineSectionHeader(
+    name: String,
+    voiceCount: Int,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "$name ($voiceCount)",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            // Filled.ArrowDropDown is in the default icon set (Filled.ExpandLess/More
+            // require the material-icons-extended artifact, which we don't pull in).
+            // Rotated 180° via Modifier when collapsed → arrow points right ("tap
+            // to expand"); pointed-down when expanded ("tap to collapse").
+            imageVector = Icons.Filled.ArrowDropDown,
+            contentDescription = if (isExpanded) "Collapse $name" else "Expand $name",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.graphicsLayer { rotationZ = if (isExpanded) 180f else 0f },
+        )
     }
 }
 

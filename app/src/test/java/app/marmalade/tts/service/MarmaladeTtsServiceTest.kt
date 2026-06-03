@@ -7,6 +7,8 @@ import android.speech.tts.SynthesisCallback
 import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import androidx.test.core.app.ApplicationProvider
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -82,14 +84,22 @@ class MarmaladeTtsServiceTest {
         )
         service = MarmaladeTtsService()
         // Inject by reflection — Hilt isn't running so the @Inject lateinit
-        // vars are unset. All five fields are public-by-Kotlin-default
-        // backing properties; reflection bypasses the lateinit
-        // "isInitialized" guard.
-        setField(service, "engine", fakeEngine)
-        setField(service, "kokoroEngine", fakeKokoroV10Engine)
+        // vars are unset. Reflection bypasses the lateinit "isInitialized"
+        // guard. We only set the fields these tests exercise: the two engines
+        // they route to (kittenNano, kokoroV10), the DAO/preprocessor/settings/
+        // router, and effectResolver. The other six engine fields stay unset —
+        // no test routes a voice to them, so they're never accessed.
+        setField(service, "kittenNano", fakeEngine)
+        setField(service, "kokoroV10", fakeKokoroV10Engine)
         setField(service, "voiceDao", fakeDao)
         setField(service, "preprocessor", preprocessor)
         setField(service, "settings", fakeSettings)
+        // effectResolver is only touched on the alias-routing branch, which
+        // these tests don't hit (explicit voices / no primary alias). Set a
+        // dry resolver anyway so the lateinit is initialised defensively.
+        setField(service, "effectResolver", object : EffectResolver {
+            override suspend fun blocksFor(effectId: String?): List<EffectBlock> = emptyList()
+        })
         // TtsRouter takes a (mappingDao, aliasDao, settings) triple. The
         // existing service tests don't exercise per-app routing — they
         // hand off voice IDs explicitly — but the field must be set or
@@ -450,7 +460,12 @@ internal class FakeKittenNanoEngine(ctx: Context) : KittenNanoEngine(ctx) {
 
     override fun isInstalled(): Boolean = synthesizeException !is EngineNotInstalledException
 
-    override suspend fun synthesize(text: String, voiceId: String, speed: Float): SynthAudio {
+    override suspend fun synthesize(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): SynthAudio {
         calls += Triple(text, voiceId, speed)
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
@@ -478,7 +493,12 @@ internal class FakeKokoroV10Engine(ctx: Context) : KokoroV10Engine(ctx) {
 
     override fun isInstalled(): Boolean = synthesizeException !is EngineNotInstalledException
 
-    override suspend fun synthesize(text: String, voiceId: String, speed: Float): SynthAudio {
+    override suspend fun synthesize(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): SynthAudio {
         calls += Triple(text, voiceId, speed)
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)

@@ -2,8 +2,10 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.Effect
+import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
@@ -42,7 +44,7 @@ import kotlinx.coroutines.launch
 //     │            openEditor(existing?) / dismissEditor()
 //     │            onEditor{Name,Engine,Voice,Speed,Effect}Change(...)
 //     │
-//     ├── engines   ◄────── AliasViewModel.engines (EngineCatalog.all)
+//     ├── engines   ◄────── AliasViewModel.engines (EngineCatalog, dev-filtered)
 //     ├── voicesFor ◄────── AliasViewModel.voicesForSelectedEngine
 //     │                          ▲
 //     │                          │ flatMapLatest(editorState.engine)
@@ -93,7 +95,13 @@ data class EditorState(
     val engine: String = "",
     val voiceId: String = "",
     val speed: Float = 1.0f,
-    val effect: EffectPreset = EffectPreset.NONE,
+    /** Selected effect's [Effect.id], or null for "No effect" (dry). */
+    val effectId: String? = null,
+    /**
+     * espeak language code (e.g. "en-us", "ja"). Null = "Auto" — engines
+     * decide (KokoroDirect auto-derives from voice prefix; others ignore).
+     */
+    val phonemizationLanguage: String? = null,
     val error: SaveError? = null,
 )
 
@@ -116,7 +124,20 @@ class AliasViewModel @Inject constructor(
     private val aliasDao: VoiceAliasDao,
     private val voiceDao: VoiceMetaDao,
     private val settings: SettingsRepository,
+    effectDao: EffectDao,
 ) : ViewModel() {
+
+    /**
+     * All effects (built-in + custom), for the editor's effect picker. The
+     * picker writes the chosen [Effect.id] into the alias's `effectId`; the
+     * synth path resolves it to a chain. A null selection = "No effect" (dry).
+     */
+    val effects: StateFlow<List<Effect>> = effectDao.getAll()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
     /**
      * Clock indirection for tests. The Hilt-injected constructor uses
@@ -147,8 +168,19 @@ class AliasViewModel @Inject constructor(
             initialValue = null,
         )
 
-    /** Static list — v0.1 only ships Kitten but other engines plug in later. */
-    val engines: List<EngineDescriptor> = EngineCatalog.all
+    /**
+     * Engines offered in the alias editor's engine picker, filtered by the
+     * "show developer engines" setting. An alias already saved against a
+     * now-hidden sherpa engine still works (routing is unfiltered); it just
+     * won't appear as a fresh pick.
+     */
+    val engines: StateFlow<List<EngineDescriptor>> = settings.showDeveloperEngines
+        .map { EngineCatalog.visibleTo(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = EngineCatalog.visibleTo(BuildConfig.DEBUG),
+        )
 
     private val _editorState = MutableStateFlow(EditorState())
     val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
@@ -186,7 +218,7 @@ class AliasViewModel @Inject constructor(
      */
     fun openEditor(existing: VoiceAlias? = null) {
         _editorState.value = if (existing == null) {
-            val defaultEngine = engines.firstOrNull()?.name.orEmpty()
+            val defaultEngine = engines.value.firstOrNull()?.name.orEmpty()
             EditorState(
                 isOpen = true,
                 isNew = true,
@@ -201,7 +233,8 @@ class AliasViewModel @Inject constructor(
                 engine = existing.engine,
                 voiceId = existing.voiceId,
                 speed = existing.speed,
-                effect = decodeEffect(existing.effectPreset),
+                effectId = existing.effectId,
+                phonemizationLanguage = existing.phonemizationLanguage,
             )
         }
     }
@@ -241,9 +274,16 @@ class AliasViewModel @Inject constructor(
         _editorState.value = current.copy(speed = clamped)
     }
 
-    fun onEditorEffectChange(effect: EffectPreset) {
+    /** Pass null to clear the effect (= "No effect" — dry). */
+    fun onEditorEffectChange(effectId: String?) {
         val current = _editorState.value
-        _editorState.value = current.copy(effect = effect)
+        _editorState.value = current.copy(effectId = effectId)
+    }
+
+    /** Pass null to clear the user override (= "Auto" — engine decides). */
+    fun onEditorPhonemizationLanguageChange(language: String?) {
+        val current = _editorState.value
+        _editorState.value = current.copy(phonemizationLanguage = language)
     }
 
     /**
@@ -284,8 +324,13 @@ class AliasViewModel @Inject constructor(
             engine = state.engine,
             voiceId = state.voiceId,
             speed = state.speed,
-            effectPreset = state.effect.name,
+            // effectId (chosen in the picker) is the source of truth the synth
+            // path reads. effectPreset is the retired legacy column — kept
+            // non-null ("NONE") only to satisfy the schema; nothing reads it.
+            effectPreset = "NONE",
             createdAt = createdAt,
+            phonemizationLanguage = state.phonemizationLanguage,
+            effectId = state.effectId,
         )
 
         viewModelScope.launch {
@@ -317,18 +362,27 @@ class AliasViewModel @Inject constructor(
     /**
      * Remove the alias with [name]. No-op if it doesn't exist.
      *
-     * Self-healing: if the deleted alias was the primary, clear the
-     * primary pointer so a stale name doesn't linger in DataStore. The
-     * "first alias becomes primary" rule in [save] then picks up the
-     * next created alias.
+     * Invariants enforced here:
+     *  - The last remaining alias cannot be deleted — every install with
+     *    at least one alias must always have at least one. UI gates the
+     *    button too; this is a defense-in-depth check.
+     *  - If the deleted alias was the primary, auto-promote the oldest
+     *    remaining alias (createdAt ASC, matching the DAO sort) so we
+     *    never sit in a "aliases exist but no primary" state. Pair with
+     *    the auto-promote rule in [save] which handles the fresh-install
+     *    + recovery cases.
      */
-    fun delete(name: String) {
+    fun delete(name: String): Boolean {
+        if (aliases.value.size <= 1) return false
         viewModelScope.launch {
+            val wasPrimary = settings.primaryAliasName.first() == name
             aliasDao.delete(name)
-            if (settings.primaryAliasName.first() == name) {
-                settings.setPrimaryAliasName(null)
+            if (wasPrimary) {
+                val successor = aliases.value.firstOrNull { it.name != name }?.name
+                settings.setPrimaryAliasName(successor)
             }
         }
+        return true
     }
 
     /**
@@ -348,9 +402,6 @@ class AliasViewModel @Inject constructor(
 
     private fun findExisting(name: String?): VoiceAlias? =
         aliases.value.firstOrNull { it.name == name }
-
-    private fun decodeEffect(raw: String): EffectPreset =
-        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
 
     // Field tags so a successful name edit clears a "name invalid" error
     // but not a "voice missing" error, and vice versa. Keeps the UI from

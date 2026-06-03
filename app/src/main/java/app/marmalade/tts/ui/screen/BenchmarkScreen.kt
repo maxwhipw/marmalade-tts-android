@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.engine.EnginePhaseTimings
+import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -116,11 +117,6 @@ fun BenchmarkScreen(
                 onToggle = viewModel::toggleEngine,
             )
 
-            StreamingModeToggle(
-                enabled = state.streamingMode,
-                onChange = viewModel::setStreamingMode,
-            )
-
             Button(
                 onClick = viewModel::runBenchmark,
                 enabled = !state.running && state.text.isNotBlank() &&
@@ -175,36 +171,11 @@ private fun InputSection(
 
 @Composable
 private fun PresetChip(label: String, onClick: () -> Unit) {
-    FilterChip(
+    MarmaladeFilterChip(
         selected = false,
         onClick = onClick,
         label = { Text(label) },
     )
-}
-
-@Composable
-private fun StreamingModeToggle(
-    enabled: Boolean,
-    onChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Streaming mode",
-                style = MaterialTheme.typography.labelLarge,
-            )
-            Text(
-                text = "Measure time-to-first-audio via synthesizeStream. " +
-                    "Sherpa engines fall back to single-shot (TTFA == total).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = enabled, onCheckedChange = onChange)
-    }
 }
 
 @Composable
@@ -226,7 +197,7 @@ private fun EngineSelectorSection(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (p in profiles) {
                 val installed = p.engine.isInstalled()
-                FilterChip(
+                MarmaladeFilterChip(
                     selected = p.engineName in selectedEngines && installed,
                     onClick = { if (installed) onToggle(p.engineName) },
                     enabled = installed,

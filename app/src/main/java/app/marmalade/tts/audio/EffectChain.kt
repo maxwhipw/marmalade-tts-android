@@ -1,265 +1,382 @@
 package app.marmalade.tts.audio
 
-import kotlin.math.PI
-import kotlin.math.sin
-import kotlin.math.sqrt
-
 // -----------------------------------------------------------------------------
-// Data flow
-// -----------------------------------------------------------------------------
-//   caller (MarmaladeSynthService / Synthesizer)
-//     │
-//     ├── pcm: ShortArray   (16-bit signed mono PCM, native sample rate)
-//     ├── sampleRate: Int
-//     └── preset: EffectPreset
-//          │
-//          ▼
-//      EffectChain.apply(pcm, sr, preset)
-//          │
-//          ├── NONE      ── returns the input ShortArray (no copy)
-//          ├── CAVE      ── 3-tap comb-filter reverb (250/350/450 ms taps,
-//          │                 decreasing gain). Output is longer than input
-//          │                 (tail = max tap length) so the reverb trail
-//          │                 survives past the dry signal.
-//          ├── ROBOT     ── ~6-bit quantization (bit-crush)
-//          │                + one-pole low-pass ≈ 2 kHz
-//          │                + 5 Hz / ±2 semitone vibrato (sinusoidal pitch mod
-//          │                via fractional-index resample).
-//          └── TELEPHONE ── cascaded one-pole HPF (300 Hz) + LPF (3.4 kHz)
-//                            + soft-clip at ±80% of full-scale.
+// Effect vocabulary + presets — a Kotlin mirror of the CLI's sox effects
+// (marmalade_tts/effects.py). The CLI shells out to sox; on Android we can't,
+// so each sox effect is reimplemented as a streaming DSP block in
+// [StreamingEffectChain] (the single engine — see below). The block params map
+// 1:1 to the sox effect args so the presets reproduce the CLI's sound.
 //
-//   All math is pure Kotlin (no native, no JNI). Floats are used internally
-//   for headroom; outputs are clamped to Short range on return.
+//   sox effect          EffectBlock
+//   ----------          -----------
+//   reverb N            Reverb(reverberance = N)
+//   echo gi go d dk     Echo(gainIn, gainOut, delayMs, decay)
+//   overdrive N         Overdrive(gainDb = N)
+//   pitch N             Pitch(cents = N)            (preserves duration)
+//   tempo F             Tempo(factor = F)           (preserves pitch)
+//   sinc lo-hi          Bandpass(lowHz, highHz)
+//   vol F               Vol(factor = F)
+//   treble N            Treble(db = N)
+//   bass N              Bass(db = N)
+//   equalizer f 1q g    Mid(freqHz, gainDb)          (peaking EQ, fixed Q=1)
+//   lowpass f           Lowpass(freqHz)
+//   highpass f          Highpass(freqHz)
+//   tremolo s d         Tremolo(speedHz, depth)      (amplitude LFO)
+//   flanger …           Flanger(speedHz, depthMs)    (swept comb)
+//   chorus …            Chorus(speedHz, depthMs)     (doubled voice)
+//   phaser …            Phaser(speedHz, decay)       (swept comb + feedback)
+//   compand …           Compressor(thresholdDb, ratio)
+//   (none — sox)        Bitcrush(bits, downsample)   Android-only
+//   (none — sox)        RingMod(freqHz, mix)         Android-only
+//   (none — sox)        Monotone(targetHz)           Android-only (YIN+dyn-shift)
 //
-//   The vocabulary (cave / robot / telephone) mirrors the marmalade-tts CLI
-//   `--effect` presets so docs and aliases stay consistent across platforms.
+// Single DSP engine: all shaping runs through [StreamingEffectChain] (per-chunk,
+// state carried across seams). [applyChain] here is a thin whole-buffer adapter
+// (process the whole array as one chunk + flush) for the system-TTS / foreground
+// services, which synthesize the full clip before their callback anyway.
 // -----------------------------------------------------------------------------
 
-/** Effect preset selector. Names mirror the CLI `--effect` flag. */
+/** Legacy preset selector — the alias-editor dropdown bridge, retired in E-G. */
 enum class EffectPreset { NONE, CAVE, ROBOT, TELEPHONE }
 
 /**
- * Pure-Kotlin DSP effect presets that match the marmalade-tts CLI
- * `--effect cave|robot|telephone` flags. All processing is in-process on
- * a finite PCM buffer so the result can be handed to AudioTrack or to the
- * system TTS callback path without needing `android.media.audiofx.*`
- * (those classes only work on a *playing* AudioTrack, not arbitrary
- * buffers).
- *
- * Reverb tails (CAVE) extend the output length beyond the input. Callers
- * should treat the returned array's length as authoritative.
+ * A single composable DSP block. A user effect is an ordered list of these.
+ * Pure data — the DSP lives in [StreamingEffectChain], JSON (de)serialization in
+ * [EffectBlockJson] — so this stays free of Android/audio deps and is trivially
+ * testable. Param names and units mirror the matching sox effect.
+ */
+sealed interface EffectBlock {
+    /**
+     * sox `reverb` — algorithmic room reverb (freeverb). [reverberance] is the
+     * 0..100 "amount" (room size / tail length); higher = bigger, longer.
+     */
+    data class Reverb(val reverberance: Float) : EffectBlock
+
+    /**
+     * sox `echo gainIn gainOut delay decay` — a single feed-forward delay tap.
+     * [delayMs] is the tap time; the echo is attenuated by [gainOut]·[decay].
+     */
+    data class Echo(
+        val gainIn: Float,
+        val gainOut: Float,
+        val delayMs: Float,
+        val decay: Float,
+    ) : EffectBlock
+
+    /** sox `overdrive` — waveshaping distortion. [gainDb] pre-gain in dB. */
+    data class Overdrive(val gainDb: Float) : EffectBlock
+
+    /**
+     * sox `pitch` — shift pitch by [cents] (100 cents = 1 semitone) WITHOUT
+     * changing duration. Positive = up.
+     */
+    data class Pitch(val cents: Float) : EffectBlock
+
+    /**
+     * sox `tempo` — change speed by [factor] (>1 faster, <1 slower) WITHOUT
+     * changing pitch.
+     */
+    data class Tempo(val factor: Float) : EffectBlock
+
+    /** sox `sinc lo-hi` — keep only the [lowHz]..[highHz] band. */
+    data class Bandpass(val lowHz: Float, val highHz: Float) : EffectBlock
+
+    /** sox `vol` — linear gain. [factor] 2.0 = +6 dB, 0.5 = −6 dB. */
+    data class Vol(val factor: Float) : EffectBlock
+
+    /** sox `treble` — high-shelf EQ, [db] boost (+) or cut (−). */
+    data class Treble(val db: Float) : EffectBlock
+
+    /** sox `bass` — low-shelf EQ, [db] boost (+) or cut (−). */
+    data class Bass(val db: Float) : EffectBlock
+
+    /**
+     * sox `equalizer` — peaking (mid-band) EQ centered at [freqHz], [gainDb]
+     * boost (+) or cut (−). Fixed Q≈1. Complements Bass (low-shelf) / Treble
+     * (high-shelf) with a tunable mid band.
+     */
+    data class Mid(val freqHz: Float, val gainDb: Float) : EffectBlock
+
+    /** sox `lowpass` — roll off everything above [freqHz]. */
+    data class Lowpass(val freqHz: Float) : EffectBlock
+
+    /** sox `highpass` — roll off everything below [freqHz]. */
+    data class Highpass(val freqHz: Float) : EffectBlock
+
+    /**
+     * sox `tremolo` — amplitude modulation at [speedHz]. [depth] 0..1 is how
+     * deep the volume dips (0 = none, 1 = down to silence at the trough).
+     */
+    data class Tremolo(val speedHz: Float, val depth: Float) : EffectBlock
+
+    /**
+     * sox `flanger` — a short comb delay swept by an LFO at [speedHz] over
+     * [depthMs] of delay. The classic "jet" sweep. No feedback (sox regen=0).
+     */
+    data class Flanger(val speedHz: Float, val depthMs: Float) : EffectBlock
+
+    /**
+     * sox `chorus` — a longer modulated delay (≈25 ms base) swept at [speedHz]
+     * over [depthMs], mixed with the dry signal for a doubled-voice thickening.
+     */
+    data class Chorus(val speedHz: Float, val depthMs: Float) : EffectBlock
+
+    /**
+     * sox `phaser` — a swept comb at [speedHz] with [decay] feedback (0..0.9),
+     * producing moving notches. Higher decay = more resonant sweep.
+     */
+    data class Phaser(val speedHz: Float, val decay: Float) : EffectBlock
+
+    /**
+     * A downward compressor: above [thresholdDb] (dBFS, negative) the level is
+     * reduced by [ratio]:1. A simplified feed-forward envelope compressor with
+     * fixed 5 ms attack / 100 ms release — not a full sox `compand` port (the
+     * CLI maps this to a two-segment compand with the same threshold/ratio).
+     */
+    data class Compressor(val thresholdDb: Float, val ratio: Float) : EffectBlock
+
+    /**
+     * Lo-fi crusher: quantize to [bits] bit-depth (1..16) and sample-and-hold
+     * every [downsample] samples (1 = off) to drop the effective sample rate.
+     * The 8-bit / retro / glitch sound. Android-only — sox has no bitcrush.
+     */
+    data class Bitcrush(val bits: Float, val downsample: Float) : EffectBlock
+
+    /**
+     * Ring modulator: multiply by a [freqHz] carrier sine, blended with the dry
+     * signal by [mix] (0 = dry, 1 = fully ringed). The classic Dalek/cyborg
+     * timbre. Android-only — sox has no ring modulator.
+     */
+    data class RingMod(val freqHz: Float, val mix: Float) : EffectBlock
+
+    /**
+     * Pitch flattener — detect the input's pitch (YIN, ~1024-sample windows)
+     * and dynamically shift it toward [targetHz]. Gives the deadpan-monotone
+     * "auto-tune flat" / GLaDOS phrasing that a static [Pitch] block can't,
+     * because Pitch blindly adds an offset whereas Monotone follows the input
+     * and corrects it. Android-only — no sox equivalent. Detector has ~43 ms
+     * of warmup latency before the first lock; output glides smoothly.
+     */
+    data class Monotone(val targetHz: Float) : EffectBlock
+}
+
+/**
+ * Preset block lists (the exact CLI recipes) + the whole-buffer [applyChain]
+ * adapter. The DSP itself lives in [StreamingEffectChain].
  */
 object EffectChain {
 
+    // -- CLI preset recipes (marmalade_tts/effects.py BUILTIN_PRESETS) ---------
+
+    val ROBOT_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Overdrive(gainDb = 20f),
+        EffectBlock.Pitch(cents = -100f),
+        EffectBlock.Reverb(reverberance = 10f),
+        EffectBlock.Vol(factor = 0.7f),
+    )
+    val CAVE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Reverb(reverberance = 80f),
+        EffectBlock.Echo(gainIn = 0.6f, gainOut = 0.6f, delayMs = 120f, decay = 0.3f),
+    )
+    val CHIPMUNK_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Pitch(cents = 400f),
+        EffectBlock.Tempo(factor = 0.95f),
+    )
+    val DEEP_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Pitch(cents = -400f),
+        EffectBlock.Bass(db = 6f),
+    )
+    val TELEPHONE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f),
+        EffectBlock.Overdrive(gainDb = 5f),
+        EffectBlock.Vol(factor = 1.5f),
+    )
+    val STADIUM_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Reverb(reverberance = 90f),
+        EffectBlock.Echo(gainIn = 0.8f, gainOut = 0.7f, delayMs = 80f, decay = 0.25f),
+    )
+    val MEGAPHONE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Bandpass(lowHz = 500f, highHz = 4000f),
+        EffectBlock.Overdrive(gainDb = 30f),
+        EffectBlock.Vol(factor = 1.5f),
+    )
+
+    // -- Curated voice stackups (E-K) ------------------------------------------
+    // Professional vocal-chain + character recipes (also mirrored in the CLI's
+    // BUILTIN_PRESETS). Ordering follows the pro convention: filters/EQ →
+    // compression → drive → modulation → reverb last.
+
+    // Clean broadcast-DJ polish: low cut, mud cut, compression, presence + air.
+    val BROADCASTER_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 90f),
+        EffectBlock.Mid(freqHz = 300f, gainDb = -3f),
+        EffectBlock.Compressor(thresholdDb = -18f, ratio = 3f),
+        EffectBlock.Mid(freqHz = 3000f, gainDb = 3f),
+        EffectBlock.Treble(db = 3f),
+        EffectBlock.Bass(db = 2f),
+    )
+    // Warm, intimate podcast tone.
+    val PODCAST_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 80f),
+        EffectBlock.Bass(db = 3f),
+        EffectBlock.Compressor(thresholdDb = -20f, ratio = 2.5f),
+        EffectBlock.Mid(freqHz = 250f, gainDb = -2f),
+        EffectBlock.Treble(db = 2f),
+    )
+    // Deep cinematic trailer voice: subtle pitch-down, squashed dynamics,
+    // controlled grandeur reverb.
+    val TRAILER_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Pitch(cents = -250f),
+        EffectBlock.Bass(db = 5f),
+        EffectBlock.Compressor(thresholdDb = -18f, ratio = 4f),
+        EffectBlock.Mid(freqHz = 2500f, gainDb = 2f),
+        EffectBlock.Reverb(reverberance = 22f),
+    )
+    // Even, controlled narration with a hint of room.
+    val AUDIOBOOK_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 85f),
+        EffectBlock.Compressor(thresholdDb = -22f, ratio = 3f),
+        EffectBlock.Mid(freqHz = 2500f, gainDb = 2f),
+        EffectBlock.Reverb(reverberance = 10f),
+    )
+    // Handheld two-way radio: tight band, drive, hard squash.
+    val WALKIE_TALKIE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 400f),
+        EffectBlock.Lowpass(freqHz = 5000f),
+        EffectBlock.Overdrive(gainDb = 8f),
+        EffectBlock.Compressor(thresholdDb = -24f, ratio = 6f),
+        EffectBlock.Vol(factor = 1.3f),
+    )
+    // Old AM radio — modelled on the canonical Audacity "AM Radio" preset
+    // (HP ~400, LP ~4k, +12 dB at 1 kHz). The +12 dB mid peak at 1 kHz is the
+    // defining feature: it's the small-cone-speaker "honk" the ear reads as
+    // vintage AM. Add soft tube overdrive, a light leveling compressor (slow
+    // release like an old broadcast limiter), a subtle AM tremolo wobble, and
+    // a small cabinet reverb. NO chorus — references confirm wow-and-flutter
+    // is a tape/turntable cue, not a radio cue.
+    val VINTAGE_RADIO_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 400f),
+        EffectBlock.Lowpass(freqHz = 4000f),
+        EffectBlock.Mid(freqHz = 1000f, gainDb = 12f),
+        EffectBlock.Overdrive(gainDb = 8f),
+        EffectBlock.Compressor(thresholdDb = -26f, ratio = 3f),
+        EffectBlock.Tremolo(speedHz = 4f, depth = 0.15f),
+        EffectBlock.Reverb(reverberance = 8f),
+        EffectBlock.Vol(factor = 1.3f),
+    )
+    // PA / intercom: midrange horn, heavy drive, room slap.
+    val INTERCOM_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Bandpass(lowHz = 450f, highHz = 2500f),
+        EffectBlock.Overdrive(gainDb = 18f),
+        EffectBlock.Mid(freqHz = 1500f, gainDb = 4f),
+        EffectBlock.Reverb(reverberance = 30f),
+        EffectBlock.Vol(factor = 1.5f),
+    )
+    // Submerged: dark low-pass, chorus shimmer, slight pitch + wobble. The
+    // low-pass + tremolo eat level, so a Vol makeup keeps it audible.
+    val UNDERWATER_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Lowpass(freqHz = 700f),
+        EffectBlock.Chorus(speedHz = 0.3f, depthMs = 4f),
+        EffectBlock.Pitch(cents = -80f),
+        EffectBlock.Tremolo(speedHz = 1.5f, depth = 0.2f),
+        EffectBlock.Vol(factor = 1.35f),
+    )
+    // Otherworldly: pitch up, phaser + flanger sweep, big space.
+    val ALIEN_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Pitch(cents = 150f),
+        EffectBlock.Phaser(speedHz = 0.4f, decay = 0.5f),
+        EffectBlock.Flanger(speedHz = 0.3f, depthMs = 3f),
+        EffectBlock.Reverb(reverberance = 30f),
+    )
+    // Ethereal haunt: thin low end, pitch shimmer, long reverb, tremolo flutter.
+    val ETHEREAL_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 250f),
+        EffectBlock.Pitch(cents = 120f),
+        EffectBlock.Reverb(reverberance = 70f),
+        EffectBlock.Tremolo(speedHz = 3f, depth = 0.25f),
+        EffectBlock.Treble(db = 3f),
+    )
+    // Dragon: deep chest, growl mid, controlled grit, doubled chorus for
+    // bulk, and a cavernous reverb tail.
+    val DRAGON_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Pitch(cents = -450f),
+        EffectBlock.Bass(db = 7f),
+        EffectBlock.Mid(freqHz = 700f, gainDb = 4f),
+        EffectBlock.Compressor(thresholdDb = -18f, ratio = 4f),
+        EffectBlock.Overdrive(gainDb = 14f),
+        EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f),
+        EffectBlock.Reverb(reverberance = 25f),
+    )
+
+    // -- Stackups using the Android-only blocks (E-L) — no CLI equivalent -------
+
+    // Classic Dalek/cyborg: ring mod through a telephone band + light grit.
+    val CYBORG_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.RingMod(freqHz = 60f, mix = 0.7f),
+        EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f),
+        EffectBlock.Overdrive(gainDb = 6f),
+    )
+    // 8-bit retro game voice: heavy crush + downsample, tame the aliasing, then
+    // a Vol makeup (the crush + low-pass drop the level).
+    val EIGHT_BIT_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Bitcrush(bits = 6f, downsample = 6f),
+        EffectBlock.Lowpass(freqHz = 4000f),
+        EffectBlock.Vol(factor = 1.35f),
+    )
+    // Glitchy lo-fi transmission: mild crush + ring shimmer through a radio band,
+    // with a Vol makeup for the band-limiting loss.
+    val GLITCH_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Bitcrush(bits = 8f, downsample = 3f),
+        EffectBlock.RingMod(freqHz = 120f, mix = 0.4f),
+        EffectBlock.Bandpass(lowHz = 400f, highHz = 3000f),
+        EffectBlock.Vol(factor = 1.35f),
+    )
+
+    // Deadpan synthetic AI. [Monotone] is the load-bearing piece: it follows
+    // the input's pitch and flattens it toward 160 Hz so phrasing actually
+    // goes deadpan instead of just "doubled and shifted." The Pitch(+200) is
+    // applied AFTER Monotone so the flat character is preserved and shifted
+    // up two semitones (~180 Hz final) — putting it before Monotone would be
+    // wasted, since Monotone would correct it back.
+    val AI_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 150f),
+        EffectBlock.Lowpass(freqHz = 8000f),
+        EffectBlock.Mid(freqHz = 2500f, gainDb = 3f),
+        EffectBlock.Compressor(thresholdDb = -22f, ratio = 3f),
+        EffectBlock.Monotone(targetHz = 160f),
+        EffectBlock.Pitch(cents = 300f),
+        EffectBlock.Chorus(speedHz = 0.5f, depthMs = 5f),
+        EffectBlock.RingMod(freqHz = 40f, mix = 0.18f),
+        EffectBlock.Bitcrush(bits = 12f, downsample = 1f),
+        EffectBlock.Reverb(reverberance = 12f),
+        EffectBlock.Vol(factor = 1.15f),
+    )
+
     /**
-     * Apply [preset] to [pcm] sampled at [sampleRate] Hz, returning a new
-     * (or, for NONE, the same) ShortArray. The input array is never
-     * mutated.
+     * Block list for a legacy [EffectPreset] (the dropdown bridge). NONE = dry.
      */
+    fun blocksForPreset(preset: EffectPreset): List<EffectBlock> = when (preset) {
+        EffectPreset.NONE -> emptyList()
+        EffectPreset.CAVE -> CAVE_BLOCKS
+        EffectPreset.ROBOT -> ROBOT_BLOCKS
+        EffectPreset.TELEPHONE -> TELEPHONE_BLOCKS
+    }
+
+    /** Legacy preset entry point — bridges to [applyChain]. */
     fun apply(pcm: ShortArray, sampleRate: Int, preset: EffectPreset): ShortArray =
-        when (preset) {
-            EffectPreset.NONE -> pcm
-            EffectPreset.CAVE -> cave(pcm, sampleRate)
-            EffectPreset.ROBOT -> robot(pcm, sampleRate)
-            EffectPreset.TELEPHONE -> telephone(pcm, sampleRate)
-        }
-
-    // -- CAVE -----------------------------------------------------------------
-    //
-    // Sox recipe approximation: a 3-tap delay-line reverb. Each tap is fed
-    // back into the next pass so the tail decays exponentially. Tap times
-    // are 250 / 350 / 450 ms with gains 0.6 / 0.4 / 0.25 — picked by ear to
-    // approximate sox's "reverb 50 50 100" feel without the multi-tap FDN.
-    //
-    // The output buffer is `pcm.size + maxTap` samples long so the last
-    // reflection has room to ring out (i.e. the test asserting non-zero
-    // tail after input ends is satisfied).
-
-    private fun cave(pcm: ShortArray, sampleRate: Int): ShortArray {
-        val tapMs = intArrayOf(250, 350, 450)
-        val tapGain = floatArrayOf(0.6f, 0.4f, 0.25f)
-        val tapSamples = IntArray(tapMs.size) { (tapMs[it] * sampleRate) / 1000 }
-        var maxTap = 0
-        for (n in tapSamples) if (n > maxTap) maxTap = n
-        val outLen = pcm.size + maxTap
-        val wet = FloatArray(outLen)
-
-        // Dry signal first.
-        for (i in pcm.indices) wet[i] = pcm[i].toFloat()
-
-        // For each tap, add a delayed, attenuated copy of the (already
-        // partially-wet) signal back into the buffer. Iterating taps in
-        // order lets later taps pick up echoes of earlier taps — that's
-        // what gives the chain its "cave-y" density.
-        for (t in tapSamples.indices) {
-            val delay = tapSamples[t]
-            val gain = tapGain[t]
-            for (i in delay until outLen) {
-                wet[i] += wet[i - delay] * gain
-            }
-        }
-
-        // Normalize: reverb summing pushes peaks above full-scale. Find the
-        // hottest sample and scale down only if we'd clip — this preserves
-        // dynamics when the input was quiet.
-        return scaleAndClip(wet)
-    }
-
-    // -- ROBOT ----------------------------------------------------------------
-    //
-    // Two staples of "robot voice": bit-crush (quantize amplitude to coarse
-    // steps) and a low-pass to take the harsh edge off the resulting
-    // staircase. Then a slow vibrato via fractional-index resampling
-    // (5 Hz, ±2 semitones) gives it the recognizably-mechanical wobble.
-    //
-    // 6-bit quantization → 64 amplitude steps; that's coarse enough to
-    // make the test "count distinct sample values is much lower than input"
-    // pass reliably (real speech has thousands of distinct values).
-
-    private fun robot(pcm: ShortArray, sampleRate: Int): ShortArray {
-        if (pcm.isEmpty()) return ShortArray(0)
-
-        // Step 1: bit-crush to ~6 bits (64 levels across the full Short range).
-        val levels = 64
-        val step = (Short.MAX_VALUE.toInt() - Short.MIN_VALUE.toInt()) / levels
-        val crushed = FloatArray(pcm.size) { i ->
-            // Quantize then re-center on a step boundary.
-            val q = ((pcm[i].toInt() - Short.MIN_VALUE.toInt()) / step) * step + Short.MIN_VALUE.toInt()
-            q.toFloat()
-        }
-
-        // Step 2: one-pole low-pass at ~2 kHz to soften the staircase.
-        // alpha for cutoff fc:  alpha = dt / (RC + dt), RC = 1/(2π fc)
-        val fc = 2000.0
-        val dt = 1.0 / sampleRate
-        val rc = 1.0 / (2.0 * PI * fc)
-        val alpha = (dt / (rc + dt)).toFloat()
-        var prev = 0f
-        for (i in crushed.indices) {
-            prev += alpha * (crushed[i] - prev)
-            crushed[i] = prev
-        }
-
-        // Step 3: vibrato via sinusoidal pitch mod. Resampling at a
-        // fractional index where the read pointer advances by
-        //   1 + depth * sin(2π * lfoHz * t)
-        // shifts pitch by depth (in cents); ±2 semitones = ±200 cents
-        // ≈ ±0.122 ratio. Use 0.12 for clean test math.
-        val lfoHz = 5.0
-        val depth = 0.12f
-        val out = FloatArray(crushed.size)
-        var readIdx = 0.0
-        for (i in out.indices) {
-            val t = i.toDouble() / sampleRate
-            val rate = 1.0 + depth * sin(2.0 * PI * lfoHz * t)
-            val idx = readIdx
-            val lo = idx.toInt()
-            val hi = lo + 1
-            out[i] = if (lo < 0 || hi >= crushed.size) {
-                0f
-            } else {
-                val frac = (idx - lo).toFloat()
-                crushed[lo] * (1f - frac) + crushed[hi] * frac
-            }
-            readIdx += rate
-            if (readIdx >= crushed.size - 1) {
-                // We've run out of source samples — pad the tail with silence
-                // rather than wrapping (wrap would create an audible click).
-                readIdx = (crushed.size - 1).toDouble()
-            }
-        }
-
-        return scaleAndClip(out)
-    }
-
-    // -- TELEPHONE ------------------------------------------------------------
-    //
-    // Old-school phone-line: 300 Hz – 3.4 kHz bandpass + soft compression.
-    // Implemented as a cascaded one-pole HPF (300 Hz) → one-pole LPF
-    // (3.4 kHz). One-pole filters are gentle (6 dB/oct each), but cascading
-    // gives the unmistakable "tinny" mid-band that listeners read as
-    // "phone."
-    //
-    // The soft-clip at 80% of full-scale plays the role of the analog
-    // phone line's mild compression: peaks get rounded off without
-    // hard-clipping artifacts.
-
-    private fun telephone(pcm: ShortArray, sampleRate: Int): ShortArray {
-        val out = FloatArray(pcm.size)
-
-        // One-pole HPF at 300 Hz.
-        val fcHigh = 300.0
-        val dt = 1.0 / sampleRate
-        val rcHigh = 1.0 / (2.0 * PI * fcHigh)
-        val alphaHigh = (rcHigh / (rcHigh + dt)).toFloat()
-        var prevIn = 0f
-        var prevOut = 0f
-        for (i in pcm.indices) {
-            val x = pcm[i].toFloat()
-            val y = alphaHigh * (prevOut + x - prevIn)
-            out[i] = y
-            prevIn = x
-            prevOut = y
-        }
-
-        // One-pole LPF at 3.4 kHz, in-place on `out`.
-        val fcLow = 3400.0
-        val rcLow = 1.0 / (2.0 * PI * fcLow)
-        val alphaLow = (dt / (rcLow + dt)).toFloat()
-        var prev = 0f
-        for (i in out.indices) {
-            prev += alphaLow * (out[i] - prev)
-            out[i] = prev
-        }
-
-        // Soft-clip at 80% peak. Use tanh-like saturation:
-        //   y = threshold * tanh(x / threshold)
-        // Smooth, non-clipping, and louder than the input above the knee.
-        val threshold = 0.8f * Short.MAX_VALUE.toFloat()
-        for (i in out.indices) {
-            val x = out[i] / threshold
-            // Approximate tanh with x / sqrt(1 + x²) — same shape, no exp().
-            val tanhLike = x / sqrt(1f + x * x)
-            out[i] = threshold * tanhLike
-        }
-
-        return scaleAndClip(out, normalizeIfNeeded = false)
-    }
-
-    // -- helpers --------------------------------------------------------------
+        applyChain(pcm, sampleRate, blocksForPreset(preset))
 
     /**
-     * Convert a float buffer back to PCM16. If `normalizeIfNeeded` is true
-     * and the buffer has samples beyond ±Short.MAX_VALUE, scale the whole
-     * buffer down so the loudest sample sits at ±Short.MAX_VALUE (preserves
-     * dynamics; avoids surprise clipping from accumulated gain). Otherwise
-     * just hard-clip.
+     * Whole-buffer adapter over [StreamingEffectChain]: feed the entire [pcm] as
+     * one chunk, then drain the tail (reverb/echo ring-out). An empty chain
+     * returns the input unchanged. Used by the system-TTS / foreground services,
+     * which already have the full clip; the in-app path streams chunk-by-chunk.
      */
-    private fun scaleAndClip(buf: FloatArray, normalizeIfNeeded: Boolean = true): ShortArray {
-        if (buf.isEmpty()) return ShortArray(0)
-
-        var scale = 1f
-        if (normalizeIfNeeded) {
-            var peak = 0f
-            for (v in buf) {
-                val a = if (v < 0f) -v else v
-                if (a > peak) peak = a
-            }
-            if (peak > Short.MAX_VALUE.toFloat()) {
-                scale = Short.MAX_VALUE.toFloat() / peak
-            }
-        }
-
-        val out = ShortArray(buf.size)
-        for (i in buf.indices) {
-            val v = buf[i] * scale
-            out[i] = when {
-                v >= Short.MAX_VALUE.toFloat() -> Short.MAX_VALUE
-                v <= Short.MIN_VALUE.toFloat() -> Short.MIN_VALUE
-                else -> v.toInt().toShort()
-            }
-        }
-        return out
+    fun applyChain(pcm: ShortArray, sampleRate: Int, blocks: List<EffectBlock>): ShortArray {
+        if (blocks.isEmpty()) return pcm
+        val chain = StreamingEffectChain(blocks, sampleRate)
+        val body = chain.process(pcm)
+        val tail = chain.flush()
+        return if (tail.isEmpty()) body else body + tail
     }
-
 }

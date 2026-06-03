@@ -112,8 +112,12 @@ class VoicePickerViewModel @Inject constructor(
     val voices: StateFlow<List<VoiceMeta>> = combine(
         voiceDao.getAll(),
         _installedEngines,
-    ) { allVoices, installed ->
-        allVoices.filter { it.engine in installed }
+        settings.showDeveloperEngines,
+    ) { allVoices, installed, showDeveloper ->
+        allVoices.filter { voice ->
+            voice.engine in installed &&
+                (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames)
+        }
     }
         .stateIn(
             scope = viewModelScope,
@@ -131,8 +135,55 @@ class VoicePickerViewModel @Inject constructor(
     private val _previewState = MutableStateFlow<PreviewState>(PreviewState.Idle)
     val previewState: StateFlow<PreviewState> = _previewState.asStateFlow()
 
+    /**
+     * Per-engine collapsed/expanded state for the engine section headers
+     * on the voices list. Persists across navigation within a single VM
+     * lifecycle (not across process death — that's the right scope for a
+     * UI hint, no DataStore needed).
+     *
+     * Default policy: the engine that owns the currently-selected voice
+     * opens expanded; everything else starts collapsed (so the user
+     * doesn't have to scroll past 50+ Kokoro voices to find Kitten).
+     * Computed lazily inside [setInitialExpansion] the first time
+     * [voices] + [selectedId] have both emitted.
+     */
+    private val _expandedEngines = MutableStateFlow<Set<String>>(emptySet())
+    val expandedEngines: StateFlow<Set<String>> = _expandedEngines.asStateFlow()
+
+    private var initialExpansionSet: Boolean = false
+
     init {
         refresh()
+    }
+
+    /**
+     * Toggle expand/collapse for an engine section. Idempotent — calling
+     * with the same name twice round-trips the state.
+     */
+    fun toggleEngineExpanded(engineName: String) {
+        val current = _expandedEngines.value
+        _expandedEngines.value = if (engineName in current) {
+            current - engineName
+        } else {
+            current + engineName
+        }
+    }
+
+    /**
+     * Seed [_expandedEngines] with "expand the engine that owns the
+     * currently-selected voice" the first time both StateFlows have a
+     * non-empty value. Idempotent — subsequent calls (e.g. on user
+     * navigation refresh) leave the user's manual toggles intact.
+     */
+    fun setInitialExpansion(voicesByEngine: Map<String, List<VoiceMeta>>, selected: String) {
+        if (initialExpansionSet || voicesByEngine.isEmpty()) return
+        val ownerEngine = voicesByEngine.entries.firstOrNull { (_, voices) ->
+            voices.any { it.id == selected }
+        }?.key
+        if (ownerEngine != null) {
+            _expandedEngines.value = setOf(ownerEngine)
+            initialExpansionSet = true
+        }
     }
 
     /**

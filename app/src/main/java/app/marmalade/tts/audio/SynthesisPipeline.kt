@@ -28,8 +28,8 @@ import app.marmalade.tts.preprocessing.ProsodyApplier
 //     2. Preprocessor.apply(rawText, rules)      ──► normalised text
 //     3. EmojiProsody.stripEmojis(normalised)    ──► engine-safe text
 //     4. synthesize(text, voiceId, speed)        ──► SynthAudio
-//     5. ProsodyApplier.apply(pcm, sr, emotion)  ──► emotion-shaped PCM
-//     6. EffectChain.apply(pcm, sr, effect)      ──► effect-shaped PCM
+//     5. ProsodyApplier.apply(pcm, sr, emotion)        ──► emotion-shaped PCM
+//     6. EffectChain.applyChain(pcm, sr, effectBlocks) ──► effect-shaped PCM
 //
 //   Returns a [PipelineResult] so callers can distinguish "input was
 //   blank / emoji-only" (Empty) from a successful synthesis. Engine
@@ -71,7 +71,7 @@ sealed class PipelineResult {
  *   passed straight through to [synthesize].
  * @param speed length-scale style; 1.0 = native pace, > 1 = faster.
  * @param enabledRules pre-resolved set of preprocessing rule names.
- * @param effect pre-resolved effect preset (NONE = dry).
+ * @param effectBlocks pre-resolved effect chain (empty = dry).
  * @param preprocessor the shared [Preprocessor] (DI singleton).
  * @param synthesize the engine call — `(text, voiceId, speed) -> SynthAudio`.
  *   Suspending so callers stay free to dispatch on their own thread.
@@ -81,7 +81,7 @@ suspend fun runSynthesisPipeline(
     voiceId: String,
     speed: Float,
     enabledRules: Set<String>,
-    effect: EffectPreset,
+    effectBlocks: List<EffectBlock>,
     preprocessor: Preprocessor,
     synthesize: suspend (text: String, voiceId: String, speed: Float) -> SynthAudio,
 ): PipelineResult {
@@ -102,9 +102,9 @@ suspend fun runSynthesisPipeline(
     val audio: SynthAudio = synthesize(text, voiceId, speed)
 
     val emotionShaped = ProsodyApplier.apply(audio.pcm, audio.sampleRate, hint.emotion)
-    // EffectChain is a no-op for NONE (returns the same array unchanged),
-    // so the dry path adds no extra allocation.
-    val shaped = EffectChain.apply(emotionShaped, audio.sampleRate, effect)
+    // applyChain is a no-op for an empty chain (returns the same array
+    // unchanged), so the dry path adds no extra allocation.
+    val shaped = EffectChain.applyChain(emotionShaped, audio.sampleRate, effectBlocks)
 
     return PipelineResult.Audio(pcm = shaped, sampleRate = audio.sampleRate)
 }

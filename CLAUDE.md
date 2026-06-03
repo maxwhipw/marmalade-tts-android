@@ -40,3 +40,91 @@ When working on a batch of changes that would warrant separate
 logical commits, split them — even if the work was done in one
 session (recent v0.1.15/16/17 splits used `git stash` to peel apart
 mixed working trees cleanly).
+
+## Working patterns that have produced good results
+
+These are conventions Max + Claude have converged on; following them
+reproduces the rhythm that landed v0.3.0-alpha.7's perf work.
+
+### Letter-named feature atoms
+
+When working through a multi-step optimization or refactor, name each
+discrete change by a single letter (A, B, C, …) and reuse those names
+through the conversation, commits, and task descriptions. Lets both of
+us track parallel threads at a glance — "did we land C yet?" beats
+"the per-device thread autodetect change with the setting."
+
+When you discover a follow-up to an already-named change after the
+fact, suffix the digit: `A2` for "extension of A". Don't reflow letters.
+Always keep the letter assignments in your task tracker.
+
+### One change → compile → install → test → iterate
+
+Land each lettered atom *individually* on the device before moving to
+the next. Each step is small enough that:
+- Compile-check via `./gradlew :app:compileDebugKotlin` (10s) catches
+  trivially-bad refactors before the longer `assembleDebug` (1-2 min).
+- Per-change logcat traces let you attribute deltas correctly. Bundling
+  A+B+C into one APK and seeing a 40% speedup tells you nothing about
+  *which* change earned it.
+
+### Adaptive auto-detection + manual override
+
+For per-device tunables (thread count is the canonical example), pair
+a runtime autodetect (`CpuClusterDetector`) with a Settings-screen
+manual override. Auto handles the 95% case; the override exists for
+the long tail (exotic SoCs, user benchmarks). Same pattern fits
+intra-op spinning, XNNPACK toggles, EP selection, etc.
+
+### Make on-device behavior identifiable from logs
+
+When the build state has multiple dimensions a future you might want
+to attribute behavior to (precision variant, EP choice, thread count,
+quantization strategy), log the active selection at engine load. The
+goal isn't a particular log format — it's that when comparing a synth
+that sounds good against one that doesn't, you should be able to tell
+from logcat alone which build state produced each.
+
+### Trust on-device evidence over speculation
+
+The session that landed the perf work moved fast because each
+hypothesis was verified on the device before committing to the next
+step — even when the model said "this should help." XNNPACK looked
+like it was regressing per-frame time until logcat surfaced the
+spinning-contention warning; F (Euler tensor reuse) turned out to be
+below measurement noise, which we'd never have known without
+shipping it alone. Default to measuring rather than assuming.
+
+### Compare at the model boundary when integrations diverge
+
+When two integrations of the same model disagree on audio quality
+(e.g. sherpa-Kitten vs KittenDirect, both running the identical
+KittenML ONNX), the difference is in the **inputs**, not the model.
+Inspect, in order: ONNX `metadata_props` for baked-in priors (this is
+how we found sherpa's hidden `speaker_speed_priors: 0.8,...,0.9`), the
+exact token sequence reaching the model, the voice/style indexing
+logic, and the scalar reaching the `speed` input. Days of code
+investigation won't find what one `onnx.load(...).metadata_props` will.
+
+## Engine bundle licensing
+
+The Marmalade APK distributed via Play / F-Droid / direct download is
+MIT throughout — no GPL code at build time, no GPL static linkage. The
+**engine bundles** (downloaded after user opt-in into
+`${filesDir}/engines/`) can include GPL-3.0 components (the espeak-ng
+phonemizer is GPL-3.0; sherpa-onnx's Kitten/Kokoro bundles already
+include it via static link inside `libsherpa-onnx-jni.so`).
+
+The KittenDirect engine (alpha.9, May 2026) made this posture explicit:
+a tiny C JNI shim in the APK does `dlopen`/`dlsym` against
+`libttsespeak.so` shipped in the engine bundle, so the APK contains no
+espeak code. The user assembles the GPL combination on their device
+when they accept the engine install. This is the locked-in pattern for
+future direct-ORT engines (KokoroDirect will follow the same model).
+
+The dictionary-only phonemizer path (using BSD-3 OpenPhonemizer ONNX +
+a CMUDict-derived IPA dictionary, no espeak at all) was explored and
+deferred — phonemizer-side IPA convention mismatches with the trained
+Kitten model caused enough quality regression to make espeak-in-bundle
+the right call. Revisit if there's ever a no-GPL-anywhere requirement.
+

@@ -31,6 +31,26 @@ interface TtsEngine {
     val sampleRate: Int
 
     /**
+     * Maximum input characters the engine handles in a single
+     * [synthesize] / [synthesizeStream] call without quality
+     * degradation or stalling. Callers ([app.marmalade.tts.audio.Synthesizer]
+     * + the TTS services) split longer inputs into ≤ this size before
+     * dispatching, then concatenate the audio.
+     *
+     * Reasonable bounds:
+     *  - Sherpa-onnx engines (Kokoro, Kitten): around 400 chars. Larger
+     *    inputs stress the internal buffer allocation and risk hitting
+     *    the Android TTS service's 10-second synth watchdog on long
+     *    sentences. Their `OfflineTts.generate` is one-shot from our
+     *    side, so we can't preempt it.
+     *  - Pocket TTS: ~120 chars, mapping to its ~50-token-per-chunk
+     *    bundle constraint. Beyond this the model skips words.
+     *
+     * Default is unlimited — engines opt in by overriding this.
+     */
+    val maxInputChars: Int get() = Int.MAX_VALUE
+
+    /**
      * True if the engine's bundle is present on disk and structurally
      * valid. Cheap — does not load the model into memory.
      */
@@ -48,8 +68,21 @@ interface TtsEngine {
      * Synthesize [text] via the given [voiceId] at [speed]. Suspends on
      * `Dispatchers.Default` internally; callers can `runBlocking` on a
      * worker thread without monopolising the dispatcher.
+     *
+     * [phonemizationLanguage] is an optional espeak voice/language code
+     * (e.g. `"en-us"`, `"ja"`, `"cmn"`) — when non-null, engines that
+     * use espeak (KokoroDirect, KittenDirect) override their voice's
+     * natural language with this. null means "engine decides" — for
+     * KokoroDirect that's per-voice via `espeakVoiceFor(voiceKey)`,
+     * for everyone else it's a no-op. Sherpa-backed engines have their
+     * lexicon baked in and ignore this field.
      */
-    suspend fun synthesize(text: String, voiceId: String, speed: Float): SynthAudio
+    suspend fun synthesize(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String? = null,
+    ): SynthAudio
 
     /**
      * Release native resources (file handles, mmap'd weights, ORT
@@ -81,8 +114,13 @@ interface TtsEngine {
      * tear down the engine's generation loop cleanly via structured
      * concurrency.
      */
-    fun synthesizeStream(text: String, voiceId: String, speed: Float): Flow<SynthAudio> = flow {
-        emit(synthesize(text, voiceId, speed))
+    fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String? = null,
+    ): Flow<SynthAudio> = flow {
+        emit(synthesize(text, voiceId, speed, phonemizationLanguage))
     }
 
     /**

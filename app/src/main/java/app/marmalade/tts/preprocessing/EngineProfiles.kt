@@ -51,6 +51,7 @@ object EngineProfiles {
         "currency", "percentage", "ordinal", "time", "date",
         "email", "url", "filename", "abbreviation", "number",
         "math", "ampersand", "hashtag", "emoji",
+        "repeated_punctuation", "terminal_punctuation",
     )
 
     /**
@@ -63,6 +64,7 @@ object EngineProfiles {
         "currency", "percentage", "time", "date",
         "email", "url", "filename",
         "math", "ampersand", "hashtag", "emoji",
+        "repeated_punctuation", "terminal_punctuation",
     )
 
     /**
@@ -77,8 +79,11 @@ object EngineProfiles {
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
         "kitten-nano-v0_8" to KITTEN_DEFAULTS,
         "kitten-mini-v0_8" to KITTEN_DEFAULTS,
+        "kitten-direct-v0_8" to KITTEN_DEFAULTS,
+        "kitten-direct-mini-v0_8" to KITTEN_DEFAULTS,
         "kokoro-v1_0" to KOKORO_DEFAULTS,
         "kokoro-v1_1" to KOKORO_DEFAULTS,
+        "kokoro-direct-v1_0" to KOKORO_DEFAULTS,
         "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
@@ -86,6 +91,7 @@ object EngineProfiles {
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
+        "terminal_punctuation",
         ),
         "coqui" to setOf(
             // Coqui handles basic numbers natively but not much else.
@@ -93,6 +99,7 @@ object EngineProfiles {
             "currency", "percentage", "time", "date",
             "email", "url", "filename", "abbreviation",
             "math", "ampersand", "hashtag", "emoji",
+        "terminal_punctuation",
         ),
         "pocket" to setOf(
             // PocketSphinx-derived engine; no native text normalization.
@@ -100,6 +107,7 @@ object EngineProfiles {
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
+        "terminal_punctuation",
         ),
         "matcha" to setOf(
             // Matcha-TTS phonemizes only — normalize everything upstream.
@@ -107,6 +115,7 @@ object EngineProfiles {
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
+        "terminal_punctuation",
         ),
         "emojivoice" to setOf(
             // EmojiVoice runs on Matcha-TTS — also no native normalization.

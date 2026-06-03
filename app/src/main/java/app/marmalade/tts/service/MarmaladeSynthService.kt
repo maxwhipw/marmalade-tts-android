@@ -20,7 +20,10 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.marmalade.tts.R
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
 import app.marmalade.tts.data.KittenMiniVoiceCatalog
@@ -35,6 +38,12 @@ import app.marmalade.tts.engine.KittenNanoEngine
 import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
+import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
@@ -113,8 +122,8 @@ import kotlinx.coroutines.withContext
 //     ├── synthesizeForEngine(engineName, text, voice, speed) → SynthAudio
 //     │     ├── "kokoro" → KokoroEngine.synthesize(...)
 //     │     └── "kitten" → KittenEngine.synthesize(...)
-//     ├── ProsodyApplier.apply(pcm, sr, hint.emotion) → emotion-shaped PCM
-//     ├── EffectChain.apply(pcm, sr, effect)          → effect-shaped PCM
+//     ├── ProsodyApplier.apply(pcm, sr, hint.emotion)     → emotion-shaped PCM
+//     ├── EffectChain.applyChain(pcm, sr, effectBlocks)   → effect-shaped PCM
 //     │
 //     ├── stream into AudioTrack (MODE_STREAM, 24 kHz PCM_16BIT mono)
 //     │     - pausable / cancellable via volatile flags
@@ -145,8 +154,11 @@ class MarmaladeSynthService : Service() {
 
     @Inject lateinit var kittenNano: KittenNanoEngine
     @Inject lateinit var kittenMini: KittenMiniEngine
+    @Inject lateinit var kittenDirect: KittenDirectEngine
+    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroV10: KokoroV10Engine
     @Inject lateinit var kokoroV11: KokoroV11Engine
+    @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
 
     @Inject lateinit var preprocessor: Preprocessor
@@ -154,6 +166,10 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var settings: SettingsRepository
 
     @Inject lateinit var router: TtsRouter
+
+    @Inject lateinit var effectResolver: EffectResolver
+
+    @Inject lateinit var keepaliveCoordinator: KeepaliveCoordinator
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -264,13 +280,18 @@ class MarmaladeSynthService : Service() {
         } else {
             1.0f
         }
-        val effect = intent.getStringExtra(EXTRA_EFFECT)
+        val effectPreset = intent.getStringExtra(EXTRA_EFFECT)
             ?.let { name ->
                 // Unknown values fall back to NONE — safer than throwing on a
                 // typo'd extra from a third-party caller (Tasker etc).
                 EffectPreset.entries.firstOrNull { it.name == name } ?: EffectPreset.NONE
             }
             ?: EffectPreset.NONE
+        // The Intent contract still speaks in presets; turn it into a block
+        // chain here (no DB round-trip — third parties can't reference our
+        // custom effect ids). The alias path in runOne overrides this with
+        // the alias's own effectId-resolved chain.
+        val effectBlocks = EffectChain.blocksForPreset(effectPreset)
         // voiceExplicit drives the routing decision in runOne: when false,
         // the per-app router fires (which for the share-sheet path resolves
         // to the primary alias — share-sheet doesn't carry a callerUid).
@@ -279,7 +300,7 @@ class MarmaladeSynthService : Service() {
             engine = engineName,
             voice = voice,
             speed = speed,
-            effect = effect,
+            effectBlocks = effectBlocks,
             voiceExplicit = explicitVoice != null,
         )
     }
@@ -297,6 +318,8 @@ class MarmaladeSynthService : Service() {
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
+            KittenDirectVoiceCatalog.ENGINE,
+            KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE -> name
             else -> DEFAULT_ENGINE
         }
@@ -323,6 +346,10 @@ class MarmaladeSynthService : Service() {
         }
         cancelled = false
         paused = false
+        // P-K — share-sheet / Tasker / clipboard tile path. This service
+        // is already foregrounded, so starting the keepalive service from
+        // here is FGS-from-FGS, which is always allowed.
+        keepaliveCoordinator.onSynthCompleted()
         activeJob = scope.launch {
             runOne(next)
             synchronized(lock) {
@@ -354,7 +381,8 @@ class MarmaladeSynthService : Service() {
                     engine = alias.engine,
                     voice = alias.voiceId,
                     speed = alias.speed,
-                    effect = decodeEffect(alias.effectPreset),
+                    effectBlocks = effectResolver.blocksFor(alias.effectId),
+                    phonemizationLanguage = alias.phonemizationLanguage,
                 )
             } else {
                 req
@@ -370,6 +398,8 @@ class MarmaladeSynthService : Service() {
             KokoroV11VoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
+            KittenDirectVoiceCatalog.ENGINE,
+            KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE -> resolved.engine
             else -> {
                 Log.w(TAG, "Engine '${resolved.engine}' not supported — using $DEFAULT_ENGINE")
@@ -405,9 +435,9 @@ class MarmaladeSynthService : Service() {
                     voiceId = resolved.voice,
                     speed = resolved.speed,
                     enabledRules = enabled,
-                    effect = resolved.effect,
+                    effectBlocks = resolved.effectBlocks,
                     preprocessor = preprocessor,
-                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s) },
+                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage) },
                 )
             } catch (e: EngineNotInstalledException) {
                 // Surface as a notification update so the user sees it; the
@@ -437,40 +467,38 @@ class MarmaladeSynthService : Service() {
         }
     }
 
-    /** Per-engine synthesis dispatch. All five engines emit at 24 kHz today. */
+    /** Per-engine synthesis dispatch. All engines emit at 24 kHz today. */
     private suspend fun synthesizeForEngine(
         engineName: String,
         text: String,
         voiceId: String,
         speed: Float,
+        phonemizationLanguage: String? = null,
     ): SynthAudio = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed)
+        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: runOne already narrows engineName to known values.
-        else -> kokoroV10.synthesize(text, voiceId, speed)
+        else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** Human-friendly engine label for notification copy. */
     private fun displayNameFor(engineName: String): String = when (engineName) {
         KokoroV10VoiceCatalog.ENGINE -> "Kokoro v1.0"
         KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1"
+        KokoroDirectVoiceCatalog.ENGINE -> "Kokoro Direct"
         KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano"
         KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini"
+        KittenDirectVoiceCatalog.ENGINE -> "Kitten Direct"
+        KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Direct Mini"
         PocketVoiceCatalog.ENGINE -> "Pocket TTS"
         else -> engineName
     }
-
-    /**
-     * Map the persisted [app.marmalade.tts.data.db.VoiceAlias.effectPreset]
-     * string back to the enum. Defaults to NONE for unknown values so a
-     * stale alias from before a hypothetical preset rename doesn't crash
-     * the playback path.
-     */
-    private fun decodeEffect(raw: String): EffectPreset =
-        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
 
     // -- transport ------------------------------------------------------------
 
@@ -750,7 +778,7 @@ class MarmaladeSynthService : Service() {
         val engine: String,
         val voice: String,
         val speed: Float,
-        val effect: EffectPreset,
+        val effectBlocks: List<EffectBlock>,
         /**
          * True iff the caller passed [EXTRA_VOICE] on the intent. When
          * false, [runOne] consults [TtsRouter] to apply the user's
@@ -758,6 +786,8 @@ class MarmaladeSynthService : Service() {
          * specify a voice, so this is where the user's persona kicks in).
          */
         val voiceExplicit: Boolean,
+        /** See [VoiceAlias.phonemizationLanguage]. Null = engine default. */
+        val phonemizationLanguage: String? = null,
     )
 
     companion object {

@@ -2,6 +2,8 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
@@ -9,9 +11,12 @@ import app.marmalade.tts.install.InstallState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -44,10 +49,21 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class EnginesViewModel @Inject constructor(
     private val installer: EngineInstaller,
+    settings: SettingsRepository,
 ) : ViewModel() {
 
-    val engines: StateFlow<List<EngineDescriptor>> =
-        MutableStateFlow(EngineCatalog.all).asStateFlow()
+    /**
+     * Catalog engines to render, filtered by the "show developer engines"
+     * setting — the legacy sherpa engines drop out when it's off. Reactive
+     * so toggling the setting refreshes the list without a screen reload.
+     */
+    val engines: StateFlow<List<EngineDescriptor>> = settings.showDeveloperEngines
+        .map { EngineCatalog.visibleTo(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = EngineCatalog.visibleTo(BuildConfig.DEBUG),
+        )
 
     private val _installStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()

@@ -9,6 +9,27 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
+      P-J — required to launch the in-app "Allow background activity"
+      prompt during onboarding (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).
+      Without the exemption Android may pause our foreground synth service
+      mid-utterance when the device screen sleeps or the battery dips low.
+      Google Play allows this for TTS engines that need uninterrupted
+      foreground-service audio playback during screen off — the canonical
+      qualifying use case for ACCEPTABLE_USE of this permission.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!--
+      P-K — keepalive foreground-service permission. The service holds
+      the application process resident so the Hilt-singleton TTS engines
+      stay loaded between synth requests. `specialUse` is the foreground
+      service type Android 14+ requires for FGS that doesn't fit any of
+      the standard buckets (media playback, location, …). We declare the
+      qualifying-use justification in `propertyValues` below.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!--
       INTERNET is used exclusively for engine model downloads via
       EngineInstaller. No telemetry, no analytics, no other network use.
       See PRIVACY.md / SECURITY.md for details. The set of hosts contacted
@@ -119,6 +140,23 @@
             android:name="app.marmalade.tts.service.MarmaladeSynthService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!--
+          P-K — keepalive foreground service. Holds the application
+          process alive so the Hilt-singleton TTS engines stay loaded.
+          `specialUse` is the canonical FGS type for "we're holding
+          long-lived resources to make the next user action fast" —
+          Android 14+ requires the property below to justify the type
+          in store review.
+        -->
+        <service
+            android:name="app.marmalade.tts.service.MarmaladeKeepaliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the offline TTS model loaded so the next speak request is instant. The user has opted in via Settings → Performance → Keep loaded." />
+        </service>
 
         <!--
           Share-sheet target + system text-selection "Process text" action.

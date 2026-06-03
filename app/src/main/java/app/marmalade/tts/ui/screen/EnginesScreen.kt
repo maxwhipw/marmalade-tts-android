@@ -188,50 +188,41 @@ private fun EngineCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
-                StatusChip(state)
+                // The "Developer" tag occupies the slot the install-state chip
+                // used to — the install/uninstall/update buttons below already
+                // communicate download state, so the status chip was redundant.
+                // Only the legacy sherpa engines carry a tag; production engines
+                // leave the slot empty.
+                if (engine.developerOnly) {
+                    DeveloperBadge()
+                }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // Collapsible description — clamp to 2 lines by default, full
-            // text on tap. We detect overflow via onTextLayout and only
-            // surface the "Show more" affordance when truncation actually
-            // happened; that way a short description doesn't grow a
-            // cosmetic hint that does nothing.
+            // Collapsed resting state stays light: a 2-line description plus
+            // the download sizes (which inform the install decision). "Show
+            // more" reveals the full description and the license details —
+            // the license legalese is too verbose to sit in the resting card.
             var expanded by remember(engine.name) { mutableStateOf(false) }
-            var hasOverflow by remember(engine.name) { mutableStateOf(false) }
             Text(
                 text = engine.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
-                onTextLayout = { result ->
-                    // Only flip true; once we know the text overflows we
-                    // keep the toggle so collapsing-then-re-clicking still
-                    // reveals "Show less".
-                    if (!hasOverflow && result.hasVisualOverflow) hasOverflow = true
-                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (hasOverflow) {
-                            Modifier.clickable { expanded = !expanded }
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .clickable { expanded = !expanded },
             )
-            if (hasOverflow) {
-                Text(
-                    text = if (expanded) "Show less" else "Show more",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .clickable { expanded = !expanded },
-                )
-            }
+            Text(
+                text = if (expanded) "Show less" else "Show more",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .clickable { expanded = !expanded },
+            )
 
             Spacer(Modifier.height(8.dp))
 
@@ -241,11 +232,16 @@ private fun EngineCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                text = engine.licenseSummary,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // License details live behind "Show more" — present for the
+            // install-consent UX (esp. GPL disclosure) without cluttering
+            // the resting card.
+            if (expanded) {
+                Text(
+                    text = engine.licenseSummary,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             // In-progress strip + label. Kept identical to the v0.1.10
             // implementation — determinate while we know the byte count,
@@ -312,24 +308,20 @@ private fun EngineCard(
     }
 }
 
+/**
+ * Compact "Developer" tag shown on legacy sherpa engine cards. Tertiary
+ * color so it's visually distinct from the primary-colored install state
+ * chip — a quiet "this isn't a normal engine" marker.
+ */
 @Composable
-private fun StatusChip(state: InstallState) {
-    val (label, color) = when (state) {
-        InstallState.NotInstalled -> "Not installed" to MaterialTheme.colorScheme.onSurfaceVariant
-        is InstallState.Downloading -> "Downloading" to MaterialTheme.colorScheme.primary
-        is InstallState.Extracting -> "Installing" to MaterialTheme.colorScheme.primary
-        InstallState.Installed -> "Installed" to MaterialTheme.colorScheme.primary
-        is InstallState.Failed -> "Failed" to MaterialTheme.colorScheme.error
-        InstallState.Corrupt -> "Corrupt" to MaterialTheme.colorScheme.error
-    }
-    // AssistChip with onClick = no-op keeps the visual + accessible
-    // role-as-a-chip behaviour without needing to hand-roll a Surface +
-    // Text. The chip is purely informational.
+private fun DeveloperBadge() {
     AssistChip(
         onClick = { /* informational only */ },
-        label = { Text(label) },
-        colors = AssistChipDefaults.assistChipColors(labelColor = color),
         enabled = false,
+        label = { Text("Developer") },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = MaterialTheme.colorScheme.tertiary,
+        ),
     )
 }
 
@@ -378,6 +370,15 @@ private fun ActionRow(
             }
             InstallState.Corrupt -> {
                 Button(onClick = onRetry) { Text("Reinstall") }
+            }
+            is InstallState.Outdated -> {
+                // The current install still works; the user can keep using
+                // it while the new bundle downloads. We surface Update as
+                // the primary action and leave Engine settings reachable
+                // so they don't lose access to alias management.
+                OutlinedButton(onClick = onEngineSettings) { Text("Engine settings") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onInstall) { Text("Update") }
             }
         }
     }

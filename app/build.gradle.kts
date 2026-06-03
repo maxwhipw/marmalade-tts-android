@@ -14,8 +14,8 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 35
-        versionCode = 29
-        versionName = "0.3.0-alpha.5"
+        versionCode = 32
+        versionName = "0.3.0-alpha.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -28,7 +28,27 @@ android {
         // real-device benefit. Drop them. Anyone running the app in an x86
         // emulator can do a from-source build.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+
+        // CMake build for our espeak JNI shim. The shim does dlopen() of
+        // libttsespeak.so from the engine bundle at runtime — espeak's
+        // GPL'd code stays in the (user-downloaded) bundle, not the APK,
+        // so the APK keeps its MIT license. See cpp/espeak_jni.c.
+        externalNativeBuild {
+            cmake {
+                cppFlags += ""
+                arguments += listOf("-DANDROID_STL=c++_static")
+            }
+        }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    ndkVersion = "26.3.11579264"
 
     buildTypes {
         debug {
@@ -143,7 +163,7 @@ dependencies {
     // doesn't replace it. The `jniLibs.pickFirsts` block below absorbs
     // the duplicate `libonnxruntime.so` / JNI shim that both providers
     // bundle for `arm64-v8a` and `armeabi-v7a`.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
 
     // Media session (lock-screen + BT transport controls in MarmaladeSynthService).
     // Provides MediaSessionCompat / PlaybackStateCompat / MediaButtonReceiver.

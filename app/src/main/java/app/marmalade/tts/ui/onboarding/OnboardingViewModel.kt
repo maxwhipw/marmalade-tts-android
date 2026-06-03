@@ -3,8 +3,12 @@ package app.marmalade.tts.ui.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.BuiltinEffects
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
@@ -97,6 +101,15 @@ enum class OnboardingStep {
     CreateAlias,
 
     /**
+     * P-J — prompt the user to exempt Marmalade from Android's battery
+     * optimisations so the foreground synth service isn't paused mid-
+     * utterance when the screen sleeps. Skippable — users who decline
+     * still get a working app, they just may see synthesis cut off
+     * when the screen turns off during long inputs.
+     */
+    BackgroundUnrestricted,
+
+    /**
      * Final step — explains that the user has to manually pick
      * Marmalade in system Settings → Languages → Text-to-speech, and
      * provides a button that launches the TTS settings intent. The app
@@ -165,9 +178,13 @@ class OnboardingViewModel @Inject constructor(
     private val _installStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()
 
-    /** Convenience: the cards rendered on the EnginePick step. */
+    /**
+     * Convenience: the cards rendered on the EnginePick step. Production
+     * engines only — the legacy sherpa engines are never offered to new
+     * users in onboarding; they're an opt-in via Settings afterward.
+     */
     val engines: StateFlow<List<EngineCardState>> = MutableStateFlow(
-        EngineCatalog.all.map { d ->
+        EngineCatalog.visibleTo(showDeveloper = false).map { d ->
             EngineCardState(descriptor = d, isSelected = _selectedEngineIds.value.contains(d.name))
         },
     ).asStateFlow()
@@ -185,7 +202,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.Welcome -> OnboardingStep.EnginePick
             OnboardingStep.EnginePick -> OnboardingStep.Installing
             OnboardingStep.Installing -> OnboardingStep.CreateAlias
-            OnboardingStep.CreateAlias -> OnboardingStep.SystemDefault
+            OnboardingStep.CreateAlias -> OnboardingStep.BackgroundUnrestricted
+            OnboardingStep.BackgroundUnrestricted -> OnboardingStep.SystemDefault
             OnboardingStep.SystemDefault -> OnboardingStep.SystemDefault
         }
     }
@@ -197,7 +215,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.EnginePick -> OnboardingStep.Welcome
             OnboardingStep.Installing -> OnboardingStep.EnginePick
             OnboardingStep.CreateAlias -> OnboardingStep.Installing
-            OnboardingStep.SystemDefault -> OnboardingStep.CreateAlias
+            OnboardingStep.BackgroundUnrestricted -> OnboardingStep.CreateAlias
+            OnboardingStep.SystemDefault -> OnboardingStep.BackgroundUnrestricted
         }
     }
 
@@ -340,7 +359,8 @@ class OnboardingViewModel @Inject constructor(
                 "kokoro" in installedEngines -> "kokoro"
                 "kitten" in installedEngines -> "kitten"
                 installedEngines.isNotEmpty() -> installedEngines.first()
-                else -> EngineCatalog.all.firstOrNull()?.name.orEmpty()
+                else -> EngineCatalog.all.firstOrNull { it.isRecommended }?.name
+                    ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
             }
             val voiceId = defaultVoiceIdFor(engine)
             _aliasEditorState.value = AliasFields(
@@ -393,7 +413,7 @@ class OnboardingViewModel @Inject constructor(
         val name = s.name.trim()
         if (!VoiceAlias.isValidName(name)) {
             _aliasEditorState.value = s.copy(
-                error = "Use lower-case letters, digits, dash, underscore.",
+                error = "Letters, digits, spaces, dashes — up to 50 characters.",
             )
             return false
         }
@@ -418,15 +438,30 @@ class OnboardingViewModel @Inject constructor(
                     speed = s.speed,
                     effectPreset = s.effect.name,
                     createdAt = now(),
+                    // Keep effectId (the synth-path source of truth) in sync
+                    // with the onboarding effect dropdown — see AliasViewModel.save.
+                    effectId = BuiltinEffects.idForLegacyPreset(s.effect.name),
                 ),
             )
             settings.setPrimaryAliasName(name)
-            // Advance to SystemDefault step instead of finishing — the user
-            // still needs to be told to set Marmalade as their system TTS
-            // engine before any external app can route through us.
-            _step.value = OnboardingStep.SystemDefault
+            // Advance to BackgroundUnrestricted (P-J) instead of finishing —
+            // the user still has the battery-opt + system-TTS-pick steps
+            // ahead before they're truly set up.
+            _step.value = OnboardingStep.BackgroundUnrestricted
         }
         return true
+    }
+
+    /**
+     * P-J — advance from the BackgroundUnrestricted step to SystemDefault.
+     * Called by both "Continue" (after grant) and "Skip" — the
+     * onboarding flow doesn't fail if the user declines, just leaves a
+     * less-reliable run.
+     */
+    fun advancePastBackground() {
+        if (_step.value == OnboardingStep.BackgroundUnrestricted) {
+            _step.value = OnboardingStep.SystemDefault
+        }
     }
 
     /**
@@ -444,7 +479,8 @@ class OnboardingViewModel @Inject constructor(
                 "kokoro" in installedEngines -> "kokoro"
                 "kitten" in installedEngines -> "kitten"
                 installedEngines.isNotEmpty() -> installedEngines.first()
-                else -> EngineCatalog.all.firstOrNull()?.name.orEmpty()
+                else -> EngineCatalog.all.firstOrNull { it.isRecommended }?.name
+                    ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
             }
             val voiceId = defaultVoiceIdFor(engine)
             // Refuse to create a malformed alias if there isn't any
@@ -489,8 +525,12 @@ class OnboardingViewModel @Inject constructor(
      * Sideloaded-data path: an alias already exists when the wizard runs
      * (rare), so the user has skipped through the CreateAlias step via
      * "Finish setup". Self-heal the primary if it's unset, then advance
-     * to the SystemDefault step — they still need to be prompted to
-     * pick Marmalade as their system TTS engine.
+     * to the BackgroundUnrestricted step — they still need both the
+     * battery-opt prompt and the system-TTS pick.
+     *
+     * Method name kept for binary/API stability with [OnboardingScreen];
+     * the destination is now [OnboardingStep.BackgroundUnrestricted]
+     * (which the user can skip through to reach SystemDefault).
      */
     fun advanceToSystemDefault(): Boolean {
         if (!aliasCreated.value) return false
@@ -501,7 +541,7 @@ class OnboardingViewModel @Inject constructor(
                 }
             }
         }
-        _step.value = OnboardingStep.SystemDefault
+        _step.value = OnboardingStep.BackgroundUnrestricted
         return true
     }
 
@@ -528,8 +568,11 @@ class OnboardingViewModel @Inject constructor(
     private fun defaultVoiceIdFor(engine: String): String = when (engine) {
         KokoroV10VoiceCatalog.ENGINE -> KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
         KokoroV11VoiceCatalog.ENGINE -> KokoroV11VoiceCatalog.DEFAULT_VOICE_ID
+        KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         KittenNanoVoiceCatalog.ENGINE -> KittenNanoVoiceCatalog.DEFAULT_VOICE_ID
         KittenMiniVoiceCatalog.ENGINE -> KittenMiniVoiceCatalog.DEFAULT_VOICE_ID
+        KittenDirectVoiceCatalog.ENGINE -> KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
+        KittenDirectMiniVoiceCatalog.ENGINE -> KittenDirectMiniVoiceCatalog.DEFAULT_VOICE_ID
         PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID
         else -> ""
     }

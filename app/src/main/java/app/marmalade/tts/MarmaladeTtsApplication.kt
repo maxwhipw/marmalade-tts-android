@@ -5,8 +5,14 @@ import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
+import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -87,6 +93,9 @@ class MarmaladeTtsApplication : Application() {
     @Inject
     lateinit var settings: Provider<SettingsRepository>
 
+    @Inject
+    lateinit var effectDao: Provider<EffectDao>
+
     /**
      * Application-lifetime scope. SupervisorJob so a seed failure doesn't
      * propagate out of this scope and tear down anything else launched on
@@ -111,9 +120,21 @@ class MarmaladeTtsApplication : Application() {
                 // expansion) without ever wiping the table.
                 dao.upsertAll(KokoroV10VoiceCatalog.voices)
                 dao.upsertAll(KokoroV11VoiceCatalog.voices)
+                dao.upsertAll(KokoroDirectVoiceCatalog.voices)
                 dao.upsertAll(KittenNanoVoiceCatalog.voices)
                 dao.upsertAll(KittenMiniVoiceCatalog.voices)
+                dao.upsertAll(KittenDirectVoiceCatalog.voices)
+                dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
+                dao.upsertAll(PocketDevVoiceCatalog.voices)
+                // Built-in effects. REPLACE-on-conflict refreshes them on each
+                // bump; user-created effects (other ids) are untouched, and
+                // built-ins are read-only in the UI so this can't clobber user
+                // edits. Prune drops built-ins removed from the catalog (e.g.
+                // Whisper/Slow deep/Fast high in v9) so they don't linger on
+                // upgrades.
+                effectDao.get().upsertAll(BuiltinEffects.seedRows)
+                effectDao.get().pruneBuiltinsNotIn(BuiltinEffects.seedIds)
                 prefs.setCatalogVersion(CATALOG_VERSION)
             }
         }
@@ -136,7 +157,56 @@ class MarmaladeTtsApplication : Application() {
          *    engines with new IDs (`kokoro-v1_0`, `kitten-mini-v0_8`, …).
          *  - v3: v0.3.0-alpha.1 — added Pocket TTS catalog (8 voices,
          *    `pocket-tts-en-v2026_04:<name>`).
+         *  - v4: v0.3.0-alpha.10 — added Kokoro Direct catalog (53 voices,
+         *    `kokoro-direct-v1_0:<name>`).
+         *  - v7: v0.3.0-alpha.11 — seed the built-in effects (Cave/Robot/
+         *    Telephone) into the new `effect` table (E-C). (v5/v6 were the
+         *    Kitten Direct + Kitten Direct Mini catalog bumps.)
+         *  - v8: v0.3.0-alpha.11 — effects rebuilt to mirror the CLI's sox
+         *    presets (E-I): Cave/Robot/Telephone recipes changed + 7 presets
+         *    added (Chipmunk/Deep/Whisper/Stadium/Megaphone/Slow deep/Fast
+         *    high). REPLACE-on-conflict refreshes the built-in rows.
+         *  - v9: v0.3.0-alpha.11 — preset refinement: Robot pitch −300→−100,
+         *    Megaphone vol 2.0→1.5, and Whisper/Slow deep/Fast high removed
+         *    (pruneBuiltinsNotIn drops the stale rows on upgrade).
+         *  - v10: v0.3.0-alpha.11 — 11 curated voice stackups (Broadcaster/
+         *    Podcast/Trailer/Audiobook/Walkie-talkie/Vintage radio/Intercom/
+         *    Underwater/Ethereal/Alien/Demon) + 3 Android-only ones (Cyborg/
+         *    8-bit/Glitch) using the new Bitcrush/RingMod blocks.
+         *  - v11: v0.3.0-alpha.11 — Dragon preset added; Ghost renamed to
+         *    Ethereal (new id, old `builtin:ghost` pruned); Vol makeup added to
+         *    8-bit/Underwater/Glitch.
+         *  - v12: v0.3.0-alpha.11 — Demon removed (pruned); Vintage radio
+         *    redesigned for a more authentic AM-radio feel (narrower band,
+         *    heavier saturation + compression, deeper wobble, cabinet reverb).
+         *  - v13: v0.3.0-alpha.11 — Vintage radio further differentiated from
+         *    Walkie-talkie: wow-and-flutter chorus, lighter leveling
+         *    compression, slower deeper tremolo throb, bigger cabinet reverb.
+         *  - v14: v0.3.0-alpha.11 — Vintage radio rewritten to match the
+         *    canonical Audacity AM Radio preset (HP 400 / LP 4k / +12 dB
+         *    mid honk @ 1 kHz). Removed chorus — references confirm wow-and-
+         *    flutter is a tape/turntable cue, not a radio cue.
+         *  - v15: v0.3.0-alpha.11 — Sardonic preset added (Android-only, uses
+         *    Bitcrush + RingMod): deadpan synthetic AI voice with multi-voice
+         *    chorus doubling + slight pitch up + clean-room reverb.
+         *  - v16: v0.3.0-alpha.11 — Monotone block added (YIN pitch detect +
+         *    dynamic shifter); Sardonic recipe now uses it for true flat-pitch
+         *    deadpan instead of static pitch + chorus alone.
+         *  - v17: v0.3.0-alpha.11 — Sardonic renamed to AI (id `builtin:ai`,
+         *    old `builtin:sardonic` pruned), plus Pitch(+200) after Monotone
+         *    for an octave-ish lift. Robot gets Vol(0.7) makeup to tame
+         *    overdrive loudness.
+         *  - v18: v0.3.0-alpha.11 — AI's post-Monotone Pitch bumped 200→300
+         *    cents; Monotone smoothing tuned (glide 200 ms + 30-cent
+         *    hysteresis) to suppress turntable-wow on intra-utterance pitch
+         *    variations.
+         *  - v19: v0.3.0-alpha.11 — Monotone2 (phase-vocoder shifter) added,
+         *    plus a new Synth preset mirroring AI but using Monotone2. The
+         *    Monotone preset is intentionally kept untouched for A/B.
+         *  - v20: v0.3.0-alpha.11 — Monotone2 + Synth removed after the A/B
+         *    (the original Monotone-based AI was preferred). `builtin:synth`
+         *    is pruned and the Monotone2 block + Fft DSP retired.
          */
-        const val CATALOG_VERSION: Int = 3
+        const val CATALOG_VERSION: Int = 21
     }
 }

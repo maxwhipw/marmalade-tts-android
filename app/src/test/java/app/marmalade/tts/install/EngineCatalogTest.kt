@@ -18,16 +18,21 @@ import org.junit.Test
 class EngineCatalogTest {
 
     @Test
-    fun catalogContainsAllFiveVariants() {
+    fun catalogContainsAllVariants() {
         // Order is the display order in onboarding + Settings → Engines.
-        // Kokoro v1.0 first because it is the recommended default; Pocket
-        // last because it's the alpha-quality non-sherpa engine.
+        // Kokoro v1.0 first (recommended default), then v1.1 (Mandarin
+        // specialist), then KokoroDirect (perf port). Kitten family next
+        // in the same order. Pocket last because it's the alpha-quality
+        // non-sherpa engine.
         assertEquals(
             listOf(
                 "kokoro-v1_0",
                 "kokoro-v1_1",
+                "kokoro-direct-v1_0",
                 "kitten-nano-v0_8",
                 "kitten-mini-v0_8",
+                "kitten-direct-v0_8",
+                "kitten-direct-mini-v0_8",
                 "pocket-tts-en-v2026_04",
             ),
             EngineCatalog.all.map { it.name },
@@ -35,18 +40,55 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kokoroV10IsRecommended_othersAreNot() {
+    fun kokoroDirectIsRecommended_othersAreNot() {
         // Exactly one recommended engine — the onboarding pre-selection
         // logic reads the boolean per engine; multiple recommendations
-        // would over-pre-select on first launch.
+        // would over-pre-select on first launch. The recommendation moved
+        // from the sherpa kokoro-v1_0 to kokoro-direct-v1_0 in
+        // v0.3.0-alpha.10.Z when the sherpa engines became developer-only.
         assertEquals(
             "exactly one recommended engine expected",
             1,
             EngineCatalog.all.count { it.isRecommended },
         )
         assertTrue(
-            "kokoro-v1_0 should be the recommended default",
-            EngineCatalog.byName("kokoro-v1_0")!!.isRecommended,
+            "kokoro-direct-v1_0 should be the recommended default",
+            EngineCatalog.byName("kokoro-direct-v1_0")!!.isRecommended,
+        )
+        // The recommended engine must always be visible to non-developers,
+        // else fresh release installs would onboard with nothing pre-checked.
+        assertTrue(
+            "the recommended engine must not be developerOnly",
+            EngineCatalog.all.none { it.isRecommended && it.developerOnly },
+        )
+    }
+
+    @Test
+    fun developerOnlyFlagsExactlyTheSherpaEngines() {
+        // The four sherpa-onnx engines are gated as developer-only; the
+        // direct-ORT engines + Pocket are production. visibleTo(false) must
+        // drop exactly the sherpa four.
+        assertEquals(
+            setOf("kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8"),
+            EngineCatalog.developerOnlyNames,
+        )
+        assertEquals(
+            "visibleTo(false) drops the four sherpa engines",
+            EngineCatalog.all.size - 4,
+            EngineCatalog.visibleTo(showDeveloper = false).size,
+        )
+        // visibleTo(true) keeps every engine but sorts the developer-only
+        // ones to the end — so it's the same set, ordered production-first.
+        val visibleAll = EngineCatalog.visibleTo(showDeveloper = true)
+        assertEquals(
+            "visibleTo(true) contains the whole catalog",
+            EngineCatalog.all.toSet(),
+            visibleAll.toSet(),
+        )
+        val firstDeveloperIdx = visibleAll.indexOfFirst { it.developerOnly }
+        assertTrue(
+            "developer engines must sort after all production engines",
+            firstDeveloperIdx == -1 || visibleAll.drop(firstDeveloperIdx).all { it.developerOnly },
         )
     }
 

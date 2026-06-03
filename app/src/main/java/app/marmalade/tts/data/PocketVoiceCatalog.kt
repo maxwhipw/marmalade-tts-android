@@ -34,8 +34,9 @@ object PocketVoiceCatalog {
 
     /**
      * Pre-checked voice for first-launch / "any voice" requests. Alba is
-     * upstream pocket-tts's documented default — a warm, lower-mid female
-     * voice that demos well across short and long inputs.
+     * upstream pocket-tts's documented default — a warm low-mid male
+     * voice (~133 Hz median F0) that demos well across short and long
+     * inputs.
      */
     const val DEFAULT_VOICE_ID = "pocket-tts-en-v2026_04:alba"
 
@@ -48,19 +49,22 @@ object PocketVoiceCatalog {
      * speaker-ID like in voices.bin), but keep the upstream order so the
      * voice picker stays stable across bundle refreshes.
      *
-     * Gender annotations are taken from upstream pocket-tts voice metadata
-     * (Les Misérables character names line up with the source novel's
-     * canonical genders).
+     * Gender annotations derived from autocorrelation-based F0 estimation
+     * of the bundled `voices/<name>.wav` reference samples (median F0 over
+     * voiced frames; threshold at ~150 Hz). The names don't reliably map
+     * to the Les Misérables canonical genders — `alba` isn't a Les Mis
+     * name at all, and `marius` (a male character) ships with a female
+     * voice prompt. Trust the audio, not the name.
      */
     val voices: List<VoiceMeta> = listOf(
-        seed("alba", "female"),
-        seed("azelma", "female"),
-        seed("cosette", "female"),
-        seed("eponine", "female"),
-        seed("fantine", "female"),
-        seed("javert", "male"),
-        seed("jean", "male"),
-        seed("marius", "male"),
+        seed("alba", "male"),       //  ~133 Hz
+        seed("azelma", "female"),   //  ~214 Hz
+        seed("cosette", "female"),  //  ~198 Hz
+        seed("eponine", "female"),  //  ~164 Hz
+        seed("fantine", "female"),  //  ~211 Hz
+        seed("javert", "male"),     //   ~96 Hz
+        seed("jean", "male"),       //  ~101 Hz
+        seed("marius", "female"),   //  ~214 Hz
     )
 
     private fun seed(name: String, gender: String): VoiceMeta = VoiceMeta(

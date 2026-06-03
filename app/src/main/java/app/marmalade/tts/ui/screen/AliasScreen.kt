@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -52,7 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineDescriptor
@@ -94,6 +96,8 @@ fun AliasScreen(
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val voices by viewModel.voicesForSelectedEngine.collectAsStateWithLifecycle()
     val primaryAliasName by viewModel.primaryAliasName.collectAsStateWithLifecycle()
+    val engines by viewModel.engines.collectAsStateWithLifecycle()
+    val effects by viewModel.effects.collectAsStateWithLifecycle()
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
@@ -135,6 +139,14 @@ fun AliasScreen(
                         AliasRow(
                             alias = alias,
                             isPrimary = alias.name == primaryAliasName,
+                            // Cannot delete the last remaining alias — the
+                            // app's data model assumes at least one alias
+                            // (with one designated primary) exists once
+                            // any have been created. AliasViewModel.delete
+                            // also defends this invariant; gating the
+                            // button is the primary UX cue.
+                            isDeletable = aliases.size > 1,
+                            effectName = effects.firstOrNull { it.id == alias.effectId }?.name ?: "No effect",
                             onEdit = { viewModel.openEditor(alias) },
                             onDelete = { pendingDelete = alias },
                             onSetPrimary = { viewModel.setPrimary(alias.name) },
@@ -149,13 +161,15 @@ fun AliasScreen(
     if (editorState.isOpen) {
         AliasEditorDialog(
             state = editorState,
-            engines = viewModel.engines,
+            engines = engines,
             voices = voices,
+            effects = effects,
             onNameChange = viewModel::onEditorNameChange,
             onEngineChange = viewModel::onEditorEngineChange,
             onVoiceChange = viewModel::onEditorVoiceChange,
             onSpeedChange = viewModel::onEditorSpeedChange,
             onEffectChange = viewModel::onEditorEffectChange,
+            onPhonemizationLanguageChange = viewModel::onEditorPhonemizationLanguageChange,
             onSave = { viewModel.save() },
             onDismiss = viewModel::dismissEditor,
         )
@@ -229,6 +243,8 @@ private fun EmptyState() {
 private fun AliasRow(
     alias: VoiceAlias,
     isPrimary: Boolean,
+    isDeletable: Boolean,
+    effectName: String,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onSetPrimary: () -> Unit,
@@ -240,26 +256,27 @@ private fun AliasRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isPrimary) {
+        // Always an IconButton so primary and non-primary rows share the same
+        // 48dp leading footprint — a bare 24dp Icon for the primary case made
+        // that row shorter and threw off its vertical rhythm. Tint is the only
+        // state difference; re-tapping an already-primary star is a harmless
+        // no-op. material-icons-core has no outlined Star, so the dimmed alpha
+        // is the "not primary" affordance.
+        IconButton(onClick = onSetPrimary) {
             Icon(
                 imageVector = Icons.Filled.Star,
-                contentDescription = "Primary alias",
-                tint = MaterialTheme.colorScheme.primary,
+                contentDescription = if (isPrimary) {
+                    "Primary alias"
+                } else {
+                    "Set ${alias.name} as primary"
+                },
+                tint = if (isPrimary) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                },
             )
-        } else {
-            IconButton(onClick = onSetPrimary) {
-                // Same star icon for both states; the dimmed alpha is the
-                // "not primary" affordance. material-icons-core doesn't
-                // ship an outlined variant of Star, and pulling in
-                // material-icons-extended just for one icon is overkill.
-                Icon(
-                    imageVector = Icons.Filled.Star,
-                    contentDescription = "Set ${alias.name} as primary",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                )
-            }
         }
-        Spacer(Modifier.height(0.dp))
         Column(modifier = Modifier
             .weight(1f)
             .padding(start = 8.dp)) {
@@ -270,7 +287,6 @@ private fun AliasRow(
                     fontWeight = FontWeight.SemiBold,
                 )
                 if (isPrimary) {
-                    Spacer(Modifier.height(0.dp))
                     AssistChip(
                         onClick = onEdit,
                         label = { Text("Primary") },
@@ -291,18 +307,26 @@ private fun AliasRow(
                 )
                 AssistChip(
                     onClick = onEdit,
-                    label = { Text(effectDisplayName(alias.effectPreset)) },
+                    label = { Text(effectName) },
                 )
             }
         }
         IconButton(onClick = onEdit) {
             Icon(Icons.Filled.Edit, contentDescription = "Edit ${alias.name}")
         }
-        IconButton(onClick = onDelete) {
+        IconButton(onClick = onDelete, enabled = isDeletable) {
             Icon(
                 Icons.Filled.Delete,
-                contentDescription = "Delete ${alias.name}",
-                tint = MaterialTheme.colorScheme.error,
+                contentDescription = if (isDeletable) {
+                    "Delete ${alias.name}"
+                } else {
+                    "Cannot delete — at least one alias is required"
+                },
+                tint = if (isDeletable) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                },
             )
         }
     }
@@ -314,11 +338,13 @@ private fun AliasEditorDialog(
     state: EditorState,
     engines: List<EngineDescriptor>,
     voices: List<VoiceMeta>,
+    effects: List<Effect>,
     onNameChange: (String) -> Unit,
     onEngineChange: (String) -> Unit,
     onVoiceChange: (String) -> Unit,
     onSpeedChange: (Float) -> Unit,
-    onEffectChange: (EffectPreset) -> Unit,
+    onEffectChange: (String?) -> Unit,
+    onPhonemizationLanguageChange: (String?) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -338,7 +364,7 @@ private fun AliasEditorDialog(
                     supportingText = {
                         Text(
                             text = errorTextFor(state.error)
-                                ?: "Lower-case letters, digits, dash, underscore.",
+                                ?: "Letters, digits, spaces, dashes — up to 50 characters.",
                             color = if (state.error != null) MaterialTheme.colorScheme.error
                                     else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -375,9 +401,15 @@ private fun AliasEditorDialog(
                     )
                 }
 
-                EffectDropdown(
-                    selected = state.effect,
+                EffectPicker(
+                    effects = effects,
+                    selectedId = state.effectId,
                     onPick = onEffectChange,
+                )
+
+                PhonemizationLanguageDropdown(
+                    selected = state.phonemizationLanguage,
+                    onPick = onPhonemizationLanguageChange,
                 )
             }
         },
@@ -488,21 +520,91 @@ private fun VoiceDropdown(
     }
 }
 
+/**
+ * Picks an effect (built-in or custom) from the DB-backed [effects] list, or
+ * "No effect" (writes null). Replaces the old fixed [EffectPreset] dropdown —
+ * any of the seeded CLI presets (and future user effects) can be assigned.
+ */
 @Composable
-private fun EffectDropdown(
-    selected: EffectPreset,
-    onPick: (EffectPreset) -> Unit,
+private fun EffectPicker(
+    effects: List<Effect>,
+    selectedId: String?,
+    onPick: (String?) -> Unit,
+) {
+    // A modal picker (not a DropdownMenu) because the built-in catalog has
+    // grown past 20 entries — the dropdown's popup clipped at the bottom of
+    // the dialog and hid items like Walkie-talkie. AlertDialog's scrollable
+    // content surface handles arbitrary list length reliably.
+    var showPicker by remember { mutableStateOf(false) }
+    val selectedLabel = effects.firstOrNull { it.id == selectedId }?.name ?: "No effect"
+    OutlinedTextField(
+        value = selectedLabel,
+        onValueChange = { /* read-only */ },
+        readOnly = true,
+        label = { Text("Effect") },
+        trailingIcon = {
+            IconButton(onClick = { showPicker = true }) {
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pick effect")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (showPicker) {
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text("Pick effect") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    EffectPickerRow("No effect") { onPick(null); showPicker = false }
+                    for (effect in effects) {
+                        EffectPickerRow(effect.name) { onPick(effect.id); showPicker = false }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EffectPickerRow(label: String, onClick: () -> Unit) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+    )
+}
+
+/**
+ * Per-alias espeak language override. Null = "Auto" (engine decides:
+ * KokoroDirect picks per voice prefix; others ignore). Non-null forces
+ * espeak's language for the synthesis call.
+ *
+ * Languages match what `KokoroDirectVoiceCatalog.espeakVoiceFor()` can
+ * emit — adding more requires bundling the corresponding espeak-ng-data
+ * subdirectory (which we already do, since we ship the full data tree).
+ */
+@Composable
+private fun PhonemizationLanguageDropdown(
+    selected: String?,
+    onPick: (String?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedTextField(
-            value = effectDisplayName(selected),
+            value = phonemizationLanguageDisplayName(selected),
             onValueChange = { /* read-only */ },
             readOnly = true,
-            label = { Text("Effect") },
+            label = { Text("Phonemization language") },
             trailingIcon = {
                 IconButton(onClick = { expanded = true }) {
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pick effect")
+                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pick phonemization language")
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -511,11 +613,11 @@ private fun EffectDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            for (preset in EffectPreset.entries) {
+            for ((code, label) in PHONEMIZATION_LANGUAGES) {
                 DropdownMenuItem(
-                    text = { Text(effectDisplayName(preset)) },
+                    text = { Text(label) },
                     onClick = {
-                        onPick(preset)
+                        onPick(code)
                         expanded = false
                     },
                 )
@@ -525,32 +627,34 @@ private fun EffectDropdown(
 }
 
 /**
- * Map [EffectPreset] to a Title-Case display string. The enum's raw
- * `.name` (`NONE`, `CAVE`, …) is too shouty for UI.
+ * Code-to-label pairs. The first entry's code is `null` — that's the
+ * "Auto" sentinel that clears any user override and lets the engine
+ * pick (KokoroDirect derives from voice prefix; others ignore).
  *
- * Persists round-trips via `EffectPreset.name` — no change there. This
- * is purely a presentation layer.
+ * Espeak codes follow espeak-ng-data's directory naming (`af_dict`,
+ * `en-us`, `cmn`, etc.) — no abstraction layer here, the strings are
+ * what espeak's `SetVoiceByName` expects.
  */
-private fun effectDisplayName(preset: EffectPreset): String = when (preset) {
-    EffectPreset.NONE -> "None"
-    EffectPreset.CAVE -> "Cave"
-    EffectPreset.ROBOT -> "Robot"
-    EffectPreset.TELEPHONE -> "Telephone"
-}
+private val PHONEMIZATION_LANGUAGES: List<Pair<String?, String>> = listOf(
+    null to "Auto (engine decides)",
+    "en-us" to "English (US)",
+    "en-gb" to "English (UK)",
+    "es" to "Spanish",
+    "fr-fr" to "French",
+    "hi" to "Hindi",
+    "it" to "Italian",
+    "ja" to "Japanese",
+    "pt-br" to "Portuguese (BR)",
+    "cmn" to "Mandarin Chinese",
+)
 
-/**
- * Same as the [EffectPreset] overload, but for the string column on
- * [VoiceAlias.effectPreset]. Unknown values fall through to the raw
- * string capitalised, which keeps forward-compat with future enum
- * additions that haven't been mapped yet.
- */
-private fun effectDisplayName(raw: String): String {
-    val match = EffectPreset.entries.firstOrNull { it.name == raw }
-    return if (match != null) effectDisplayName(match) else raw.lowercase().replaceFirstChar { it.uppercase() }
-}
+private fun phonemizationLanguageDisplayName(code: String?): String =
+    PHONEMIZATION_LANGUAGES.firstOrNull { it.first == code }?.second
+        ?: code  // unrecognised override — show the raw code rather than hide it
+        ?: "Auto (engine decides)"
 
 private fun errorTextFor(error: SaveError?): String? = when (error) {
-    SaveError.InvalidName -> "Use lower-case letters, digits, dash, underscore — no spaces."
+    SaveError.InvalidName -> "Letters, digits, spaces, dashes — up to 50 characters."
     SaveError.NameTaken -> "That name is already in use."
     SaveError.MissingVoice -> "Pick a voice for this alias."
     null -> null

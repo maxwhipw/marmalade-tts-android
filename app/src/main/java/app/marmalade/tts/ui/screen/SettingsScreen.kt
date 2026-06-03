@@ -3,6 +3,8 @@ package app.marmalade.tts.ui.screen
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -30,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.service.KeepaliveMode
+import app.marmalade.tts.ui.MarmaladeFilterChip
 import app.marmalade.tts.ui.theme.ThemePreset
 
 // -----------------------------------------------------------------------------
@@ -99,6 +104,8 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @Composable
 fun SettingsScreen(
     onNavigateToAppMappings: () -> Unit,
+    /** Nav callback for Settings → Engines (engines moved off the bottom nav). */
+    onNavigateToEngines: () -> Unit,
     /**
      * Nav callback for the debug-only Benchmark entry. Null in release
      * builds — the row is hidden when this is null. AppRoot passes the
@@ -110,6 +117,9 @@ fun SettingsScreen(
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val mappingCount by viewModel.appMappingCount.collectAsStateWithLifecycle()
+    val intraOpThreads by viewModel.intraOpThreads.collectAsStateWithLifecycle()
+    val showDeveloperEngines by viewModel.showDeveloperEngines.collectAsStateWithLifecycle()
+    val keepaliveMode by viewModel.keepaliveMode.collectAsStateWithLifecycle()
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -142,6 +152,10 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
+            EnginesSection(onClick = onNavigateToEngines)
+
+            HorizontalDivider()
+
             AppMappingsSection(
                 mappingCount = mappingCount,
                 onClick = onNavigateToAppMappings,
@@ -150,6 +164,28 @@ fun SettingsScreen(
             HorizontalDivider()
 
             SystemDefaultSection()
+
+            HorizontalDivider()
+
+            PerformanceSection(
+                manualThreads = intraOpThreads,
+                autoThreads = viewModel.autoIntraOpThreads,
+                onThreadsSelected = viewModel::setIntraOpThreads,
+            )
+
+            HorizontalDivider()
+
+            KeepaliveSection(
+                current = keepaliveMode,
+                onSelect = viewModel::setKeepaliveMode,
+            )
+
+            HorizontalDivider()
+
+            DeveloperEnginesSection(
+                checked = showDeveloperEngines,
+                onCheckedChange = viewModel::setShowDeveloperEngines,
+            )
 
             if (onNavigateToBenchmark != null) {
                 HorizontalDivider()
@@ -187,7 +223,7 @@ private fun AppearanceSection(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
-            FilterChip(
+            MarmaladeFilterChip(
                 selected = key == currentMode,
                 onClick = { onModeSelected(key) },
                 label = { Text(label) },
@@ -211,13 +247,31 @@ private fun AppearanceSection(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ThemePreset.entries.forEach { preset ->
-            FilterChip(
+            MarmaladeFilterChip(
                 selected = preset == currentPreset,
                 onClick = { onPresetSelected(preset) },
                 label = { Text(preset.displayName) },
             )
         }
     }
+}
+
+@Composable
+private fun EnginesSection(onClick: () -> Unit) {
+    SectionHeader("Engines")
+
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        headlineContent = { Text("Manage engines") },
+        supportingContent = { Text("Install, update, or remove TTS engines and their voices.") },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
 }
 
 @Composable
@@ -267,6 +321,166 @@ private fun SystemDefaultSection() {
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
             )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
+}
+
+/**
+ * ONNX-Runtime intra-op thread count. Defaults to "Auto" which calls
+ * [app.marmalade.tts.perf.CpuClusterDetector] at engine load to size
+ * threads to the perf-core cluster. Manual override is exposed because
+ * the autodetect has gaps on exotic CPU topologies (some Samsung chips
+ * split the prime core off the perf cluster; some MediaTek chips have
+ * three-tier hierarchies).
+ *
+ * The setting is read on next engine load — current synthesis isn't
+ * affected. The "Restart engine to apply" line documents this.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PerformanceSection(
+    manualThreads: Int?,
+    autoThreads: Int,
+    onThreadsSelected: (Int?) -> Unit,
+) {
+    SectionHeader("Performance")
+
+    Text(
+        text = "ONNX threads",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
+    )
+    // Auto + a small ladder of common big-cluster sizes covering Tensor
+    // G3 (5), Snapdragon 8 Gen2/Pixel 9 (6), Snapdragon 8 Gen3 (8) and
+    // a low fallback for thermal-limited devices.
+    val options: List<Pair<Int?, String>> = listOf(
+        null to "Auto ($autoThreads)",
+        1 to "1",
+        2 to "2",
+        4 to "4",
+        5 to "5",
+        6 to "6",
+        8 to "8",
+    )
+    FlowRow(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (value, label) ->
+            MarmaladeFilterChip(
+                selected = value == manualThreads,
+                onClick = { onThreadsSelected(value) },
+                label = { Text(label) },
+            )
+        }
+    }
+    Text(
+        text = "Applies on next engine load — re-open the app or switch " +
+            "voices to apply.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * P-K — engine keepalive mode selector. Three options:
+ *
+ *  - Off:        no foreground service; engine reloads from cold each
+ *                time the OS reclaims the process.
+ *  - Smart:      foreground service runs 10 min after each synth.
+ *                Default. Catches the "user is reading repeatedly"
+ *                pattern at near-zero long-term cost.
+ *  - Persistent: foreground service runs forever. Surfaces the RAM
+ *                cost in the helper text so the user understands the
+ *                trade. For power users who care about zero-cold-start
+ *                system TTS.
+ *
+ * The RAM numbers in the persistent helper text are per-engine post-load
+ * estimates on Pixel 8a (Tensor G3, 6GB) — see
+ * `docs/keepalive-ram.md` for the methodology. They're rough; the real
+ * cost depends on which voices are loaded and any state buffers
+ * allocated by P-V.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun KeepaliveSection(
+    current: KeepaliveMode,
+    onSelect: (KeepaliveMode) -> Unit,
+) {
+    SectionHeader("Keep engine loaded")
+
+    val options: List<Pair<KeepaliveMode, String>> = listOf(
+        KeepaliveMode.Off to "Off",
+        KeepaliveMode.Smart to "Smart (10 min)",
+        KeepaliveMode.Persistent to "Always",
+    )
+    FlowRow(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (mode, label) ->
+            MarmaladeFilterChip(
+                selected = mode == current,
+                onClick = { onSelect(mode) },
+                label = { Text(label) },
+            )
+        }
+    }
+    val helper = when (current) {
+        KeepaliveMode.Off ->
+            "The engine reloads from cold each time Android reclaims the " +
+                "app process (usually within a few minutes of leaving). " +
+                "Cheapest on RAM; slowest first-speak."
+        KeepaliveMode.Smart ->
+            "After each speak, Marmalade stays warm for 10 minutes so the " +
+                "next speak is instant. A small notification appears " +
+                "during that window. No long-term cost."
+        KeepaliveMode.Persistent ->
+            "Marmalade stays loaded all the time and shows a permanent " +
+                "notification. Trade-off is RAM use: Pocket ≈ 500 MB, " +
+                "Kokoro Direct ≈ 150 MB, Kitten Direct ≈ 80 MB. Only the " +
+                "engines you actually use stay loaded."
+    }
+    Text(
+        text = helper,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Opt-in toggle for the legacy sherpa engines (Kokoro v1.0/v1.1, Kitten
+ * Nano/Mini). The direct-ORT engines superseded them; they stay installable
+ * for A/B comparison but are hidden by default in release builds. Shown in
+ * both build types so an interested user can reveal them — the default value
+ * differs (on in debug, off in release), wired through
+ * [SettingsRepository.showDeveloperEngines].
+ */
+@Composable
+private fun DeveloperEnginesSection(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    SectionHeader("Advanced")
+
+    ListItem(
+        modifier = Modifier.clickable { onCheckedChange(!checked) },
+        headlineContent = { Text("Show developer engines") },
+        supportingContent = {
+            Text(
+                text = "Reveal the older sherpa-onnx engines (Kokoro v1.0/v1.1, " +
+                    "Kitten Nano/Mini). The direct-ORT engines replaced them; " +
+                    "these are kept for comparison.",
+            )
+        },
+        trailingContent = {
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )

@@ -59,6 +59,22 @@ data class PocketBundle(
     /** Display names of voices bundled in the `voices/` subdir as `<name>.wav`. */
     val predefinedVoices: List<String>,
     /**
+     * ONNX filenames to load for each of the 5 graphs. Bundles built before
+     * v0.3.0-alpha.7 omitted this block; in that case defaults preserve the
+     * original `*_int8.onnx` convention so existing installs keep working
+     * without re-download. The v0.3.0-alpha.7 "mixed" bundle declares this
+     * block explicitly with fp32 names for everything except `flow_lm_main`,
+     * which stays int8 (the selective-quant strategy from upstream PR #147).
+     */
+    val onnxFiles: OnnxFiles,
+    /**
+     * Diagnostic label for the bundle's quantization strategy. Defaults
+     * to `"int8"` (the original all-quantized bundle). The mixed bundle
+     * sets `"mixed-fp32-mimi"`. Surfaced in logs at engine load so device
+     * A/B traces are self-describing.
+     */
+    val quantizationVariant: String,
+    /**
      * Per-tensor state spec for the 18 `flow_lm_main` state slots
      * (`state_0`..`state_17` / `out_state_0`..`out_state_17`).
      */
@@ -69,6 +85,18 @@ data class PocketBundle(
      */
     val mimiStateManifest: List<StateSpec>,
 ) {
+    /**
+     * Filenames for the 5 ONNX graphs the engine loads. Naming is variant-
+     * specific — e.g. the original int8 bundle uses `*_int8.onnx`, the
+     * mixed bundle uses clean fp32 names for everything except `flow_lm_main`.
+     */
+    data class OnnxFiles(
+        val textConditioner: String,
+        val mimiEncoder: String,
+        val mimiDecoder: String,
+        val flowLmMain: String,
+        val flowLmFlow: String,
+    )
     /**
      * A single state tensor's shape/dtype/fill spec. Drives both the
      * initial value (`fill` → see [StateFill]) and the wire shape passed
@@ -136,8 +164,34 @@ data class PocketBundle(
                 predefinedVoices = json.getJSONArray("predefined_voices").let { arr ->
                     List(arr.length()) { i -> arr.getString(i) }
                 },
+                onnxFiles = parseOnnxFiles(json.optJSONObject("onnx_files")),
+                quantizationVariant = json.optString("quantization_variant", "int8"),
                 flowLmStateManifest = parseManifest(json.getJSONArray("flow_lm_state_manifest")),
                 mimiStateManifest = parseManifest(json.getJSONArray("mimi_state_manifest")),
+            )
+        }
+
+        /**
+         * Parse the optional `onnx_files` block. Pre-v0.3.0-alpha.7 bundles
+         * omit it; we fall back to the original `*_int8.onnx` filenames so
+         * existing installs still load without redownload.
+         */
+        private fun parseOnnxFiles(obj: org.json.JSONObject?): OnnxFiles {
+            if (obj == null) {
+                return OnnxFiles(
+                    textConditioner = "text_conditioner_int8.onnx",
+                    mimiEncoder = "mimi_encoder_int8.onnx",
+                    mimiDecoder = "mimi_decoder_int8.onnx",
+                    flowLmMain = "flow_lm_main_int8.onnx",
+                    flowLmFlow = "flow_lm_flow_int8.onnx",
+                )
+            }
+            return OnnxFiles(
+                textConditioner = obj.getString("text_conditioner"),
+                mimiEncoder = obj.getString("mimi_encoder"),
+                mimiDecoder = obj.getString("mimi_decoder"),
+                flowLmMain = obj.getString("flow_lm_main"),
+                flowLmFlow = obj.getString("flow_lm_flow"),
             )
         }
 

@@ -162,14 +162,22 @@ class EngineInstallerTest {
         )
         assertFalse(File(filesDir, "engines/evil").exists())
         assertFalse(File(filesDir, "engines/evil.tmp").exists())
-        assertFalse(File(filesDir, "engines/evil.archive.tmp").exists())
+        // The partial archive is intentionally RETAINED on a non-SHA failure
+        // so a later attempt can resume the download (only a SHA mismatch wipes
+        // it — see EngineInstaller.installViaDescriptor's catch). Zip-slip
+        // happens during extraction, after a clean download, so the archive
+        // scratch is kept by design.
+        assertTrue(File(filesDir, "engines/evil.archive.tmp").exists())
     }
 
     // -- uninstall ---------------------------------------------------------
 
     @Test
     fun uninstallRemovesEngineDirAndReleasesNativeHandle() = runTest {
-        val engineDir = File(filesDir, "engines/kitten")
+        // The installer derives the on-disk dir from the engine NAME
+        // (engineDirFor → engines/<name>), so the dir must match the name we
+        // uninstall. (Pre-engine-split this was the bare "kitten".)
+        val engineDir = File(filesDir, "engines/kitten-nano-v0_8")
         engineDir.mkdirs()
         File(engineDir, "model.fp16.onnx").writeText("dummy")
 

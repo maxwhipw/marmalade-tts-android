@@ -42,6 +42,36 @@ class PreprocessorTest {
     private fun only(rule: String, text: String): String =
         preprocessor.apply(text, setOf(rule))
 
+    // ── terminal punctuation (CJK + Spanish aware) ──────────────────────
+
+    @Test
+    fun terminal_appendsPeriodWhenMissing() {
+        assertEquals("hello.", only("terminal_punctuation", "hello"))
+    }
+
+    @Test
+    fun terminal_leavesAsciiPunctuationAlone() {
+        assertEquals("hello!", only("terminal_punctuation", "hello!"))
+        assertEquals("really?", only("terminal_punctuation", "really?"))
+    }
+
+    @Test
+    fun terminal_recognizesJapaneseEnders_noSpuriousPeriod() {
+        // Japanese ？ / 。 / ！ already terminate — must NOT get an ASCII "."
+        // appended (which Open JTalk would then mangle to fullwidth ．→ PAD).
+        assertEquals("元気ですか？", only("terminal_punctuation", "元気ですか？"))
+        assertEquals("こんにちは。", only("terminal_punctuation", "こんにちは。"))
+        assertEquals("すごい！", only("terminal_punctuation", "すごい！"))
+    }
+
+    @Test
+    fun terminal_spanishInvertedMarksSurvive_endStillRecognized() {
+        // ¿ is sentence-INITIAL (not terminal); the sentence still ends in
+        // ASCII ? so no spurious period, and ¿ is preserved for espeak.
+        assertEquals("¿Cómo estás?", only("terminal_punctuation", "¿Cómo estás?"))
+        assertEquals("¡Hola!", only("terminal_punctuation", "¡Hola!"))
+    }
+
     // ── currency ────────────────────────────────────────────────────
 
     @Test
@@ -298,6 +328,63 @@ class PreprocessorTest {
         // crash — unknown names are skipped silently.
         val s = "no change"
         assertEquals(s, preprocessor.apply(s, setOf("nope_not_a_rule")))
+    }
+
+    // ── repeated_punctuation (alpha.10.L) ───────────────────────────
+
+    @Test
+    fun repeatedPunct_threeDots_collapseToEllipsis() {
+        assertEquals("wait…", only("repeated_punctuation", "wait..."))
+    }
+
+    @Test
+    fun repeatedPunct_moreThanThreeDots_alsoCollapse() {
+        // The regex matches `\\.{3,}` — 4+ dots also collapse to a single
+        // ellipsis (not multiple), so the model sees one prosodic cue.
+        assertEquals("wait…", only("repeated_punctuation", "wait...."))
+        assertEquals("wait…", only("repeated_punctuation", "wait......"))
+    }
+
+    @Test
+    fun repeatedPunct_twoDots_isNotEnoughToCollapse() {
+        // Two dots is a typo, not an ellipsis pattern — leave it alone.
+        assertEquals("wait..", only("repeated_punctuation", "wait.."))
+    }
+
+    @Test
+    fun repeatedPunct_bangsCollapseToOne() {
+        assertEquals("wow!", only("repeated_punctuation", "wow!!"))
+        assertEquals("wow!", only("repeated_punctuation", "wow!!!!!!"))
+    }
+
+    @Test
+    fun repeatedPunct_questionsCollapseToOne() {
+        assertEquals("really?", only("repeated_punctuation", "really??"))
+        assertEquals("really?", only("repeated_punctuation", "really??????"))
+    }
+
+    @Test
+    fun repeatedPunct_mixedRhetorical_isPreserved() {
+        // `?!` and `!?` carry rhetorical intent — preserve them as-is
+        // rather than picking one over the other.
+        assertEquals("really?!", only("repeated_punctuation", "really?!"))
+        assertEquals("wait!?", only("repeated_punctuation", "wait!?"))
+    }
+
+    @Test
+    fun repeatedPunct_runsAcrossSentence_eachHandled() {
+        assertEquals(
+            "First… second! third?",
+            only("repeated_punctuation", "First... second!!! third??"),
+        )
+    }
+
+    @Test
+    fun repeatedPunct_singleCharacters_unchanged() {
+        // Sanity check: a normal sentence with single `.!?` characters
+        // must pass through untouched.
+        val s = "This is a sentence. Another! And one more?"
+        assertEquals(s, only("repeated_punctuation", s))
     }
 
     // ── disabled rules are no-ops ───────────────────────────────────

@@ -423,4 +423,5 @@ private fun InstallState.label(): String = when (this) {
     InstallState.Installed -> "Installed"
     is InstallState.Failed -> "Failed"
     InstallState.Corrupt -> "Corrupt — needs reinstall"
+    is InstallState.Outdated -> "Update available"
 }

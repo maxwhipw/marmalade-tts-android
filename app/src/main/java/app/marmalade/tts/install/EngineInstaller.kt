@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import java.util.zip.GZIPInputStream
 
 /**
  * Marker interface for the install root directory. Lets unit tests inject
@@ -49,10 +50,53 @@ fun interface HttpFetcher {
      * Open an input stream for [url]. Implementations are responsible for
      * following redirects, applying timeouts, and throwing IOException on
      * non-2xx response codes. The caller closes the stream.
+     *
+     * `fun interface`: this is the sole abstract method ([openRange] has
+     * a default body), so SAM conversion lets test fakes pass a
+     * `(String) -> InputStream` lambda directly to constructors that
+     * take an `HttpFetcher`.
      */
     @Throws(java.io.IOException::class)
     fun open(url: String): java.io.InputStream
+
+    /**
+     * Open an input stream for [url] starting at byte offset [fromBytes].
+     * Used by the installer to resume a partial download after a network
+     * abort. The returned [RangeResult] tells the caller whether the
+     * server honored the Range header (HTTP 206 — caller continues from
+     * the existing partial file) or replied with the full body (HTTP 200
+     * — caller discards the partial file and starts over).
+     *
+     * Servers that don't speak Range/206 should still return a working
+     * stream of the full body, so this method must never throw just
+     * because resume isn't supported.
+     */
+    @Throws(java.io.IOException::class)
+    fun openRange(url: String, fromBytes: Long): RangeResult {
+        // Default implementation: ignore the offset, do a full GET. Lets
+        // tests + simple stubs satisfy the interface without implementing
+        // Range. Production [UrlHttpFetcher] overrides.
+        return RangeResult(stream = open(url), startedAtBytes = 0L)
+    }
 }
+
+/**
+ * Result of an [HttpFetcher.openRange] call.
+ *
+ * @property stream Body stream. Body bytes start at offset [startedAtBytes]
+ *           in the logical file — i.e. for a 206 response with
+ *           `Content-Range: bytes 100-/300`, [startedAtBytes] is 100 and
+ *           the stream emits bytes 100..299.
+ * @property startedAtBytes Offset at which the body starts. Equals the
+ *           caller's requested `fromBytes` on resume (HTTP 206); equals 0
+ *           when the server returned the full body (HTTP 200) and the
+ *           caller must discard any partial file and re-download from
+ *           scratch.
+ */
+data class RangeResult(
+    val stream: java.io.InputStream,
+    val startedAtBytes: Long,
+)
 
 /** Production implementation: stream from a remote URL via `HttpURLConnection`. */
 object UrlHttpFetcher : HttpFetcher {
@@ -60,22 +104,45 @@ object UrlHttpFetcher : HttpFetcher {
     private const val READ_TIMEOUT_MS = 30_000
 
     override fun open(url: String): java.io.InputStream {
+        return openInternal(url, fromBytes = 0L).first
+    }
+
+    override fun openRange(url: String, fromBytes: Long): RangeResult {
+        val (stream, startedAt) = openInternal(url, fromBytes)
+        return RangeResult(stream = stream, startedAtBytes = startedAt)
+    }
+
+    /**
+     * Single connection-open path shared by [open] + [openRange]. Returns
+     * the body stream + the byte offset at which the body actually starts
+     * (always 0 from [open]; might be 0 or `fromBytes` from [openRange]
+     * depending on whether the server honored the Range header).
+     */
+    private fun openInternal(url: String, fromBytes: Long): Pair<java.io.InputStream, Long> {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
             instanceFollowRedirects = true
             requestMethod = "GET"
             setRequestProperty("Accept-Encoding", "identity")
+            if (fromBytes > 0L) {
+                // Open-ended range — GitHub releases (S3-backed) responds
+                // with 206 + Content-Range; servers that don't support
+                // ranges respond with 200 + full body.
+                setRequestProperty("Range", "bytes=$fromBytes-")
+            }
         }
         conn.connect()
         val code = conn.responseCode
+        // 206 = Range honored; 200 = ignored (or no range requested); other 2xx
+        // are valid full-body responses. Anything non-2xx is a hard fail.
         if (code !in 200..299) {
             conn.disconnect()
             throw IOException("HTTP $code fetching $url")
         }
-        // Wrap so the consumer's close() also disconnects the connection.
+        val startedAt = if (code == 206 && fromBytes > 0L) fromBytes else 0L
         val raw = conn.inputStream
-        return object : java.io.FilterInputStream(raw) {
+        val wrapped: java.io.InputStream = object : java.io.FilterInputStream(raw) {
             override fun close() {
                 try {
                     super.close()
@@ -84,6 +151,7 @@ object UrlHttpFetcher : HttpFetcher {
                 }
             }
         }
+        return wrapped to startedAt
     }
 }
 
@@ -193,6 +261,24 @@ sealed class InstallState {
      * NotInstalled (offer reinstall).
      */
     object Corrupt : InstallState()
+
+    /**
+     * Files are present on disk and pass the layout check, but the
+     * `.install_meta.json` left by [EngineInstaller.install] records an
+     * archive SHA-256 that doesn't match the current [EngineCatalog]
+     * entry — the bundle has been re-published (different URL or
+     * different contents) since the last install. UI treats this as a
+     * soft prompt to update; the existing files still work in the
+     * interim. The two SHA-256s are carried for diagnostic logging.
+     *
+     * Older installs (pre v0.3.0-alpha.7) wrote no `.install_meta.json`
+     * — in that case [installedSha256] is `null` and the UI still
+     * offers an update so the user gets the latest catalog entry.
+     */
+    data class Outdated(
+        val installedSha256: String?,
+        val expectedSha256: String,
+    ) : InstallState()
 }
 
 /**
@@ -296,10 +382,12 @@ open class EngineInstaller @Inject constructor(
         val scratchDir = scratchDirFor(engineName)
         val archiveTmp = archiveTmpFor(engineName)
 
-        // Clean up any leftover scratch / partial archive from a previous
-        // failed attempt, and drop any existing final dir so we never
-        // overlay a partial install on top of an existing one.
-        if (archiveTmp.exists()) archiveTmp.delete()
+        // Clean up any leftover scratch dir + final dir, but KEEP the
+        // partial archive — [downloadArchive] knows how to resume from it
+        // via HTTP Range requests, and the post-download SHA-256 check
+        // guarantees a partial that doesn't match the expected hash is
+        // rejected. Reusing the bytes is a big win when a 98 MB Pocket
+        // bundle aborts mid-download.
         if (scratchDir.exists()) scratchDir.deleteRecursively()
         if (finalDir.exists()) {
             // Release the engine's native handle before deleting its files,
@@ -373,7 +461,14 @@ open class EngineInstaller @Inject constructor(
                 )
             }
 
-            // 6. Post-install sanity check. The archive sha already proved
+            // 6. Stamp the install meta. Records which catalog entry produced
+            // this on-disk bundle so [verifyLayout] can detect when the
+            // catalog has since changed (URL/sha256 swapped server-side)
+            // and surface InstallState.Outdated. Written AFTER the atomic
+            // rename so a partial install never leaves a stale meta behind.
+            writeInstallMeta(finalDir, descriptor)
+
+            // 7. Post-install sanity check. The archive sha already proved
             // the bytes are correct, so this just confirms the extraction
             // produced the expected top-level layout — defensive against
             // a malformed bundle slipping through.
@@ -392,9 +487,20 @@ open class EngineInstaller @Inject constructor(
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.w(TAG, "Install of $engineName failed", t)
-            // Clean up scratch + archive on failure so the next attempt
-            // starts fresh.
-            if (archiveTmp.exists()) archiveTmp.delete()
+            // Tear down the partial scratch dir (post-extract state is
+            // unrecoverable), but KEEP the partial archive on disk so the
+            // user's next attempt can resume the download instead of
+            // restarting the 98 MB Pocket pull from scratch. The
+            // [downloadArchive] resume path re-hashes existing bytes, so
+            // a mid-stream corruption can't slip through.
+            //
+            // Exception: if the failure was a SHA-256 mismatch, the
+            // partial bytes are known-bad — wipe them. We detect that by
+            // the IOException message produced in [installViaDescriptor]
+            // after the download completes.
+            if (t is IOException && t.message?.contains("mismatch", ignoreCase = true) == true) {
+                if (archiveTmp.exists()) archiveTmp.delete()
+            }
             if (scratchDir.exists()) scratchDir.deleteRecursively()
             sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
             Result.failure(if (t is IOException) t else IOException(t))
@@ -504,6 +610,15 @@ open class EngineInstaller @Inject constructor(
      * SHA-256 incrementally and emitting throttled byte-count updates via
      * [onProgress].
      *
+     * **Resume support.** If [target] already exists from a prior aborted
+     * download, the request includes a `Range: bytes=N-` header and the
+     * remote bytes are appended. The existing partial file is re-hashed
+     * into the running SHA-256 first so the final digest still matches
+     * the full archive. If the server doesn't honor Range (HTTP 200
+     * response with the full body), the partial is discarded and the
+     * download restarts from scratch — same final outcome, just without
+     * the resume win.
+     *
      * Progress is throttled to one emission per ~1% of [totalBytes] (or per
      * ~256 KB, whichever is coarser) so the StateFlow consumer isn't
      * flooded with thousands of updates per second on fast connections.
@@ -517,14 +632,45 @@ open class EngineInstaller @Inject constructor(
         onProgress: (Long) -> Unit,
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        var bytesSoFar = 0L
-        var bytesSinceEmit = 0L
-        // Emit at the larger of 1% of total or 256 KB. For a 27 MB archive
-        // that's ~270 KB → ~100 updates total, which is plenty granular for
-        // a progress bar without flooding the Flow.
         val emitThreshold = maxOf(totalBytes / 100L, PROGRESS_MIN_BYTES)
-        httpFetcher.open(url).use { input ->
-            target.outputStream().use { output ->
+        // Look for a partial download from a previous attempt. If the file
+        // exists and is non-empty we'll try to resume; the server may decline.
+        val partialBytes = if (target.isFile) target.length() else 0L
+        // Ask the server for the remaining bytes. The fetcher returns
+        // `startedAtBytes` so we can tell whether the resume was honored
+        // (206) or the server gave us the whole body (200).
+        val rangeResult = httpFetcher.openRange(url, partialBytes)
+        val rangeStart = rangeResult.startedAtBytes
+        rangeResult.stream.use { input ->
+            // Decide write mode based on whether the server honored Range.
+            //   resumeOk = server responded 206 starting at our offset
+            //   else     = server ignored Range; restart from zero
+            val resumeOk = partialBytes > 0L && rangeStart == partialBytes
+            if (resumeOk) {
+                // Re-hash the existing partial bytes into the running digest.
+                // Streaming through the same buffer keeps memory bounded; this
+                // is one extra disk read of the partial file (typically tens
+                // of MB at most), no extra network use.
+                target.inputStream().use { existing ->
+                    val rb = ByteArray(BUFFER_SIZE)
+                    while (true) {
+                        val n = existing.read(rb)
+                        if (n == -1) break
+                        digest.update(rb, 0, n)
+                    }
+                }
+                Log.d(TAG, "Resuming download of $url from $partialBytes / $totalBytes bytes")
+            } else if (partialBytes > 0L) {
+                // Range not honored — discard partial bytes; the server is
+                // sending us the full body and writing into a non-empty file
+                // would corrupt the archive.
+                Log.d(TAG, "Server ignored Range for $url; restarting download")
+                target.delete()
+            }
+            var bytesSoFar = if (resumeOk) partialBytes else 0L
+            var bytesSinceEmit = 0L
+            // Append in resume mode, truncate-and-write otherwise.
+            java.io.FileOutputStream(target, /* append = */ resumeOk).use { output ->
                 val buf = ByteArray(BUFFER_SIZE)
                 while (true) {
                     val read = input.read(buf)
@@ -539,9 +685,9 @@ open class EngineInstaller @Inject constructor(
                     }
                 }
             }
+            // Final emission so the bar reaches 100% before we flip to Extracting.
+            onProgress(bytesSoFar)
         }
-        // Final emission so the bar reaches 100% before we flip to Extracting.
-        onProgress(bytesSoFar)
         return digest.digest().toHex()
     }
 
@@ -569,8 +715,26 @@ open class EngineInstaller @Inject constructor(
         var bytesSinceLastEmit = 0L
         val emitThreshold = 1024L * 1024L
         BufferedInputStream(archiveFile.inputStream()).use { fileIn ->
-            BZip2CompressorInputStream(fileIn).use { bzIn ->
-                TarArchiveInputStream(bzIn).use { tarIn ->
+            // Detect compression format by magic bytes:
+            //   gzip:  0x1F 0x8B  (java.util.zip — native zlib, ~5× faster)
+            //   bzip2: 'B' 'Z'    (Apache Commons — pure Java, slow)
+            // Falling back to bzip2 only if magic doesn't match either —
+            // covers older v0..v14 bundles already in the wild, plus new
+            // v15+ tar.gz bundles transparently.
+            fileIn.mark(2)
+            val b0 = fileIn.read()
+            val b1 = fileIn.read()
+            fileIn.reset()
+            val decompressed: java.io.InputStream = when {
+                b0 == 0x1F && b1 == 0x8B -> GZIPInputStream(fileIn)
+                b0 == 'B'.code && b1 == 'Z'.code -> BZip2CompressorInputStream(fileIn)
+                else -> throw IOException(
+                    "Unrecognised archive format (first two bytes: " +
+                        "0x${b0.toString(16)} 0x${b1.toString(16)}) — expected gzip or bzip2",
+                )
+            }
+            decompressed.use { compIn ->
+                TarArchiveInputStream(compIn).use { tarIn ->
                     while (true) {
                         val entry = tarIn.nextEntry ?: break
                         if (entry.isDirectory) continue
@@ -653,11 +817,101 @@ open class EngineInstaller @Inject constructor(
      * new engine family means adding a branch here.
      */
     private fun verifyLayout(descriptor: EngineDescriptor, dir: File): InstallState {
-        return if (descriptor.name == "pocket-tts-en-v2026_04") {
-            verifyPocketLayout(dir)
-        } else {
-            verifySherpaLayout(dir)
+        // First check whether the on-disk bundle matches the current
+        // catalog entry. If the catalog has been updated server-side
+        // since the last install (new URL / new sha256), surface that
+        // before running the layout check. The structural check would
+        // otherwise return Installed and hide the available update.
+        val outdated = checkInstallMeta(descriptor, dir)
+        if (outdated != null) return outdated
+
+        return when (descriptor.name) {
+            "pocket-tts-en-v2026_04",
+            "pocket-tts-en-v2026_04-dev" -> verifyPocketLayout(dir)
+            "kitten-direct-v0_8"       -> verifyKittenDirectLayout(dir)
+            "kitten-direct-mini-v0_8"  -> verifyKittenDirectLayout(dir)
+            "kokoro-direct-v1_0"       -> verifyKokoroDirectLayout(dir)
+            else                       -> verifySherpaLayout(dir)
         }
+    }
+
+    /**
+     * KokoroDirect layout: model.onnx + voices.bin + tokens.txt at top
+     * level, plus phonemizer/{arm64-v8a,armeabi-v7a}/libttsespeak.so and
+     * phonemizer/espeak-ng-data/. The phonemizer/ wrapper mirrors
+     * KittenDirect's layout — espeak is dlopen'd from the bundle at
+     * runtime, so the GPL stays in the asset pack and out of the APK.
+     *
+     * Differs from [verifySherpaLayout] in two ways:
+     *   1. espeak data + lib live under phonemizer/ instead of top-level
+     *   2. single voices.bin (53 speakers × 510 × 256 floats) instead of
+     *      per-voice files — matches sherpa-Kokoro's packing
+     */
+    private fun verifyKokoroDirectLayout(dir: File): InstallState {
+        val model = File(dir, "model.onnx")
+        if (!model.isFile || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+        val voices = File(dir, "voices.bin")
+        if (!voices.isFile || voices.length() == 0L) return InstallState.Corrupt
+        val tokens = File(dir, "tokens.txt")
+        if (!tokens.isFile || tokens.length() == 0L) return InstallState.Corrupt
+        // lexicon-zh.txt drives Mandarin phonemization (sherpa-style), present
+        // in v17+ bundles. v16-and-earlier installs surface as Outdated via the
+        // sha256 meta check above (checkInstallMeta runs first), so reaching
+        // here with it missing means a genuinely broken v17 extraction.
+        val lexiconZh = File(dir, "lexicon-zh.txt")
+        if (!lexiconZh.isFile || lexiconZh.length() == 0L) return InstallState.Corrupt
+        // openjtalk_dic/sys.dic drives Japanese phonemization (Open JTalk
+        // frontend). Present in v18+ bundles. As with lexicon-zh, pre-v18
+        // installs surface as Outdated via the sha256 meta check above; reaching
+        // here without it means a broken v18 extraction.
+        val ojtDict = File(dir, "openjtalk_dic/sys.dic")
+        if (!ojtDict.isFile || ojtDict.length() == 0L) return InstallState.Corrupt
+
+        val arm64Lib = File(dir, "phonemizer/arm64-v8a/libttsespeak.so")
+        val arm32Lib = File(dir, "phonemizer/armeabi-v7a/libttsespeak.so")
+        if (!arm64Lib.isFile && !arm32Lib.isFile) return InstallState.Corrupt
+        val espeakData = File(dir, "phonemizer/espeak-ng-data")
+        if (!espeakData.isDirectory) return InstallState.Corrupt
+        val dataEntries = espeakData.list()?.size ?: 0
+        if (dataEntries < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
+
+        return InstallState.Installed
+    }
+
+    /**
+     * KittenDirect layout: kitten.onnx + voices/<name>.bin (8 voices) +
+     * phonemizer/open-phonemizer.onnx. No espeak-ng-data, no tokens.txt
+     * — those are sherpa-only artefacts that this engine avoids
+     * specifically to dodge the GPL-3.0 contamination they bring.
+     */
+    private fun verifyKittenDirectLayout(dir: File): InstallState {
+        val acoustic = File(dir, "kitten.onnx")
+        if (!acoustic.isFile || acoustic.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+
+        // v14+ bundle: ships libttsespeak.so (GPL-3.0, dlopen'd at
+        // runtime by the JNI shim) under per-ABI subdirs, plus the
+        // espeak-ng-data tree. v11-v13 bundles (without these files)
+        // are caught here as Corrupt and steered to reinstall.
+        val arm64Lib = File(dir, "phonemizer/arm64-v8a/libttsespeak.so")
+        val arm32Lib = File(dir, "phonemizer/armeabi-v7a/libttsespeak.so")
+        if (!arm64Lib.isFile && !arm32Lib.isFile) return InstallState.Corrupt
+        val espeakData = File(dir, "phonemizer/espeak-ng-data")
+        if (!espeakData.isDirectory) return InstallState.Corrupt
+        val dataEntries = espeakData.list()?.size ?: 0
+        if (dataEntries < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
+
+        val voicesDir = File(dir, "voices")
+        if (!voicesDir.isDirectory) return InstallState.Corrupt
+        // Lowercased displayName from KittenDirectVoiceCatalog. Hardcoded
+        // here to keep the installer module free of an `engine/kitten/`
+        // import — matches the same convention verifyPocketLayout uses.
+        val expectedVoices = listOf("bella", "jasper", "luna", "bruno",
+                                    "rosie", "hugo", "kiki", "leo")
+        for (name in expectedVoices) {
+            val bin = File(voicesDir, "$name.bin")
+            if (!bin.isFile || bin.length() == 0L) return InstallState.Corrupt
+        }
+        return InstallState.Installed
     }
 
     /** Sherpa-onnx layout (Kokoro + Kitten). */
@@ -684,12 +938,10 @@ open class EngineInstaller @Inject constructor(
      * cloned_voices/ later; their absence at install time is fine.
      */
     private fun verifyPocketLayout(dir: File): InstallState {
+        // Always-present, variant-independent files. The 5 ONNX filenames are
+        // variant-specific (declared in bundle.json's `onnx_files` block) and
+        // checked separately below.
         val requiredFiles = listOf(
-            "flow_lm_main_int8.onnx",
-            "flow_lm_flow_int8.onnx",
-            "mimi_encoder_int8.onnx",
-            "mimi_decoder_int8.onnx",
-            "text_conditioner_int8.onnx",
             "tokenizer.model",
             "bos_before_voice.npy",
             "bundle.json",
@@ -698,10 +950,27 @@ open class EngineInstaller @Inject constructor(
             val f = File(dir, name)
             if (!f.isFile || f.length() == 0L) return InstallState.Corrupt
         }
-        // At least one ONNX file should be appreciably-sized — guards against
-        // a truncated extraction where the headers landed but the body
-        // didn't (sherpa's MIN_MODEL_BYTES analogue).
-        val mainOnnx = File(dir, "flow_lm_main_int8.onnx")
+        // Read the onnx filenames from bundle.json. Parse failure ⇒ corrupt.
+        val bundleSpec = runCatching {
+            app.marmalade.tts.engine.pocket.PocketBundle.load(File(dir, "bundle.json"))
+        }.getOrNull() ?: return InstallState.Corrupt
+        val onnxFiles = bundleSpec.onnxFiles
+        val onnxNames = listOf(
+            onnxFiles.textConditioner,
+            onnxFiles.mimiEncoder,
+            onnxFiles.mimiDecoder,
+            onnxFiles.flowLmMain,
+            onnxFiles.flowLmFlow,
+        )
+        for (name in onnxNames) {
+            val f = File(dir, name)
+            if (!f.isFile || f.length() == 0L) return InstallState.Corrupt
+        }
+        // At least the flow_lm_main file should be appreciably-sized — guards
+        // against a truncated extraction where the headers landed but the body
+        // didn't (sherpa's MIN_MODEL_BYTES analogue). flow_lm_main is the
+        // largest of the five graphs across all variants.
+        val mainOnnx = File(dir, onnxFiles.flowLmMain)
         if (mainOnnx.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
 
         val voicesDir = File(dir, "voices")
@@ -728,6 +997,64 @@ open class EngineInstaller @Inject constructor(
         return Result.failure(IOException(reason))
     }
 
+    /**
+     * Write `.install_meta.json` to the engine directory recording which
+     * catalog archive produced the on-disk bundle. Called once after the
+     * atomic rename, so a partial install never leaves a stale meta file.
+     *
+     * Failure to write is logged but non-fatal: the engine still works,
+     * the only consequence is that the next [verifyLayout] will see a
+     * missing meta and surface InstallState.Outdated until the user
+     * re-installs.
+     */
+    private fun writeInstallMeta(dir: File, descriptor: EngineDescriptor) {
+        val meta = org.json.JSONObject().apply {
+            put("archive_sha256", descriptor.archive.sha256)
+            put("archive_url", descriptor.archive.url)
+        }
+        try {
+            File(dir, INSTALL_META_FILENAME).writeText(meta.toString())
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to write install meta for ${descriptor.name}", t)
+        }
+    }
+
+    /**
+     * Compare the on-disk install meta to the current catalog entry. Returns
+     * an [InstallState.Outdated] when the recorded `archive_sha256` differs
+     * from the catalog's. Returns `null` when the install matches (caller
+     * proceeds with the structural layout check).
+     *
+     * If the meta file is missing entirely (pre-v0.3.0-alpha.7 install with
+     * no meta-writing code yet), we bootstrap it from the current catalog
+     * and return `null`. The assumption is "the user installed this from
+     * the current catalog at some point and the contents on disk reflect
+     * whatever the catalog said *then*"; without a recorded sha we can't
+     * prove otherwise, and flagging every pre-feature install as outdated
+     * fires false positives across every engine on the upgrade APK.
+     *
+     * Cost of this bootstrap: if the catalog changed since the user's last
+     * install (as is the case for Pocket on v9 → v10 here), they won't see
+     * an "Update available" prompt and must go through Uninstall + Install
+     * once to migrate. From the next install forward, the meta is recorded
+     * correctly and future catalog updates surface as Outdated normally.
+     */
+    private fun checkInstallMeta(descriptor: EngineDescriptor, dir: File): InstallState? {
+        val metaFile = File(dir, INSTALL_META_FILENAME)
+        val expected = descriptor.archive.sha256
+        if (!metaFile.isFile) {
+            writeInstallMeta(dir, descriptor)
+            return null
+        }
+        val recorded = runCatching {
+            org.json.JSONObject(metaFile.readText()).getString("archive_sha256")
+        }.getOrNull()
+        if (recorded == null || recorded != expected) {
+            return InstallState.Outdated(installedSha256 = recorded, expectedSha256 = expected)
+        }
+        return null
+    }
+
     companion object {
         private const val TAG = "EngineInstaller"
 
@@ -751,6 +1078,13 @@ open class EngineInstaller @Inject constructor(
         // downloading. v0.1's per-file labels are gone with the per-file
         // catalog — a single archive download is the whole download phase.
         private const val ARCHIVE_PROGRESS_LABEL: String = "archive"
+
+        // Filename recording which catalog archive produced the on-disk
+        // bundle. Written once at install time, read by every verify pass
+        // to detect catalog updates that don't change the install layout.
+        // The leading dot keeps the file out of casual `ls`, signalling
+        // "internal bookkeeping, not part of the model bundle."
+        private const val INSTALL_META_FILENAME: String = ".install_meta.json"
     }
 }
 

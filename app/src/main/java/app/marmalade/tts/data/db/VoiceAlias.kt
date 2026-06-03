@@ -63,22 +63,54 @@ data class VoiceAlias(
     val speed: Float,
     val effectPreset: String,
     val createdAt: Long,
+    /**
+     * espeak voice/language code used for phonemization (e.g. `"en-us"`,
+     * `"ja"`, `"cmn"`). Null means "auto-derive from the voice's natural
+     * language" — for KokoroDirect this maps via `KokoroDirectVoiceCatalog.
+     * espeakVoiceFor(voiceKey)` (af_*→en-us, jf_*→ja, zf_*→cmn, etc.).
+     *
+     * Non-null lets the user force a language different from the voice's
+     * default — e.g. running an English voice through Spanish espeak rules
+     * for accent experimentation. Engines that don't need phonemization
+     * (sherpa-Kokoro/Kitten, Pocket) ignore this field.
+     *
+     * Added in db v5 (alpha.10.L).
+     */
+    val phonemizationLanguage: String? = null,
+    /**
+     * Reference to an [Effect] row's id (e.g. `"builtin:cave"` or a custom
+     * effect's id). Null means "no effect" (dry). Replaces [effectPreset] as
+     * the source of truth: db v7 back-fills it from the old preset string
+     * (CAVE→builtin:cave, etc.; NONE→null). [effectPreset] is retained for the
+     * back-fill and is otherwise unused going forward.
+     *
+     * Added in db v6→v7 (E-D).
+     */
+    val effectId: String? = null,
 ) {
     companion object {
         /**
-         * Allowed alias names: lower-case letters, digits, dash, underscore.
-         * No leading digit (matches CLI convention so a name like `42`
-         * can't shadow an engine command), and at least one character.
+         * Allowed alias names: letters (any case, incl. unicode), digits,
+         * spaces, dashes, underscores, and apostrophes. 1–50 chars after
+         * trimming. Leading/trailing whitespace is stripped at validate
+         * time, so `"  Max Warren  "` ends up as `"Max Warren"`.
          *
-         * Rejects spaces — names are positional CLI-style tokens in the
-         * CLI, and we want the same expectation here so persona names
-         * round-trip across the two surfaces.
+         * Originally restricted to lower-case-only no-spaces tokens for
+         * supposed CLI round-trip parity, but the Android side stores
+         * aliases as Room primary keys and never shells them out — and
+         * users (rightly) want to name personas after people, with
+         * proper capitalization and spaces.
          */
-        val NAME_REGEX: Regex = Regex("^[a-z][a-z0-9_-]*$")
+        const val MAX_NAME_LENGTH: Int = 50
 
-        /** True iff [candidate] is a syntactically valid alias name. */
-        fun isValidName(candidate: String): Boolean =
-            candidate.isNotBlank() && NAME_REGEX.matches(candidate)
+        /** True iff [candidate] (after trimming) is a syntactically valid alias name. */
+        fun isValidName(candidate: String): Boolean {
+            val trimmed = candidate.trim()
+            if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) return false
+            return trimmed.all {
+                it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_' || it == '\''
+            }
+        }
 
         /** Minimum / maximum speed multipliers allowed by the editor UI. */
         const val MIN_SPEED: Float = 0.5f

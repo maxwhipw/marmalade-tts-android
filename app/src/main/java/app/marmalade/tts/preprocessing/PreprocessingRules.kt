@@ -545,6 +545,59 @@ object PreprocessingRules {
     private fun stripEmojis(text: String): String =
         emojiRegex.replace(text, " ")
 
+    /**
+     * Ensure the input ends with prosodic punctuation (`.!?,;:`).
+     * Without it, TTS models don't know it's an end-of-utterance and
+     * tend to cut the final word short or skip the trained sentence-end
+     * pause prosody. Append `.` if missing. Empty / whitespace-only
+     * inputs pass through unchanged.
+     */
+    private fun ensureTerminalPunctuation(text: String): String {
+        val trimmed = text.trimEnd()
+        if (trimmed.isEmpty()) return text
+        return if (trimmed.last() in TERMINAL_PUNCT) text else "$trimmed."
+    }
+
+    /**
+     * Characters that count as "already terminal" so we don't append a
+     * spurious `.`. Covers ASCII (`.!?,;:`), the Unicode ellipsis, CJK
+     * sentence/clause punctuation (。、！？, ideographic + fullwidth), and the
+     * fullwidth ASCII forms Open JTalk / CJK input methods emit (．？！，：；).
+     * Spanish ¿¡ are sentence-INITIAL, not terminal, so they're intentionally
+     * absent — a "¿Cómo estás?" still ends in ASCII `?` and is recognised.
+     */
+    private const val TERMINAL_PUNCT = ".!?,;:…。、！？．，：；"
+
+    /**
+     * Collapse runs of terminal punctuation to their canonical form:
+     *   3+ dots  → "…" (single Unicode ellipsis; espeak phonemizes this
+     *              as a deliberate pause, where "..." gets read as
+     *              three separate dots in some configs)
+     *   2+ bangs → "!"
+     *   2+ ?s    → "?"
+     *
+     * Mixed runs like `?!` / `!?` / `!?!` are left alone — these are
+     * intentional rhetorical patterns and the model handles them
+     * reasonably. Splitting hairs on emphasis ordering isn't worth the
+     * complexity.
+     *
+     * Runs of `.` inside URLs / emails / IPv4 / version strings are
+     * never `...` (those are dotted-segment patterns, not ellipses),
+     * and URL/email rules already ran upstream and expanded them — so
+     * the regex can't false-positive on real-world inputs.
+     */
+    private fun collapseRepeatedPunctuation(text: String): String {
+        var out = text
+        out = REPEATED_DOTS.replace(out, "…")
+        out = REPEATED_BANGS.replace(out, "!")
+        out = REPEATED_QUESTIONS.replace(out, "?")
+        return out
+    }
+
+    private val REPEATED_DOTS = Regex("\\.{3,}")
+    private val REPEATED_BANGS = Regex("!{2,}")
+    private val REPEATED_QUESTIONS = Regex("\\?{2,}")
+
     // -- Whole catalog --------------------------------------------------------
     //
     // ORDER MATTERS. This is the CLI's `priority` list in
@@ -643,6 +696,24 @@ object PreprocessingRules {
             name = "hashtag",
             description = "Hashtags: #100 → number 100, #hello → hashtag hello",
             transform = ::expandHashtag,
+        ),
+        // 9. Collapse repeated terminal punctuation BEFORE the final
+        //    terminal-punctuation backstop runs, so the backstop sees
+        //    canonical single-glyph endings and doesn't double-stamp.
+        PreprocessingRule(
+            name = "repeated_punctuation",
+            description = "Collapse runs: \"...\" → \"…\", \"!!!\" → \"!\", \"???\" → \"?\" (prosody cleanup)",
+            transform = ::collapseRepeatedPunctuation,
+        ),
+        // 10. Final touch-up: ensure the input ends with prosodic
+        //    punctuation. Without it, TTS models cut the final word
+        //    short or skip the sentence-end pause prosody. Must run
+        //    LAST so any earlier rule's punctuation expansion isn't
+        //    masked by our appended period.
+        PreprocessingRule(
+            name = "terminal_punctuation",
+            description = "Append \".\" if the input doesn't end with .!?,;: (avoids cut-off final words)",
+            transform = ::ensureTerminalPunctuation,
         ),
     )
 

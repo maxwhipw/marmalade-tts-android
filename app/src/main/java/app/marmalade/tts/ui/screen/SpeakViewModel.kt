@@ -3,7 +3,8 @@ package app.marmalade.tts.ui.screen
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.SettingsRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -55,8 +57,9 @@ import kotlinx.coroutines.launch
 //     │                          │ match the voice we last applied (manual
 //     │                          │ voice pick wins over auto-applied primary).
 //     │
-//     ├── currentEffect ◄──── SpeakViewModel.currentEffect (set by applyAlias;
-//     │                       passed through to Synthesizer on speak())
+//     ├── currentEffectBlocks ◄ SpeakViewModel.currentEffectBlocks (resolved
+//     │                       from alias.effectId by applyAlias; passed
+//     │                       through to Synthesizer on speak())
 //     ├── currentSpeed  ◄──── SpeakViewModel.currentSpeed  (set by applyAlias;
 //     │                       passed through to Synthesizer on speak())
 //     │
@@ -98,6 +101,7 @@ class SpeakViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val voiceDao: VoiceMetaDao,
     private val aliasDao: VoiceAliasDao,
+    private val effectResolver: EffectResolver,
 ) : ViewModel() {
 
     private val _text = MutableStateFlow("")
@@ -123,13 +127,14 @@ class SpeakViewModel @Inject constructor(
     val activeAlias: StateFlow<String?> = _activeAlias.asStateFlow()
 
     /**
-     * Effect preset currently associated with the active alias. Defaults
-     * to [EffectPreset.NONE]; applyAlias(...) writes to it; speak() passes
-     * it through to [SpeechPlayer]. Resets to NONE when the user picks a
-     * voice manually (alias chip clears).
+     * Effect chain currently associated with the active alias, resolved from
+     * the alias's `effectId` via [EffectResolver]. Defaults to the empty
+     * (dry) chain; applyAlias(...) writes to it; speak() passes it through to
+     * [SpeechPlayer]. Resets to empty when the user picks a voice manually
+     * (alias chip clears).
      */
-    private val _currentEffect = MutableStateFlow(EffectPreset.NONE)
-    val currentEffect: StateFlow<EffectPreset> = _currentEffect.asStateFlow()
+    private val _currentEffectBlocks = MutableStateFlow<List<EffectBlock>>(emptyList())
+    val currentEffectBlocks: StateFlow<List<EffectBlock>> = _currentEffectBlocks.asStateFlow()
 
     /**
      * Speed multiplier currently associated with the active alias. Defaults
@@ -143,6 +148,15 @@ class SpeakViewModel @Inject constructor(
      */
     private val _currentSpeed = MutableStateFlow(1.0f)
     val currentSpeed: StateFlow<Float> = _currentSpeed.asStateFlow()
+
+    /**
+     * espeak language code carried over from the active alias's
+     * [app.marmalade.tts.data.db.VoiceAlias.phonemizationLanguage]. Null
+     * = engine default (KokoroDirect auto-derives from voice prefix;
+     * other engines ignore). Cleared on manual voice change.
+     */
+    private val _currentPhonemizationLanguage = MutableStateFlow<String?>(null)
+    val currentPhonemizationLanguage: StateFlow<String?> = _currentPhonemizationLanguage.asStateFlow()
 
     /**
      * The voice the user has chosen as default. Composed from two flows so
@@ -170,8 +184,9 @@ class SpeakViewModel @Inject constructor(
                 // the next speak() doesn't smuggle stale effect/speed onto a
                 // voice the user just hand-picked.
                 _activeAlias.value = null
-                _currentEffect.value = EffectPreset.NONE
+                _currentEffectBlocks.value = emptyList()
                 _currentSpeed.value = 1.0f
+                _currentPhonemizationLanguage.value = null
                 expectedAliasVoiceId = null
             }
         },
@@ -209,6 +224,37 @@ class SpeakViewModel @Inject constructor(
         // `settings.defaultVoiceId` clears the alias + effect — that
         // override sticks until the next ViewModel construction.
         autoApplyPrimaryAlias()
+
+        // alpha.10.M: re-sync the cached alias snapshot (speed/effect/
+        // phonemizationLanguage) when the underlying alias row changes
+        // while it's still the active selection. Without this, editing
+        // an alias on the Alias screen and returning to Speak would run
+        // synthesis with the pre-edit values (chip says alias is active
+        // but the cached StateFlows are stale).
+        combine(_activeAlias, aliases) { active, rows ->
+            if (active == null) null else rows.firstOrNull { it.name == active }
+        }
+            .onEach { fresh ->
+                if (fresh != null) {
+                    _currentEffectBlocks.value = effectResolver.blocksFor(fresh.effectId)
+                    _currentSpeed.value = fresh.speed
+                    _currentPhonemizationLanguage.value = fresh.phonemizationLanguage
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // P-D: eagerly pre-load the engine that backs the current voice so a
+        // subsequent Speak tap doesn't pay model-load + warmup as part of
+        // TTFA. Fires whenever the selection changes (manual pick or alias
+        // application). Synthesizer.preload swallows errors — ModelMissing
+        // is fine here, it surfaces on the actual speak().
+        currentVoice
+            .onEach { voice ->
+                if (voice != null) {
+                    viewModelScope.launch { synthesizer.preload(voice.id) }
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     /**
@@ -303,8 +349,9 @@ class SpeakViewModel @Inject constructor(
                 settings.setDefaultVoiceId(alias.voiceId)
             }
 
-            _currentEffect.value = decodeEffect(alias.effectPreset)
+            _currentEffectBlocks.value = effectResolver.blocksFor(alias.effectId)
             _currentSpeed.value = alias.speed
+            _currentPhonemizationLanguage.value = alias.phonemizationLanguage
             _activeAlias.value = alias.name
         }
     }
@@ -322,11 +369,12 @@ class SpeakViewModel @Inject constructor(
         if (_playbackState.value is PlaybackState.Speaking) return
         val voiceId = currentVoice.value?.id ?: return
 
-        val effect = _currentEffect.value
+        val effectBlocks = _currentEffectBlocks.value
         val speed = _currentSpeed.value
+        val language = _currentPhonemizationLanguage.value
         _playbackState.value = PlaybackState.Speaking
         viewModelScope.launch {
-            val result = synthesizer.speak(currentText, voiceId, speed, effect)
+            val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language)
             _playbackState.value = result.fold(
                 onSuccess = { PlaybackState.Idle },
                 onFailure = { err ->
@@ -352,9 +400,6 @@ class SpeakViewModel @Inject constructor(
         super.onCleared()
         synthesizer.cancel()
     }
-
-    private fun decodeEffect(raw: String): EffectPreset =
-        EffectPreset.entries.firstOrNull { it.name == raw } ?: EffectPreset.NONE
 
     companion object {
         private const val TAG = "SpeakViewModel"

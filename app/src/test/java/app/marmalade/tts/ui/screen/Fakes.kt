@@ -1,8 +1,13 @@
 package app.marmalade.tts.ui.screen
 
-import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.audio.EffectBlock
+import app.marmalade.tts.audio.EffectChain
+import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
+import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.Effect
+import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
@@ -29,14 +34,15 @@ import kotlinx.coroutines.flow.map
  * after speak() and we want to observe that.
  *
  * `Call` is a data class (not a Pair) so tests can assert against speed /
- * effect as well as text / voiceId. Destructuring `val (text, voiceId) = …`
- * still works via the generated component1 / component2.
+ * effect blocks as well as text / voiceId. Destructuring `val (text, voiceId)
+ * = …` still works via the generated component1 / component2.
  */
 internal data class Call(
     val text: String,
     val voiceId: String,
     val speed: Float,
-    val effect: EffectPreset,
+    val effectBlocks: List<EffectBlock>,
+    val phonemizationLanguage: String? = null,
 )
 
 internal class RecordingPlayer(
@@ -50,15 +56,40 @@ internal class RecordingPlayer(
         text: String,
         voiceId: String,
         speed: Float,
-        effect: EffectPreset,
+        effectBlocks: List<EffectBlock>,
+        phonemizationLanguage: String?,
     ): Result<Unit> {
-        calls += Call(text, voiceId, speed, effect)
+        calls += Call(text, voiceId, speed, effectBlocks, phonemizationLanguage)
         return behaviour()
     }
 
     override fun cancel() {
         cancelCount += 1
     }
+
+    /** Records preload calls so tests can assert on Speak-screen pre-load behaviour. */
+    val preloadCalls = mutableListOf<String>()
+    override suspend fun preload(voiceId: String) {
+        preloadCalls += voiceId
+    }
+}
+
+/**
+ * [EffectResolver] that maps the built-in effect ids to their canonical
+ * [EffectChain] block lists directly — no Room, no `org.json`. Lets the
+ * plain-JVM ViewModel tests verify that an alias's effect reaches the player
+ * without standing up Robolectric for the JSON round-trip (decode is a stub
+ * on the JVM). Unknown / null ids resolve to the dry chain, same as prod.
+ */
+internal class FakeEffectResolver(
+    private val mapping: Map<String, List<EffectBlock>> = mapOf(
+        BuiltinEffects.CAVE_ID to EffectChain.CAVE_BLOCKS,
+        BuiltinEffects.ROBOT_ID to EffectChain.ROBOT_BLOCKS,
+        BuiltinEffects.TELEPHONE_ID to EffectChain.TELEPHONE_BLOCKS,
+    ),
+) : EffectResolver {
+    override suspend fun blocksFor(effectId: String?): List<EffectBlock> =
+        effectId?.let { mapping[it] } ?: emptyList()
 }
 
 /**
@@ -169,6 +200,36 @@ internal class FakeAliasDao(
     override suspend fun delete(name: String) {
         deletedNames += name
         state.value = state.value.filterNot { it.name == name }
+    }
+}
+
+/**
+ * In-memory [EffectDao]. Seeded with a couple of built-ins (dummy `blocksJson`
+ * — the alias editor's picker only needs id + name, and a real chain would pull
+ * in `org.json`, a JVM stub). `BuiltinEffects.*_ID` are `const` so referencing
+ * them here doesn't trigger that object's lazy seed-row encode.
+ */
+internal class FakeEffectDao(
+    initial: List<Effect> = listOf(
+        Effect(BuiltinEffects.CAVE_ID, "Cave", isBuiltin = true, blocksJson = "[]", createdAt = 0L),
+        Effect(BuiltinEffects.ROBOT_ID, "Robot", isBuiltin = true, blocksJson = "[]", createdAt = 0L),
+    ),
+) : EffectDao {
+    private val state = MutableStateFlow(initial)
+    override fun getAll() = state
+    override suspend fun findById(id: String): Effect? = state.value.firstOrNull { it.id == id }
+    override suspend fun upsert(effect: Effect) {
+        state.value = state.value.filterNot { it.id == effect.id } + effect
+    }
+    override suspend fun upsertAll(effects: List<Effect>) {
+        val ids = effects.map { it.id }.toSet()
+        state.value = state.value.filterNot { it.id in ids } + effects
+    }
+    override suspend fun deleteCustom(id: String) {
+        state.value = state.value.filterNot { it.id == id && !it.isBuiltin }
+    }
+    override suspend fun pruneBuiltinsNotIn(keepIds: Collection<String>) {
+        state.value = state.value.filterNot { it.isBuiltin && it.id !in keepIds }
     }
 }
 

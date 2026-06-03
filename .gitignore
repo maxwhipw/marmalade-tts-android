@@ -29,3 +29,11 @@ Thumbs.db
 *.keystore
 *.jks
 keystore.properties
+
+# Build scratch — downloaded engine bundles + extracted dirs (multi-GB, not source)
+build-scratch/
+
+# Python tooling (ExecuTorch export) — venv + caches, not source
+.venv/
+__pycache__/
+*.pyc
