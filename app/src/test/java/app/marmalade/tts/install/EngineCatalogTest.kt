@@ -34,6 +34,9 @@ class EngineCatalogTest {
                 "kitten-direct-v0_8",
                 "kitten-direct-mini-v0_8",
                 "pocket-tts-en-v2026_04",
+                // Developer-only clean-room Pocket (diagnostic; shares the
+                // production Pocket bundle payload).
+                "pocket-tts-en-v2026_04-dev",
             ),
             EngineCatalog.all.map { it.name },
         )
@@ -64,17 +67,21 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun developerOnlyFlagsExactlyTheSherpaEngines() {
-        // The four sherpa-onnx engines are gated as developer-only; the
-        // direct-ORT engines + Pocket are production. visibleTo(false) must
-        // drop exactly the sherpa four.
+    fun developerOnlyFlagsTheSherpaEnginesAndPocketDev() {
+        // Developer-only = the four sherpa-onnx engines (superseded by the
+        // direct-ORT ports) plus the clean-room Pocket diagnostic engine.
+        // The production direct-ORT engines + Pocket stay visible.
+        // visibleTo(false) must drop exactly these five.
         assertEquals(
-            setOf("kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8"),
+            setOf(
+                "kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8",
+                "pocket-tts-en-v2026_04-dev",
+            ),
             EngineCatalog.developerOnlyNames,
         )
         assertEquals(
-            "visibleTo(false) drops the four sherpa engines",
-            EngineCatalog.all.size - 4,
+            "visibleTo(false) drops the five developer-only engines",
+            EngineCatalog.all.size - 5,
             EngineCatalog.visibleTo(showDeveloper = false).size,
         )
         // visibleTo(true) keeps every engine but sorts the developer-only
@@ -217,7 +224,9 @@ class EngineCatalogTest {
         // it. Pocket runs on Microsoft onnxruntime-android directly and
         // has no GPL components, so it's exempt — and its licenseSummary
         // must explicitly state "no GPL" so users can see the difference.
-        val sherpaEngines = EngineCatalog.all.filter { it.name != "pocket-tts-en-v2026_04" }
+        // Both Pocket variants (prod + clean-room dev) share the GPL-free payload.
+        val pocketEngines = setOf("pocket-tts-en-v2026_04", "pocket-tts-en-v2026_04-dev")
+        val sherpaEngines = EngineCatalog.all.filter { it.name !in pocketEngines }
         for (engine in sherpaEngines) {
             val haystack = engine.licenseSummary.lowercase()
             assertTrue(

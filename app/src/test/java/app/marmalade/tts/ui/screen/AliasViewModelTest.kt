@@ -331,24 +331,46 @@ class AliasViewModelTest {
     }
 
     @Test
-    fun deletingPrimaryAlias_clearsPrimaryPointer() = runTest {
-        val existing = alias("narrator")
+    fun deletingPrimaryAlias_promotesSuccessor() = runTest {
+        // Invariant: while any alias exists, exactly one is primary. Deleting
+        // the primary must promote a remaining alias, not clear the pointer.
+        val primary = alias("narrator")
+        val other = alias("storyteller")
         val settings = FakeSettings(
             initialId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
         settings.setPrimaryAliasName("narrator")
         val vm = newViewModel(
-            aliasDao = FakeAliasDao(initial = listOf(existing)),
+            aliasDao = FakeAliasDao(initial = listOf(primary, other)),
             settings = settings,
         )
-        vm.aliases.first { it.isNotEmpty() }
+        vm.aliases.first { it.size == 2 }
 
         vm.delete("narrator")
 
-        assertNull(
-            "Deleting the primary alias should clear the pointer",
+        assertEquals(
+            "Deleting the primary should promote the remaining alias",
+            "storyteller",
             settings.primaryAliasName.first(),
+        )
+    }
+
+    @Test
+    fun deletingLastAlias_isRefused() = runTest {
+        // Cannot delete the final alias — every install with at least one
+        // alias must always keep at least one.
+        val only = alias("narrator")
+        val aliasDao = FakeAliasDao(initial = listOf(only))
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.aliases.first { it.isNotEmpty() }
+
+        val deleted = vm.delete("narrator")
+
+        assertFalse("delete() should refuse the last alias", deleted)
+        assertTrue(
+            "the last alias must not reach the DAO's delete",
+            aliasDao.deletedNames.isEmpty(),
         )
     }
 
@@ -429,10 +451,11 @@ class AliasViewModelTest {
 
     @Test
     fun delete_removesByName() = runTest {
-        val existing = alias("narrator")
-        val aliasDao = FakeAliasDao(initial = listOf(existing))
+        // Two aliases so the delete is permitted (the last alias can't be
+        // deleted — see deletingLastAlias_isRefused).
+        val aliasDao = FakeAliasDao(initial = listOf(alias("narrator"), alias("storyteller")))
         val vm = newViewModel(aliasDao = aliasDao)
-        vm.aliases.first { it.isNotEmpty() }
+        vm.aliases.first { it.size == 2 }
 
         vm.delete("narrator")
 
