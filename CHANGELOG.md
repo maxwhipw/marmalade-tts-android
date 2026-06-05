@@ -3,6 +3,30 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0-alpha.12] — 2026-06-04
+
+### Fixed
+- **Pocket TTS chunk-start "bitcrush" glitch** — the long-running intermittent
+  distorted-word artifact. Root cause (confirmed by a frozen-latent decode sweep):
+  the exported `mimi_decoder` ONNX graph is **not window-size-invariant** — every
+  batched `run()` corrupts its own leading edge, and the corruption *length* scales
+  with batch size + how cold the codec state is. The P-AI graduated decode window
+  merely *relocated* the seam (frame 0 → frame 8). Replaced it with **P-AL segmented
+  overlap-discard**: walk the chunk in capped 64-frame batches; for each, per-frame-
+  decode the first 8 frames (clean + warms the state), snapshot/restore mimi state at
+  the batch boundary, and keep only the batch *interior* — so no emitted frame ever
+  sits on a corrupt leading edge. Per-frame decode quality at near-batched speed.
+  (`PocketEngine.runMimiDecoder`, `PocketStateManager.snapshot/restore`.)
+
+### Added
+- **Pocket preprocessing:** newline runs now become sentence breaks (P-AM), so multi-
+  line / paragraph input reads with sentence pauses instead of running on. `ex.` added
+  to the abbreviation rule (→ "for example"), alongside existing i.e./e.g./etc. (both
+  Android + CLI).
+- **Dev-only decode-strategy experiment harness** (`DECODE_EXPERIMENT`, off by default):
+  dumps latents + re-decodes them under multiple window policies for diagnosing/tuning
+  the mimi decoder. Root-caused the glitch above; kept for ongoing optimization work.
+
 ## [Unreleased]
 
 ### Changed

@@ -341,13 +341,14 @@ object PreprocessingRules {
     private val abbreviationRegex = Regex(
         "\\b(?:[A-Z]\\.){2,}|(?:e\\.g\\.|i\\.e\\.|etc\\.|vs\\.|" +
             "[Mm]r\\.|[Mm]rs\\.|[Mm]s\\.|[Dd]r\\.|[Ss]r\\.|[Jj]r\\.|" +
-            "[Ss]t\\.|ft\\.|lb\\.|oz\\.)",
+            "[Ss]t\\.|ft\\.|lb\\.|oz\\.|\\b[Ee]x\\.)",
     )
     private val COMMON_ABBREVIATIONS: Map<String, String> = mapOf(
         "e.g." to "for example", "i.e." to "that is", "etc." to "et cetera",
         "vs." to "versus", "mr." to "mister", "mrs." to "missus", "ms." to "miss",
         "dr." to "doctor", "sr." to "senior", "jr." to "junior",
         "st." to "saint", "ft." to "feet", "lb." to "pounds", "oz." to "ounces",
+        "ex." to "for example",
     )
     private fun expandAbbreviation(text: String): String =
         abbreviationRegex.replace(text) { m ->

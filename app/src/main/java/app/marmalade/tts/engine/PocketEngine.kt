@@ -22,7 +22,10 @@ import app.marmalade.tts.engine.pocket.PocketTokenizer
 import app.marmalade.tts.engine.pocket.bindStateInputs
 import app.marmalade.tts.engine.pocket.enableStatePinning
 import app.marmalade.tts.engine.pocket.initStates
+import app.marmalade.tts.engine.pocket.PocketStatesSnapshot
 import app.marmalade.tts.engine.pocket.resetStatesToInit
+import app.marmalade.tts.engine.pocket.restoreStates
+import app.marmalade.tts.engine.pocket.snapshotStates
 import app.marmalade.tts.engine.pocket.updateStatesFromResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -771,20 +774,16 @@ open class PocketEngine @Inject constructor(
             // chunk-0 emit on realtime workloads.
             var pendingDecode: Pair<Int, Deferred<SynthAudio>>? = null
 
-            // P-B: persist mimi state across all chunks of THIS stream. Was
-            // freshly initStates'd inside runMimiDecoder every call → ~56
-            // direct-buffer allocations per chunk + transients at every
-            // chunk boundary (mimi is a streaming codec; its conv state
-            // represents the waveform "in motion" — resetting between
-            // chunks causes a brief click at each seam). Single state per
-            // stream means continuous decode trajectory + no per-chunk
-            // alloc overhead. Decodes are strictly serialised through
-            // pendingDecode's await, so concurrent mutation is impossible.
-            // P-Y — reuse the engine-level mimi state. Reset values
-            // in-place; underlying buffers persist across synths.
-            // Previously this was a fresh `initStates(...)` per stream,
-            // allocating 56 direct ByteBuffers each time and leaving
-            // them to Cleaner's backlog.
+            // Engine-level mimi state, REUSED across synths (P-Y — the 56
+            // direct ByteBuffers are allocated once at load, not per call;
+            // `resetStatesToInit` only refills them). NOTE: state VALUES are
+            // reset to init at the START OF EACH CHUNK (the per-chunk reset
+            // below) — P-AE's attempt to carry mimi state across chunks for a
+            // "continuous trajectory" was reverted as confounded by silent
+            // chunk boundaries, so each chunk decodes from a cold codec state.
+            // Within a chunk, P-AL's overlap-discard decode snapshots/restores
+            // this state. Decodes are serialised through pendingDecode's await,
+            // so concurrent mutation is impossible.
             val mimiState = this@PocketEngine.mimiState
                 ?: error("mimi state missing — engine not loaded?")
             resetStatesToInit(mimiState, bundle.mimiStateManifest)
@@ -840,6 +839,11 @@ open class PocketEngine @Inject constructor(
                 )
                 val arMs = (System.nanoTime() - arStartNs) / 1_000_000
                 Log.d(PERF_TAG, "pocket chunk=$idx ar=${arMs}ms (text='${miniChunk.take(40)}${if (miniChunk.length > 40) "…" else ""}')")
+
+                // P-AJ — dump latents + re-decode under 4 window policies for
+                // off-device numeric comparison (uses its own mimi state, so
+                // it doesn't disturb the real streaming decode below).
+                if (DECODE_EXPERIMENT) latents?.let { runDecodeExperiment(bundle, it, idx) }
 
                 // 2. After chunk 0, calculate K from observed frame times.
                 //
@@ -2035,23 +2039,126 @@ open class PocketEngine @Inject constructor(
     ): FloatArray {
         if (latents.isEmpty()) return FloatArray(0)
         val numFrames = latents.size / bundle.latentDim
+        val dim = bundle.latentDim
+        val spf = bundle.samplesPerFrame
+        val pcm = FloatArray(numFrames * spf)
+
+        // P-AL segmented overlap-discard (see [MIMI_OVERLAP_FRAMES]). Walk the
+        // chunk in MIMI_CHUNK_FRAMES batches; for each, per-frame-decode the
+        // first `overlap` frames (kept, clean, advances state), snapshot at the
+        // batch start, then re-decode the whole batch from that snapshot and
+        // keep only the interior — so no emitted frame sits on a batch's
+        // corrupt leading edge.
+        val overlap = MIMI_OVERLAP_FRAMES
+        val batch = MIMI_CHUNK_FRAMES
+        val one = FloatArray(dim)
+
+        var pos = 0
+        while (pos < numFrames) {
+            // Snapshot state as-of `pos`, then per-frame-decode the lead-in.
+            val snapshot: PocketStatesSnapshot = snapshotStates(mimiState)
+            val leadEnd = minOf(pos + overlap, numFrames)
+            for (f in pos until leadEnd) {
+                System.arraycopy(latents, f * dim, one, 0, dim)
+                val framePcm = decodeMimiChunk(bundle, one, 1, mimiState)
+                System.arraycopy(framePcm, 0, pcm, f * spf, framePcm.size)
+            }
+            // Tail shorter than `overlap`: it's all per-frame, we're done.
+            if (leadEnd >= numFrames) break
+
+            // Re-decode [pos, batchEnd) from the snapshot in one batch; keep
+            // only the interior [leadEnd, batchEnd). The corrupt edge falls on
+            // [pos, leadEnd), which we already emitted clean per-frame.
+            restoreStates(mimiState, snapshot)
+            val batchEnd = minOf(pos + batch, numFrames)
+            val nb = batchEnd - pos
+            val batchData = FloatArray(nb * dim)
+            System.arraycopy(latents, pos * dim, batchData, 0, nb * dim)
+            val batchPcm = decodeMimiChunk(bundle, batchData, nb, mimiState)
+            val keepFromFrame = leadEnd - pos
+            System.arraycopy(
+                batchPcm, keepFromFrame * spf,
+                pcm, leadEnd * spf,
+                (batchEnd - leadEnd) * spf,
+            )
+            pos = batchEnd
+        }
+        return pcm
+    }
+
+    // -- P-AJ decode-strategy experiment (DEV-ONLY) --------------------------
+
+    /**
+     * Re-decode [latents] under four window policies from a freshly-reset
+     * mimi state, dumping each PCM (+ the raw latents) to external files for
+     * off-device numeric comparison. Decode is deterministic given the
+     * latents, so this isolates the decode strategy from the stochastic AR
+     * generator. See [DECODE_EXPERIMENT].
+     */
+    private fun runDecodeExperiment(bundle: PocketBundle, latents: FloatArray, chunkIdx: Int) {
+        val numFrames = latents.size / bundle.latentDim
+        if (numFrames == 0) return
+        val dir = File(ctx.getExternalFilesDir(null), "pocket-decode-exp").apply { mkdirs() }
+        dumpFloats(File(dir, "chunk${chunkIdx}_F${numFrames}_D${bundle.latentDim}.latents"), latents)
+        val st = initStates(bundle.mimiStateManifest)
+        // policy: 1 = per-frame; 64 = fixed 64-batch (no ramp);
+        // Int.MAX_VALUE = whole chunk in one run(); -1 = graduated (current).
+        for ((name, policy) in listOf(
+            "perframe" to 1,
+            "batch64" to 64,
+            "whole" to Int.MAX_VALUE,
+            "graduated" to -1,
+        )) {
+            resetStatesToInit(st, bundle.mimiStateManifest)
+            val pcm = decodeWithWindowPolicy(bundle, latents, numFrames, st, policy)
+            dumpFloats(File(dir, "chunk${chunkIdx}_$name.pcm"), pcm)
+            Log.i(
+                TAG,
+                "DECODE-EXP chunk=$chunkIdx strat=$name frames=$numFrames " +
+                    "pcmFloats=${pcm.size} dir=${dir.absolutePath}",
+            )
+        }
+    }
+
+    /**
+     * Generalised [runMimiDecoder]: decode [latents] in windows chosen by
+     * [policy] — 1=per-frame, N=fixed N-batch, Int.MAX_VALUE=whole chunk in
+     * one run(), -1=graduated (ramp then [MIMI_CHUNK_FRAMES] batches).
+     */
+    private fun decodeWithWindowPolicy(
+        bundle: PocketBundle,
+        latents: FloatArray,
+        numFrames: Int,
+        state: PocketStates,
+        policy: Int,
+    ): FloatArray {
         val pcm = FloatArray(numFrames * bundle.samplesPerFrame)
         var pcmPos = 0
         var frame = 0
         while (frame < numFrames) {
-            // P-AI graduated window: decode the first MIMI_RAMP_FRAMES frames
-            // one at a time (clean cold-edge), then switch to big batches.
-            val window = if (frame < MIMI_RAMP_FRAMES) 1 else MIMI_CHUNK_FRAMES
+            val window = if (policy == -1) {
+                if (frame < MIMI_RAMP_FRAMES) 1 else MIMI_CHUNK_FRAMES
+            } else {
+                policy
+            }
             val chunk = minOf(window, numFrames - frame)
             val chunkFloats = chunk * bundle.latentDim
             val chunkData = FloatArray(chunkFloats)
             System.arraycopy(latents, frame * bundle.latentDim, chunkData, 0, chunkFloats)
-            val chunkPcm = decodeMimiChunk(bundle, chunkData, chunk, mimiState)
+            val chunkPcm = decodeMimiChunk(bundle, chunkData, chunk, state)
             System.arraycopy(chunkPcm, 0, pcm, pcmPos, chunkPcm.size)
             pcmPos += chunkPcm.size
             frame += chunk
         }
         return pcm
+    }
+
+    private fun dumpFloats(file: File, data: FloatArray) {
+        val bb = java.nio.ByteBuffer
+            .allocate(data.size * 4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        bb.asFloatBuffer().put(data)
+        file.writeBytes(bb.array())
     }
 
     // -- helpers -------------------------------------------------------------
@@ -2075,7 +2182,18 @@ open class PocketEngine @Inject constructor(
         // contractions tokenize via the real `'` piece. Correctly-typed
         // ASCII text is unaffected.
         s = normalizeSmartPunctuation(s)
-        // Collapse runs of whitespace (newlines/tabs/multi-spaces) to single spaces.
+        // P-AM — treat line breaks as sentence boundaries. A blank line or a
+        // hard return in the input box separates thoughts, so it should read
+        // with a sentence pause instead of running together (e.g. a title line
+        // followed by a paragraph). Turn each newline run into ". " unless the
+        // line already ends in sentence punctuation (then just keep it + a
+        // space); the chunker then splits on it like any other sentence end.
+        // Android-input robustness — upstream `prepare_text_prompt` collapses
+        // newlines to spaces. TODO: mirror to the marmalade_tts CLI.
+        s = Regex("([.!?]?)[ \\t]*\\n[\\s]*").replace(s) { m ->
+            if (m.groupValues[1].isNotEmpty()) m.groupValues[1] + " " else ". "
+        }
+        // Collapse remaining runs of whitespace (tabs/multi-spaces) to single spaces.
         s = s.replace(Regex("\\s+"), " ")
         if (bundle.removeSemicolons) s = s.replace(';', ',')
         // Capitalize first letter (matches Python).
@@ -2257,6 +2375,43 @@ open class PocketEngine @Inject constructor(
         private const val MIMI_RAMP_FRAMES = 8
 
         /**
+         * P-AL — segmented overlap-discard decode. P-AK (pure per-frame) is
+         * clean but ~3× slower (RTF ~1.45). P-AJ's frozen-latent sweep proved
+         * each batched run() corrupts only its LEADING edge while the interior
+         * matches per-frame — BUT the corruption LENGTH grows with the batch
+         * window (cold 64-frame ≈ 7 frames, cold 80-frame ≈ 21). So a single
+         * whole-chunk batch's corrupt tail outruns a fixed discard (it surfaced
+         * on "plan" ~frame 20). Cap the batch instead:
+         *
+         * Walk the chunk in [MIMI_CHUNK_FRAMES]-frame batches. For each batch,
+         * per-frame-decode the first [MIMI_OVERLAP_FRAMES] frames (clean, kept,
+         * and they advance the state), snapshot the state at the batch start,
+         * then re-decode the whole batch from that snapshot and keep only the
+         * INTERIOR (frames at/after the per-frame lead-in). The batch's corrupt
+         * edge (≤7 frames for a 64-batch) lands on the discarded lead-in, which
+         * we already have clean from the per-frame pass. Every emitted frame is
+         * per-frame or batch-interior — never a batch leading edge.
+         *
+         * MIMI_OVERLAP_FRAMES (8) is the discard/lead-in margin over the
+         * observed ≤7-frame 64-batch corruption.
+         */
+        private const val MIMI_OVERLAP_FRAMES = 8
+
+        /**
+         * P-AJ — DEV-ONLY decode-strategy experiment. When true, every
+         * streaming chunk re-decodes its OWN latents under four window
+         * policies (per-frame / fixed-64-batch / whole-chunk / graduated)
+         * from a fresh mimi state, dumping each PCM + the latents to
+         * `getExternalFilesDir()/pocket-decode-exp/` for off-device numeric
+         * comparison. Decode consumes no RNG, so this isolates the decode
+         * strategy from the stochastic AR generator (settles whether the
+         * glitch is a window-CHANGE seam, intrinsic leading-edge corruption,
+         * or latent-side). SLOW (4× extra decodes per chunk) — remove before
+         * shipping.
+         */
+        private const val DECODE_EXPERIMENT = false
+
+        /**
          * P-T diagnostic toggle. When true, every Pocket session gets
          * VERBOSE ORT logging (level 0). Captures kernel placement at
          * session-create so we can see which ops escape XNNPACK. Flip back
@@ -2408,9 +2563,13 @@ open class PocketEngine @Inject constructor(
         /** Generic whitespace splitter for word-level fallback. */
         private val WHITESPACE_REGEX = Regex("\\s+")
 
-        // Reused across calls; ThreadLocal so two simultaneous engines
-        // wouldn't share a Random (we serialise via synthLock anyway, but
-        // the field is engine-scoped to make the no-share guarantee obvious).
+        // Stochastic noise source for the flow/Euler sampler (nextGaussian()
+        // per Euler step). NOTE: this is a STATIC companion singleton — shared
+        // process-wide, NOT ThreadLocal and NOT engine-scoped. Access is
+        // serialised via synthLock so the draw order is deterministic within a
+        // synth, but the seed is the global default → output is non-reproducible
+        // run-to-run. Seeding it (per utterance) would make generation
+        // deterministic — deliberately not done (see the RTF/validation notes).
         private val random: java.util.Random = java.util.Random()
     }
 }

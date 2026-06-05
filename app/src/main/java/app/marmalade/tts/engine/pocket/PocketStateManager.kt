@@ -247,10 +247,68 @@ class PocketStateSlot(
         }
         shape = outShape
     }
+
+    /**
+     * P-AL — an opaque copy of this slot's current buffer window + shape,
+     * for the overlap-discard decoder's snapshot/restore. Only the live
+     * `buffer`/`shape` are captured (mimi decode doesn't use output pinning,
+     * so `outBuffer` is always null on the mimi slots this is used for).
+     */
+    class Snapshot internal constructor(
+        val shape: LongArray,
+        val bytes: ByteArray,
+    )
+
+    /** Capture this slot's current shape + buffer contents. */
+    fun snapshot(): Snapshot {
+        val byteLen = elementCount(shape) * elementBytes
+        val arr = ByteArray(byteLen)
+        if (byteLen > 0) {
+            buffer.position(0)
+            buffer.limit(byteLen)
+            buffer.get(arr, 0, byteLen)
+        }
+        return Snapshot(shape.copyOf(), arr)
+    }
+
+    /** Restore this slot from a [snap] taken earlier, growing capacity if needed. */
+    fun restore(snap: Snapshot) {
+        val numElements = elementCount(snap.shape)
+        if (numElements > capacityElements) {
+            do {
+                capacityElements = maxOf(capacityElements * 2, 1)
+            } while (capacityElements < numElements)
+            buffer = newNativeDirectBuffer(capacityElements * elementBytes)
+        }
+        shape = snap.shape.copyOf()
+        if (snap.bytes.isNotEmpty()) {
+            buffer.position(0)
+            buffer.limit(snap.bytes.size)
+            buffer.put(snap.bytes)
+        }
+    }
 }
 
 /** Mutable state map. Owned by the engine, updated in place each call. */
 typealias PocketStates = MutableMap<String, PocketStateSlot>
+
+/** P-AL — snapshot of an entire state map, for overlap-discard rewind. */
+typealias PocketStatesSnapshot = Map<String, PocketStateSlot.Snapshot>
+
+/** Capture every slot's contents so the decoder can later rewind to this point. */
+fun snapshotStates(states: PocketStates): PocketStatesSnapshot {
+    val out = HashMap<String, PocketStateSlot.Snapshot>(states.size)
+    for ((name, slot) in states) out[name] = slot.snapshot()
+    return out
+}
+
+/** Restore every slot from a [snapshot] taken earlier by [snapshotStates]. */
+fun restoreStates(states: PocketStates, snapshot: PocketStatesSnapshot) {
+    for ((name, slot) in states) {
+        val snap = snapshot[name] ?: error("P-AL snapshot missing slot $name")
+        slot.restore(snap)
+    }
+}
 
 /**
  * Enable output-pinning on each slot listed in [pinnableSpecs]. Idempotent.
