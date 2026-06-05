@@ -8,15 +8,27 @@ to a single ExecuTorch stack).
 ## Setup
 
 This project uses [`uv`](https://docs.astral.sh/uv/) and consumes the upstream
-Kyutai `pocket-tts` package as an editable install from a local clone at
-`/tmp/pocket-tts-upstream`. Ensure that clone exists before syncing.
+Kyutai `pocket-tts` package (pinned to v2.1.0) as an editable install from a
+local clone. The clone path is configured in `pyproject.toml` under
+`[tool.uv.sources]`. Use a STABLE path — NOT `/tmp`, which gets wiped (that is
+exactly what stranded the editable install before).
 
 ```bash
-git clone https://github.com/kyutai-labs/pocket-tts.git /tmp/pocket-tts-upstream  # if not already
+git clone https://github.com/kyutai-labs/pocket-tts.git ~/coding/scratch/pocket-tts-upstream
+git -C ~/coding/scratch/pocket-tts-upstream checkout v2.1.0
 
 cd tools/executorch-export
 uv sync
 ```
+
+If the existing `.venv` already has `pocket_tts` installed editable but its
+source path went missing, you can just re-point the one-line `.pth` finder
+(`.venv/lib/python*/site-packages/_editable_impl_pocket_tts.pth`) at the new
+clone instead of re-syncing.
+
+`torch.export` lowering shells out to a `flatc` binary. It ships in the venv at
+`.venv/bin/flatc`; the script auto-sets `FLATC_EXECUTABLE` to it when neither
+that env var nor a PATH `flatc` is found.
 
 ## Scripts
 
@@ -26,22 +38,47 @@ uv sync
 - `export_pocket.py` — `torch.export` each graph, lower to ExecuTorch
   `.pte` files. Outputs to `out/pocket-tts-en-v2026_04/`.
 
-## Status (2026-05-25)
+## Status (2026-06-04)
 
-**Verified stateless graphs** (default `--graphs` set):
+All 5 graphs export and verify bit-exact (max abs diff vs eager PyTorch on
+representative inputs). `--graphs` defaults to the full set.
 
-- ✅ `text_conditioner.pte` (16.4 MB) — bit-exact vs PyTorch (diff = 0)
-- ✅ `mimi_encoder.pte` — exported, fixed T_audio = 30 s (caller pads zeros)
-- ✅ `flow_lm_flow.pte` — exported, static shapes
+| graph | size | max abs diff | notes |
+|-------|------|--------------|-------|
+| `text_conditioner` | 16.4 MB | 0 | embedding lookup |
+| `mimi_encoder` | 19.3 MB | 0 | fixed T_audio = 30 s (caller pads zeros) |
+| `flow_lm_flow` | 39.1 MB | 5e-7 | static shapes |
+| `mimi_decoder` | 41.3 MB | 3e-7 | **stateless single-shot** (see below) |
+| `flow_lm_main` | 302.4 MB | 9e-6 | **export-friendly KV cache** (see below) |
 
-**Experimental stateful graphs** (opt-in via `--graphs`):
+### The two stateful graphs
 
-- 🚧 `mimi_decoder` — wrapper drafted; expects dict-of-dict mimi_state pytree
-  input + same dict back. Uses `torch.export`'s in-place mutation functional-
-  ization. Not yet runtime-tested.
-- 🚧 `flow_lm_main` — wrapper drafted; same pattern but with dynamic T_seq
-  and T_text dims. Three phases (voice cond, text cond, AR step) share the
-  graph via dynamic dims.
+Both originally tried to thread upstream's streaming state (dict-of-dict KV
+cache + conv overlap) through the graph as pytree I/O. That is unexportable:
+the KV-cache backend reads its write offset via `int(offset.item())`
+(`transformer.complete_kv`), which `torch.export` rejects as a data-dependent
+symbolic int — even with fully static shapes, because the value comes from a
+*state* tensor. Fixes:
+
+- **`mimi_decoder`** — exported STATELESS / single-shot, the way ExecuTorch's
+  own Mimi reference does (`examples/models/moshi/mimi/test_mimi.py`): the
+  decoder transformer runs non-streaming (`model_state=None`, no KV cache), and
+  the SEANet conv state is built fresh inside the graph. Caller decodes one
+  COMPLETE mini-chunk per call. **This makes the decoder window-size-invariant**
+  (decode(6 frames) == decode(12 frames)[:len6], diff 5e-7), which the
+  window-DEPENDENT ONNX decoder was not — removing the reason for the Kotlin
+  graduated-window workaround. (Per-frame decode is NOT supported — a lone
+  frame lacks the transposed-conv receptive field; feed whole chunks.)
+
+- **`flow_lm_main`** — the autoregressive KV cache is essential, so it can't go
+  stateless. `patch_kv_cache_for_export` (applied only around this export)
+  swaps in an `.item()`-free cache backend: it writes K/V at `offset+arange(T)`
+  via `index_copy`, reads the full fixed-capacity cache, and masks unwritten
+  slots with `pos_k = -1`. `offset` (0-d int) and the per-layer caches are
+  explicit graph I/O; the host increments the offset and threads the caches
+  across AR steps. Exported as a static phase-3 (AR-step) graph; the
+  conditioning phases (seq=0, text=T) have a different shape signature and would
+  be separate specialized graphs if needed.
 
 ## Known gotchas
 

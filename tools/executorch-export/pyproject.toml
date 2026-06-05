@@ -4,8 +4,9 @@ version = "0.1.0"
 requires-python = ">=3.10,<3.13"
 description = "Export Pocket TTS / Kokoro / Kitten PyTorch models to ExecuTorch .pte files for marmalade-tts-android."
 dependencies = [
-    # Pocket TTS upstream is consumed as an editable install from the
-    # local clone at /tmp/pocket-tts-upstream. See README.md.
+    # Pocket TTS upstream is consumed as an editable install from the local
+    # clone configured under [tool.uv.sources] below. See README.md. Use a
+    # STABLE path — /tmp gets wiped and strands the editable install.
     "pocket-tts",
     # ExecuTorch ships its Python tooling for `torch.export` → `.pte` lowering.
     # Pinned to the same release line as the Android AAR
@@ -17,7 +18,10 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-pocket-tts = { path = "/tmp/pocket-tts-upstream", editable = true }
+# Stable clone path (NOT /tmp — it gets wiped). Re-clone with:
+#   git clone https://github.com/kyutai-labs/pocket-tts.git ~/coding/scratch/pocket-tts-upstream
+#   git -C ~/coding/scratch/pocket-tts-upstream checkout v2.1.0
+pocket-tts = { path = "~/coding/scratch/pocket-tts-upstream", editable = true }
 torch = [{ index = "pytorch-cpu" }]
 
 [[tool.uv.index]]
