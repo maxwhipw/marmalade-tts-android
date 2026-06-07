@@ -69,8 +69,12 @@ internal class RecordingPlayer(
 
     /** Records preload calls so tests can assert on Speak-screen pre-load behaviour. */
     val preloadCalls = mutableListOf<String>()
-    override suspend fun preload(voiceId: String) {
+
+    /** What [preload] should report — flip to false to simulate a missing model. */
+    var preloadResult: Boolean = true
+    override suspend fun preload(voiceId: String): Boolean {
         preloadCalls += voiceId
+        return preloadResult
     }
 }
 

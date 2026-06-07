@@ -178,6 +178,20 @@ class SpeakViewModel @Inject constructor(
      */
     val currentVoice: StateFlow<VoiceMeta?> = combine(
         settings.defaultVoiceId.onEach { id ->
+            // Unstick a stale ModelMissing/Error verdict from a PREVIOUS engine
+            // when the selected voice changes. A failed speak() on an
+            // uninstalled engine sets ModelMissing (disables Speak + shows the
+            // "Tap to install <engine>" banner); switching to a different
+            // (installed) engine — via an alias chip or a manual pick, both of
+            // which change defaultVoiceId — must clear it, or the banner re-renders
+            // with the NEW engine's name and falsely claims an installed engine is
+            // missing (observed: pick uninstalled Kitten Mini, then switch to
+            // installed Pocket → "Tap to install Pocket TTS" + Speak stuck disabled).
+            // Mirrors onTextChanged's retry-intent reset.
+            val ps = _playbackState.value
+            if (ps is PlaybackState.ModelMissing || ps is PlaybackState.Error) {
+                _playbackState.value = PlaybackState.Idle
+            }
             val expected = expectedAliasVoiceId
             if (expected != null && id != expected) {
                 // Manual voice change — drop everything the alias set up so
@@ -251,7 +265,19 @@ class SpeakViewModel @Inject constructor(
         currentVoice
             .onEach { voice ->
                 if (voice != null) {
-                    viewModelScope.launch { synthesizer.preload(voice.id) }
+                    viewModelScope.launch {
+                        val loaded = synthesizer.preload(voice.id)
+                        // If the selected voice's engine IS present (preload
+                        // succeeded), clear a stale ModelMissing left by an
+                        // earlier failed speak on a now-installed engine. This
+                        // runs on voice change AND on screen re-entry (the flow
+                        // restarts under WhileSubscribed), so coming back from
+                        // Settings → Engines after installing unsticks the
+                        // banner even when the voice itself didn't change.
+                        if (loaded && _playbackState.value is PlaybackState.ModelMissing) {
+                            _playbackState.value = PlaybackState.Idle
+                        }
+                    }
                 }
             }
             .launchIn(viewModelScope)

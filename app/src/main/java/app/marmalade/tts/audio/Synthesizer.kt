@@ -139,7 +139,8 @@ interface SpeechPlayer {
      * The Speak screen calls this on voice-selection so navigating to
      * Speak with voice X selected starts a background pre-load.
      */
-    suspend fun preload(voiceId: String)
+    /** Returns true if the engine for [voiceId] is present + loaded. */
+    suspend fun preload(voiceId: String): Boolean
 }
 
 /**
@@ -411,14 +412,17 @@ class Synthesizer @Inject constructor(
      * generating frames into a Flow that nobody's collecting, holding
      * the engine's synthLock until natural completion.
      */
-    override suspend fun preload(voiceId: String): Unit = withContext(Dispatchers.IO) {
+    override suspend fun preload(voiceId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             engineFor(engineNameFor(voiceId)).ensureModelLoaded()
+            true
         } catch (t: Throwable) {
             // Pre-load is best-effort. ModelMissing is the common case
             // (user hasn't downloaded the engine yet) — surface only on
-            // explicit speak().
+            // explicit speak(). Returns false so callers can clear a stale
+            // ModelMissing banner once the engine IS present (true).
             Log.d(TAG, "preload($voiceId) skipped: ${t.message}")
+            false
         }
     }
 
