@@ -489,13 +489,13 @@ class MarmaladeSynthService : Service() {
 
     /** Human-friendly engine label for notification copy. */
     private fun displayNameFor(engineName: String): String = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> "Kokoro v1.0"
-        KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1"
-        KokoroDirectVoiceCatalog.ENGINE -> "Kokoro Direct"
-        KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano"
-        KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini"
-        KittenDirectVoiceCatalog.ENGINE -> "Kitten Direct"
-        KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Direct Mini"
+        KokoroV10VoiceCatalog.ENGINE -> "Kokoro v1.0 (legacy)"
+        KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1 (legacy)"
+        KokoroDirectVoiceCatalog.ENGINE -> "Kokoro"
+        KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano (legacy)"
+        KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini (legacy)"
+        KittenDirectVoiceCatalog.ENGINE -> "Kitten Nano"
+        KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Mini"
         PocketVoiceCatalog.ENGINE -> "Pocket TTS"
         else -> engineName
     }

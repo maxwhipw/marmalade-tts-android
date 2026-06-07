@@ -144,11 +144,11 @@ object EngineCatalog {
      */
     private val KOKORO_V1_0: EngineDescriptor = EngineDescriptor(
         name = "kokoro-v1_0",
-        displayName = "Kokoro v1.0",
-        description = "Legacy engine, kept for comparison — superseded by Kokoro " +
-            "Direct, which has the same 53 voices and 9 languages but runs faster " +
-            "and switches language correctly. Use Kokoro Direct instead. (Runs on " +
-            "the older sherpa-onnx engine.)",
+        displayName = "Kokoro v1.0 (legacy)",
+        description = "Legacy engine, kept for comparison — superseded by Kokoro, " +
+            "which has the same 53 voices and 9 languages but runs faster and " +
+            "switches language correctly. Use Kokoro instead. (Runs on the older " +
+            "sherpa-onnx engine.)",
         downloadSizeBytes = 349_418_188L,
         installedSizeBytes = KOKORO_V1_0_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -161,7 +161,7 @@ object EngineCatalog {
         ),
         licenseNotice = "LICENSES/kokoro-tts.md",
         licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +
-            "53 voices across 9 languages — legacy engine, use Kokoro Direct.",
+            "53 voices across 9 languages — legacy engine, use Kokoro.",
     )
 
     /**
@@ -176,9 +176,9 @@ object EngineCatalog {
      */
     private val KOKORO_V1_1: EngineDescriptor = EngineDescriptor(
         name = "kokoro-v1_1",
-        displayName = "Kokoro v1.1 (Mandarin)",
+        displayName = "Kokoro v1.1 (Mandarin, legacy)",
         description = "Legacy Mandarin-focused engine, kept for comparison — 100 " +
-            "Mandarin voices plus 3 English. Superseded by Kokoro Direct for most " +
+            "Mandarin voices plus 3 English. Superseded by Kokoro for most " +
             "uses. (Runs on the older sherpa-onnx engine.)",
         downloadSizeBytes = 364_816_464L,
         installedSizeBytes = KOKORO_V1_1_INSTALLED_SIZE_BYTES,
@@ -203,10 +203,10 @@ object EngineCatalog {
      */
     private val KITTEN_NANO: EngineDescriptor = EngineDescriptor(
         name = "kitten-nano-v0_8",
-        displayName = "Kitten Nano (v0.8)",
+        displayName = "Kitten Nano (v0.8, legacy)",
         description = "Legacy small English engine, kept for comparison — " +
-            "superseded by Kitten Direct, which runs the same model faster. " +
-            "Use Kitten Direct instead. (Runs on the older sherpa-onnx engine.)",
+            "superseded by the current Kitten Nano, which runs the same model " +
+            "faster. Use it instead. (Runs on the older sherpa-onnx engine.)",
         downloadSizeBytes = 63_815_222L,
         installedSizeBytes = KITTEN_NANO_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -230,10 +230,10 @@ object EngineCatalog {
      */
     private val KITTEN_MINI: EngineDescriptor = EngineDescriptor(
         name = "kitten-mini-v0_8",
-        displayName = "Kitten Mini (v0.8)",
+        displayName = "Kitten Mini (v0.8, legacy)",
         description = "Legacy English engine, kept for comparison — superseded by " +
-            "Kitten Direct Mini, which runs the same larger model faster. Use " +
-            "Kitten Direct Mini instead. (Runs on the older sherpa-onnx engine.)",
+            "the current Kitten Mini, which runs the same larger model faster. " +
+            "Use it instead. (Runs on the older sherpa-onnx engine.)",
         downloadSizeBytes = 67_547_594L,
         installedSizeBytes = KITTEN_MINI_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -264,7 +264,7 @@ object EngineCatalog {
      */
     private val KITTEN_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-v0_8",
-        displayName = "Kitten Direct (v0.8)",
+        displayName = "Kitten Nano (v0.8)",
         description = "Small and fast — the lightest download and the quickest " +
             "to start speaking. English only, 8 voices. A good pick when you want " +
             "speed and a small footprint over the widest language coverage. Runs " +
@@ -299,11 +299,11 @@ object EngineCatalog {
      */
     private val KITTEN_DIRECT_MINI: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-mini-v0_8",
-        displayName = "Kitten Direct Mini (v0.8)",
-        description = "A step up in quality from Kitten Direct while staying fast " +
+        displayName = "Kitten Mini (v0.8)",
+        description = "A step up in quality from Kitten Nano while staying fast " +
             "and light — the same 8 English voices with a larger model, and still " +
             "a small download. Runs fully on your device with a bundled espeak-ng " +
-            "phonemizer. (80M-parameter model vs Kitten Direct's 15M.)",
+            "phonemizer. (80M-parameter model vs Kitten Nano's 15M.)",
         downloadSizeBytes = 65_470_846L,
         installedSizeBytes = KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -336,7 +336,7 @@ object EngineCatalog {
      */
     private val KOKORO_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kokoro-direct-v1_0",
-        displayName = "Kokoro Direct (v1.0)",
+        displayName = "Kokoro (v1.0)",
         description = "Best all-round quality with the widest language support — " +
             "53 voices across 9 languages, including English, Spanish, French, " +
             "Italian, Hindi, Portuguese, Japanese, and Mandarin. Recommended for " +

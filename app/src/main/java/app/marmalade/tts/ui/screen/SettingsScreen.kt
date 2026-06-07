@@ -443,7 +443,7 @@ private fun KeepaliveSection(
         KeepaliveMode.Persistent ->
             "Marmalade stays loaded all the time and shows a permanent " +
                 "notification. Trade-off is RAM use: Pocket ≈ 500 MB, " +
-                "Kokoro Direct ≈ 150 MB, Kitten Direct ≈ 80 MB. Only the " +
+                "Kokoro ≈ 150 MB, Kitten Nano ≈ 80 MB. Only the " +
                 "engines you actually use stay loaded."
     }
     Text(

@@ -324,12 +324,18 @@ private fun genderGlyph(gender: String?): String = when (gender) {
 
 private fun supportingText(voice: VoiceMeta): String {
     val gender = voice.gender ?: "—"
-    return "${voice.engine} · $gender · ${voice.languageCode}"
+    // Engine is omitted here — each voice already sits under its engine
+    // section header, so repeating it (and the raw engine id) on every row
+    // is redundant clutter.
+    return "$gender · ${voice.languageCode}"
 }
 
-/** Title-case the engine name for the section header. */
-private fun displayNameForEngine(engineName: String): String = when (engineName) {
-    "kokoro" -> "Kokoro"
-    "kitten" -> "Kitten"
-    else -> engineName.replaceFirstChar { it.uppercase() }
-}
+/**
+ * Engine section-header label — the catalog's user-facing display name
+ * (e.g. "Kitten Mini (v0.8)") so the header matches the rest of the app
+ * instead of the raw engine id. Falls back to a title-cased id for any
+ * engine not present in [EngineCatalog].
+ */
+private fun displayNameForEngine(engineName: String): String =
+    EngineCatalog.byName(engineName)?.displayName
+        ?: engineName.replaceFirstChar { it.uppercase() }
