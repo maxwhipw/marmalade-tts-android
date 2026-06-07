@@ -1,5 +1,10 @@
 package app.marmalade.tts.ui.onboarding
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
@@ -187,6 +193,10 @@ fun OnboardingScreen(
                     app.marmalade.tts.ui.openBatteryOptimizationRequest(context)
                 },
                 onContinue = viewModel::advancePastBackground,
+            )
+            OnboardingStep.NotificationPermission -> NotificationPermissionStep(
+                padding = padding,
+                onContinue = viewModel::advancePastNotifications,
             )
             OnboardingStep.SystemDefault -> SystemDefaultStep(
                 padding = padding,
@@ -929,6 +939,104 @@ private fun BackgroundUnrestrictedStep(
         Spacer(Modifier.height(8.dp))
         Text(
             text = "You can change this any time in Android Settings → Apps → Marmalade TTS → Battery.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * Notification-permission step (Android 13+). Requests POST_NOTIFICATIONS
+ * at runtime so the "Keep engine loaded" foreground-service notification
+ * (Smart keep-warm is the default) and the speaking notification can
+ * actually appear — without the grant Android silently suppresses them.
+ *
+ * Auto-skips on Android 12 and below, where the permission is granted at
+ * install time. Granting auto-advances; declining is allowed (just hides
+ * those notices — the engine still stays warm).
+ */
+@Composable
+private fun NotificationPermissionStep(
+    padding: PaddingValues,
+    onContinue: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    // Pre-13 has no runtime notification permission — nothing to ask.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        LaunchedEffect(Unit) { onContinue() }
+        return
+    }
+
+    fun isGranted(): Boolean = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS,
+    ) == PackageManager.PERMISSION_GRANTED
+
+    var granted by remember { mutableStateOf(isGranted()) }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { result ->
+        granted = result
+        // Smooth path: a grant advances immediately; a denial leaves the
+        // user on this step with the Skip affordance.
+        if (result) onContinue()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.mascot_happy),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = if (granted) "Notifications on" else "Show what Marmalade's doing",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = if (granted) {
+                "Marmalade can show its speaking and “keeping warm” notifications."
+            } else {
+                "When Marmalade keeps an engine warm for instant replies (the " +
+                    "default), it shows a small notification while loaded. Allow " +
+                    "notifications so that — and the playback notice — can appear."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(24.dp))
+        if (granted) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Continue") }
+        } else {
+            Button(
+                onClick = { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Allow notifications") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Skip — I'll do this later") }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Only used for the speaking and keep-warm notifications. " +
+                "Change any time in Android Settings → Apps → Marmalade TTS → Notifications.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

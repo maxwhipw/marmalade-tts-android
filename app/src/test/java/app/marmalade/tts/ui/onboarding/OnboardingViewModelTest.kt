@@ -226,7 +226,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun useDefaultsAndContinueCreatesDefaultAliasAndAdvancesToSystemDefault() = runTest {
+    fun useDefaultsAndContinueCreatesDefaultAliasAndAdvancesToNotificationPermission() = runTest {
         val settings = FakeSettings(
             initialId = "kitten-nano-v0_8:Bella",
             initialOnboarded = false,
@@ -244,9 +244,11 @@ class OnboardingViewModelTest {
         assertEquals("default", row.name)
         assertEquals("kokoro-direct-v1_0", row.engine)
         assertEquals("default", settings.primaryAliasName.first())
-        // v0.1.13: advances to SystemDefault instead of finishing.
+        // Fast-defaults path skips the battery prompt by design, but now
+        // routes through the notification-permission ask before the final
+        // system-TTS step (Smart keep-warm is the default → needs the grant).
         assertEquals(false, settings.onboarded.first())
-        assertEquals(OnboardingStep.SystemDefault, vm.step.first())
+        assertEquals(OnboardingStep.NotificationPermission, vm.step.first())
     }
 
     @Test

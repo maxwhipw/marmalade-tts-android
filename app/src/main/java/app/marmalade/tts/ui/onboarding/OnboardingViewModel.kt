@@ -110,6 +110,17 @@ enum class OnboardingStep {
     BackgroundUnrestricted,
 
     /**
+     * Ask for the POST_NOTIFICATIONS runtime permission (Android 13+).
+     * The "Keep engine loaded" Smart/Always modes (Smart is the default)
+     * run a foreground service that posts a small "staying warm"
+     * notification; without this grant Android silently suppresses it.
+     * Auto-skipped on Android 12 and below, where the permission is
+     * granted at install time. Skippable — declining just hides the
+     * keepalive/playback notices, the engine still stays warm.
+     */
+    NotificationPermission,
+
+    /**
      * Final step — explains that the user has to manually pick
      * Marmalade in system Settings → Languages → Text-to-speech, and
      * provides a button that launches the TTS settings intent. The app
@@ -203,7 +214,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.EnginePick -> OnboardingStep.Installing
             OnboardingStep.Installing -> OnboardingStep.CreateAlias
             OnboardingStep.CreateAlias -> OnboardingStep.BackgroundUnrestricted
-            OnboardingStep.BackgroundUnrestricted -> OnboardingStep.SystemDefault
+            OnboardingStep.BackgroundUnrestricted -> OnboardingStep.NotificationPermission
+            OnboardingStep.NotificationPermission -> OnboardingStep.SystemDefault
             OnboardingStep.SystemDefault -> OnboardingStep.SystemDefault
         }
     }
@@ -216,7 +228,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingStep.Installing -> OnboardingStep.EnginePick
             OnboardingStep.CreateAlias -> OnboardingStep.Installing
             OnboardingStep.BackgroundUnrestricted -> OnboardingStep.CreateAlias
-            OnboardingStep.SystemDefault -> OnboardingStep.BackgroundUnrestricted
+            OnboardingStep.NotificationPermission -> OnboardingStep.BackgroundUnrestricted
+            OnboardingStep.SystemDefault -> OnboardingStep.NotificationPermission
         }
     }
 
@@ -453,13 +466,24 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * P-J — advance from the BackgroundUnrestricted step to SystemDefault.
-     * Called by both "Continue" (after grant) and "Skip" — the
-     * onboarding flow doesn't fail if the user declines, just leaves a
-     * less-reliable run.
+     * P-J — advance from the BackgroundUnrestricted step to the
+     * NotificationPermission step. Called by both "Continue" (after grant)
+     * and "Skip" — the onboarding flow doesn't fail if the user declines,
+     * just leaves a less-reliable run.
      */
     fun advancePastBackground() {
         if (_step.value == OnboardingStep.BackgroundUnrestricted) {
+            _step.value = OnboardingStep.NotificationPermission
+        }
+    }
+
+    /**
+     * Advance from the NotificationPermission step to SystemDefault.
+     * Driven by "Allow" (after grant), "Skip", and the auto-skip on
+     * Android 12 and below. Declining never blocks onboarding.
+     */
+    fun advancePastNotifications() {
+        if (_step.value == OnboardingStep.NotificationPermission) {
             _step.value = OnboardingStep.SystemDefault
         }
     }
@@ -503,8 +527,11 @@ class OnboardingViewModel @Inject constructor(
                 ),
             )
             settings.setPrimaryAliasName("default")
-            // Advance to SystemDefault step — see saveAliasAndContinue.
-            _step.value = OnboardingStep.SystemDefault
+            // Advance to the NotificationPermission step (then SystemDefault).
+            // The fast-defaults path still skips the battery prompt by design,
+            // but should still get the notification ask — Smart keep-warm is
+            // the default, and its notification needs the runtime grant.
+            _step.value = OnboardingStep.NotificationPermission
         }
     }
 
