@@ -827,7 +827,12 @@ open class EngineInstaller @Inject constructor(
 
         return when (descriptor.name) {
             "pocket-tts-en-v2026_04",
-            "pocket-tts-en-v2026_04-dev" -> verifyPocketLayout(dir)
+            "pocket-tts-en-v2026_04-dev",
+            // The ExecuTorch A/B engine downloads the SAME Pocket bundle into its
+            // own dir (tokenizer/bos/bundle.json/voices); only the .pte graphs
+            // differ and those are side-loaded externally, not part of this
+            // archive — so the bundle layout check is identical to Pocket's.
+            "pocket-tts-en-v2026_04-et" -> verifyPocketLayout(dir)
             "kitten-direct-v0_8"       -> verifyKittenDirectLayout(dir)
             "kitten-direct-mini-v0_8"  -> verifyKittenDirectLayout(dir)
             "kokoro-direct-v1_0"       -> verifyKokoroDirectLayout(dir)

@@ -6,6 +6,7 @@ import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
+import app.marmalade.tts.data.PocketEtVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
@@ -127,6 +128,7 @@ class MarmaladeTtsApplication : Application() {
                 dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
+                dao.upsertAll(PocketEtVoiceCatalog.voices)
                 // Built-in effects. REPLACE-on-conflict refreshes them on each
                 // bump; user-created effects (other ids) are untouched, and
                 // built-ins are read-only in the UI so this can't clobber user
@@ -206,7 +208,10 @@ class MarmaladeTtsApplication : Application() {
          *  - v20: v0.3.0-alpha.11 — Monotone2 + Synth removed after the A/B
          *    (the original Monotone-based AI was preferred). `builtin:synth`
          *    is pruned and the Monotone2 block + Fft DSP retired.
+         *  - v22: v0.3.0-alpha.11 — added Pocket ExecuTorch dev catalog (8
+         *    voices, `pocket-tts-en-v2026_04-et:<name>`) for the on-device
+         *    ExecuTorch-vs-ORT RTF A/B.
          */
-        const val CATALOG_VERSION: Int = 21
+        const val CATALOG_VERSION: Int = 22
     }
 }

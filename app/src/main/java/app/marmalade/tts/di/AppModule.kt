@@ -25,6 +25,7 @@ import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.PocketExecuTorchDevEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.install.EngineFilesDir
@@ -149,6 +150,7 @@ object AppModule {
         kokoroDirect: KokoroDirectEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
+        pocketEt: PocketExecuTorchDevEngine,
     ): NativeEngineHandle = NativeEngineHandle {
         kittenNano.release()
         kittenMini.release()
@@ -158,6 +160,7 @@ object AppModule {
         kokoroDirect.release()
         pocket.release()
         pocketDev.release()
+        pocketEt.release()
     }
 
     /**

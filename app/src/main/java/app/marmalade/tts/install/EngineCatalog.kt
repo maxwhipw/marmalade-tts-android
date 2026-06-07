@@ -130,6 +130,7 @@ object EngineCatalog {
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 482_162_181L
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 218_888_871L
     private const val POCKET_TTS_DEV_INSTALLED_SIZE_BYTES: Long = POCKET_TTS_INSTALLED_SIZE_BYTES
+    private const val POCKET_TTS_ET_INSTALLED_SIZE_BYTES: Long = POCKET_TTS_INSTALLED_SIZE_BYTES
 
     /**
      * Kokoro v1.0 multi-lang fp32 (`kokoro-multi-lang-v1_0`). 53 voices
@@ -436,6 +437,47 @@ object EngineCatalog {
     )
 
     /**
+     * Pocket TTS ExecuTorch (`pocket-tts-en-v2026_04-et`) — the same Pocket
+     * pipeline run on `org.pytorch.executorch` instead of onnxruntime, driven
+     * by [app.marmalade.tts.engine.PocketExecuTorchDevEngine]. Developer-only,
+     * for an on-device A/B (full-pipeline RTF) against the shipping ORT
+     * [POCKET_TTS_EN] path as part of the planned ExecuTorch migration.
+     *
+     * Self-contained, mirroring [POCKET_TTS_EN_DEV]: the [archive] (same Pocket
+     * bundle payload) extracts into this engine's OWN dir for the tokenizer,
+     * bos_before_voice, bundle.json and voice WAVs. The bundled `.onnx` graphs
+     * go unused — inference runs on the `.pte` graphs, which are side-loaded
+     * separately into the app's external files dir via `adb push` (they're too
+     * large + iterate too often to ship in the archive). So this installs like
+     * any other engine; only the inference graphs arrive out-of-band.
+     */
+    private val POCKET_TTS_EN_ET: EngineDescriptor = EngineDescriptor(
+        name = "pocket-tts-en-v2026_04-et",
+        displayName = "Pocket TTS — ExecuTorch (A/B)",
+        description = "Developer-only ExecuTorch build of the Pocket TTS " +
+            "pipeline — same model + voices as the regular Pocket engine, but " +
+            "running on PyTorch ExecuTorch instead of onnxruntime, for an " +
+            "on-device speed (RTF) A/B. Installs the Pocket bundle into its own " +
+            "dir; the ExecuTorch .pte graphs are side-loaded via adb push.",
+        downloadSizeBytes = 98_264_623L,
+        installedSizeBytes = POCKET_TTS_ET_INSTALLED_SIZE_BYTES,
+        isRecommended = false,
+        developerOnly = true,
+        archive = EngineArchive(
+            // Same Pocket bundle as the production/dev engines (tokenizer, bos,
+            // bundle.json, voices). The unused .onnx graphs ride along; the .pte
+            // graphs are pushed separately.
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v10/pocket-tts-en-v2026_04-mixed.tar.bz2",
+            sha256 = "d4faf0e09e2c0f3f0f97221670e193893e5aa8f17e3812fb54ed3ef13fffc2f1",
+            sizeBytes = 98_264_623L,
+            archiveRoot = "pocket-tts-en/",
+        ),
+        licenseNotice = "LICENSES/pocket-tts.md",
+        licenseSummary = "Apache-2.0 model + BSD ExecuTorch runtime. Diagnostic " +
+            "build — side-loaded .pte graphs, reuses the Pocket TTS bundle.",
+    )
+
+    /**
      * Every engine the app knows how to install. Read-only.
      *
      * This is the canonical catalog order (grouped by family). User-facing
@@ -452,6 +494,7 @@ object EngineCatalog {
         KITTEN_DIRECT_MINI,
         POCKET_TTS_EN,
         POCKET_TTS_EN_DEV,
+        POCKET_TTS_EN_ET,
     )
 
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */

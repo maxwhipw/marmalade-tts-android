@@ -165,6 +165,14 @@ dependencies {
     // bundle for `arm64-v8a` and `armeabi-v7a`.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
 
+    // ExecuTorch (org.pytorch, BSD). EXPERIMENTAL — the planned long-term
+    // inference stack (fp16 + KleidiAI on ARM). Used by the in-progress
+    // PocketExecuTorch dev-engine for on-device A/B vs the ORT path. The 5
+    // Pocket graphs already export to .pte bit-exact (see tools/executorch-export);
+    // the re-exported mimi decoder is window-invariant, so it sidesteps the
+    // chunk-start glitch the ORT path needs P-AL overlap-discard to dodge.
+    implementation("org.pytorch:executorch-android:1.2.0")
+
     // Media session (lock-screen + BT transport controls in MarmaladeSynthService).
     // Provides MediaSessionCompat / PlaybackStateCompat / MediaButtonReceiver.
     implementation("androidx.media:media:1.7.0")
