@@ -36,7 +36,8 @@ that env var nor a PATH `flatc` is found.
   module structure. Sanity check that the export environment can load the
   PyTorch model end-to-end. Run BEFORE attempting any export.
 - `export_pocket.py` — `torch.export` each graph, lower to ExecuTorch
-  `.pte` files. Outputs to `out/pocket-tts-en-v2026_04/`.
+  `.pte` files. Outputs to `out/pocket-tts-en-v2026_04/`. Add
+  `--precision fp16 int8` to also emit quantized variants (see below).
 
 ## Status (2026-06-04)
 
@@ -50,6 +51,67 @@ representative inputs). `--graphs` defaults to the full set.
 | `flow_lm_flow` | 39.1 MB | 5e-7 | static shapes |
 | `mimi_decoder` | 41.3 MB | 3e-7 | **stateless single-shot** (see below) |
 | `flow_lm_main` | 302.4 MB | 9e-6 | **export-friendly KV cache** (see below) |
+
+## Quantized variants (fp16 / int8) — 2026-06-05
+
+`--precision {fp32,fp16,int8}` (repeatable) emits perf variants. fp32 keeps the
+bare `<graph>.pte` name; fp16/int8 get a `_fp16` / `_int8` suffix. The goal is
+the AR-step hot loop: fp32 `flow_lm_main` benches ~78 ms/step on a Pixel 8a,
+roughly the whole 80 ms/frame realtime budget for one op, so int8 (the current
+ORT path, + KleidiAI micro-kernels) is the decisive lever.
+
+**Recipes**
+- **fp16** — deep-copy the wrapper, `.half()` it, cast float inputs to half.
+  XNNPACK then uses ARMv8.2 FP16. `EdgeCompileConfig(_check_ir_validity=False,
+  _skip_dim_order=True)`.
+- **int8** — official PT2E flow, mirroring
+  `executorch/examples/xnnpack/quantization/utils.py`: pre-autograd capture
+  (`torch.export.export(...).module()`), `XNNPACKQuantizer` with
+  `get_symmetric_quantization_config(is_per_channel=True)` (per-channel
+  symmetric weights, per-tensor activations — the KleidiAI int8 target),
+  `prepare_pt2e` → calibrate → `convert_pt2e`, re-export, lower. In torch 2.12
+  the pt2e helpers live in **`torchao.quantization.pt2e`**, not `torch.ao`
+  (torchao is already in the venv). `mimi_decoder` int8 uses a SELECTIVE filter
+  (`_mimi_decoder_quant_filter`) that leaves the `decoder_transformer` (its 2
+  transformer layers + output projections — the T-Mimi documented-sensitive
+  tail) in fp32 and quantizes only the heavy SEANet convs.
+
+**Results** (verify = max abs diff / relative error of primary output vs the
+fp32 eager reference on a REALISTIC input; quant variants are expected to
+differ — the check is "not NaN/garbage", not bit-exactness)
+
+| graph | fp32 | fp16 | int8 | verdict |
+|-------|------|------|------|---------|
+| `flow_lm_main` (AR step) | 302.4 MB | 151.3 MB | **76.1 MB** | **int8 usable** — rel-err 0.17, no NaN. fp16 .pte rel-err 3.1 (BROKEN lowering, see below) |
+| `mimi_decoder` | 41.3 MB | 28.7 MB | — | fp16 .pte rel-err 7.5 (BROKEN lowering); int8 fails to LOAD (XNNPACK squeeze node) — both unusable |
+| `flow_lm_flow` | 39.1 MB | 19.6 MB | 10.1 MB | fp16 rel-err 0.005 (good); int8 rel-err 0.46 (high for this tiny AdaLN MLP) |
+| `text_conditioner` | 16.4 MB | 8.2 MB | 16.4 MB | embedding; fp16 rel 0.009. int8 NOT smaller (table unquantized + q/dq overhead) — prefer fp16 |
+| `mimi_encoder` | 19.3 MB | fails | 4.9 MB* | run-once (not perf-critical). fp16 export fails (dtype clash); *int8 verify ran on zeros → rel 0 is not meaningful |
+
+**The fp16 lowering is broken in ExecuTorch 1.2.0 for the transformer/conv
+graphs.** Eager fp16 is ACCURATE (`flow_lm_main` cond rel-err 0.001,
+`mimi_decoder` 0.008), but the lowered `.pte` diverges badly (3.1 / 7.5). The
+divergence is identical with the XNNPACK partitioner and with portable ops, so
+it's the `to_edge`/`to_executorch` fp16 decomposition — almost certainly an
+attention softmax / conv reduction computed in pure fp16 where eager keeps fp32
+accumulation. This XNNPACK version exposes no "fp16 weights, fp32 accumulate"
+partitioner flag, so pre-casting is the only fp16 route and it loses the
+accumulation. **Net: fp16 .pte are NOT usable for the heavy graphs as-is** —
+they load and run (benchable for raw timing) but produce wrong audio. int8 is
+the viable quant path.
+
+`mimi_decoder` int8 writes a `.pte` but FAILS TO LOAD: `XNNCompiler.cpp Failed
+to create squeeze node ... xnn_status_invalid_parameter`. Reproduces with a
+static shape too, so it's not the dynamic `T_latent` dim — a squeeze in the
+quantized SEANet/quantizer graph that XNNPACK's int8 path can't build. Left
+unsolved (mimi is meant to stay high-precision for quality anyway, and the
+decoder isn't the AR hot loop). The non-loadable file is deleted; the
+degraded-but-runnable fp16 one is kept for timing only.
+
+**Cleanest recipe that worked end-to-end:** int8 PT2E on `flow_lm_main` —
+76 MB (4x smaller than fp32), loads + runs host-side, rel-err 0.17, no NaN.
+That is the variant to bench on device; it's the same int8 precision class as
+the current ORT path, so quality is an apples-to-apples A/B.
 
 ### The two stateful graphs
 

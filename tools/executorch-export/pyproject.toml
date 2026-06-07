@@ -21,7 +21,9 @@ dependencies = [
 # Stable clone path (NOT /tmp — it gets wiped). Re-clone with:
 #   git clone https://github.com/kyutai-labs/pocket-tts.git ~/coding/scratch/pocket-tts-upstream
 #   git -C ~/coding/scratch/pocket-tts-upstream checkout v2.1.0
-pocket-tts = { path = "~/coding/scratch/pocket-tts-upstream", editable = true }
+# Absolute path: uv does NOT expand a leading `~` here (it resolves it relative
+# to this dir → a phantom `./~/coding/...`). Keep it absolute.
+pocket-tts = { path = "/home/max/coding/scratch/pocket-tts-upstream", editable = true }
 torch = [{ index = "pytorch-cpu" }]
 
 [[tool.uv.index]]
