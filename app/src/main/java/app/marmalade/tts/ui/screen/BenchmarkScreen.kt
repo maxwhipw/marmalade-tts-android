@@ -34,6 +34,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,10 +44,16 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.engine.EnginePhaseTimings
+import app.marmalade.tts.perf.SystemStats
+import app.marmalade.tts.perf.SystemStatsSnapshot
 import app.marmalade.tts.ui.MarmaladeFilterChip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -117,6 +126,8 @@ fun BenchmarkScreen(
                 onToggle = viewModel::toggleEngine,
             )
 
+            SystemStatsBar()
+
             Button(
                 onClick = viewModel::runBenchmark,
                 enabled = !state.running && state.text.isNotBlank() &&
@@ -138,6 +149,75 @@ fun BenchmarkScreen(
 
             if (state.results.isNotEmpty()) {
                 ResultsSection(results = state.results)
+            }
+        }
+    }
+}
+
+/**
+ * Live device-load overlay. Polls [SystemStats] every ~1.5 s while the
+ * benchmark screen is open. The headline figures are free RAM + zram-in-use:
+ * a memory-bandwidth-bound AR loop tanks once the phone starts swapping
+ * weights into zram, so a "slow" benchmark is usually a loaded phone, not
+ * the engine. CPU busy% shows contention from other apps; thermal is mostly
+ * a sanity check (the Tensor G3 rarely throttles at these temps).
+ */
+@Composable
+private fun SystemStatsBar() {
+    val context = LocalContext.current
+    var snap by remember { mutableStateOf<SystemStatsSnapshot?>(null) }
+    LaunchedEffect(Unit) {
+        var prev: SystemStats.CpuCounters? = null
+        while (true) {
+            val (s, counters) = withContext(Dispatchers.IO) { SystemStats.sample(context, prev) }
+            prev = counters
+            snap = s
+            delay(1500)
+        }
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Device load (live)", style = MaterialTheme.typography.labelLarge)
+            val s = snap
+            if (s == null) {
+                Text("sampling…", style = MaterialTheme.typography.bodySmall)
+            } else {
+                // Memory is the figure that usually explains a slow run; flag it
+                // in the error colour when free RAM is low / zram is heavily used.
+                val pressured = s.ramAvailMb in 1..800 || s.zramUsedMb > 500
+                Text(
+                    text = "RAM free ${s.ramAvailMb} / ${s.ramTotalMb} MB" +
+                        "   ·   zram ${s.zramUsedMb} / ${s.zramTotalMb} MB used",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (pressured) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text("CPU ${s.cpuBusyPct}% busy", style = MaterialTheme.typography.bodySmall)
+                if (s.cores.isNotEmpty()) {
+                    Text(
+                        text = s.cores.joinToString(" ") { "c${it.core}:${it.busyPct}".padEnd(6) },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                val temps = if (s.clusterTemps.isNotEmpty()) {
+                    "  ·  " + s.clusterTemps.joinToString(" ") {
+                        "${it.first}=${"%.0f".format(it.second)}°"
+                    }
+                } else {
+                    ""
+                }
+                val headroom = s.thermalHeadroom?.let { " (headroom ${"%.2f".format(it)})" } ?: ""
+                Text(
+                    text = "thermal ${s.thermalStatus}$headroom$temps",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }

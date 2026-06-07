@@ -170,6 +170,14 @@ class BenchmarkViewModel @Inject constructor(
                             error = t.message ?: t::class.java.simpleName,
                         ),
                     )
+                } finally {
+                    // Release before moving to the next engine so only ONE model
+                    // is resident at a time. Otherwise benching N engines piles N
+                    // models into RAM (Kokoro Direct alone is ~480 MB) → zram
+                    // thrash that under-reports every engine's real, single-engine
+                    // speed (the Speak screen only ever holds one). The next
+                    // engine reloads cleanly on its own ensureModelLoaded().
+                    runCatching { target.engine.release() }
                 }
             }
             _state.update {
