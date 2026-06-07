@@ -2,7 +2,6 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
@@ -12,6 +11,8 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
+import app.marmalade.tts.install.EngineInstaller
+import app.marmalade.tts.install.InstallState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -124,6 +126,7 @@ class AliasViewModel @Inject constructor(
     private val aliasDao: VoiceAliasDao,
     private val voiceDao: VoiceMetaDao,
     private val settings: SettingsRepository,
+    private val installer: EngineInstaller,
     effectDao: EffectDao,
 ) : ViewModel() {
 
@@ -169,17 +172,34 @@ class AliasViewModel @Inject constructor(
         )
 
     /**
-     * Engines offered in the alias editor's engine picker, filtered by the
-     * "show developer engines" setting. An alias already saved against a
-     * now-hidden sherpa engine still works (routing is unfiltered); it just
-     * won't appear as a fresh pick.
+     * Engines whose on-disk layout currently passes [EngineInstaller.verify].
+     * Seeded by [refresh] (init + when the screen becomes active). Same
+     * source of truth the voice picker uses — [VoiceMeta.isInstalled] is
+     * never flipped in production, so disk verification is the only honest
+     * "can the user actually pick this" signal.
      */
-    val engines: StateFlow<List<EngineDescriptor>> = settings.showDeveloperEngines
-        .map { EngineCatalog.visibleTo(it) }
+    private val _installedEngines = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Engines offered in the alias editor's engine picker: installed engines
+     * only, further filtered by the "show developer engines" setting. We hide
+     * uninstalled engines so the user can't create an alias pointing at an
+     * engine they can't run — the bug that produced a stuck "Tap to install"
+     * banner with no obvious cause. An alias already saved against a
+     * now-hidden engine (uninstalled or dev-only) still works (routing via
+     * [EngineCatalog.byName] is unfiltered, and [EngineDropdown] falls back to
+     * the raw name); it just won't appear as a fresh pick.
+     */
+    val engines: StateFlow<List<EngineDescriptor>> = combine(
+        settings.showDeveloperEngines,
+        _installedEngines,
+    ) { showDeveloper, installed ->
+        EngineCatalog.visibleTo(showDeveloper).filter { it.name in installed }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = EngineCatalog.visibleTo(BuildConfig.DEBUG),
+            initialValue = emptyList(),
         )
 
     private val _editorState = MutableStateFlow(EditorState())
@@ -205,6 +225,29 @@ class AliasViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+    init {
+        refresh()
+    }
+
+    /**
+     * Re-probe each catalog engine's on-disk install state and update
+     * [_installedEngines], so the engine picker only offers engines the user
+     * can actually run. Mirrors [VoicePickerViewModel.refresh] — the screen
+     * calls this when it becomes active so installing an engine elsewhere and
+     * returning surfaces it without an app restart.
+     */
+    fun refresh() {
+        viewModelScope.launch {
+            val installed = mutableSetOf<String>()
+            for (engine in EngineCatalog.all) {
+                if (installer.verify(engine.name) is InstallState.Installed) {
+                    installed += engine.name
+                }
+            }
+            _installedEngines.value = installed
+        }
+    }
 
     /**
      * Open the editor.

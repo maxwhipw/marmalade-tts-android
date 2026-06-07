@@ -44,6 +44,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
+import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 
 // -----------------------------------------------------------------------------
@@ -100,6 +102,14 @@ fun AliasScreen(
     val effects by viewModel.effects.collectAsStateWithLifecycle()
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
+
+    // Re-probe engine install state every time the screen becomes the active
+    // destination. The VM's init does an initial probe; this catches the
+    // Aliases → Settings → Engines → install → back-to-Aliases flow so a
+    // freshly-installed engine appears in the editor's picker without a restart.
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
@@ -294,8 +304,13 @@ private fun AliasRow(
                     )
                 }
             }
+            // Friendly engine label (matches the picker) + just the voice name —
+            // the stored voiceId is "<engine>:<name>", so we strip the redundant
+            // engine prefix rather than print the raw id twice.
+            val engineLabel = EngineCatalog.byName(alias.engine)?.displayName ?: alias.engine
+            val voiceLabel = alias.voiceId.substringAfter(':', alias.voiceId)
             Text(
-                text = "${alias.engine} · ${alias.voiceId}",
+                text = "$engineLabel · $voiceLabel",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

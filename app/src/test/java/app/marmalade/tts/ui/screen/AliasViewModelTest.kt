@@ -3,6 +3,8 @@ package app.marmalade.tts.ui.screen
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.install.EngineInstaller
+import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -585,7 +587,13 @@ class AliasViewModelTest {
         }
         val dao = aliasDao ?: FakeAliasDao(initial = aliases)
         val voiceDao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
-        return AliasViewModel(aliasDao = dao, voiceDao = voiceDao, settings = settings, effectDao = FakeEffectDao())
+        return AliasViewModel(
+            aliasDao = dao,
+            voiceDao = voiceDao,
+            settings = settings,
+            installer = AliasFakeInstaller(),
+            effectDao = FakeEffectDao(),
+        )
     }
 
     private fun alias(
@@ -605,4 +613,23 @@ class AliasViewModelTest {
         createdAt = createdAt,
         phonemizationLanguage = phonemizationLanguage,
     )
+}
+
+/**
+ * Test double for [EngineInstaller] — stubs out file I/O + HTTP so the VM's
+ * init-time `verify()` probe over the catalog resolves without touching disk.
+ * The alias-editor tests don't assert on the engine *picker* (they exercise
+ * save/validation), so it reports a sensible installed set and is otherwise
+ * inert. Mirrors VoicePickerViewModelTest's PickerFakeInstaller (private to
+ * that file, hence the duplicate).
+ */
+private class AliasFakeInstaller(
+    private val installedEngines: Set<String> = setOf("kitten-nano-v0_8", "kokoro-direct-v1_0"),
+) : EngineInstaller(
+    filesDir = { java.io.File("/tmp/aliasvm-test-unused") },
+    kittenEngine = { /* no-op release */ },
+    httpFetcher = { _ -> throw java.io.IOException("not used in this test") },
+) {
+    override suspend fun verify(engineName: String): InstallState =
+        if (engineName in installedEngines) InstallState.Installed else InstallState.NotInstalled
 }
