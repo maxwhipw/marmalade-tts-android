@@ -141,6 +141,14 @@ interface SpeechPlayer {
      */
     /** Returns true if the engine for [voiceId] is present + loaded. */
     suspend fun preload(voiceId: String): Boolean
+
+    /**
+     * Release every loaded engine so the next [speak]/[preload] rebuilds it.
+     * Used when a setting that's only read at engine-load time changes (the
+     * ONNX thread count) — without this, a warm engine keeps the old value
+     * until the process is killed, so the setting looks like a no-op.
+     */
+    suspend fun releaseAll()
 }
 
 /**
@@ -424,6 +432,17 @@ class Synthesizer @Inject constructor(
             Log.d(TAG, "preload($voiceId) skipped: ${t.message}")
             false
         }
+    }
+
+    override suspend fun releaseAll() = withContext(Dispatchers.IO) {
+        // Stop any active playback first, then drop every engine's loaded
+        // sessions. The next speak()/preload() reloads on demand — picking up
+        // settings (e.g. ONNX thread count) that are only read at load time.
+        cancel()
+        listOf(
+            kittenNano, kittenMini, kittenDirect, kittenDirectMini,
+            kokoroV10, kokoroV11, kokoroDirect, pocket, pocketDev, pocketEt,
+        ).forEach { runCatching { it.release() } }
     }
 
     override fun cancel() {

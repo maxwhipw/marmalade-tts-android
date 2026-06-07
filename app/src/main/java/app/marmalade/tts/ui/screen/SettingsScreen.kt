@@ -378,8 +378,8 @@ private fun PerformanceSection(
         }
     }
     Text(
-        text = "Applies on next engine load — re-open the app or switch " +
-            "voices to apply.",
+        text = "Takes effect on your next Speak — the engine reloads " +
+            "automatically when you change this.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.service.KeepaliveCoordinator
@@ -61,6 +62,7 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     appAliasMappingDao: AppAliasMappingDao,
     private val keepaliveCoordinator: KeepaliveCoordinator,
+    private val synthesizer: SpeechPlayer,
 ) : ViewModel() {
 
     /**
@@ -152,6 +154,12 @@ class SettingsViewModel @Inject constructor(
     fun setIntraOpThreads(count: Int?) {
         viewModelScope.launch {
             settings.setIntraOpThreads(count)
+            // The thread count is only read when an engine builds its ORT
+            // sessions, so a warm engine keeps the old value until the process
+            // dies. Release all engines now so the next synth reloads with the
+            // new count — otherwise the setting is a silent no-op (re-opening
+            // the app keeps the singleton/process alive).
+            synthesizer.releaseAll()
         }
     }
 

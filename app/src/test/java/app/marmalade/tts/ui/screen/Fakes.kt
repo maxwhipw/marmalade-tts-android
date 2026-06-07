@@ -76,6 +76,11 @@ internal class RecordingPlayer(
         preloadCalls += voiceId
         return preloadResult
     }
+
+    var releaseAllCount = 0
+    override suspend fun releaseAll() {
+        releaseAllCount += 1
+    }
 }
 
 /**
