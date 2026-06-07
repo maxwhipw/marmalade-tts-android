@@ -2453,21 +2453,24 @@ open class PocketEngine @Inject constructor(
         // — were all removed once the real cause was found.
 
         /**
-         * Euler integration steps for flow_lm_flow. Upstream default is
-         * 1 — LSD training collapses the diffusion trajectory into a
-         * single step. NekoSpeak ships 20.
+         * Euler integration steps for flow_lm_flow. **Upstream ships 1** —
+         * LSD (Lagrangian Self-Distillation) trains the flow to collapse the
+         * diffusion trajectory into a single step, so 1 is the quality floor,
+         * not a corner cut.
          *
-         * P-AC.D (2026-05): bumped 1 → 4. P-AC.B (trim=0) and P-AC.C
-         * (noise_clamp=3.0) both failed to eliminate the intermittent
-         * chunk-start artefact. Reviewer consensus pins frame 0's latent
-         * quality: BOS-substituted conditioning + LSD_DECODE_STEPS=1
-         * leaves a single Euler step to walk from random noise to a
-         * usable latent, which is fragile when frame 0 conditioning is
-         * itself atypical. More steps integrate flow direction more
-         * times so frame 0 lands on-manifold. Cost: ~3× more flow_lm_flow
-         * calls (small net — modest RTF hit).
+         * History: P-AC.D (2026-05) bumped 1 → 4 to mask the intermittent
+         * chunk-start artefact (frame 0's BOS-substituted conditioning + a
+         * single Euler step could land off-manifold → ~1 degraded word). BUT
+         * that artefact was later ROOT-CAUSED (P-AC/P-AL, 2026-06) to the mimi
+         * decoder not being window-invariant, and fixed properly by the P-AL
+         * segmented overlap-discard decode (shipped alpha.12). So the reason
+         * for 4 is now superseded — reverted to upstream's 1 to reclaim ~3× of
+         * the per-frame flow_lm_flow work (a real RTF win). NOTE: verify on
+         * device that chunk-start audio stays clean at 1 now that P-AL owns
+         * that glitch — if a frame-0 artefact returns, that's a separate
+         * conditioning bug to fix at the source, not a reason to re-inflate steps.
          */
-        private const val LSD_DECODE_STEPS = 4
+        private const val LSD_DECODE_STEPS = 1
 
         /** Sampling temperature for the initial noise. Python default. */
         private const val TEMPERATURE = 0.7
