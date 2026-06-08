@@ -3,6 +3,32 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.0-beta.1] — 2026-06-07
+
+First public beta — feature-complete and production-ready; held in beta
+until validated across a range of devices, then promoted to `1.0.0`.
+(Continues the `0.3.0-alpha` line; see below for earlier history.)
+
+### Changed
+- Engine names dropped the internal "Direct" label — production engines are
+  now **Kokoro (v1.0)**, **Kitten Nano (v0.8)**, **Kitten Mini (v0.8)**, and
+  **Pocket TTS**; the legacy sherpa engines are tagged "(legacy)".
+- The alias editor only offers engines you've actually installed.
+
+### Added
+- Onboarding asks for notification permission (Android 13+) so the
+  speaking / keep-warm notices can appear.
+- Debug benchmark screen shows a live device-load readout (RAM / zram / CPU
+  / thermal) and releases each engine between runs for honest numbers.
+
+### Fixed
+- Changing the ONNX thread count now takes effect on the next Speak
+  (previously a silent no-op until the app was force-stopped).
+- Cleared a stale "Tap to install" banner that lingered after switching to
+  an installed engine.
+- Pocket TTS: faster autoregressive decode (LSD Euler steps 4 → 1) at no
+  quality cost.
+
 ## [0.3.0-alpha.12] — 2026-06-04
 
 ### Fixed
