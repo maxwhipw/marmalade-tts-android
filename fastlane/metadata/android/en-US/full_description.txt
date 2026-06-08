@@ -18,9 +18,6 @@ Apply built-in audio-effect presets (such as cave, robot, and telephone) to give
 VOICE ALIASES / PERSONAS
 Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
 
-VOICE CLONING (SUPPORTED ENGINES)
-Create a custom voice from a short recording. Cloned voices are stored on-device only and never uploaded. The app asks you to confirm you have permission before cloning any voice.
-
 LONG-FORM READING
 A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
 

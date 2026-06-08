@@ -26,10 +26,6 @@ what the app does and does not do with your information.
 - **Your settings and voice choices** — voice selections, aliases /
   personas, audio-effect presets, per-app voice routing, and history
   are stored in app-private storage on the device.
-- **Cloned voices** (for engines that support voice cloning) — created
-  and stored on-device only. No recording, audio, or voice embedding
-  is ever uploaded. The cloning screen requires you to confirm you have
-  permission to clone the voice in question.
 
 ## The only data that leaves your device
 

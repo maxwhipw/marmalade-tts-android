@@ -34,23 +34,21 @@ robotic FOSS alternatives like espeak-ng. Marmalade fills the middle:
   prosody. Built on the `emojivoice` engine from the CLI — even when
   the underlying voice is monotone, a post-synthesis prosody overlay
   applies emotion based on the emoji you typed.
-- **On-device, always.** Neural voices run via Sherpa-ONNX / ONNX
-  Runtime Mobile. No network calls, ever.
-- **Voice cloning from a 5-second mic recording.** Cloned voices stay
-  on the device they were cloned on; never uploaded. Consent UX is a
-  guided screen, not a checkbox.
+- **On-device, always.** Neural voices run on ONNX Runtime, directly on
+  your phone. No network calls during synthesis, ever.
 - **Familiar concepts from the CLI.** Voice aliases (personas), per-voice
   preprocessing, audio effects, batch synthesis for long-form text.
 
-## Engines (planned)
+## Engines
 
-| Engine | Status | Notes |
+Engines install on demand — you only download the ones you want.
+
+| Engine | Voices | Notes |
 |--------|--------|-------|
-| `kitten` | v0.1 | Downloaded on demand, ~42 MB, runs on every device |
-| `emojivoice` | v0.1 | Emotion layer; ports from CLI |
-| `piper` | v0.2 | Voice store + downloader, ~70 MB per voice |
-| `kokoro` | v0.2 | High-quality multilingual |
-| `pocket` | v0.4 | Voice cloning from 5s recording |
+| Kokoro (v1.0) | 53 across 9 languages | Best all-round quality; recommended default |
+| Kitten Nano (v0.8) | 8 English | Smallest + fastest; runs on any device |
+| Kitten Mini (v0.8) | 8 English | A step up in quality from Nano |
+| Pocket TTS (English) | 8 English | The most expressive English voices |
 
 ## How engines work
 
@@ -76,7 +74,7 @@ install or uninstall engines later from Settings → Engines. The
 production-ready; held in beta until validated across a range of devices
 (via real-world use), then promoted to `1.0.0`. Working: system TTS engine
 provider, multiple on-device neural engines (Kokoro / Kitten / Pocket) via
-opt-in install, voice cloning (Pocket), the emoji prosody layer, a
+opt-in install, the emoji prosody layer, a
 composable audio-effects chain, voice aliases / personas, the share-sheet
 target, the Quick Settings tile, and a foreground media-playback service
 for long-form text.
