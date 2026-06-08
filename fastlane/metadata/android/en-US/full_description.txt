@@ -1,0 +1,34 @@
+Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. No cloud, no account, no tracking.
+
+WORKS EVERYWHERE ON YOUR DEVICE
+Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
+
+ON-DEVICE NEURAL VOICES
+Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
+
+MULTIPLE ENGINES AND VOICES
+Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
+
+EXPRESSIVE, EMOTION-AWARE SPEECH
+Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them — even when the base voice is neutral.
+
+AUDIO EFFECTS
+Apply built-in audio-effect presets (such as cave, robot, and telephone) to give spoken output character.
+
+VOICE ALIASES / PERSONAS
+Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
+
+VOICE CLONING (SUPPORTED ENGINES)
+Create a custom voice from a short recording. Cloned voices are stored on-device only and never uploaded. The app asks you to confirm you have permission before cloning any voice.
+
+LONG-FORM READING
+A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
+
+HANDY SHORTCUTS
+Share text to Marmalade from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
+
+PRIVATE BY DESIGN
+No analytics, no telemetry, no ads, no accounts, and no backend. The only network use is downloading the engine files you choose to install. See the in-app privacy policy for details.
+
+OPEN SOURCE
+Marmalade TTS is open source. The source code is MIT-licensed; the published store build links espeak-ng and is therefore distributed as a GPL-3.0 combined work, with full corresponding source available in the project repository.

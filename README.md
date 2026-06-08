@@ -4,9 +4,9 @@
   <img src="assets/mascot.png" alt="marmalade-tts-android mascot" width="220">
 </p>
 
-> **Status:** v0.1.0 shipped (debug-signed APK on
-> [GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases/tag/v0.1.0)).
-> Early development — still pre-1.0.
+> **Status:** `1.0.0-beta.1` — public beta. Feature-complete and
+> production-ready; staying in beta until it's proven across a range of
+> devices, then promoting to `1.0.0`.
 
 Native Android text-to-speech app with on-device neural voices and
 emotion-aware prosody. Registers as a system TTS engine, so every app
@@ -72,13 +72,14 @@ install or uninstall engines later from Settings → Engines. The
 
 ## Project status
 
-**v0.1.0 has shipped** as a debug-signed APK on the
-[GitHub Releases page](https://github.com/maxwhipw/marmalade-tts-android/releases/tag/v0.1.0).
-Working in this build: system TTS engine provider, the Kitten engine via
-opt-in install, the emoji prosody layer, the share-sheet target, the
-Quick Settings tile, voice aliases / personas, three audio effect presets
-(cave / robot / telephone), and a foreground media-playback service for
-long-form text.
+**`1.0.0-beta.1`** — the first public beta. Feature-complete and
+production-ready; held in beta until validated across a range of devices
+(via real-world use), then promoted to `1.0.0`. Working: system TTS engine
+provider, multiple on-device neural engines (Kokoro / Kitten / Pocket) via
+opt-in install, voice cloning (Pocket), the emoji prosody layer, a
+composable audio-effects chain, voice aliases / personas, the share-sheet
+target, the Quick Settings tile, and a foreground media-playback service
+for long-form text.
 
 Not yet: a production signing key (future releases will be release-signed
 and will require a fresh install at that point), Piper and Kokoro engines,
@@ -87,4 +88,13 @@ and automated audible / lock-screen tests. See [SPEC.md](SPEC.md) and
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**Source code: MIT** — see [LICENSE](LICENSE). Every `.kt` file stays MIT.
+
+**Store binary: GPL-3.0.** The build published to Google Play / F-Droid
+statically links espeak-ng (GPL-3.0-or-later) via the sherpa-onnx AAR,
+so the *distributed store APK as a whole* is a GPL-3.0 combined work.
+This is allowed (MIT is one-directionally GPL-compatible) and does not
+relicense the source — the corresponding source is this repository.
+
+See [NOTICE.md](NOTICE.md) for the full breakdown and the per-component
+license texts in [LICENSES/](LICENSES/).

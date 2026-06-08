@@ -9,7 +9,7 @@ and what the `INTERNET` permission is actually used for.
 - **Engine model downloads.** When you tap "Install" on an engine (in
   the onboarding wizard or Settings → Engines), the app downloads the
   engine's model files from a hostname listed in the catalog source
-  (currently: `huggingface.co` only — see
+  (currently: `github.com` only — see
   `app/src/main/java/app/marmalade/tts/install/EngineCatalog.kt`).
   Each file's SHA-256 is verified against a pinned hash before it
   lands on disk.
@@ -48,7 +48,7 @@ inline so it cannot be quietly repurposed:
   INTERNET is used exclusively for engine model downloads via
   EngineInstaller. No telemetry, no analytics, no other network use.
   See PRIVACY.md / SECURITY.md for details. The set of hosts contacted
-  is enumerated in EngineCatalog (currently: huggingface.co only).
+  is enumerated in EngineCatalog (currently: github.com only).
 -->
 <uses-permission android:name="android.permission.INTERNET" />
 ```

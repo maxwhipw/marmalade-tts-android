@@ -1,0 +1,9 @@
+1.0.0-beta.1 — first public beta. Feature-complete and production-ready; staying in beta until it's proven across more devices.
+
+- Clearer engine names: Kokoro, Kitten Nano, Kitten Mini, Pocket TTS.
+- The alias editor only lists engines you've installed.
+- Onboarding now asks for notification permission (Android 13+).
+- Pocket TTS: faster on-device decoding, cleaner long-form playback.
+- Fixes: changing the ONNX thread count now applies immediately; cleared a stuck "install" banner.
+
+Speech runs fully on-device; engines install on demand.
