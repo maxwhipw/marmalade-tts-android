@@ -461,11 +461,12 @@ class Synthesizer @Inject constructor(
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Falls back to the Kokoro v1.0 default for malformed inputs.
+     * Falls back to the recommended, release-installable Kokoro Direct
+     * engine for malformed inputs (never a release-hidden sherpa engine).
      */
     private fun engineNameFor(voiceId: String): String {
         val sep = voiceId.indexOf(':')
-        if (sep <= 0) return KokoroV10VoiceCatalog.ENGINE
+        if (sep <= 0) return KokoroDirectVoiceCatalog.ENGINE
         val name = voiceId.substring(0, sep)
         return when (name) {
             KokoroV10VoiceCatalog.ENGINE,
@@ -477,7 +478,7 @@ class Synthesizer @Inject constructor(
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE -> name
-            else -> KokoroV10VoiceCatalog.ENGINE
+            else -> KokoroDirectVoiceCatalog.ENGINE
         }
     }
 
@@ -492,7 +493,7 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev
-        else -> kokoroV10
+        else -> kokoroDirect
     }
 
     /** Route synthesis to the right engine handle. */
@@ -513,8 +514,9 @@ class Synthesizer @Inject constructor(
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: engineNameFor already narrows to known values, but
-        // the exhaustive `when` keeps the compiler honest.
-        else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
+        // the exhaustive `when` keeps the compiler honest. Fall back to the
+        // recommended, release-installable engine — not a hidden sherpa one.
+        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
     /**
@@ -539,7 +541,7 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroV10.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
     /**

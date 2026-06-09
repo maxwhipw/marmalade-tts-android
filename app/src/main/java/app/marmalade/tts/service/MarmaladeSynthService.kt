@@ -316,6 +316,7 @@ class MarmaladeSynthService : Service() {
         return when (name) {
             KokoroV10VoiceCatalog.ENGINE,
             KokoroV11VoiceCatalog.ENGINE,
+            KokoroDirectVoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
@@ -396,6 +397,7 @@ class MarmaladeSynthService : Service() {
         val engineName = when (resolved.engine) {
             KokoroV10VoiceCatalog.ENGINE,
             KokoroV11VoiceCatalog.ENGINE,
+            KokoroDirectVoiceCatalog.ENGINE,
             KittenNanoVoiceCatalog.ENGINE,
             KittenMiniVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
