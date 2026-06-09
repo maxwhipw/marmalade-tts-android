@@ -9,7 +9,6 @@ import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroV10VoiceCatalog
 import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.PocketEtVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.KittenMiniEngine
@@ -18,7 +17,6 @@ import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
-import app.marmalade.tts.engine.PocketExecuTorchDevEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
@@ -183,7 +181,6 @@ class Synthesizer @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
-    private val pocketEt: PocketExecuTorchDevEngine,
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
     private val keepaliveCoordinator: app.marmalade.tts.service.KeepaliveCoordinator,
@@ -441,7 +438,7 @@ class Synthesizer @Inject constructor(
         cancel()
         listOf(
             kittenNano, kittenMini, kittenDirect, kittenDirectMini,
-            kokoroV10, kokoroV11, kokoroDirect, pocket, pocketDev, pocketEt,
+            kokoroV10, kokoroV11, kokoroDirect, pocket, pocketDev,
         ).forEach { runCatching { it.release() } }
     }
 
@@ -479,8 +476,7 @@ class Synthesizer @Inject constructor(
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
-            PocketDevVoiceCatalog.ENGINE,
-            PocketEtVoiceCatalog.ENGINE -> name
+            PocketDevVoiceCatalog.ENGINE -> name
             else -> KokoroV10VoiceCatalog.ENGINE
         }
     }
@@ -496,7 +492,6 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev
-        PocketEtVoiceCatalog.ENGINE -> pocketEt
         else -> kokoroV10
     }
 
@@ -517,7 +512,6 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketEtVoiceCatalog.ENGINE -> pocketEt.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest.
         else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
@@ -545,7 +539,6 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketEtVoiceCatalog.ENGINE -> pocketEt.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroV10.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
