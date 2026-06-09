@@ -67,7 +67,8 @@ engine bundle contains no GPL components. Per-bundle detail is in the
 | OpenPhonemizer | GPL-free phonemizer (direct engines) | Engine bundle | BSD-3-Clause Clear |
 | Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 |
 | KittenTTS (nano/mini) | Neural voice model | Engine bundle | Apache-2.0 |
-| Pocket TTS (Kyutai) | Neural voice / cloning model | Engine bundle | Apache-2.0 |
+| Pocket TTS (Kyutai) — model code | Neural voice model (English) | Engine bundle | **MIT** |
+| Pocket TTS predefined voices (6) | Reference voice prompts | Engine bundle | CC0 / CC-BY-4.0 (per voice — see [`LICENSES/pocket-tts.md`](LICENSES/pocket-tts.md)) |
 | open_jtalk dictionary | Japanese MeCab dictionary | Engine bundle | Modified BSD |
 | AndroidX / Compose / Kotlin / Hilt / Room | App framework | APK | Apache-2.0 |
 

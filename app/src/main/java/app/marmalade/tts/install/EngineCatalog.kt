@@ -128,7 +128,11 @@ object EngineCatalog {
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 72_862_079L
     private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 94_363_897L
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 482_162_181L
-    private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 218_888_871L
+    // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
+    private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
+    // Dev/ET engines still pin the older 8-voice v10 archive (~1.6 MB larger);
+    // they are developer-only and scheduled for removal, so the small estimate
+    // drift is immaterial.
     private const val POCKET_TTS_DEV_INSTALLED_SIZE_BYTES: Long = POCKET_TTS_INSTALLED_SIZE_BYTES
     private const val POCKET_TTS_ET_INSTALLED_SIZE_BYTES: Long = POCKET_TTS_INSTALLED_SIZE_BYTES
 
@@ -363,42 +367,44 @@ object EngineCatalog {
     /**
      * Pocket TTS English v2026_04 (`pocket-tts-en-v2026_04-mixed`). Kyutai
      * Labs' Latent Space Diffusion model, run on Microsoft
-     * `onnxruntime-android` directly (no sherpa-onnx in this path). 8
-     * predefined voices plus user-cloned voices via the `mimi_encoder`
-     * pipeline.
+     * `onnxruntime-android` directly (no sherpa-onnx in this path). 6
+     * commercial-safe predefined voices (the upstream 8 minus `cosette`
+     * and `jean`, which are CC-BY-NC-4.0; see below).
      *
      * Selective quantization per upstream
      * [PR #147](https://github.com/kyutai-labs/pocket-tts/pull/147):
      * int8 only the transformer (`flow_lm_main`), keep the audio decoder
      * (`mimi_decoder`), encoder (`mimi_encoder`), flow head (`flow_lm_flow`)
      * and text conditioner at fp32. v9 of this bundle blanket-quantized
-     * everything and the result was audibly tinny; the mixed variant
-     * (v10, this entry) is the quality fix.
+     * everything and the result was audibly tinny; the mixed variant is the
+     * quality fix. The v21 bundle re-rolls the v10 mixed model with the two
+     * non-commercial voices removed.
      *
-     * Apache-2.0 throughout: model weights, runtime, and the tokenizer.
-     * No espeak dependency — Pocket does its own phonemization upstream
-     * of the ONNX export, so this is the only catalog entry whose
-     * `licenseSummary` doesn't flag GPL contamination.
+     * Licensing: the Kyutai model **code** is MIT (not Apache-2.0). Each
+     * predefined voice carries its own data license — the 6 we ship are
+     * CC0 (`javert`, `marius`) or CC-BY-4.0 (`alba`, `azelma`, `eponine`,
+     * `fantine`); attribution for the CC-BY voices is in CREDITS.md. No
+     * espeak dependency — Pocket phonemizes upstream of the ONNX export, so
+     * this is the only catalog entry without GPL contamination.
      */
     private val POCKET_TTS_EN: EngineDescriptor = EngineDescriptor(
         name = "pocket-tts-en-v2026_04",
         displayName = "Pocket TTS (English, 2026-04)",
-        description = "The most expressive English voices, and the only engine " +
-            "that can clone a voice from your own audio — 8 built-in voices. " +
+        description = "The most expressive English voices — 6 built-in voices. " +
             "English only and heavier to run than Kitten, so best on capable " +
             "phones. Kyutai Labs' model in a mixed-precision build for clean output.",
-        downloadSizeBytes = 98_264_623L,
+        downloadSizeBytes = 97_291_178L,
         installedSizeBytes = POCKET_TTS_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v10/pocket-tts-en-v2026_04-mixed.tar.bz2",
-            sha256 = "d4faf0e09e2c0f3f0f97221670e193893e5aa8f17e3812fb54ed3ef13fffc2f1",
-            sizeBytes = 98_264_623L,
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v21/pocket-tts-en-v2026_04-mixed.tar.bz2",
+            sha256 = "3a3ed2810afbae1f963f4f4e3ebde767c2d3c7c622cc544f23170f0ca755b452",
+            sizeBytes = 97_291_178L,
             archiveRoot = "pocket-tts-en/",
         ),
         licenseNotice = "LICENSES/pocket-tts.md",
-        licenseSummary = "Apache-2.0 model + MIT runtime (onnxruntime-android). " +
-            "No GPL components.",
+        licenseSummary = "MIT model code + MIT runtime (onnxruntime-android); " +
+            "voices CC0 / CC-BY-4.0. No GPL components.",
     )
 
     /**

@@ -980,12 +980,14 @@ open class EngineInstaller @Inject constructor(
 
         val voicesDir = File(dir, "voices")
         if (!voicesDir.isDirectory) return InstallState.Corrupt
-        // We need at least one voice WAV; check the eight Kyutai predefined
-        // names match what the catalog promises (PocketVoiceCatalog.voices
+        // We need at least one voice WAV; check the six commercial-safe Kyutai
+        // predefined names match what the catalog promises (PocketVoiceCatalog.voices
         // is the source of truth, but we can't depend on it from the
-        // installer module without widening the dependency graph — eight
-        // hardcoded names here mirror it).
-        val expectedVoices = listOf("alba", "azelma", "cosette", "eponine", "fantine", "javert", "jean", "marius")
+        // installer module without widening the dependency graph — six
+        // hardcoded names here mirror it). The upstream `cosette` (Expresso)
+        // and `jean` (EARS) voices are CC-BY-NC-4.0 and are not shipped, so
+        // they are deliberately absent from this list and the v21+ bundle.
+        val expectedVoices = listOf("alba", "azelma", "eponine", "fantine", "javert", "marius")
         for (name in expectedVoices) {
             val wav = File(voicesDir, "$name.wav")
             if (!wav.isFile || wav.length() == 0L) return InstallState.Corrupt
