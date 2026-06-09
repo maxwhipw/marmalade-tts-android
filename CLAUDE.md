@@ -120,7 +120,7 @@ the APK, replacing the downloaded `.so`, so espeak becomes the single
 GPL surface — satisfying Play (in-APK) and F-Droid (from-source) with one
 build. The repo stays MIT; the distributed binary stays GPL-3.0-or-later.)
 The **engine bundles** (downloaded after user opt-in into
-`${filesDir}/engines/`) include GPL-3.0 components (espeak-ng).
+`${filesDir}/engines/`) include GPL-3.0-or-later components (espeak-ng).
 
 The KittenDirect engine (alpha.9, May 2026) made this posture explicit:
 a tiny C JNI shim in the APK does `dlopen`/`dlsym` against

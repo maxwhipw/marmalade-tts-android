@@ -32,7 +32,7 @@ Three upstream projects contribute to the downloaded bundle:
 
 - **Files:** everything under `${filesDir}/engines/kokoro/espeak-ng-data/`
 - **Upstream:** https://github.com/espeak-ng/espeak-ng
-- **License:** GNU General Public License v3.0
+- **License:** GNU General Public License v3.0 or later
 - **Notice:** Copyright (c) The espeak-ng authors. The `espeak-ng-data`
   tree is part of the espeak-ng distribution. The Kokoro engine requires
   it at runtime because the phonemizer compiled into `libsherpa-onnx.so`

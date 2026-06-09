@@ -50,7 +50,7 @@ have, made explicit and isolated to one engine.
 - **Source:** Binaries lifted from espeak-ng's official Android APK
   (release 1.52.0, `espeak-1.52.0-signed.apk`); data from upstream
   Debian package `espeak-ng-data 1.51+dfsg-12build1`.
-- **License:** GNU General Public License v3.0
+- **License:** GNU General Public License v3.0 or later
 - **Notice:** Copyright (c) The espeak-ng authors. Used in sentence
   mode (`espeak_TextToPhonemes` with `phonememode = IPA`).
 - **Source availability:** Per GPL-3.0 §6, the corresponding source

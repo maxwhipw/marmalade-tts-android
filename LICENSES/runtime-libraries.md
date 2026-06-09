@@ -21,22 +21,12 @@ the other files in this folder). Versions are authoritative in
 - **Upstream:** https://github.com/k2-fsa/sherpa-onnx
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) k2-fsa / sherpa-onnx contributors.
-- **GPL flag:** The vendored AAR statically links espeak-ng (GPL-3.0)
-  for phonemization. Builds that include the sherpa engines therefore
-  link GPL-3.0 code. See `kitten-tts.md` / `kokoro-tts.md` and the
-  store-build note in `../NOTICE.md`.
+- **GPL flag:** The vendored AAR statically links espeak-ng
+  (GPL-3.0-or-later) for phonemization. Builds that include the sherpa
+  engines therefore link GPL-3.0-or-later code. See `kitten-tts.md` /
+  `kokoro-tts.md` and the store-build note in `../NOTICE.md`.
 
-## 3. ExecuTorch — org.pytorch:executorch-android (DEV ONLY)
-
-- **Role:** Experimental long-term inference stack (fp16 + KleidiAI on
-  ARM), used by the in-progress PocketExecuTorch dev engine for
-  on-device A/B comparison. Not part of the shipped user-facing engine
-  set.
-- **Upstream:** https://github.com/pytorch/executorch
-- **License:** BSD-3-Clause
-- **Notice:** Copyright (c) Meta Platforms, Inc. and affiliates.
-
-## 4. Apache Commons Compress — org.apache.commons:commons-compress
+## 3. Apache Commons Compress — org.apache.commons:commons-compress
 
 - **Role:** Streams engine-bundle downloads through
   BZip2CompressorInputStream + TarArchiveInputStream during install.
@@ -44,14 +34,14 @@ the other files in this folder). Versions are authoritative in
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) The Apache Software Foundation.
 
-## 5. espeak-ng (standalone reference)
+## 4. espeak-ng (standalone reference)
 
 espeak-ng is **GPL-3.0-or-later**. It reaches the distributed binary by
 two paths:
 
 1. **Store build:** statically linked inside the vendored sherpa-onnx
-   AAR (path 2 above), making the **distributed store APK a GPL-3.0
-   combined work**. See `../NOTICE.md`.
+   AAR (path 2 above), making the **distributed store APK a
+   GPL-3.0-or-later combined work**. See `../NOTICE.md`.
 2. **"-direct" engine bundles:** shipped as `libttsespeak.so` inside
    user-downloaded bundles and `dlopen`'d at runtime by the MIT JNI
    shim (`app/src/main/cpp/espeak_jni.c`), which contains zero espeak

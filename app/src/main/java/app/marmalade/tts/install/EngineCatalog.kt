@@ -437,8 +437,8 @@ object EngineCatalog {
             archiveRoot = "pocket-tts-en/",
         ),
         licenseNotice = "LICENSES/pocket-tts.md",
-        licenseSummary = "Apache-2.0 model + MIT runtime. Diagnostic build — same " +
-            "bundle as Pocket TTS.",
+        licenseSummary = "MIT model code + MIT runtime; voices CC0 / CC-BY-4.0. " +
+            "Diagnostic build — same bundle as Pocket TTS.",
     )
 
     /**

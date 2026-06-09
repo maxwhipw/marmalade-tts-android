@@ -88,9 +88,10 @@ automated audible / lock-screen tests. See [SPEC.md](SPEC.md) and
 
 **Source code: MIT** — see [LICENSE](LICENSE). Every `.kt` file stays MIT.
 
-**Store binary: GPL-3.0.** The build published to Google Play / F-Droid
-statically links espeak-ng (GPL-3.0-or-later) via the sherpa-onnx AAR,
-so the *distributed store APK as a whole* is a GPL-3.0 combined work.
+**Store binary: GPL-3.0-or-later.** The build published to Google Play /
+F-Droid statically links espeak-ng (GPL-3.0-or-later) via the sherpa-onnx
+AAR, so the *distributed store APK as a whole* is a GPL-3.0-or-later
+combined work.
 This is allowed (MIT is one-directionally GPL-compatible) and does not
 relicense the source — the corresponding source is this repository.
 

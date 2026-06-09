@@ -24,7 +24,7 @@ This is permitted and does **not** relicense Marmalade's source:
 - The MIT license is one-directionally compatible with the GPL — MIT
   code may be combined into a GPL work.
 - The source code itself remains MIT-licensed. Only the *assembled
-  store binary* is a GPL-3.0 combined work.
+  store binary* is a GPL-3.0-or-later combined work.
 - Anyone may take the MIT source and build a binary without espeak-ng
   (e.g. using only the GPL-free Pocket engine path), which would not be
   a GPL combined work.
@@ -61,8 +61,8 @@ The default APK bundles **no neural model files**. Engines and their
 phonemizer assets are downloaded on opt-in from
 **https://github.com/maxwhipw/marmalade-tts-android-engines/releases**
 into app-private storage. Some bundles include espeak-ng (`libttsespeak.so`)
-and are themselves GPL-3.0 combined works *as assembled on the user's
-device*; the install screen discloses this before download. The Pocket
+and are themselves GPL-3.0-or-later combined works *as assembled on the
+user's device*; the install screen discloses this before download. The Pocket
 engine bundle contains no GPL components. Per-bundle detail is in the
 [`LICENSES/`](LICENSES/) folder.
 

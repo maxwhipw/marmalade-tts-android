@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 // (open_jtalk_dic_utf_8-1.11) ships in the engine bundle.
 //
 // This produces the NJD features — kanji→kana reading, mora segmentation,
-// pitch accent — that [app.marmalade.tts.phonemizer.MisakiJaG2P] turns into
+// pitch accent — that [app.marmalade.tts.phonemizer.CutletJaG2P] turns into
 // Kokoro's IPA + pitch-marker token string. It's the exact frontend
 // pyopenjtalk wraps, which is what hexgrad trained Kokoro's Japanese voices on.
 //
@@ -30,7 +30,7 @@ private const val TAG = "OpenJtalkPhonemizer"
  * @property string  surface form as it appeared in the input (kanji/kana/mixed)
  * @property read    yomi — the full katakana reading (kanji resolved)
  * @property pron    hatsuon — pronunciation katakana with diacritics: `ー`
- *                   (long vowel), `’` (devoiced), etc. This is what MisakiJaG2P
+ *                   (long vowel), `’` (devoiced), etc. This is what CutletJaG2P
  *                   maps to IPA.
  * @property acc     accent nucleus — the mora index where pitch falls. 0 means
  *                   heiban (no fall / flat-high after the first mora).

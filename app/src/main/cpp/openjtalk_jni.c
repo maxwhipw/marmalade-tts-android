@@ -20,7 +20,7 @@
 //   njd_set_unvoiced_vowel → njd_set_long_vowel → walk NJD nodes
 //
 // Per-node we hand Kotlin: string, read, pron, acc, mora_size, chain_flag, pos.
-// MisakiJaG2P.kt (Kotlin) maps the katakana `pron` + `acc` to Kokoro's IPA +
+// CutletJaG2P.kt (Kotlin) maps the katakana `pron` + `acc` to Kokoro's IPA +
 // pitch markers.
 //
 // Threading: Open JTalk's Mecab/NJD state is per-instance but we keep a single
