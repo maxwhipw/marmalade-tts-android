@@ -30,18 +30,15 @@ This app:
   on disk — a poisoned mirror cannot substitute model weights without
   the verifier rejecting them. See [PRIVACY.md](PRIVACY.md) for the
   user-facing summary.
-- (v0.3+) May expose a local HTTP API on Wi-Fi. See
-  [SPEC.md](SPEC.md) "Security" for the deployment rules — off by
-  default, loopback when enabled, pairing-based auth, no write
-  endpoints, no cloning over the wire.
-- (v0.4+) Voice cloning. Cloned voices stay on device, stored
-  encrypted at rest in app-private storage. Cloning is never exposed
-  via any inter-process or network surface.
+- The app exposes **no** HTTP/network API of any kind — there is no
+  server (loopback or otherwise). All processing is in-process and
+  on-device; the only outbound network use is the engine downloads
+  described above.
+- Voice cloning is **not shipped** in this release (no cloning UI).
 
 ## Scope
 
 - The Android app itself
-- Any HTTP API endpoints shipped post-v0.3
 - The system TTS service registration
 
 Not in scope (report upstream):

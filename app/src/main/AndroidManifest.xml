@@ -33,7 +33,8 @@
       INTERNET is used exclusively for engine model downloads via
       EngineInstaller. No telemetry, no analytics, no other network use.
       See PRIVACY.md / SECURITY.md for details. The set of hosts contacted
-      is enumerated in EngineCatalog (currently: huggingface.co only).
+      is enumerated in EngineCatalog (currently: the GitHub Releases of
+      github.com/maxwhipw/marmalade-tts-android-engines only).
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 

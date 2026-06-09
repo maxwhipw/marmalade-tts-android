@@ -13,7 +13,6 @@ Marmalade TTS 1.0.0 — the first stable release.
 - System-wide on-device text-to-speech: use Marmalade as your Android TTS engine across every app.
 - Multiple neural engines and voices, installed on demand. Nothing ships in the APK until you choose it.
 - Emoji-driven emotional prosody, audio-effect presets, and saved voice personas.
-- Voice cloning on supported engines, fully on-device.
 - Long-form reading with lock-screen controls; share-sheet, read-selection, and Quick Settings shortcuts.
 
 Private by design: no analytics, no ads, no accounts, no cloud.

@@ -38,8 +38,7 @@ Aim for shots that show what makes Marmalade distinctive:
 4. Voice aliases / personas screen.
 5. Audio-effect presets.
 6. Emoji-driven prosody in action (text with emoji + speak).
-7. Voice-cloning consent screen (shows the privacy posture).
-8. Quick Settings tile or share-sheet target.
+7. Quick Settings tile or share-sheet target.
 
 ## Notes
 

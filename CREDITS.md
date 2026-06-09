@@ -41,8 +41,8 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
   text-analysis frontend, vendored from source and compiled in (BSD-3 /
   Modified BSD). The Kotlin G2P that drives it is informed by **r9y9**'s
   `pyopenjtalk` and the **misaki** Japanese frontend.
-- **misaki** / **cutlet** — Japanese G2P; our `MisakiJaG2P` is a
-  clean-room Kotlin port of the misaki approach (upstream MIT).
+- **misaki** / **cutlet** — Japanese G2P; our `CutletJaG2P` is a
+  clean-room Kotlin port of the cutlet/misaki approach (upstream MIT).
 - **OpenPhonemizer** — BSD-3-Clause-Clear English phonemizer; the basis
   for our clean-room Kotlin port used by the GPL-free path.
 - **pypinyin** — Mandarin pinyin conventions informing the `lexicon-zh`

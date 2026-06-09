@@ -19,10 +19,13 @@ The acoustic engine is downloaded from
 The JNI shim (`app/src/main/cpp/espeak_jni.c`) links no espeak code at
 build time — it only uses `dlopen()`/`dlsym()` to look up espeak's C
 API at runtime, from the path provided by Kotlin (which points into
-the user-downloaded bundle). The result is that the APK shipped on
-Google Play / F-Droid / direct download contains no GPL code and is
-MIT-licensed in its entirety. The user assembles the GPL combination
-on their device by accepting the engine install.
+the user-downloaded bundle). So *this engine's* espeak combination is
+assembled on the user's device when they accept the engine install.
+Note, however, that the **distributed APK as a whole is a
+GPL-3.0-or-later combined work** — the vendored sherpa-onnx AAR
+statically links espeak inside `libsherpa-onnx-jni.so`, which ships in
+every release build. The source repo stays MIT. See
+[`../NOTICE.md`](../NOTICE.md) for the whole-APK license.
 
 This is the same legal posture sherpa-onnx Kitten / Kokoro already
 have, made explicit and isolated to one engine.
@@ -71,5 +74,6 @@ binaries. The install screen discloses this before download. Users
 who don't want GPL components can stay on the MIT-only Pocket TTS
 engine, or refrain from installing Kitten Direct.
 
-The Marmalade APK itself, as distributed via Google Play / F-Droid /
-direct download, contains no GPL code and is fully MIT-licensed.
+The Marmalade **source** is MIT, but the **distributed APK** (Google
+Play / F-Droid / direct download) is a GPL-3.0-or-later combined work,
+because it links espeak-ng. See [`../NOTICE.md`](../NOTICE.md).

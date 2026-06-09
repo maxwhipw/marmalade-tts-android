@@ -48,7 +48,7 @@ Engines install on demand — you only download the ones you want.
 | Kokoro (v1.0) | 53 across 9 languages | Best all-round quality; recommended default |
 | Kitten Nano (v0.8) | 8 English | Smallest + fastest; runs on any device |
 | Kitten Mini (v0.8) | 8 English | A step up in quality from Nano |
-| Pocket TTS (English) | 8 English | The most expressive English voices |
+| Pocket TTS (English) | 6 English | The most expressive English voices |
 
 ## How engines work
 
@@ -80,8 +80,8 @@ target, the Quick Settings tile, and a foreground media-playback service
 for long-form text.
 
 Not yet: a production signing key (future releases will be release-signed
-and will require a fresh install at that point), Piper and Kokoro engines,
-and automated audible / lock-screen tests. See [SPEC.md](SPEC.md) and
+and will require a fresh install at that point), a Piper engine, and
+automated audible / lock-screen tests. See [SPEC.md](SPEC.md) and
 [ROADMAP.md](ROADMAP.md) for the full v0.1 → v1.0 plan.
 
 ## License

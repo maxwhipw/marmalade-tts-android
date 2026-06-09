@@ -11,7 +11,7 @@ The Marmalade source code in this repository is licensed under the
 shims, and the build configuration are MIT. This is unchanged by
 anything below.
 
-## Distributed store binary: GPL-3.0 combined work
+## Distributed binary: GPL-3.0-or-later combined work
 
 The **store build** (the APK published to Google Play and F-Droid)
 statically links **espeak-ng**, which is licensed under
@@ -41,6 +41,20 @@ available from its upstream project:
 
 > **https://github.com/espeak-ng/espeak-ng**
 
+The shipped espeak-ng binary derives from espeak-ng **1.52.0**. ⚠️ The
+`espeak-ng-data` currently bundled derives from a different upstream
+revision (Debian `1.51+dfsg`); the planned from-source espeak build will
+compile both the library and its data from a single pinned commit, which
+this notice will then cite exactly (GPL-3.0 requires the corresponding
+source to match the exact version conveyed).
+
+## Full license texts
+
+Verbatim copies of the licenses referenced here are in
+[`LICENSES/full-texts/`](LICENSES/full-texts/): **GPL-3.0**, **Apache-2.0**,
+**BSD-3-Clause**, and **CC-BY-4.0**. (An in-app "Open-source licenses"
+screen is planned so these are reachable from the running app as well.)
+
 ## On-demand engine bundles
 
 The default APK bundles **no neural model files**. Engines and their
@@ -60,7 +74,6 @@ engine bundle contains no GPL components. Per-bundle detail is in the
 | espeak-ng | Phonemizer (English/multi) | Store APK (linked via sherpa AAR) + some engine bundles | **GPL-3.0-or-later** |
 | sherpa-onnx | Legacy inference + packaging | APK (vendored AAR) | Apache-2.0 |
 | ONNX Runtime Mobile | Inference runtime (direct engines) | APK | MIT |
-| ExecuTorch | Experimental inference (dev only) | APK | BSD-3-Clause |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
 | Open JTalk + MeCab | Japanese phonemizer frontend | APK (compiled in) | BSD-3-Clause |
 | misaki / cutlet (port) | Japanese G2P tables (clean-room Kotlin port) | APK (source) | MIT |
