@@ -30,13 +30,23 @@ android {
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
 
         // CMake build for our espeak JNI shim. The shim does dlopen() of
-        // libttsespeak.so from the engine bundle at runtime — espeak's
-        // GPL'd code stays in the (user-downloaded) bundle, not the APK,
-        // so the APK keeps its MIT license. See cpp/espeak_jni.c.
+        // libttsespeak.so from the engine bundle at runtime, so *this shim*
+        // links no espeak at build time. The distributed APK is still a
+        // GPL-3.0-or-later combined work (the sherpa AAR statically links
+        // espeak); the source repo stays MIT. See cpp/espeak_jni.c + NOTICE.md.
         externalNativeBuild {
             cmake {
                 cppFlags += ""
-                arguments += listOf("-DANDROID_STL=c++_static")
+                // 16 KB page-size compliance (required by Google Play for apps
+                // targeting SDK 35+ submitted/updated after 2025-11-01). NDK
+                // 26.3 (r26) does NOT align to 16 KB by default — that only
+                // landed in r28 — so we force it via the linker. Affects this
+                // project's own JNI libs (espeak-jni, openjtalk-jni). Verify the
+                // produced .so with `readelf -lW` → LOAD segments at 0x4000.
+                arguments += listOf(
+                    "-DANDROID_STL=c++_static",
+                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",
+                )
             }
         }
     }
