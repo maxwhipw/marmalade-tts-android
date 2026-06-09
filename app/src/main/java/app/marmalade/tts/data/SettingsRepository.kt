@@ -43,10 +43,10 @@ import kotlinx.coroutines.flow.map
  * Keeping these in DataStore (instead of Room) matches the SPEC's split:
  * Room for content (voices, aliases, history), DataStore for preferences.
  *
- * The fallback voice — `kitten:Bella` — is the documented default in
- * [KittenNanoVoiceCatalog.DEFAULT_VOICE_ID]. We don't seed DataStore on first
- * launch; the Flow's map applies the fallback transparently until the
- * user picks something explicit.
+ * The fallback voice is [KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID]
+ * (`kokoro-direct-v1_0:af_bella`) — the recommended, release-installable
+ * default. We don't seed DataStore on first launch; the Flow's map applies
+ * the fallback transparently until the user picks something explicit.
  */
 @Singleton
 open class SettingsRepository @Inject constructor(
@@ -54,7 +54,7 @@ open class SettingsRepository @Inject constructor(
 ) {
     /**
      * Emits the persisted default voice ID, falling back to
-     * [KittenNanoVoiceCatalog.DEFAULT_VOICE_ID] when nothing is stored.
+     * [KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID] when nothing is stored.
      *
      * Cold Flow — every collector triggers a fresh read; downstream
      * `stateIn(...)` in ViewModels caches the latest value.
@@ -64,7 +64,12 @@ open class SettingsRepository @Inject constructor(
      * the open modifier — final isn't required for `@Inject` providers.)
      */
     open val defaultVoiceId: Flow<String> = dataStore.data.map { prefs ->
-        prefs[KEY_DEFAULT_VOICE_ID] ?: KittenNanoVoiceCatalog.DEFAULT_VOICE_ID
+        // Default to the recommended, release-visible engine. The old default
+        // (Kitten Nano) is a sherpa engine hidden in release builds, so a fresh
+        // release user could never install it — leaving the default pointing at
+        // an un-installable engine. Kokoro Direct is the onboarding-preselected
+        // default and is always visible.
+        prefs[KEY_DEFAULT_VOICE_ID] ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
     }
 
     /**

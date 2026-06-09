@@ -134,13 +134,15 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_happyPath_callOrderIsStartAudioAvailableDone() {
-        // No voiceName on the request → service defaults to the
-        // recommended engine (kokoro). Seed the kokoro fake with PCM.
+        // Explicit kokoro voice → routes to the kokoro engine. (The no-voice
+        // default now resolves to kokoro-direct — covered by
+        // SettingsRepositoryTest; here we want the already-wired kokoroV10
+        // fake to assert the synth call order.) Seed the kokoro fake with PCM.
         val sampleCount = 48_000
         fakeKokoroV10Engine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
 
         val callback = FakeSynthesisCallback()
-        val request = newRequest("hello world")
+        val request = newRequestWithVoice("hello world", "kokoro-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -178,12 +180,12 @@ class MarmaladeTtsServiceTest {
 
         // The kokoro fake was hit; kitten fake was not.
         assertEquals(
-            "Default voice should route to the kokoro engine",
+            "kokoro voice should route to the kokoro engine",
             1,
             fakeKokoroV10Engine.calls.size,
         )
         assertEquals(
-            "Default voice should NOT touch the kitten engine",
+            "kokoro voice should NOT touch the kitten engine",
             0,
             fakeEngine.calls.size,
         )
@@ -193,11 +195,11 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_engineNotInstalled_callsErrorExactlyOnce() {
-        // Default voice → kokoro engine. Configure that fake to throw.
+        // Explicit kokoro voice → kokoro engine. Configure that fake to throw.
         fakeKokoroV10Engine.synthesizeException = EngineNotInstalledException("kokoro-v1_0")
 
         val callback = FakeSynthesisCallback()
-        val request = newRequest("hello world")
+        val request = newRequestWithVoice("hello world", "kokoro-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -221,14 +223,14 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_audioChunkingRespectsMaxBufferSize() {
-        // Default voice → kokoro engine.
+        // Explicit kokoro voice → kokoro engine.
         val sampleCount = 100_000
         val expectedBytes = sampleCount * 2 // PCM16
         fakeKokoroV10Engine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
 
         val maxBuf = 8192
         val callback = FakeSynthesisCallback(maxBufferSize = maxBuf)
-        val request = newRequest("a longer sentence to synthesize")
+        val request = newRequestWithVoice("a longer sentence to synthesize", "kokoro-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -342,16 +344,6 @@ class MarmaladeTtsServiceTest {
     // ----------------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------------
-
-    private fun newRequest(text: String): SynthesisRequest {
-        // Public ctor (String, Bundle) is API 28+; the project's minSdk is 28
-        // (see app/build.gradle.kts). voiceName is null on this path, so the
-        // service falls back to KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
-        // (Kokoro became the recommended-default engine in v0.1.9).
-        val req = SynthesisRequest(text, Bundle())
-        assertNotNull(req)
-        return req
-    }
 
     /**
      * Build a SynthesisRequest that has [voiceName] set on it. The

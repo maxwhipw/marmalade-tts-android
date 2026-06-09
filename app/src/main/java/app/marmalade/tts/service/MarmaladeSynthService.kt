@@ -273,7 +273,7 @@ class MarmaladeSynthService : Service() {
         // ':'); the explicit EXTRA_ENGINE wins if present so legacy
         // callers that send engine without voice still work.
         val explicitEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
-        val voice = explicitVoice ?: KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
+        val voice = explicitVoice ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         val engineName = explicitEngine ?: engineFromVoiceId(voice)
         val speed = if (intent.hasExtra(EXTRA_SPEED)) {
             intent.getFloatExtra(EXTRA_SPEED, 1.0f)
@@ -797,10 +797,11 @@ class MarmaladeSynthService : Service() {
 
         /**
          * Default engine when [EXTRA_ENGINE] is not provided AND [EXTRA_VOICE]
-         * doesn't disambiguate. Kokoro is the recommended-default engine
-         * starting v0.1.9 — matches `EngineCatalog.KOKORO.isRecommended`.
+         * doesn't disambiguate. Kokoro Direct is the recommended-default engine
+         * (matches `EngineCatalog.KOKORO_DIRECT.isRecommended`) and, unlike the
+         * legacy sherpa `kokoro-v1_0`, is visible/installable in release builds.
          */
-        const val DEFAULT_ENGINE: String = "kokoro-v1_0"
+        const val DEFAULT_ENGINE: String = "kokoro-direct-v1_0"
 
         // -- public intent contract --------------------------------------------
         const val ACTION_SPEAK: String = "app.marmalade.tts.action.SPEAK"

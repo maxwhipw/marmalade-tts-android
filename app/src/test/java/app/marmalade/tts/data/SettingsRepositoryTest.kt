@@ -46,10 +46,12 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun defaultValueFallsBackToBellaWhenUnset() = runTest {
+    fun defaultValueFallsBackToKokoroDirectWhenUnset() = runTest {
         val repo = newRepo()
-        // Nothing written yet → fallback to the catalog default.
-        assertEquals(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
+        // Nothing written yet → fallback to the catalog default. Must be the
+        // recommended, release-installable engine (Kokoro Direct) — NOT a
+        // developer-only sherpa engine a release user can't install.
+        assertEquals(KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
     }
 
     @Test

@@ -1178,7 +1178,14 @@ open class PocketEngine @Inject constructor(
 
     override fun release() {
         try {
-            releaseInternal()
+            // Guard with loadLock so a concurrent load can't be mid-flight while
+            // we null + close() the ONNX sessions — without it, an engine
+            // uninstall firing during a Pocket synth/load could close a session
+            // another thread is about to run() → native SIGSEGV. Mirrors
+            // KokoroDirectEngine / KittenDirectEngine.release().
+            kotlinx.coroutines.runBlocking {
+                loadLock.withLock { releaseInternal() }
+            }
         } catch (t: Throwable) {
             Log.w(TAG, "release() ignored failure: ${t.message}")
         }

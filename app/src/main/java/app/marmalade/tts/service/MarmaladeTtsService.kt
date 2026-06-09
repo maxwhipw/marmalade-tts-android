@@ -344,7 +344,10 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (onIsLanguageAvailable(lang, country, variant)
             != TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
+            // Kokoro Direct is the recommended, release-installable default; the
+            // legacy sherpa kokoro-v1_0 is hidden in release so it can't be the
+            // default voice a system-TTS caller resolves to.
+            KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         } else {
             ""
         }
@@ -537,7 +540,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // 4. Absolute fallback — the engine's default voice with
         // unchanged speed and no effect. Matches v0.1.10 behaviour.
         return SynthParams(
-            voiceId = KokoroV10VoiceCatalog.DEFAULT_VOICE_ID,
+            voiceId = KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
             effectBlocks = emptyList(),
         )
