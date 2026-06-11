@@ -65,9 +65,11 @@ This attribution is also recorded in [`../CREDITS.md`](../CREDITS.md).
 - **File:** `tokenizer.model`
 - **Upstream:** ships with the Pocket TTS export; trained alongside the
   model on the same data
-- **License:** MIT (inherited from Pocket TTS). The SentencePiece
-  library itself (used at runtime by our code, not by the bundle) is
-  Apache-2.0 separately — https://github.com/google/sentencepiece.
+- **License:** MIT (inherited from Pocket TTS). Marmalade does **not**
+  depend on the SentencePiece library — `PocketTokenizer` is a pure-Kotlin
+  reimplementation of the SentencePiece Unigram decode. SentencePiece
+  (Apache-2.0, https://github.com/google/sentencepiece) is referenced only
+  for the `tokenizer.model` file format.
 
 ## ONNX export tooling — KevinAHM/pocket-tts-onnx
 

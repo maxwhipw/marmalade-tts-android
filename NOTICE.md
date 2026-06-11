@@ -11,39 +11,32 @@ The Marmalade source code in this repository is licensed under the
 shims, and the build configuration are MIT. This is unchanged by
 anything below.
 
-## Distributed binary: GPL-3.0-or-later combined work
+## Distributed binary: MIT (no GPL in the APK)
 
 The **store build** (the APK published to Google Play and F-Droid)
-statically links **espeak-ng**, which is licensed under
-**GPL-3.0-or-later**, via the vendored sherpa-onnx AAR. Linking GPL
-code into the binary makes the **distributed store APK as a whole a
-combined work governed by GPL-3.0-or-later**.
-
-This is permitted and does **not** relicense Marmalade's source:
-
-- The MIT license is one-directionally compatible with the GPL — MIT
-  code may be combined into a GPL work.
-- The source code itself remains MIT-licensed. Only the *assembled
-  store binary* is a GPL-3.0-or-later combined work.
-- Anyone may take the MIT source and build a binary without espeak-ng
-  (e.g. using only the GPL-free Pocket engine path), which would not be
-  a GPL combined work.
-
-### Corresponding source (GPL-3.0 §3 / §6)
-
-The complete corresponding source for the store binary is this
+contains only MIT-, Apache-2.0-, and BSD-licensed code. **No GPL code is
+linked into or shipped inside the APK.** Source for the binary is this
 repository:
 
 > **https://github.com/maxwhipw/marmalade-tts-android**
 
-Corresponding source for the espeak-ng component specifically is
-available from its upstream project:
+**espeak-ng (GPL-3.0-or-later)** reaches the device only inside optional
+engine bundles the user chooses to download (see "On-demand engine
+bundles" below). The APK's espeak JNI shim contains zero espeak code —
+it resolves espeak's C API at runtime via `dlopen()`, so the GPL
+combination is assembled in app-private storage on the user's device
+when they accept the engine install.
+
+### espeak-ng corresponding source (GPL-3.0 §6, engine bundles)
+
+Corresponding source for the espeak-ng binary shipped in the engine
+bundles:
 
 > **https://github.com/espeak-ng/espeak-ng**
 
-The shipped espeak-ng binary derives from espeak-ng **1.52.0**. ⚠️ The
+The bundled espeak-ng binary derives from espeak-ng **1.52.0**. ⚠️ The
 `espeak-ng-data` currently bundled derives from a different upstream
-revision (Debian `1.51+dfsg`); the planned from-source espeak build will
+revision (Debian `1.51+dfsg`); a future from-source espeak build will
 compile both the library and its data from a single pinned commit, which
 this notice will then cite exactly (GPL-3.0 requires the corresponding
 source to match the exact version conveyed).
@@ -52,8 +45,15 @@ source to match the exact version conveyed).
 
 Verbatim copies of the licenses referenced here are in
 [`LICENSES/full-texts/`](LICENSES/full-texts/): **GPL-3.0**, **Apache-2.0**,
-**BSD-3-Clause**, and **CC-BY-4.0**. (An in-app "Open-source licenses"
-screen is planned so these are reachable from the running app as well.)
+**BSD-3-Clause**, **CC-BY-4.0**, **CC-BY-SA-4.0**, and **CC0-1.0**. The running app surfaces a per-component
+breakdown under **Settings → About → Open-source licenses**, with the full
+license text reachable for each component. License texts that embed the
+licensor's copyright (MIT, BSD) ship **per component with the correct holder**
+— the verbatim Open JTalk / MeCab `COPYING`, and the standard MIT body with
+each project's own copyright line (Marmalade, ONNX Runtime / Microsoft, Pocket
+/ Kyutai). The standalone bodies that carry no embedded licensor copyright
+(GPL-3.0, Apache-2.0, CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0) are shared, with
+attribution shown per component. All in-app texts are bundled in the APK under `assets/licenses/`.
 
 ## On-demand engine bundles
 
@@ -71,18 +71,17 @@ engine bundle contains no GPL components. Per-bundle detail is in the
 | Component | Role | Where it ships | License |
 |---|---|---|---|
 | Marmalade app code | The app | APK (source) | **MIT** |
-| espeak-ng | Phonemizer (English/multi) | Store APK (linked via sherpa AAR) + some engine bundles | **GPL-3.0-or-later** |
-| sherpa-onnx | Legacy inference + packaging | APK (vendored AAR) | Apache-2.0 |
-| ONNX Runtime Mobile | Inference runtime (direct engines) | APK | MIT |
+| espeak-ng | Phonemizer (English/multi) | Engine bundles (opt-in download) | **GPL-3.0-or-later** |
+| ONNX Runtime Mobile | Inference runtime | APK | MIT |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
 | Open JTalk + MeCab | Japanese phonemizer frontend | APK (compiled in) | BSD-3-Clause |
 | misaki / cutlet (port) | Japanese G2P tables (clean-room Kotlin port) | APK (source) | MIT |
-| OpenPhonemizer | GPL-free phonemizer (direct engines) | Engine bundle | BSD-3-Clause Clear |
 | Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 |
 | KittenTTS (nano/mini) | Neural voice model | Engine bundle | Apache-2.0 |
 | Pocket TTS (Kyutai) — model code | Neural voice model (English) | Engine bundle | **MIT** |
 | Pocket TTS predefined voices (6) | Reference voice prompts | Engine bundle | CC0 / CC-BY-4.0 (per voice — see [`LICENSES/pocket-tts.md`](LICENSES/pocket-tts.md)) |
 | open_jtalk dictionary | Japanese MeCab dictionary | Engine bundle | Modified BSD |
+| lexicon-zh (Mandarin G2P) | Han→IPA Mandarin lexicon | Engine bundle | **CC-BY-SA-4.0** (CC-CEDICT-derived via pypinyin — see [`LICENSES/kokoro-direct.md`](LICENSES/kokoro-direct.md)) |
 | AndroidX / Compose / Kotlin / Hilt / Room | App framework | APK | Apache-2.0 |
 
 Full per-component notices, file lists, and upstream URLs are in

@@ -42,7 +42,7 @@ This app:
 - The system TTS service registration
 
 Not in scope (report upstream):
-- Sherpa-ONNX / ONNX Runtime Mobile bugs
+- ONNX Runtime Mobile bugs
 - Bugs in voice model files distributed by upstream engine maintainers
 - The marmalade-tts CLI (separate repo — report at
   https://github.com/maxwhipw/marmalade-tts/security/advisories/new)

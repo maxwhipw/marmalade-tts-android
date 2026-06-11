@@ -14,7 +14,7 @@ model files.
 | **Kokoro-82M v1.0** (`model.onnx`, `voices.bin`) | Neural voice model, 53 voices / 9 languages | **Apache-2.0** (hexgrad/Kokoro-82M) |
 | **espeak-ng** (`libttsespeak.so` + `espeak-ng-data`) | Grapheme→phoneme for English + European languages | **GPL-3.0-or-later** |
 | **Open JTalk dictionary** (NAIST/`open_jtalk_dic`) | Japanese text-analysis dictionary | **Modified BSD** |
-| **lexicon-zh** (`lexicon-zh.txt`, pinyin tables) | Mandarin pinyin lexicon | derived from **pypinyin** (MIT) + CC-CEDICT |
+| **lexicon-zh** (`lexicon-zh.txt`) | Mandarin Han→IPA lexicon | **CC-BY-SA-4.0** (pinyin data is CC-CEDICT-derived via pypinyin — see note) |
 
 The Japanese **Open JTalk / MeCab** frontend itself is compiled into the
 APK from vendored BSD-3 source (`app/src/main/cpp/openjtalk/`) — see
@@ -28,11 +28,9 @@ espeak code at build time — it `dlopen()`s `libttsespeak.so` from the
 downloaded bundle, so *this engine's* espeak combination is assembled on
 the user's device on install.
 
-Independently, the **distributed APK as a whole is a GPL-3.0-or-later
-combined work** (the vendored sherpa-onnx AAR statically links espeak in
-every release build). The Marmalade **source** stays MIT. See
-[`../NOTICE.md`](../NOTICE.md) for the whole-APK license and the GPL
-corresponding-source pointer.
+The Marmalade source **and** distributed APK are MIT — no GPL code ships
+in the app itself. See [`../NOTICE.md`](../NOTICE.md) for the full
+licensing posture and the espeak corresponding-source pointer.
 
 ## Notices
 
@@ -44,3 +42,11 @@ corresponding-source pointer.
 - **Open JTalk dictionary** — Nagoya Institute of Technology; NAIST
   Japanese Dictionary. Modified BSD. See [`open-jtalk.md`](open-jtalk.md).
 - **pypinyin** — MIT. https://github.com/mozillazg/python-pinyin
+- **CC-CEDICT** — `lexicon-zh.txt` is sherpa-onnx's pre-baked Mandarin
+  Han→IPA table, generated offline from misaki + pypinyin. pypinyin's
+  per-character pinyin data derives in part from **CC-CEDICT** (© MDBG,
+  https://cc-cedict.org), licensed **CC-BY-SA-4.0**, so the bundled
+  `lexicon-zh.txt` is attributed to CC-CEDICT/MDBG and treated as
+  CC-BY-SA-4.0. CC-CEDICT is one of pypinyin's several character-pinyin
+  sources (alongside Unihan and ZDIC); the values are transformed
+  pinyin→IPA.

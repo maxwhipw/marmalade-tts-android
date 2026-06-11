@@ -35,18 +35,19 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 
 ## Phonemization
 
-- **espeak-ng** — multilingual G2P, used by the direct engines (GPL-3.0;
-  the store binary is a GPL-3.0 combined work as a result — see NOTICE).
+- **espeak-ng** — multilingual G2P, used by the Kokoro and Kitten engines
+  (GPL-3.0; ships only inside downloaded engine bundles — see NOTICE).
 - **Open JTalk** + **MeCab** + **NAIST Japanese Dictionary** — Japanese
   text-analysis frontend, vendored from source and compiled in (BSD-3 /
   Modified BSD). The Kotlin G2P that drives it is informed by **r9y9**'s
   `pyopenjtalk` and the **misaki** Japanese frontend.
 - **misaki** / **cutlet** — Japanese G2P; our `CutletJaG2P` is a
   clean-room Kotlin port of the cutlet/misaki approach (upstream MIT).
-- **OpenPhonemizer** — BSD-3-Clause-Clear English phonemizer; the basis
-  for our clean-room Kotlin port used by the GPL-free path.
 - **pypinyin** — Mandarin pinyin conventions informing the `lexicon-zh`
-  path (MIT).
+  path (MIT). Its per-character pinyin data derives in part from
+  **CC-CEDICT** (© [MDBG](https://cc-cedict.org), **CC-BY-SA-4.0**), so the
+  bundled `lexicon-zh.txt` carries a CC-BY-SA share-alike lineage —
+  attributed here and in [`LICENSES/kokoro-direct.md`](LICENSES/kokoro-direct.md).
 
 ## Reference implementations & research
 
@@ -62,9 +63,8 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 
 ## Runtime & frameworks
 
-- **ONNX Runtime (Mobile)** — Microsoft. MIT. Inference for the direct
-  engines.
-- **sherpa-onnx** — k2-fsa. Apache-2.0. Legacy (developer-only) engines.
+- **ONNX Runtime (Mobile)** — Microsoft. MIT. Inference runtime for every
+  engine.
 - **Apache Commons Compress** — Apache-2.0. Engine-bundle extraction.
 - **AndroidX, Jetpack Compose, Kotlin, Hilt, Room** — Apache-2.0.
 
@@ -72,8 +72,7 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 
 - **marmalade-tts** (the Linux CLI) — the sister project this app
   borrows its concept vocabulary from: voice aliases / personas,
-  per-voice preprocessing, the composable audio-effects chain, and the
-  **emojivoice** emoji-driven emotional-prosody idea.
+  per-voice preprocessing, and the composable audio-effects chain.
 
 ---
 

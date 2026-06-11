@@ -37,8 +37,7 @@ Aim for shots that show what makes Marmalade distinctive:
    the device engine.
 4. Voice aliases / personas screen.
 5. Audio-effect presets.
-6. Emoji-driven prosody in action (text with emoji + speak).
-7. Quick Settings tile or share-sheet target.
+6. Quick Settings tile or share-sheet target.
 
 ## Notes
 

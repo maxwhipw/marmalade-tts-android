@@ -13,20 +13,7 @@ the other files in this folder). Versions are authoritative in
 - **License:** MIT
 - **Notice:** Copyright (c) Microsoft Corporation.
 
-## 2. sherpa-onnx (vendored AAR) — k2-fsa/sherpa-onnx
-
-- **File:** `app/libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar`
-- **Role:** Inference + packaging for the legacy sherpa-backed Kitten /
-  Kokoro engines.
-- **Upstream:** https://github.com/k2-fsa/sherpa-onnx
-- **License:** Apache-2.0
-- **Notice:** Copyright (c) k2-fsa / sherpa-onnx contributors.
-- **GPL flag:** The vendored AAR statically links espeak-ng
-  (GPL-3.0-or-later) for phonemization. Builds that include the sherpa
-  engines therefore link GPL-3.0-or-later code. See `kitten-tts.md` /
-  `kokoro-tts.md` and the store-build note in `../NOTICE.md`.
-
-## 3. Apache Commons Compress — org.apache.commons:commons-compress
+## 2. Apache Commons Compress — org.apache.commons:commons-compress
 
 - **Role:** Streams engine-bundle downloads through
   BZip2CompressorInputStream + TarArchiveInputStream during install.
@@ -34,18 +21,13 @@ the other files in this folder). Versions are authoritative in
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) The Apache Software Foundation.
 
-## 4. espeak-ng (standalone reference)
+## 3. espeak-ng (standalone reference)
 
-espeak-ng is **GPL-3.0-or-later**. It reaches the distributed binary by
-two paths:
-
-1. **Store build:** statically linked inside the vendored sherpa-onnx
-   AAR (path 2 above), making the **distributed store APK a
-   GPL-3.0-or-later combined work**. See `../NOTICE.md`.
-2. **"-direct" engine bundles:** shipped as `libttsespeak.so` inside
-   user-downloaded bundles and `dlopen`'d at runtime by the MIT JNI
-   shim (`app/src/main/cpp/espeak_jni.c`), which contains zero espeak
-   code. See `kitten-direct.md`.
+espeak-ng is **GPL-3.0-or-later**. It does **not** ship in the APK. It
+reaches the device only as `libttsespeak.so` inside user-downloaded
+engine bundles, `dlopen`'d at runtime by the MIT JNI shim
+(`app/src/main/cpp/espeak_jni.c`), which contains zero espeak code.
+See `kitten-direct.md`.
 
 - **Upstream / corresponding source:** https://github.com/espeak-ng/espeak-ng
 - **License:** GPL-3.0-or-later
