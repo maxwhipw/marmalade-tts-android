@@ -101,11 +101,12 @@ delivers three benefits:
 1. **APK stays small.** Default install is ~115 MB. Bundling Kitten
    alone pushed it to ~140 MB; bundling the full CLI engine matrix is
    not feasible.
-2. **License hygiene.** The Sherpa-ONNX AAR statically links espeak-ng
-   (GPL-3.0). Shipping it by default would force a GPL-licensed APK;
-   with opt-in install, the GPL'd component only lands on devices
-   whose users have accepted a one-line disclosure during install.
-   Default install posture stays MIT-clean.
+2. **License clarity.** espeak-ng (GPL-3.0-or-later) is compiled from
+   source into the APK — required by Play, which forbids downloading
+   executable code — so the distributed APK is a GPL combined work
+   while every Marmalade source file stays MIT. Each engine bundle's
+   own licenses (models, dictionaries) are disclosed on its install
+   card before download.
 3. **User choice.** Mobile users have varying tolerance for size /
    network use — let them pick which engines they actually need.
 

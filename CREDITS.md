@@ -36,7 +36,8 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 ## Phonemization
 
 - **espeak-ng** — multilingual G2P, used by the Kokoro and Kitten engines
-  (GPL-3.0; ships only inside downloaded engine bundles — see NOTICE).
+  (GPL-3.0-or-later; compiled from source into the APK, with its
+  dictionaries in the downloaded engine bundles — see NOTICE).
 - **Open JTalk** + **MeCab** + **NAIST Japanese Dictionary** — Japanese
   text-analysis frontend, vendored from source and compiled in (BSD-3 /
   Modified BSD). The Kotlin G2P that drives it is informed by **r9y9**'s

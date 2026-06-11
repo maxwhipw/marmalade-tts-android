@@ -90,11 +90,12 @@ object LicenseCatalog {
     object POSTURE {
         const val SOURCE = "Source code — MIT. Every source file in this " +
             "project is MIT-licensed."
-        const val BINARY = "App binary — MIT, with Apache-2.0/BSD " +
-            "dependencies. No GPL code ships in the APK. espeak-ng " +
-            "(GPL-3.0-or-later) is included only in optional engine bundles " +
-            "you choose to download; that GPL combination is assembled on " +
-            "your device at install time."
+        const val BINARY = "App binary — GPL-3.0-or-later. The APK " +
+            "compiles in espeak-ng (GPL-3.0-or-later, built from source), " +
+            "so the app as distributed is a GPL combined work. Everything " +
+            "else in it is MIT-, Apache-2.0-, or BSD-licensed. Engine " +
+            "bundles you download contain models and pronunciation data, " +
+            "never executable code."
         const val CORRESPONDING_SOURCE_LABEL = "Source code"
         const val CORRESPONDING_SOURCE_URL =
             "https://github.com/maxwhipw/marmalade-tts-android"
@@ -144,7 +145,7 @@ object LicenseCatalog {
         Component(
             key = "espeak-ng",
             name = "espeak-ng", role = "Phonemizer (English / multi-language)",
-            shipsIn = "Engine bundles (downloaded on opt-in)",
+            shipsIn = "APK (compiled from source); dictionaries in engine bundles",
             licenseId = "GPL-3.0-or-later",
             copyright = listOf("Copyright (c) The espeak-ng authors"),
         ),

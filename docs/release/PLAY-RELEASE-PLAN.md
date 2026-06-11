@@ -4,19 +4,20 @@ Step-by-step path from the current tree (1.0.0-beta.1, versionCode 33)
 to a published Play listing. Steps marked **[Max]** need a human;
 everything else Claude can do or has done.
 
-## Phase 0 — code prerequisites (one real blocker)
+## Phase 0 — code prerequisites
 
-1. **Move `libttsespeak.so` into the APK.** Play's Device & Network
-   Abuse policy explicitly forbids downloading executable code
-   ("dex, JAR, .so files") from outside Play — the engine bundles'
-   espeak `.so` is a literal violation (models-as-data are fine and
-   stay external). Plan: bundle the per-ABI `libttsespeak.so` in
-   `app/src/main/jniLibs/` (or build espeak-ng from source in-tree,
-   which F-Droid also wants), point `EspeakPhonemizer` at
-   `applicationInfo.nativeLibraryDir` first and fall back to the
-   bundle path, and strip the `.so` from future engine bundles.
-   Re-link it with `-Wl,-z,max-page-size=16384` (16 KB pages) —
-   required wherever it ships.
+1. **DONE (2026-06-11): espeak-ng compiled from source into the APK.**
+   Play's Device & Network Abuse policy forbids downloading executable
+   code ("dex, JAR, .so files") from outside Play. espeak-ng is now a
+   pinned submodule (`third_party/espeak-ng`, tag 1.52.0) built per-ABI
+   into `libespeak-ng.so` by `app/src/main/cpp/espeak-ng/CMakeLists.txt`
+   with 16 KB page alignment; `EspeakPhonemizer.apkLibFile()` loads the
+   APK copy. The engines no longer require or load the bundles'
+   `libttsespeak.so`. Note: the APK is now distributed under
+   GPL-3.0-or-later (espeak is compiled in); source files remain MIT.
+   Follow-up (non-blocking): re-spin the Kitten/Kokoro bundles without
+   the leftover `.so` files so the downloads also contain no executable
+   code at rest — see the session handoff.
 2. **Commit everything + device-verify.** The sherpa removal, license
    screen, and licensing-posture fixes are uncommitted as of
    2026-06-10. Split into logical commits, install on the Pixel 8a,

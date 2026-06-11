@@ -21,15 +21,18 @@ the other files in this folder). Versions are authoritative in
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) The Apache Software Foundation.
 
-## 3. espeak-ng (standalone reference)
+## 3. espeak-ng
 
-espeak-ng is **GPL-3.0-or-later**. It does **not** ship in the APK. It
-reaches the device only as `libttsespeak.so` inside user-downloaded
-engine bundles, `dlopen`'d at runtime by the MIT JNI shim
-(`app/src/main/cpp/espeak_jni.c`), which contains zero espeak code.
-See `kitten-direct.md`.
+espeak-ng is **GPL-3.0-or-later** and ships **in the APK** as
+`libespeak-ng.so`, compiled from source out of the pinned
+`third_party/espeak-ng` submodule (tag 1.52.0) by
+`app/src/main/cpp/espeak-ng/CMakeLists.txt`. The MIT JNI shim
+(`app/src/main/cpp/espeak_jni.c`) `dlopen`s it at runtime and contains
+zero espeak code. Because of this component the distributed APK is a
+GPL-3.0-or-later combined work — see `../NOTICE.md`.
 
 - **Upstream / corresponding source:** https://github.com/espeak-ng/espeak-ng
+  (exact source: the submodule pin in this repository)
 - **License:** GPL-3.0-or-later
 - **Notice:** Copyright (c) The espeak-ng authors.
 

@@ -12,7 +12,7 @@ model files.
 | Component | Role | License |
 |---|---|---|
 | **Kokoro-82M v1.0** (`model.onnx`, `voices.bin`) | Neural voice model, 53 voices / 9 languages | **Apache-2.0** (hexgrad/Kokoro-82M) |
-| **espeak-ng** (`libttsespeak.so` + `espeak-ng-data`) | Grapheme→phoneme for English + European languages | **GPL-3.0-or-later** |
+| **espeak-ng data** (`espeak-ng-data`; ≤v18 bundles also carry a now-unused `libttsespeak.so`) | Grapheme→phoneme data for English + European languages | **GPL-3.0-or-later** |
 | **Open JTalk dictionary** (NAIST/`open_jtalk_dic`) | Japanese text-analysis dictionary | **Modified BSD** |
 | **lexicon-zh** (`lexicon-zh.txt`) | Mandarin Han→IPA lexicon | **CC-BY-SA-4.0** (pinyin data is CC-CEDICT-derived via pypinyin — see note) |
 
@@ -23,14 +23,16 @@ APK from vendored BSD-3 source (`app/src/main/cpp/openjtalk/`) — see
 ## espeak-ng (GPL) and the combined work
 
 This engine depends on **espeak-ng (GPL-3.0-or-later)** for
-phonemization. The JNI shim (`app/src/main/cpp/espeak_jni.c`) links no
-espeak code at build time — it `dlopen()`s `libttsespeak.so` from the
-downloaded bundle, so *this engine's* espeak combination is assembled on
-the user's device on install.
+phonemization. The library (`libespeak-ng.so`) is compiled from source
+into the APK from the pinned `third_party/espeak-ng` submodule (tag
+1.52.0) and `dlopen()`d at runtime by the JNI shim
+(`app/src/main/cpp/espeak_jni.c`); the bundle supplies the
+`espeak-ng-data` dictionaries.
 
-The Marmalade source **and** distributed APK are MIT — no GPL code ships
-in the app itself. See [`../NOTICE.md`](../NOTICE.md) for the full
-licensing posture and the espeak corresponding-source pointer.
+Because espeak-ng ships inside it, the distributed APK is a
+GPL-3.0-or-later combined work; Marmalade's own source files remain MIT.
+See [`../NOTICE.md`](../NOTICE.md) for the full licensing posture and
+the espeak corresponding-source pointer.
 
 ## Notices
 

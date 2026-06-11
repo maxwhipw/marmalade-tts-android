@@ -14,11 +14,15 @@ until validated across a range of devices, then promoted to `1.0.0`.
   now **Kokoro (v1.0)**, **Kitten Nano (v0.8)**, **Kitten Mini (v0.8)**, and
   **Pocket TTS**.
 - **sherpa-onnx removed entirely** (engines, catalogs, and the vendored
-  AAR). Every engine now runs directly on ONNX Runtime. As a result the
-  APK contains no GPL code — espeak-ng ships only inside downloaded
-  engine bundles. DB migration v7→v8 cleans up the old engines' voice
-  rows; the sherpa engines live on in the `experimental/executorch`
-  branch.
+  AAR). Every engine now runs directly on ONNX Runtime. DB migration
+  v7→v8 cleans up the old engines' voice rows; the sherpa engines live
+  on in the `experimental/executorch` branch.
+- **espeak-ng is now compiled from source into the APK** (pinned
+  submodule, tag 1.52.0) instead of being downloaded inside engine
+  bundles — Google Play forbids runtime download of executable code.
+  The distributed APK is therefore a GPL-3.0-or-later combined work;
+  all Marmalade source files remain MIT. Engine bundles now carry only
+  models and pronunciation data.
 - In-app **Open-source licenses** screen (Settings → About) with
   per-component license texts bundled in the APK.
 - The alias editor only offers engines you've actually installed.

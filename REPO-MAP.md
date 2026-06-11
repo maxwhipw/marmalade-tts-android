@@ -318,10 +318,11 @@ write Marmalade code.
 - `STUBS.md` — known deferred items (some closed in v0.1.16's "Keep
   engine loaded" toggle removal)
 - `PRIVACY.md`, `SECURITY.md` — what the app does and doesn't access
-- `LICENSES/kitten-tts.md`, `LICENSES/kokoro-tts.md` — third-party
-  model licenses (Apache-2.0 KittenTTS, Apache-2.0 Kokoro; espeak-ng
-  data inside engine archives is GPL-3.0 — engine-as-plugin keeps the
-  default APK MIT-clean)
+- `LICENSES/kitten-direct.md`, `LICENSES/kokoro-direct.md`,
+  `LICENSES/pocket-tts.md`, `LICENSES/runtime-libraries.md` —
+  per-component licenses (Apache-2.0 models; espeak-ng GPL-3.0-or-later,
+  compiled from source into the APK, which makes the distributed APK a
+  GPL combined work while source files stay MIT)
 - `.review/*.md` — historical review artifacts from multi-agent
   audits. Useful for context on past decisions; don't treat as
   current truth.

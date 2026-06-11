@@ -28,4 +28,4 @@ PRIVATE BY DESIGN
 No analytics, no telemetry, no ads, no accounts, and no backend. The only network use is downloading the engine files you choose to install. See the in-app privacy policy for details.
 
 OPEN SOURCE
-Marmalade TTS is MIT-licensed open source — both the source code and the app itself. Optional engine downloads may include GPL-licensed components (espeak-ng); full license details for every component are shown inside the app.
+Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.

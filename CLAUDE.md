@@ -108,16 +108,15 @@ investigation won't find what one `onnx.load(...).metadata_props` will.
 
 ## Engine bundle licensing
 
-The Marmalade **source repo and distributed APK are MIT** — sherpa-onnx
-(the only thing that statically linked espeak into the APK) was removed
-2026-06-09, so **no GPL code ships in the APK**. espeak-ng
-(GPL-3.0-or-later) reaches the device only inside **engine bundles**
-(downloaded after user opt-in into `${filesDir}/engines/`), where the
-direct-ORT engines `dlopen` a `libttsespeak.so`; that GPL combination is
-assembled on the user's device. See [NOTICE.md](NOTICE.md).
-(Remaining store-compliance work: Play forbids runtime-downloading `.so`
-files, so the Play build must carry `libttsespeak.so` **inside the APK**
-— ideally compiled from source, which also satisfies F-Droid.)
+The Marmalade **source repo is MIT**; the **distributed APK is
+GPL-3.0-or-later** because espeak-ng is compiled from source into it
+(pinned submodule `third_party/espeak-ng`, tag 1.52.0, built by
+`app/src/main/cpp/espeak-ng/CMakeLists.txt`). Play forbids
+runtime-downloading `.so` files, so the lib must live in the APK; the
+same from-source build satisfies F-Droid. One build serves both stores.
+**Engine bundles** (downloaded after user opt-in into
+`${filesDir}/engines/`) carry models + pronunciation data only —
+espeak-ng-data is the GPL piece there. See [NOTICE.md](NOTICE.md).
 
 The KittenDirect engine (alpha.9, May 2026) made this posture explicit:
 a tiny C JNI shim in the APK does `dlopen`/`dlsym` against

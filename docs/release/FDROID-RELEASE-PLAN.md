@@ -12,15 +12,23 @@ build must succeed on their buildserver from a clean checkout.
    Open JTalk/MeCab C is *source* (BSD-3), espeak JNI shim compiles
    from source in-tree, deps come from allowlisted Maven repos, and
    the hardcoded `org.gradle.java.home` was moved out of the repo's
-   `gradle.properties` (would have broken their buildserver).
+   `gradle.properties` (would have broken their buildserver). espeak-ng
+   is compiled from source out of the pinned `third_party/espeak-ng`
+   submodule — the fdroiddata recipe must set `submodules: yes`. The
+   custom CMake glue (`app/src/main/cpp/espeak-ng/`) deliberately avoids
+   upstream's FetchContent network clone of libsonic, so the build is
+   fully offline after dependency resolution.
 2. **Runtime engine downloads are acceptable** with explicit opt-in
    consent (which the per-engine Install screen satisfies). Precedent:
    SherpaTTS downloads ONNX models at runtime and is listed (with a
    **NonFreeNet** anti-feature for downloading from a proprietary
    service); Termux downloads executable packages and is listed with
    no anti-feature. Expect maintainers to tag **NonFreeNet** — accept
-   it. If the Play fix (espeak `.so` moved in-APK / built from source)
-   lands first, the strongest objection disappears entirely.
+   it. The Play fix landed 2026-06-11 (espeak built from source into
+   the APK), so the strongest objection — downloading executable code —
+   is gone; bundles now carry only models and data. (Older bundle
+   releases still contain a leftover `.so` the app never loads; a bundle
+   re-spin removing it is queued.)
 3. **GPL §6 gap to close in the engines repo
    (marmalade-tts-android-engines):** the bundles redistribute a GPL
    `libttsespeak.so` but the repo doesn't document its exact source
@@ -52,7 +60,7 @@ build must succeed on their buildserver from a clean checkout.
 
    ```yaml
    Categories: [Multimedia, Reading]
-   License: MIT
+   License: GPL-3.0-or-later   # espeak-ng is compiled into the APK; source files MIT
    AuthorName: Max
    SourceCode: https://github.com/maxwhipw/marmalade-tts-android
    IssueTracker: https://github.com/maxwhipw/marmalade-tts-android/issues
@@ -68,6 +76,7 @@ build must succeed on their buildserver from a clean checkout.
        versionCode: 33
        commit: v1.0.0-beta.1        # the tag
        subdir: app
+       submodules: yes              # third_party/espeak-ng (built from source)
        gradle: [yes]
        ndk: r26d                    # match ndkVersion in build.gradle.kts
 
@@ -81,8 +90,9 @@ build must succeed on their buildserver from a clean checkout.
    app.marmalade.tts` inside fdroidserver, or just rely on their CI),
    then open a merge request against fdroiddata. Title:
    "New app: Marmalade TTS". In the MR description, state up front:
-   MIT app, no GPL in the APK, models downloaded on explicit opt-in
-   (NonFreeNet pre-tagged), espeak-ng GPL only in opt-in bundles.
+   MIT source, GPL-3.0-or-later APK (espeak-ng compiled from the pinned
+   submodule), models/data downloaded on explicit opt-in (NonFreeNet
+   pre-tagged), no executable code downloaded at runtime.
 9. Respond to reviewer feedback (typical round-trips: anti-feature
    wording, NDK pinning, reproducibility nits). Listing appears
    automatically once merged + built.

@@ -15,6 +15,7 @@
 <p align="center">
   <img alt="status" src="https://img.shields.io/badge/status-1.0.0--beta.1-F5A623">
   &nbsp;<img alt="source" src="https://img.shields.io/badge/source-MIT-3DA639">
+  &nbsp;<img alt="binary" src="https://img.shields.io/badge/APK-GPL--3.0--or--later-blue">
   &nbsp;<img alt="offline" src="https://img.shields.io/badge/cloud-none-2EA44F">
 </p>
 
@@ -54,10 +55,13 @@ downloads — see [PRIVACY.md](PRIVACY.md).
 
 ## License
 
-**MIT** — source and APK alike; no GPL code ships in the app. Optional
-engine downloads may include GPL-3.0 **espeak-ng**, assembled on your
-device when you accept the install. Every third-party license is browsable
-inside the app at **Settings → About → Open-source licenses**, and in
+Source files are **MIT**. The released APK compiles in **espeak-ng**
+(GPL-3.0-or-later, built from source out of the pinned
+`third_party/espeak-ng` submodule), so the **distributed APK is a
+GPL-3.0-or-later combined work** — required by Google Play, which forbids
+downloading executable code at runtime. Engine downloads carry models and
+phonemizer data only. Every third-party license is browsable inside the
+app at **Settings → About → Open-source licenses**, and in
 [NOTICE.md](NOTICE.md) / [LICENSES/](LICENSES/).
 
 ## Related projects
