@@ -1,7 +1,7 @@
 package app.marmalade.tts.ui.onboarding
 
 import app.marmalade.tts.audio.EffectPreset
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -139,7 +139,7 @@ class OnboardingViewModelTest {
     fun finishWithoutAliasIsBlocked() = runTest {
         // No aliases in the DB → finish() must refuse to flip onboarded.
         val settings = FakeSettings(
-            initialId = "kitten-nano-v0_8:Bella",
+            initialId = "kitten-direct-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
@@ -159,14 +159,14 @@ class OnboardingViewModelTest {
         // when no primary is set yet.
         val existing = VoiceAlias(
             name = "narrator",
-            engine = "kitten-nano-v0_8",
-            voiceId = KittenNanoVoiceCatalog.DEFAULT_VOICE_ID,
+            engine = "kitten-direct-v0_8",
+            voiceId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
             effectPreset = EffectPreset.NONE.name,
             createdAt = 0L,
         )
         val settings = FakeSettings(
-            initialId = "kitten-nano-v0_8:Bella",
+            initialId = "kitten-direct-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao(initial = listOf(existing))
@@ -187,15 +187,15 @@ class OnboardingViewModelTest {
     @Test
     fun saveAliasAndContinueCreatesAliasMarksPrimaryAndAdvancesToBackgroundUnrestricted() = runTest {
         val settings = FakeSettings(
-            initialId = "kitten-nano-v0_8:Bella",
+            initialId = "kitten-direct-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(settings = settings, aliasDao = aliasDao)
 
         vm.onAliasNameChange("narrator")
-        vm.onAliasEngineChange("kitten-nano-v0_8")
-        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
+        vm.onAliasEngineChange("kitten-direct-v0_8")
+        vm.onAliasVoiceChange("kitten-direct-v0_8:Bella")
         val ok = vm.saveAliasAndContinue()
 
         assertTrue("saveAliasAndContinue should succeed with valid fields", ok)
@@ -216,8 +216,8 @@ class OnboardingViewModelTest {
         val vm = newViewModel(aliasDao = aliasDao)
 
         vm.onAliasNameChange("Has Spaces!")
-        vm.onAliasEngineChange("kitten-nano-v0_8")
-        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
+        vm.onAliasEngineChange("kitten-direct-v0_8")
+        vm.onAliasVoiceChange("kitten-direct-v0_8:Bella")
         val ok = vm.saveAliasAndContinue()
 
         assertFalse("Invalid name must not save", ok)
@@ -228,7 +228,7 @@ class OnboardingViewModelTest {
     @Test
     fun useDefaultsAndContinueCreatesDefaultAliasAndAdvancesToNotificationPermission() = runTest {
         val settings = FakeSettings(
-            initialId = "kitten-nano-v0_8:Bella",
+            initialId = "kitten-direct-v0_8:Bella",
             initialOnboarded = false,
         )
         val aliasDao = FakeAliasDao()
@@ -258,8 +258,8 @@ class OnboardingViewModelTest {
         assertFalse("aliasCreated should be false on empty DB", vm.aliasCreated.first { !it })
 
         vm.onAliasNameChange("narrator")
-        vm.onAliasEngineChange("kitten-nano-v0_8")
-        vm.onAliasVoiceChange("kitten-nano-v0_8:Bella")
+        vm.onAliasEngineChange("kitten-direct-v0_8")
+        vm.onAliasVoiceChange("kitten-direct-v0_8:Bella")
         vm.saveAliasAndContinue()
 
         assertTrue("aliasCreated should flip to true after save", vm.aliasCreated.first { it })
@@ -270,12 +270,12 @@ class OnboardingViewModelTest {
     private fun newViewModel(
         installer: EngineInstaller = RecordingInstaller(behaviour = { Result.success(Unit) }),
         settings: FakeSettings = FakeSettings(
-            initialId = "kitten-nano-v0_8:Bella",
+            initialId = "kitten-direct-v0_8:Bella",
             initialOnboarded = false,
         ),
         aliasDao: FakeAliasDao = FakeAliasDao(),
     ): OnboardingViewModel {
-        val voiceDao = FakeDao(voices = KittenNanoVoiceCatalog.voices)
+        val voiceDao = FakeDao(voices = KittenDirectVoiceCatalog.voices)
         return OnboardingViewModel(installer, settings, aliasDao, voiceDao)
     }
 }

@@ -1,10 +1,6 @@
 package app.marmalade.tts
 
 import android.app.Application
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
@@ -37,19 +33,20 @@ import kotlinx.coroutines.launch
 //             │
 //             ▼
 //        if (last < CATALOG_VERSION) {
-//             dao.upsertAll(KittenVoiceCatalog.voices)
-//             dao.upsertAll(KokoroVoiceCatalog.voices)
+//             dao.upsertAll(KokoroDirectVoiceCatalog.voices)
+//             dao.upsertAll(KittenDirectVoiceCatalog.voices)
+//             … (every shipped catalog)
 //             settings.setCatalogVersion(CATALOG_VERSION)
 //        }
 //
 //   Pre-v0.1.19 the seed was "upsert if engine's rows are absent". That
 //   fixed the fresh-install case but left users stranded when a catalog
-//   *expanded* — e.g. v0.1.19's Kokoro 11 → 53 voices for multi-lang
-//   wouldn't reach existing installs because Kokoro rows already existed,
-//   so the per-engine check skipped the upsert. The catalog-version stamp
-//   replaces that with a monotonic gate: any time we ship new/changed
-//   catalog rows, bump CATALOG_VERSION and the next cold start picks them
-//   up via Room's REPLACE-on-conflict upsert.
+//   *expanded* — a Kokoro 11 → 53 voice expansion wouldn't reach existing
+//   installs because Kokoro rows already existed, so the per-engine check
+//   skipped the upsert. The catalog-version stamp replaces that with a
+//   monotonic gate: any time we ship new/changed catalog rows, bump
+//   CATALOG_VERSION and the next cold start picks them up via Room's
+//   REPLACE-on-conflict upsert.
 // -----------------------------------------------------------------------------
 
 /**
@@ -118,11 +115,7 @@ class MarmaladeTtsApplication : Application() {
                 // get their columns refreshed (e.g. a voice's languageCode
                 // flipping from "en-US" to "ja-JP" in the multi-lang
                 // expansion) without ever wiping the table.
-                dao.upsertAll(KokoroV10VoiceCatalog.voices)
-                dao.upsertAll(KokoroV11VoiceCatalog.voices)
                 dao.upsertAll(KokoroDirectVoiceCatalog.voices)
-                dao.upsertAll(KittenNanoVoiceCatalog.voices)
-                dao.upsertAll(KittenMiniVoiceCatalog.voices)
                 dao.upsertAll(KittenDirectVoiceCatalog.voices)
                 dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
@@ -214,7 +207,12 @@ class MarmaladeTtsApplication : Application() {
          *    the `experimental/executorch` branch). Pre-existing ET voice rows
          *    are inert — the engine is gone — and harmlessly linger until a
          *    reinstall; we don't prune them.
+         *  - v24: 1.0.0-beta.1 — removed sherpa-onnx entirely; the four sherpa
+         *    catalogs (Kokoro v1.0/v1.1, Kitten Nano/Mini) are gone, so they're
+         *    no longer seeded. Their stale `voice_meta` rows are deleted by
+         *    [app.marmalade.tts.data.db.MIGRATION_7_8] rather than left to
+         *    linger (the engine that backed them is gone).
          */
-        const val CATALOG_VERSION: Int = 23
+        const val CATALOG_VERSION: Int = 24
     }
 }

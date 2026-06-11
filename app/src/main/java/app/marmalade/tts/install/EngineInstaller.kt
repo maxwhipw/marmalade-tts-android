@@ -522,8 +522,8 @@ open class EngineInstaller @Inject constructor(
             // Release first — deleting an mmap'd file can leak the mapping
             // on some Android versions, even though the file system entry
             // disappears immediately. The injected NativeEngineHandle
-            // releases all four sherpa-onnx engines; release() is
-            // idempotent on engines that aren't currently loaded.
+            // releases every loaded engine; release() is idempotent on
+            // engines that aren't currently loaded.
             kittenEngine.release()
 
             val dir = engineDirFor(engineName)
@@ -560,9 +560,8 @@ open class EngineInstaller @Inject constructor(
      * Test-friendly verify that operates against a caller-supplied
      * descriptor. Production code paths must go through [verify].
      *
-     * For the current single-engine (Kitten) catalog this delegates to
-     * [verifyLayout] which encodes the Kitten payload's required files
-     * (model.fp16.onnx + voices.bin + tokens.txt + espeak-ng-data/).
+     * Delegates to [verifyLayout], which dispatches to the per-engine
+     * structural check for the descriptor's engine name.
      */
     internal suspend fun verifyDescriptor(descriptor: EngineDescriptor): InstallState =
         withContext(Dispatchers.IO) {
@@ -789,30 +788,10 @@ open class EngineInstaller @Inject constructor(
     }
 
     /**
-     * Confirm the on-disk layout matches the Kitten engine's expected
-     * top-level shape. Used by [installViaDescriptor]'s post-extract
-     * sanity check and by [verifyDescriptor]'s startup probe.
-     *
-     * Does not re-hash files — for an archive install, the upstream
-     * archive's sha256 (verified at download time) already proves the
-     * extracted bytes are correct. This is a structural check only:
-     *
-     *  - Some `model*.onnx` file present and > 1 MB (catches truncated
-     *    extract). Filename varies across upstream Kitten revisions —
-     *    v0.1 ships `model.fp16.onnx`, v0.8 ships `model.int8.onnx`,
-     *    others might ship `model.fp32.onnx`. Matching by glob keeps
-     *    the installer agnostic to which revision is in the bundle.
-     *  - `voices.bin` present and non-empty
-     *  - `tokens.txt` present and non-empty
-     *  - `espeak-ng-data/` is a directory with > 100 entries
-     *    (Kitten's bundle has ~355; the threshold is a sanity floor that
-     *    catches "extraction halfway through" without pinning the count)
-     */
-    /**
      * Dispatch the post-extract structural check based on the engine
-     * family. Sherpa-onnx engines (Kokoro v1.*, Kitten *) all share the
-     * `model*.onnx` + `voices.bin` + `tokens.txt` + `espeak-ng-data/`
-     * shape; Pocket has a completely different layout (5 graphs,
+     * family. Each engine has its own on-disk layout: KokoroDirect and
+     * KittenDirect carry an espeak-ng phonemizer under `phonemizer/`,
+     * while Pocket has a completely different layout (5 graphs,
      * sentencepiece tokenizer, npy BOS embedding, no espeak). Adding a
      * new engine family means adding a branch here.
      */
@@ -831,7 +810,10 @@ open class EngineInstaller @Inject constructor(
             "kitten-direct-v0_8"       -> verifyKittenDirectLayout(dir)
             "kitten-direct-mini-v0_8"  -> verifyKittenDirectLayout(dir)
             "kokoro-direct-v1_0"       -> verifyKokoroDirectLayout(dir)
-            else                       -> verifySherpaLayout(dir)
+            // Unknown engine — no layout we know how to verify. Treat as
+            // corrupt so the UI steers the user to reinstall rather than
+            // silently reporting a non-existent engine as Installed.
+            else                       -> InstallState.Corrupt
         }
     }
 
@@ -842,10 +824,8 @@ open class EngineInstaller @Inject constructor(
      * KittenDirect's layout — espeak is dlopen'd from the bundle at
      * runtime, so the GPL stays in the asset pack and out of the APK.
      *
-     * Differs from [verifySherpaLayout] in two ways:
-     *   1. espeak data + lib live under phonemizer/ instead of top-level
-     *   2. single voices.bin (53 speakers × 510 × 256 floats) instead of
-     *      per-voice files — matches sherpa-Kokoro's packing
+     * A single voices.bin packs all 53 speakers (510 × 256 floats each),
+     * matching the upstream Kokoro `voices.bin` packing order.
      */
     private fun verifyKokoroDirectLayout(dir: File): InstallState {
         val model = File(dir, "model.onnx")
@@ -880,9 +860,9 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * KittenDirect layout: kitten.onnx + voices/<name>.bin (8 voices) +
-     * phonemizer/open-phonemizer.onnx. No espeak-ng-data, no tokens.txt
-     * — those are sherpa-only artefacts that this engine avoids
-     * specifically to dodge the GPL-3.0 contamination they bring.
+     * phonemizer/<abi>/libttsespeak.so + phonemizer/espeak-ng-data. The
+     * espeak shared lib is dlopen'd at runtime by the MIT JNI shim, so the
+     * APK code stays MIT while the downloaded bundle is GPL-3.0-or-later.
      */
     private fun verifyKittenDirectLayout(dir: File): InstallState {
         val acoustic = File(dir, "kitten.onnx")
@@ -911,23 +891,6 @@ open class EngineInstaller @Inject constructor(
             val bin = File(voicesDir, "$name.bin")
             if (!bin.isFile || bin.length() == 0L) return InstallState.Corrupt
         }
-        return InstallState.Installed
-    }
-
-    /** Sherpa-onnx layout (Kokoro + Kitten). */
-    private fun verifySherpaLayout(dir: File): InstallState {
-        val modelCandidates = dir.listFiles { f -> f.isFile && f.name.startsWith("model") && f.name.endsWith(".onnx") }
-        val model = modelCandidates?.firstOrNull()
-        val voices = File(dir, "voices.bin")
-        val tokens = File(dir, "tokens.txt")
-        val espeak = File(dir, "espeak-ng-data")
-
-        if (model == null || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
-        if (!voices.isFile || voices.length() == 0L) return InstallState.Corrupt
-        if (!tokens.isFile || tokens.length() == 0L) return InstallState.Corrupt
-        if (!espeak.isDirectory) return InstallState.Corrupt
-        val entryCount = espeak.list()?.size ?: 0
-        if (entryCount < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
         return InstallState.Installed
     }
 

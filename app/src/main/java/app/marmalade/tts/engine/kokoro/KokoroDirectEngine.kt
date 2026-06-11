@@ -78,12 +78,12 @@ import kotlinx.coroutines.withContext
 //      PiperPhonemesToIdsKokoroOrKitten. Handled inside [encodePhonemes]
 //      since it's a phoneme→token concern, not a wrapping concern.
 //
-//   6. Espeak voice is hardcoded "en-us" for all 53 voices — matches
-//      [app.marmalade.tts.engine.KokoroV10Engine]'s behavior. The
-//      non-English voices in voices.bin are speaker-style references,
-//      not language switches; sherpa runs everything through en-us
-//      phonemization and the speaker style does the rest. A future
-//      atom can add per-voice espeak language switching.
+//   6. Espeak voice is chosen per-voice via
+//      [app.marmalade.tts.data.KokoroDirectVoiceCatalog.espeakVoiceFor]
+//      (American/British map to en-us/en-gb, European voices to their
+//      own codes; Mandarin routes through lexicon-zh and Japanese through
+//      Open JTalk rather than espeak). An explicit phonemizationLanguage
+//      override wins when provided.
 // -----------------------------------------------------------------------------
 
 private const val TAG = "KokoroDirectEngine"
@@ -122,8 +122,15 @@ private const val TRIM_SAMPLES = 5000
 /** Default espeak phonemization voice — see file comment. */
 private const val ESPEAK_VOICE = "en-us"
 
+/**
+ * `open` solely to enable a JVM test double (see
+ * `MarmaladeTtsServiceTest.FakeKokoroDirectEngine`) — the service routes a
+ * `kokoro-direct-v1_0:*` voice to this concrete type, so the fake must be a
+ * subclass for the reflective field injection in that test to accept it.
+ * Mirrors the same convention on [app.marmalade.tts.engine.kitten.KittenDirectEngine].
+ */
 @Singleton
-class KokoroDirectEngine @Inject constructor(
+open class KokoroDirectEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val settings: SettingsRepository,
 ) : TtsEngine {

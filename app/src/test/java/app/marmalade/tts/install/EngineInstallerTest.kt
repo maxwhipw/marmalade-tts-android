@@ -39,13 +39,13 @@ class EngineInstallerTest {
 
     private lateinit var filesDir: File
     private lateinit var installer: TestInstaller
-    private lateinit var fakeEngine: FakeKittenNanoEngine
+    private lateinit var fakeEngine: FakeNativeEngineHandle
     private lateinit var fetcher: FakeHttpFetcher
 
     @Before
     fun setUp() {
         filesDir = tempFolder.newFolder("files")
-        fakeEngine = FakeKittenNanoEngine()
+        fakeEngine = FakeNativeEngineHandle()
         fetcher = FakeHttpFetcher()
         installer = TestInstaller(
             filesDir = EngineFilesDir { filesDir },
@@ -69,10 +69,10 @@ class EngineInstallerTest {
         val engineDir = File(filesDir, "engines/${descriptor.name}")
         assertTrue("engine dir should exist after install", engineDir.isDirectory)
         // Spot-check a few extracted files.
-        assertTrue(File(engineDir, "model.fp16.onnx").length() >= 1L * 1024L * 1024L)
-        assertEquals("voices payload", File(engineDir, "voices.bin").readText())
-        assertEquals("phoneme tokens", File(engineDir, "tokens.txt").readText())
-        assertTrue(File(engineDir, "espeak-ng-data").isDirectory)
+        assertTrue(File(engineDir, "kitten.onnx").length() >= 1L * 1024L * 1024L)
+        assertEquals("voice-bella", File(engineDir, "voices/bella.bin").readText())
+        assertTrue(File(engineDir, "phonemizer/arm64-v8a/libttsespeak.so").isFile)
+        assertTrue(File(engineDir, "phonemizer/espeak-ng-data").isDirectory)
         // Scratch dir + archive scratch cleaned up.
         assertFalse(File(filesDir, "engines/${descriptor.name}.tmp").exists())
         assertFalse(File(filesDir, "engines/${descriptor.name}.archive.tmp").exists())
@@ -176,12 +176,12 @@ class EngineInstallerTest {
     fun uninstallRemovesEngineDirAndReleasesNativeHandle() = runTest {
         // The installer derives the on-disk dir from the engine NAME
         // (engineDirFor → engines/<name>), so the dir must match the name we
-        // uninstall. (Pre-engine-split this was the bare "kitten".)
-        val engineDir = File(filesDir, "engines/kitten-nano-v0_8")
+        // uninstall.
+        val engineDir = File(filesDir, "engines/kitten-direct-v0_8")
         engineDir.mkdirs()
-        File(engineDir, "model.fp16.onnx").writeText("dummy")
+        File(engineDir, "kitten.onnx").writeText("dummy")
 
-        val result = installer.uninstall("kitten-nano-v0_8")
+        val result = installer.uninstall("kitten-direct-v0_8")
 
         assertTrue("uninstall should succeed, got $result", result.isSuccess)
         assertFalse("engine dir should be removed", engineDir.exists())
@@ -190,7 +190,7 @@ class EngineInstallerTest {
 
     @Test
     fun uninstallOnNotInstalledEngineIsNoop() = runTest {
-        val result = installer.uninstall("kitten-nano-v0_8")
+        val result = installer.uninstall("kitten-direct-v0_8")
         assertTrue("uninstall should succeed on absent engine", result.isSuccess)
     }
 
@@ -198,12 +198,13 @@ class EngineInstallerTest {
 
     @Test
     fun verifyDistinguishesInstalledFromCorruptFromNotInstalled() = runTest {
-        // verifyLayout is keyed to the Kitten payload shape (model.fp16.onnx
-        // + voices.bin + tokens.txt + espeak-ng-data/ with > 100 entries),
-        // so this test uses the kitten name + manually stages the layout.
+        // verifyLayout dispatches on the engine name; kitten-direct-v0_8 routes
+        // to verifyKittenDirectLayout (kitten.onnx + phonemizer/<abi>/libttsespeak.so
+        // + phonemizer/espeak-ng-data/ with > 100 entries + voices/<name>.bin for the
+        // 8 voices), so this test uses that name + manually stages the layout.
         val descriptor = engineDescriptor(
-            name = "kitten-nano-v0_8",
-            url = "https://test/kitten.tar.bz2",
+            name = "kitten-direct-v0_8",
+            url = "https://test/kitten-direct.tar.bz2",
             archiveBytes = ByteArray(0), // unused — we only call verify
         )
 
@@ -211,42 +212,50 @@ class EngineInstallerTest {
 
         val dir = File(filesDir, "engines/${descriptor.name}")
         dir.mkdirs()
+        // A bare install_meta-less dir bootstraps a meta then fails the layout
+        // check → Corrupt.
         assertEquals(
             "empty dir should be Corrupt",
             InstallState.Corrupt,
             installer.verifyAgainst(descriptor),
         )
 
-        // Build the full expected layout: oversize model, the two small
-        // files, and an espeak-ng-data/ dir with > 100 entries.
-        File(dir, "model.fp16.onnx").writeBytes(ByteArray(2 * 1024 * 1024) { 0x42 })
-        File(dir, "voices.bin").writeText("voices")
-        File(dir, "tokens.txt").writeText("tokens")
-        val dataDir = File(dir, "espeak-ng-data").apply { mkdirs() }
-        for (i in 0 until 120) {
-            File(dataDir, "entry_$i").writeText("$i")
-        }
+        // Build the full expected KittenDirect layout: oversize model, the
+        // phonemizer lib + espeak-ng-data/ dir with > 100 entries, and the 8
+        // per-voice bins.
+        stageKittenDirectLayout(dir)
         assertEquals(InstallState.Installed, installer.verifyAgainst(descriptor))
     }
 
     @Test
     fun verifyReturnsCorruptIfModelTooSmall() = runTest {
         val descriptor = engineDescriptor(
-            name = "kitten-nano-v0_8",
-            url = "https://test/kitten.tar.bz2",
+            name = "kitten-direct-v0_8",
+            url = "https://test/kitten-direct.tar.bz2",
             archiveBytes = ByteArray(0),
         )
 
         val dir = File(filesDir, "engines/${descriptor.name}").apply { mkdirs() }
-        File(dir, "model.fp16.onnx").writeText("too small") // < 1 MB
-        File(dir, "voices.bin").writeText("voices")
-        File(dir, "tokens.txt").writeText("tokens")
-        val dataDir = File(dir, "espeak-ng-data").apply { mkdirs() }
+        stageKittenDirectLayout(dir)
+        // Overwrite the model with a sub-1-MB file — should flip to Corrupt.
+        File(dir, "kitten.onnx").writeText("too small") // < 1 MB
+
+        assertEquals(InstallState.Corrupt, installer.verifyAgainst(descriptor))
+    }
+
+    /** Write a complete KittenDirect on-disk layout into [dir]. */
+    private fun stageKittenDirectLayout(dir: File) {
+        File(dir, "kitten.onnx").writeBytes(ByteArray(2 * 1024 * 1024) { 0x42 })
+        File(dir, "phonemizer/arm64-v8a").mkdirs()
+        File(dir, "phonemizer/arm64-v8a/libttsespeak.so").writeText("elf")
+        val dataDir = File(dir, "phonemizer/espeak-ng-data").apply { mkdirs() }
         for (i in 0 until 120) {
             File(dataDir, "entry_$i").writeText("$i")
         }
-
-        assertEquals(InstallState.Corrupt, installer.verifyAgainst(descriptor))
+        val voicesDir = File(dir, "voices").apply { mkdirs() }
+        for (name in listOf("bella", "jasper", "luna", "bruno", "rosie", "hugo", "kiki", "leo")) {
+            File(voicesDir, "$name.bin").writeText("voice-$name")
+        }
     }
 
     // -- idempotent re-install ---------------------------------------------
@@ -255,19 +264,19 @@ class EngineInstallerTest {
     fun reinstallReplacesPreviousFilesAtomically() = runTest {
         // First install.
         val v1Layout = KITTEN_LAYOUT.toMutableMap().apply {
-            this["voices.bin"] = "v1".toByteArray()
+            this["voices/bella.bin"] = "v1".toByteArray()
         }
         val v1Descriptor = stageBundle(v1Layout)
         val first = installer.install(v1Descriptor) {}
         assertTrue("first install should succeed, got $first", first.isSuccess)
         assertEquals(
             "v1",
-            File(filesDir, "engines/${v1Descriptor.name}/voices.bin").readText(),
+            File(filesDir, "engines/${v1Descriptor.name}/voices/bella.bin").readText(),
         )
 
         // Second install with new content at the same URL.
         val v2Layout = KITTEN_LAYOUT.toMutableMap().apply {
-            this["voices.bin"] = "v2 fresh".toByteArray()
+            this["voices/bella.bin"] = "v2 fresh".toByteArray()
         }
         val v2Archive = buildArchive(v2Layout, archiveRootName = ARCHIVE_ROOT)
         fetcher.payloads[v1Descriptor.archive.url] = v2Archive
@@ -284,7 +293,7 @@ class EngineInstallerTest {
 
         assertEquals(
             "v2 fresh",
-            File(filesDir, "engines/${v1Descriptor.name}/voices.bin").readText(),
+            File(filesDir, "engines/${v1Descriptor.name}/voices/bella.bin").readText(),
         )
         // Native handle was released before the reinstall touched the
         // existing engine dir.
@@ -298,13 +307,14 @@ class EngineInstallerTest {
 
     /**
      * Register a bundle's bytes with the fake fetcher and return a matching
-     * descriptor. Uses the standard Kitten archive-root convention.
+     * descriptor. Uses the KittenDirect engine name + archive-root convention
+     * so the post-install verify routes to verifyKittenDirectLayout.
      */
     private fun stageBundle(files: Map<String, ByteArray>): EngineDescriptor {
         val archive = buildArchive(files, archiveRootName = ARCHIVE_ROOT)
         val descriptor = engineDescriptor(
-            name = "kitten-test",
-            url = "https://test/kitten-test/bundle.tar.bz2",
+            name = "kitten-direct-v0_8",
+            url = "https://test/kitten-direct/bundle.tar.bz2",
             archiveBytes = archive,
         )
         fetcher.payloads[descriptor.archive.url] = archive
@@ -335,25 +345,33 @@ class EngineInstallerTest {
     )
 
     companion object {
-        // Wrapper directory name used by the production Kitten archive.
+        // Wrapper directory name used by the production Kitten Direct archive.
         // The installer strips this prefix during extraction; the test
         // archives mirror the same layout.
-        private const val ARCHIVE_ROOT = "kitten-nano-en-v0_1-fp16/"
+        private const val ARCHIVE_ROOT = "kitten-direct-v0_8/"
+
+        // The 8 KittenDirect voices (lowercased displayNames) the installer's
+        // verifyKittenDirectLayout requires under voices/.
+        private val KITTEN_DIRECT_VOICES =
+            listOf("bella", "jasper", "luna", "bruno", "rosie", "hugo", "kiki", "leo")
 
         /**
-         * Synthetic Kitten payload large enough to pass the post-install
-         * verification (model > 1 MB, > 100 espeak-ng-data entries).
+         * Synthetic KittenDirect payload large enough to pass the post-install
+         * verification: kitten.onnx > 1 MB, an espeak phonemizer lib under a
+         * per-ABI dir, > 100 espeak-ng-data entries, and the 8 per-voice bins.
          */
         private val KITTEN_LAYOUT: Map<String, ByteArray> = buildMap {
             // 1.5 MB so it clears the 1 MB MIN_MODEL_BYTES floor with room
             // to spare. Bytes don't matter — the installer only checks the
             // archive's sha, not the model's contents.
-            put("model.fp16.onnx", ByteArray(1_500_000) { (it and 0xFF).toByte() })
-            put("voices.bin", "voices payload".toByteArray())
-            put("tokens.txt", "phoneme tokens".toByteArray())
-            // > 100 entries under espeak-ng-data/ to clear MIN_ESPEAK_ENTRIES.
+            put("kitten.onnx", ByteArray(1_500_000) { (it and 0xFF).toByte() })
+            put("phonemizer/arm64-v8a/libttsespeak.so", "elf".toByteArray())
+            // > 100 entries under phonemizer/espeak-ng-data/ to clear MIN_ESPEAK_ENTRIES.
             for (i in 0 until 110) {
-                put("espeak-ng-data/entry_$i", "dict-$i".toByteArray())
+                put("phonemizer/espeak-ng-data/entry_$i", "dict-$i".toByteArray())
+            }
+            for (name in KITTEN_DIRECT_VOICES) {
+                put("voices/$name.bin", "voice-$name".toByteArray())
             }
         }
     }
@@ -381,7 +399,7 @@ internal class TestInstaller(
 }
 
 /** Native-handle double that just records whether `release()` was called. */
-internal class FakeKittenNanoEngine : NativeEngineHandle {
+internal class FakeNativeEngineHandle : NativeEngineHandle {
     var released: Boolean = false
         private set
 
@@ -408,8 +426,8 @@ internal class FakeHttpFetcher : HttpFetcher {
  * Build a tar.bz2 archive in-memory from a {entry-name -> bytes} map.
  *
  * If [archiveRootName] is non-empty, every entry name is prefixed with
- * it — mirrors the upstream Sherpa-ONNX tarball's `kitten-nano-en-v0_1-fp16/`
- * wrapper directory.
+ * it — mirrors the production bundle's `kitten-direct-v0_8/` wrapper
+ * directory.
  */
 internal fun buildArchive(
     files: Map<String, ByteArray>,

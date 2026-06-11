@@ -20,17 +20,12 @@ class EngineCatalogTest {
     @Test
     fun catalogContainsAllVariants() {
         // Order is the display order in onboarding + Settings → Engines.
-        // Kokoro v1.0 first (recommended default), then v1.1 (Mandarin
-        // specialist), then KokoroDirect (perf port). Kitten family next
-        // in the same order. Pocket last because it's the alpha-quality
-        // non-sherpa engine.
+        // KokoroDirect first (recommended default), then the Kitten Direct
+        // family, then Pocket. The clean-room Pocket diagnostic engine is
+        // last because it's developer-only.
         assertEquals(
             listOf(
-                "kokoro-v1_0",
-                "kokoro-v1_1",
                 "kokoro-direct-v1_0",
-                "kitten-nano-v0_8",
-                "kitten-mini-v0_8",
                 "kitten-direct-v0_8",
                 "kitten-direct-mini-v0_8",
                 "pocket-tts-en-v2026_04",
@@ -46,9 +41,7 @@ class EngineCatalogTest {
     fun kokoroDirectIsRecommended_othersAreNot() {
         // Exactly one recommended engine — the onboarding pre-selection
         // logic reads the boolean per engine; multiple recommendations
-        // would over-pre-select on first launch. The recommendation moved
-        // from the sherpa kokoro-v1_0 to kokoro-direct-v1_0 in
-        // v0.3.0-alpha.10.Z when the sherpa engines became developer-only.
+        // would over-pre-select on first launch.
         assertEquals(
             "exactly one recommended engine expected",
             1,
@@ -67,21 +60,18 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun developerOnlyFlagsTheSherpaEnginesAndPocketDev() {
-        // Developer-only = the four sherpa-onnx engines (superseded by the
-        // direct-ORT ports) plus the clean-room Pocket diagnostic engine.
-        // The production direct-ORT engines + Pocket stay visible.
-        // visibleTo(false) must drop exactly these five.
+    fun developerOnlyFlagsThePocketDevEngine() {
+        // Developer-only = just the clean-room Pocket diagnostic engine now
+        // that sherpa-onnx (and its four engines) is gone. The production
+        // direct-ORT engines + Pocket stay visible. visibleTo(false) must
+        // drop exactly this one.
         assertEquals(
-            setOf(
-                "kokoro-v1_0", "kokoro-v1_1", "kitten-nano-v0_8", "kitten-mini-v0_8",
-                "pocket-tts-en-v2026_04-dev",
-            ),
+            setOf("pocket-tts-en-v2026_04-dev"),
             EngineCatalog.developerOnlyNames,
         )
         assertEquals(
-            "visibleTo(false) drops the five developer-only engines",
-            EngineCatalog.all.size - 5,
+            "visibleTo(false) drops the one developer-only engine",
+            EngineCatalog.all.size - 1,
             EngineCatalog.visibleTo(showDeveloper = false).size,
         )
         // visibleTo(true) keeps every engine but sorts the developer-only
@@ -148,23 +138,6 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kokoroPointsAtV6FpThirtyTwoMultiLangRelease() {
-        // v0.1.20 upgraded the Kokoro bundle from v5 (int8-v1.0 — the
-        // unblessed power-user export that produced tinny audio) to v6
-        // (fp32 `kokoro-multi-lang-v1_0`). Catching a URL typo here saves
-        // a real install failure (404) on the first launch after upgrade.
-        val kokoro = EngineCatalog.byName("kokoro-v1_0")!!
-        assertTrue(
-            "kokoro must reference the v6 engines-repo release, was '${kokoro.archive.url}'",
-            kokoro.archive.url.contains("/releases/download/v6/"),
-        )
-        assertTrue(
-            "kokoro archive should be the fp32 kokoro-multi-lang-v1_0 bundle",
-            kokoro.archive.url.endsWith("kokoro-multi-lang-v1_0.tar.bz2"),
-        )
-    }
-
-    @Test
     fun downloadSizeMatchesArchiveSize() {
         // The "download size" the UI shows the user is just the archive's
         // wire size — they're not allowed to drift. (installedSizeBytes is
@@ -218,16 +191,16 @@ class EngineCatalogTest {
 
     @Test
     fun licenseSummaryFlagsGplComponent() {
-        // GPL disclosure is part of the install consent UX — sherpa-onnx
-        // engines pull in espeak-ng-data (GPL-3.0) via Sherpa-ONNX, so
+        // GPL disclosure is part of the install consent UX — the Kokoro/
+        // Kitten direct engines ship espeak-ng (GPL-3.0) in their bundle, so
         // their licenseSummary must mention "GPL" so install cards reflect
         // it. Pocket runs on Microsoft onnxruntime-android directly and
         // has no GPL components, so it's exempt — and its licenseSummary
         // must explicitly state "no GPL" so users can see the difference.
         // Both Pocket variants (prod + clean-room dev) share the GPL-free payload.
         val pocketEngines = setOf("pocket-tts-en-v2026_04", "pocket-tts-en-v2026_04-dev")
-        val sherpaEngines = EngineCatalog.all.filter { it.name !in pocketEngines }
-        for (engine in sherpaEngines) {
+        val gplEngines = EngineCatalog.all.filter { it.name !in pocketEngines }
+        for (engine in gplEngines) {
             val haystack = engine.licenseSummary.lowercase()
             assertTrue(
                 "${engine.name}.licenseSummary should mention GPL — was '${engine.licenseSummary}'",

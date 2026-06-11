@@ -3,7 +3,7 @@ package app.marmalade.tts.data.db
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
  *
  * Data flow
  * ---------
- *   KittenNanoVoiceCatalog.voices  (pure data, exercised by KittenNanoVoiceCatalogTest)
+ *   KittenDirectVoiceCatalog.voices  (pure data)
  *           │
  *           ▼
  *      VoiceMetaDao.upsert / upsertAll  ──▶  in-memory MarmaladeDb (Room)
@@ -44,10 +44,8 @@ import org.robolectric.annotation.Config
  * SDK 34 because that's the only `android-all-instrumented` JAR available
  * in the local Maven cache.
  *
- * This test deliberately does NOT re-assert KittenNanoVoiceCatalog's data
- * shape — KittenNanoVoiceCatalogTest already pins names, IDs, languages, and
- * the install default. Here we only assert behaviour that lives in the
- * DAO + database layer: round-tripping rows, filtering by engine,
+ * This test asserts behaviour that lives in the DAO + database layer:
+ * round-tripping rows, filtering by engine,
  * single-row lookups, REPLACE on conflict, and Flow re-emission on
  * change.
  */
@@ -74,19 +72,19 @@ class VoiceMetaDaoTest {
 
     @Test
     fun upsertAll_thenGetByEngine_returnsAllRowsForEngine() = runTest {
-        dao.upsertAll(KittenNanoVoiceCatalog.voices)
+        dao.upsertAll(KittenDirectVoiceCatalog.voices)
 
-        val kittenRows = dao.getByEngine(KittenNanoVoiceCatalog.ENGINE).first()
+        val kittenRows = dao.getByEngine(KittenDirectVoiceCatalog.ENGINE).first()
 
         assertEquals(8, kittenRows.size)
         // Sanity check the rows actually came from the kitten engine — guards
         // against a stray query that would return everything.
-        assertTrue(kittenRows.all { it.engine == KittenNanoVoiceCatalog.ENGINE })
+        assertTrue(kittenRows.all { it.engine == KittenDirectVoiceCatalog.ENGINE })
     }
 
     @Test
     fun getByEngine_returnsEmptyForUnknownEngine() = runTest {
-        dao.upsertAll(KittenNanoVoiceCatalog.voices)
+        dao.upsertAll(KittenDirectVoiceCatalog.voices)
 
         val piperRows = dao.getByEngine("piper").first()
 
@@ -95,12 +93,12 @@ class VoiceMetaDaoTest {
 
     @Test
     fun findById_returnsRowOrNull() = runTest {
-        dao.upsertAll(KittenNanoVoiceCatalog.voices)
+        dao.upsertAll(KittenDirectVoiceCatalog.voices)
 
-        val bella = dao.findById(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID)
+        val bella = dao.findById(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
         assertNotNull("expected to find the default voice", bella)
-        assertEquals(KittenNanoVoiceCatalog.DEFAULT_VOICE_ID, bella!!.id)
-        assertEquals(KittenNanoVoiceCatalog.ENGINE, bella.engine)
+        assertEquals(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID, bella!!.id)
+        assertEquals(KittenDirectVoiceCatalog.ENGINE, bella.engine)
 
         val missing = dao.findById("does_not_exist")
         assertNull("expected null for unknown id", missing)
@@ -112,8 +110,8 @@ class VoiceMetaDaoTest {
         // upsert again with isInstalled = true; the row should reflect the
         // newer value rather than collide on the primary key.
         val original = VoiceMeta(
-            id = "kitten-nano-v0_8:Bella",
-            engine = "kitten-nano-v0_8",
+            id = "kitten-direct-v0_8:Bella",
+            engine = "kitten-direct-v0_8",
             displayName = "Bella",
             languageCode = "en-US",
             sampleRate = 24000,
@@ -140,8 +138,8 @@ class VoiceMetaDaoTest {
         // flaky. Instead, snapshot the Flow's current value after each
         // mutation and assert that each snapshot reflects the latest write.
         val voice = VoiceMeta(
-            id = "kitten-nano-v0_8:Bella",
-            engine = "kitten-nano-v0_8",
+            id = "kitten-direct-v0_8:Bella",
+            engine = "kitten-direct-v0_8",
             displayName = "Bella",
             languageCode = "en-US",
             sampleRate = 24000,

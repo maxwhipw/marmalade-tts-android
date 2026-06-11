@@ -30,13 +30,18 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       caller's package here to decide which voice alias to use.
  *       v3→v4 uses [MIGRATION_3_4], a clean CREATE TABLE that leaves
  *       `voice_meta` and `voice_alias` untouched.
+ * - v5–v7: see [MIGRATION_4_5] / [MIGRATION_5_6] / [MIGRATION_6_7]
+ *       (phonemizationLanguage column, the `effect` table, and the
+ *       `effectId` column + back-fill, respectively).
+ * - v8: [MIGRATION_7_8] deletes the orphaned sherpa `voice_meta` rows
+ *       after sherpa-onnx was removed (no schema change).
  *
  * Schemas are exported under `app/schemas/` so future versions can write
  * migrations against the v4 hash without guesswork.
  */
 @Database(
     entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class, Effect::class],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
@@ -148,5 +153,26 @@ val MIGRATION_6_7: Migration = object : Migration(6, 7) {
         db.execSQL("UPDATE `voice_alias` SET `effectId` = 'builtin:cave' WHERE `effectPreset` = 'CAVE'")
         db.execSQL("UPDATE `voice_alias` SET `effectId` = 'builtin:robot' WHERE `effectPreset` = 'ROBOT'")
         db.execSQL("UPDATE `voice_alias` SET `effectId` = 'builtin:telephone' WHERE `effectPreset` = 'TELEPHONE'")
+    }
+}
+
+/**
+ * v7 → v8 data migration. sherpa-onnx was removed entirely in 1.0.0-beta.1,
+ * so the four sherpa engines (Kokoro v1.0/v1.1, Kitten Nano/Mini) no longer
+ * exist. This deletes their now-orphaned `voice_meta` rows so the voice
+ * picker / system-TTS enumeration don't surface voices that can never
+ * synthesize. Only touches `voice_meta`; `voice_alias` is left alone (an
+ * alias pointing at a removed engine is inert and surfaces as ModelMissing
+ * on synth, which the UI already handles by steering the user to reinstall).
+ *
+ * No schema change — table structure is identical to v7; this is a pure
+ * data scrub, so the exported v8 schema hash matches v7's shape.
+ */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "DELETE FROM `voice_meta` WHERE `engine` IN " +
+                "('kokoro-v1_0', 'kokoro-v1_1', 'kitten-nano-v0_8', 'kitten-mini-v0_8')"
+        )
     }
 }

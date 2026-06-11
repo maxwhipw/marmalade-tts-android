@@ -4,14 +4,7 @@ import app.marmalade.tts.data.db.VoiceMeta
 
 /**
  * Static catalog of the 53 Kokoro v1.0 voices, served by the direct-ORT
- * `KokoroDirectEngine` (bypasses sherpa-onnx).
- *
- * Voice catalogue + IDs are identical to [KokoroV10VoiceCatalog] — same
- * upstream model, same `voices.bin` packing order, same naming
- * convention. The only difference is the [ENGINE] string, which routes
- * each [VoiceMeta] to the direct-ORT engine instead of the sherpa one.
- * Keeping them in lockstep means a future "migrate sherpa→direct" UI
- * flow can do a string substitution on the alias rows.
+ * `KokoroDirectEngine`.
  *
  * Voice naming convention (upstream `hexgrad/Kokoro-82M` v1.0):
  *   First letter (region/language):
@@ -28,8 +21,7 @@ object KokoroDirectVoiceCatalog {
 
     /**
      * Voice ID used when the system requests "any voice" for en-US.
-     * Matches [KokoroV10VoiceCatalog.DEFAULT_VOICE_ID]'s choice of
-     * `af_bella` — highest-rated American-English voice upstream.
+     * `af_bella` is the highest-rated American-English voice upstream.
      */
     const val DEFAULT_VOICE_ID = "kokoro-direct-v1_0:af_bella"
 

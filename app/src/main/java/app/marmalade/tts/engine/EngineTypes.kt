@@ -1,10 +1,10 @@
 package app.marmalade.tts.engine
 
 /**
- * Synthesised audio returned by [SherpaEngine.synthesize].
+ * Synthesised audio returned by [TtsEngine.synthesize].
  *
  * `pcm` is 16-bit signed PCM, mono, in little-endian native order.
- * Sherpa-ONNX hands us `FloatArray` in -1..1; we clamp and convert to
+ * Engines hand us `FloatArray` in -1..1; we clamp and convert to
  * `ShortArray` here so the system TTS callback path (which expects PCM16)
  * has no further work to do.
  */

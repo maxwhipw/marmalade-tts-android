@@ -16,13 +16,10 @@ import app.marmalade.tts.data.db.MIGRATION_3_4
 import app.marmalade.tts.data.db.MIGRATION_4_5
 import app.marmalade.tts.data.db.MIGRATION_5_6
 import app.marmalade.tts.data.db.MIGRATION_6_7
+import app.marmalade.tts.data.db.MIGRATION_7_8
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.engine.KittenMiniEngine
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
-import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
@@ -70,7 +67,7 @@ object AppModule {
             // MIGRATION_3_4 (additive CREATE TABLE only — no other tables
             // touched). Fallback stays as a belt-and-braces option for any
             // future hash drift.
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -141,20 +138,12 @@ object AppModule {
     @Provides
     @Singleton
     fun provideNativeEngineHandle(
-        kittenNano: KittenNanoEngine,
-        kittenMini: KittenMiniEngine,
         kittenDirect: KittenDirectEngine,
-        kokoroV10: KokoroV10Engine,
-        kokoroV11: KokoroV11Engine,
         kokoroDirect: KokoroDirectEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
     ): NativeEngineHandle = NativeEngineHandle {
-        kittenNano.release()
-        kittenMini.release()
         kittenDirect.release()
-        kokoroV10.release()
-        kokoroV11.release()
         kokoroDirect.release()
         pocket.release()
         pocketDev.release()

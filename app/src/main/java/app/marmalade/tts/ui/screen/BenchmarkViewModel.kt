@@ -3,19 +3,11 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.engine.EnginePhaseTimings
 import app.marmalade.tts.engine.PhaseSpan
-import app.marmalade.tts.engine.KittenMiniEngine
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
-import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
@@ -38,8 +30,9 @@ import kotlinx.coroutines.launch
 // surfaces the results as a row-per-engine table for visual A/B.
 //
 // Pocket gets a deep phase split (voice-encode / tokenize / flow-lm
-// phases / decoder); sherpa engines just get load + total + realtime
-// ratio (their synth runs as one opaque ORT call from our side).
+// phases / decoder); the Kokoro/Kitten direct engines just get load +
+// total + realtime ratio (their synth runs as one opaque ORT call from
+// our side).
 //
 // No audio playback — pure measurement. Saves on AudioTrack latency
 // confounding the numbers and keeps the screen quiet enough to A/B
@@ -48,11 +41,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class BenchmarkViewModel @Inject constructor(
-    private val kokoroV10: KokoroV10Engine,
-    private val kokoroV11: KokoroV11Engine,
     private val kokoroDirect: KokoroDirectEngine,
-    private val kittenNano: KittenNanoEngine,
-    private val kittenMini: KittenMiniEngine,
     private val kittenDirect: KittenDirectEngine,
     private val kittenDirectMini: KittenDirectMiniEngine,
     private val pocket: PocketEngine,
@@ -68,11 +57,7 @@ class BenchmarkViewModel @Inject constructor(
      * all it takes to make it benchable.
      */
     private val engineHandles: Map<String, Pair<TtsEngine, String>> = mapOf(
-        KokoroV10VoiceCatalog.ENGINE to (kokoroV10 to KokoroV10VoiceCatalog.DEFAULT_VOICE_ID),
-        KokoroV11VoiceCatalog.ENGINE to (kokoroV11 to KokoroV11VoiceCatalog.DEFAULT_VOICE_ID),
         KokoroDirectVoiceCatalog.ENGINE to (kokoroDirect to KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID),
-        KittenNanoVoiceCatalog.ENGINE to (kittenNano to KittenNanoVoiceCatalog.DEFAULT_VOICE_ID),
-        KittenMiniVoiceCatalog.ENGINE to (kittenMini to KittenMiniVoiceCatalog.DEFAULT_VOICE_ID),
         KittenDirectVoiceCatalog.ENGINE to (kittenDirect to KittenDirectVoiceCatalog.DEFAULT_VOICE_ID),
         KittenDirectMiniVoiceCatalog.ENGINE to (kittenDirectMini to KittenDirectMiniVoiceCatalog.DEFAULT_VOICE_ID),
         PocketVoiceCatalog.ENGINE to (pocket to PocketVoiceCatalog.DEFAULT_VOICE_ID),
@@ -300,7 +285,7 @@ data class BenchmarkResult(
 //
 // Pocket's `max_token_per_chunk = 50` means Medium + Long will skip words
 // or mangle output until the sentence chunker lands (Pocket can natively
-// only handle the Short preset). Sherpa engines (Kokoro, Kitten) handle
+// only handle the Short preset). The Kokoro/Kitten direct engines handle
 // arbitrary lengths natively.
 //
 // Picked text: John 3:16 / Psalm 23 / 1 Corinthians 13. Public-domain

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -129,7 +129,7 @@ class VoicePickerViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = KokoroV10VoiceCatalog.DEFAULT_VOICE_ID,
+            initialValue = KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
         )
 
     private val _previewState = MutableStateFlow<PreviewState>(PreviewState.Idle)

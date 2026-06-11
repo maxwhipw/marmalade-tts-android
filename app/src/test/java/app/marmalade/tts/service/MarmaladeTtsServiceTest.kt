@@ -9,15 +9,15 @@ import android.speech.tts.TextToSpeech
 import androidx.test.core.app.ApplicationProvider
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.EngineNotInstalledException
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.PreprocessingRules
@@ -43,10 +43,10 @@ import org.robolectric.RobolectricTestRunner
 //
 //   The two `@Inject lateinit var` fields are set via reflection in @Before
 //   (Hilt is not running in this JVM test). We swap in:
-//     * FakeKittenNanoEngine    — JVM-safe subclass overriding sampleRate +
-//                             synthesize() so we never touch the Sherpa-ONNX
-//                             JNI bridge (which won't load in Robolectric).
-//     * FakeVoiceMetaDao    — in-memory stub seeded with KittenNanoVoiceCatalog.
+//     * FakeKittenDirectEngine  — JVM-safe subclass overriding sampleRate +
+//                             synthesize() so we never touch the ONNX Runtime
+//                             session (which won't load in Robolectric).
+//     * FakeVoiceMetaDao    — in-memory stub seeded with KittenDirectVoiceCatalog.
 //
 //   FakeSynthesisCallback implements android.speech.tts.SynthesisCallback
 //   (an interface — no test constructor needed) and records every call as
@@ -64,8 +64,8 @@ import org.robolectric.RobolectricTestRunner
 class MarmaladeTtsServiceTest {
 
     private lateinit var service: MarmaladeTtsService
-    private lateinit var fakeEngine: FakeKittenNanoEngine
-    private lateinit var fakeKokoroV10Engine: FakeKokoroV10Engine
+    private lateinit var fakeEngine: FakeKittenDirectEngine
+    private lateinit var fakeKokoroDirectEngine: FakeKokoroDirectEngine
     private lateinit var fakeDao: FakeVoiceMetaDao
     private lateinit var fakeSettings: FakePreprocessSettings
     private lateinit var preprocessor: Preprocessor
@@ -73,12 +73,12 @@ class MarmaladeTtsServiceTest {
     @Before
     fun setUp() {
         val ctx: Context = ApplicationProvider.getApplicationContext()
-        fakeEngine = FakeKittenNanoEngine(ctx)
-        fakeKokoroV10Engine = FakeKokoroV10Engine(ctx)
-        // Seed both catalogs so the engine-routing tests can resolve
-        // either a kitten:* or kokoro:* voice through the DAO lookup.
-        fakeDao = FakeVoiceMetaDao(KittenNanoVoiceCatalog.voices + KokoroV10VoiceCatalog.voices)
         fakeSettings = FakePreprocessSettings()
+        fakeEngine = FakeKittenDirectEngine(ctx, fakeSettings)
+        fakeKokoroDirectEngine = FakeKokoroDirectEngine(ctx, fakeSettings)
+        // Seed both catalogs so the engine-routing tests can resolve
+        // either a kitten-direct:* or kokoro-direct:* voice through the DAO lookup.
+        fakeDao = FakeVoiceMetaDao(KittenDirectVoiceCatalog.voices + KokoroDirectVoiceCatalog.voices)
         preprocessor = Preprocessor(
             rulesByName = PreprocessingRules.ALL.associateBy { it.name },
         )
@@ -86,11 +86,11 @@ class MarmaladeTtsServiceTest {
         // Inject by reflection — Hilt isn't running so the @Inject lateinit
         // vars are unset. Reflection bypasses the lateinit "isInitialized"
         // guard. We only set the fields these tests exercise: the two engines
-        // they route to (kittenNano, kokoroV10), the DAO/preprocessor/settings/
-        // router, and effectResolver. The other six engine fields stay unset —
-        // no test routes a voice to them, so they're never accessed.
-        setField(service, "kittenNano", fakeEngine)
-        setField(service, "kokoroV10", fakeKokoroV10Engine)
+        // they route to (kittenDirect, kokoroDirect), the DAO/preprocessor/
+        // settings/router, and effectResolver. The other engine fields stay
+        // unset — no test routes a voice to them, so they're never accessed.
+        setField(service, "kittenDirect", fakeEngine)
+        setField(service, "kokoroDirect", fakeKokoroDirectEngine)
         setField(service, "voiceDao", fakeDao)
         setField(service, "preprocessor", preprocessor)
         setField(service, "settings", fakeSettings)
@@ -134,15 +134,13 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_happyPath_callOrderIsStartAudioAvailableDone() {
-        // Explicit kokoro voice → routes to the kokoro engine. (The no-voice
-        // default now resolves to kokoro-direct — covered by
-        // SettingsRepositoryTest; here we want the already-wired kokoroV10
-        // fake to assert the synth call order.) Seed the kokoro fake with PCM.
+        // Explicit kokoro voice → routes to the kokoro engine. Seed the
+        // kokoro fake with PCM and assert the synth call order.
         val sampleCount = 48_000
-        fakeKokoroV10Engine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
+        fakeKokoroDirectEngine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
 
         val callback = FakeSynthesisCallback()
-        val request = newRequestWithVoice("hello world", "kokoro-v1_0:af_bella")
+        val request = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -182,7 +180,7 @@ class MarmaladeTtsServiceTest {
         assertEquals(
             "kokoro voice should route to the kokoro engine",
             1,
-            fakeKokoroV10Engine.calls.size,
+            fakeKokoroDirectEngine.calls.size,
         )
         assertEquals(
             "kokoro voice should NOT touch the kitten engine",
@@ -196,10 +194,10 @@ class MarmaladeTtsServiceTest {
     @Test
     fun onSynthesizeText_engineNotInstalled_callsErrorExactlyOnce() {
         // Explicit kokoro voice → kokoro engine. Configure that fake to throw.
-        fakeKokoroV10Engine.synthesizeException = EngineNotInstalledException("kokoro-v1_0")
+        fakeKokoroDirectEngine.synthesizeException = EngineNotInstalledException("kokoro-direct-v1_0")
 
         val callback = FakeSynthesisCallback()
-        val request = newRequestWithVoice("hello world", "kokoro-v1_0:af_bella")
+        val request = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -226,11 +224,11 @@ class MarmaladeTtsServiceTest {
         // Explicit kokoro voice → kokoro engine.
         val sampleCount = 100_000
         val expectedBytes = sampleCount * 2 // PCM16
-        fakeKokoroV10Engine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
+        fakeKokoroDirectEngine.nextPcm = ShortArray(sampleCount) { (it and 0xFF).toShort() }
 
         val maxBuf = 8192
         val callback = FakeSynthesisCallback(maxBufferSize = maxBuf)
-        val request = newRequestWithVoice("a longer sentence to synthesize", "kokoro-v1_0:af_bella")
+        val request = newRequestWithVoice("a longer sentence to synthesize", "kokoro-direct-v1_0:af_bella")
 
         service.onSynthesizeText(request, callback)
 
@@ -255,60 +253,60 @@ class MarmaladeTtsServiceTest {
     // -- 5. engine routing: voice prefix selects the right engine --------
 
     @Test
-    fun onSynthesizeText_kittenVoiceRoutesToKittenNanoEngine() {
+    fun onSynthesizeText_kittenVoiceRoutesToKittenDirectEngine() {
         // Explicit kitten voiceName on the request — service must dispatch
         // to the kitten engine, never touching kokoro.
         fakeEngine.nextPcm = ShortArray(1024) { 0 }
 
         val callback = FakeSynthesisCallback()
-        val request = newRequestWithVoice("hello kitten", "kitten-nano-v0_8:Bella")
+        val request = newRequestWithVoice("hello kitten", "kitten-direct-v0_8:Bella")
 
         service.onSynthesizeText(request, callback)
 
         assertEquals(
-            "kitten-nano-v0_8:* voiceName should hit the kitten engine exactly once",
+            "kitten-direct-v0_8:* voiceName should hit the kitten engine exactly once",
             1,
             fakeEngine.calls.size,
         )
         assertEquals(
-            "kitten-nano-v0_8:* voiceName should NOT touch the kokoro engine",
+            "kitten-direct-v0_8:* voiceName should NOT touch the kokoro engine",
             0,
-            fakeKokoroV10Engine.calls.size,
+            fakeKokoroDirectEngine.calls.size,
         )
         // The voice id passed to the engine must round-trip unchanged.
-        assertEquals("kitten-nano-v0_8:Bella", fakeEngine.calls.single().second)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
     }
 
     @Test
-    fun onSynthesizeText_kokoroVoiceRoutesToKokoroV10Engine() {
+    fun onSynthesizeText_kokoroVoiceRoutesToKokoroDirectEngine() {
         // Explicit kokoro voiceName on the request — service must dispatch
         // to the kokoro engine, never touching kitten.
-        fakeKokoroV10Engine.nextPcm = ShortArray(1024) { 0 }
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024) { 0 }
 
         val callback = FakeSynthesisCallback()
-        val request = newRequestWithVoice("hello kokoro", "kokoro-v1_0:bm_lewis")
+        val request = newRequestWithVoice("hello kokoro", "kokoro-direct-v1_0:bm_lewis")
 
         service.onSynthesizeText(request, callback)
 
         assertEquals(
-            "kokoro-v1_0:* voiceName should hit the kokoro engine exactly once",
+            "kokoro-direct-v1_0:* voiceName should hit the kokoro engine exactly once",
             1,
-            fakeKokoroV10Engine.calls.size,
+            fakeKokoroDirectEngine.calls.size,
         )
         assertEquals(
-            "kokoro-v1_0:* voiceName should NOT touch the kitten engine",
+            "kokoro-direct-v1_0:* voiceName should NOT touch the kitten engine",
             0,
             fakeEngine.calls.size,
         )
-        assertEquals("kokoro-v1_0:bm_lewis", fakeKokoroV10Engine.calls.single().second)
+        assertEquals("kokoro-direct-v1_0:bm_lewis", fakeKokoroDirectEngine.calls.single().second)
     }
 
     @Test
     fun onLoadVoice_acceptsBothEnginesAndRejectsUnknown() {
         // Both engines' voices must round-trip — required for the system
         // TTS picker to enumerate them through Settings → Languages → TTS.
-        assertEquals(TextToSpeech.SUCCESS, service.onLoadVoice("kitten-nano-v0_8:Bella"))
-        assertEquals(TextToSpeech.SUCCESS, service.onLoadVoice("kokoro-v1_0:af_bella"))
+        assertEquals(TextToSpeech.SUCCESS, service.onLoadVoice("kitten-direct-v0_8:Bella"))
+        assertEquals(TextToSpeech.SUCCESS, service.onLoadVoice("kokoro-direct-v1_0:af_bella"))
         // Unknown engines (or junk) are rejected so the system falls back
         // to the language-level default rather than us silently swallowing
         // a bad voice request.
@@ -431,13 +429,16 @@ internal class FakeSynthesisCallback(
 }
 
 // ---------------------------------------------------------------------------
-// FakeKittenNanoEngine — JVM-safe subclass of KittenNanoEngine that returns a fixed
-// PCM ShortArray (or throws a configured exception) without touching the
-// Sherpa-ONNX JNI bridge. KittenNanoEngine is declared `open` solely to enable
+// FakeKittenDirectEngine — JVM-safe subclass of KittenDirectEngine that returns a
+// fixed PCM ShortArray (or throws a configured exception) without touching the
+// ONNX Runtime session. KittenDirectEngine is declared `open` solely to enable
 // this test double — see the prod-code comment above the class declaration.
 // ---------------------------------------------------------------------------
 
-internal class FakeKittenNanoEngine(ctx: Context) : KittenNanoEngine(ctx) {
+internal class FakeKittenDirectEngine(
+    ctx: Context,
+    settings: SettingsRepository,
+) : KittenDirectEngine(ctx, settings) {
 
     /** PCM to return from synthesize(); ignored if synthesizeException is set. */
     var nextPcm: ShortArray = ShortArray(0)
@@ -465,12 +466,15 @@ internal class FakeKittenNanoEngine(ctx: Context) : KittenNanoEngine(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// FakeKokoroV10Engine — JVM-safe subclass of KokoroV10Engine that mirrors the
-// FakeKittenNanoEngine pattern. KokoroV10Engine is declared `open` solely to enable
-// this test double — same reasoning as KittenNanoEngine.
+// FakeKokoroDirectEngine — JVM-safe subclass of KokoroDirectEngine that mirrors
+// the FakeKittenDirectEngine pattern. KokoroDirectEngine is declared `open`
+// solely to enable this test double — same reasoning as KittenDirectEngine.
 // ---------------------------------------------------------------------------
 
-internal class FakeKokoroV10Engine(ctx: Context) : KokoroV10Engine(ctx) {
+internal class FakeKokoroDirectEngine(
+    ctx: Context,
+    settings: SettingsRepository,
+) : KokoroDirectEngine(ctx, settings) {
 
     /** PCM to return from synthesize(); ignored if synthesizeException is set. */
     var nextPcm: ShortArray = ShortArray(0)
@@ -529,12 +533,12 @@ internal class FakeVoiceMetaDao(seed: List<VoiceMeta>) : VoiceMetaDao {
 // ---------------------------------------------------------------------------
 // FakePreprocessSettings — minimal SettingsRepository override that only
 // implements the preprocessing-rule lookup. The service reads
-// settings.enabledRules("kitten-nano-v0_8") via runBlocking; everything else routes
-// to the parent's no-op DataStore (never collected in this test).
+// settings.enabledRules("kitten-direct-v0_8") via runBlocking; everything else
+// routes to the parent's no-op DataStore (never collected in this test).
 // ---------------------------------------------------------------------------
 
 internal class FakePreprocessSettings(
-    initialRules: Set<String> = EngineProfiles.defaultsFor("kitten-nano-v0_8"),
+    initialRules: Set<String> = EngineProfiles.defaultsFor("kitten-direct-v0_8"),
 ) : SettingsRepository(NoOpPreferencesDataStoreForService) {
     private val rules = MutableStateFlow(initialRules)
     override fun enabledRules(engineName: String): Flow<Set<String>> = rules

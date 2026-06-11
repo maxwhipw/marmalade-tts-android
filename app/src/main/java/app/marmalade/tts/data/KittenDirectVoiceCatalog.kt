@@ -3,13 +3,11 @@ package app.marmalade.tts.data
 import app.marmalade.tts.data.db.VoiceMeta
 
 /**
- * Voices for the KittenDirect engine — the sherpa-onnx-free Kitten path.
+ * Voices for the KittenDirect engine — the direct-ORT Kitten path.
  *
- * Same 8 voice identities as [KittenNanoVoiceCatalog] / [KittenMiniVoiceCatalog]
- * because the upstream `voices.npz` from KittenML/kitten-tts-nano-0.8 is
- * what every Kitten variant consumes. The audio differs only because
- * the engine running the model differs (sherpa + espeak vs direct ORT
- * + OpenPhonemizer).
+ * The 8 voice identities come from the upstream `voices.npz` in
+ * KittenML/kitten-tts-nano-0.8, which both the nano and mini Kitten
+ * models consume. Phonemization is espeak-ng.
  *
  * Bundled as one `.bin` file per voice — produced by extracting each
  * named array out of upstream's combined `voices.npz`. Filenames are

@@ -75,11 +75,10 @@ import kotlinx.coroutines.withContext
  * Voice cloning (v0.3.0): users supply WAV; same `mimi_encoder` path,
  * with the resulting embedding written to `cloned_voices/<id>.bin`.
  *
- * Why a separate class (not a SherpaEngine subclass): different runtime
- * (ORT direct), different model topology (5 graphs vs 1 OfflineTts),
- * stateful streaming codec, voice cloning. The shared parent surface is
- * [TtsEngine] — same contract Synthesizer + the two TTS services route
- * through.
+ * Why a separate class from the other direct engines: different model
+ * topology (5 graphs vs 1), a stateful streaming codec, and voice
+ * cloning. The shared surface is [TtsEngine] — same contract Synthesizer
+ * + the two TTS services route through.
  *
  * Thread-safety: model loading is gated by a coroutine [Mutex]; synthesis
  * itself is gated by [Mutex.withLock] so concurrent `synthesize` calls

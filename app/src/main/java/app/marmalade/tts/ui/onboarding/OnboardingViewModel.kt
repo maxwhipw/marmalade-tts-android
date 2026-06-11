@@ -6,11 +6,7 @@ import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
@@ -191,8 +187,9 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Convenience: the cards rendered on the EnginePick step. Production
-     * engines only — the legacy sherpa engines are never offered to new
-     * users in onboarding; they're an opt-in via Settings afterward.
+     * engines only — developer-only engines (e.g. the Pocket clean-reference
+     * build) are never offered to new users in onboarding; they're an opt-in
+     * via Settings afterward.
      */
     val engines: StateFlow<List<EngineCardState>> = MutableStateFlow(
         EngineCatalog.visibleTo(showDeveloper = false).map { d ->
@@ -368,13 +365,11 @@ class OnboardingViewModel @Inject constructor(
             val installedEngines = _installStates.value
                 .filterValues { it is InstallState.Installed }
                 .keys
-            val engine = when {
-                "kokoro" in installedEngines -> "kokoro"
-                "kitten" in installedEngines -> "kitten"
-                installedEngines.isNotEmpty() -> installedEngines.first()
-                else -> EngineCatalog.all.firstOrNull { it.isRecommended }?.name
-                    ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
-            }
+            val engine = installedEngines.firstOrNull { it.startsWith("kokoro") }
+                ?: installedEngines.firstOrNull { it.startsWith("kitten") }
+                ?: installedEngines.firstOrNull()
+                ?: EngineCatalog.all.firstOrNull { it.isRecommended }?.name
+                ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
             val voiceId = defaultVoiceIdFor(engine)
             _aliasEditorState.value = AliasFields(
                 name = "default",
@@ -499,13 +494,11 @@ class OnboardingViewModel @Inject constructor(
             val installedEngines = _installStates.value
                 .filterValues { it is InstallState.Installed }
                 .keys
-            val engine = when {
-                "kokoro" in installedEngines -> "kokoro"
-                "kitten" in installedEngines -> "kitten"
-                installedEngines.isNotEmpty() -> installedEngines.first()
-                else -> EngineCatalog.all.firstOrNull { it.isRecommended }?.name
-                    ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
-            }
+            val engine = installedEngines.firstOrNull { it.startsWith("kokoro") }
+                ?: installedEngines.firstOrNull { it.startsWith("kitten") }
+                ?: installedEngines.firstOrNull()
+                ?: EngineCatalog.all.firstOrNull { it.isRecommended }?.name
+                ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
             val voiceId = defaultVoiceIdFor(engine)
             // Refuse to create a malformed alias if there isn't any
             // engine to pull a default voice from — surface as an error
@@ -593,11 +586,7 @@ class OnboardingViewModel @Inject constructor(
      * [useDefaultsAndContinue] stay in sync.
      */
     private fun defaultVoiceIdFor(engine: String): String = when (engine) {
-        KokoroV10VoiceCatalog.ENGINE -> KokoroV10VoiceCatalog.DEFAULT_VOICE_ID
-        KokoroV11VoiceCatalog.ENGINE -> KokoroV11VoiceCatalog.DEFAULT_VOICE_ID
         KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
-        KittenNanoVoiceCatalog.ENGINE -> KittenNanoVoiceCatalog.DEFAULT_VOICE_ID
-        KittenMiniVoiceCatalog.ENGINE -> KittenMiniVoiceCatalog.DEFAULT_VOICE_ID
         KittenDirectVoiceCatalog.ENGINE -> KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
         KittenDirectMiniVoiceCatalog.ENGINE -> KittenDirectMiniVoiceCatalog.DEFAULT_VOICE_ID
         PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID

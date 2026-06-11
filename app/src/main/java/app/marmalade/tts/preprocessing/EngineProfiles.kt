@@ -45,7 +45,7 @@ object EngineProfiles {
      * of a List avoids the question "do duplicates matter?" — they
      * don't.
      */
-    /** Kitten family default rules — applies to both nano and mini. */
+    /** Kitten family default rules — applies to both Kitten Direct variants. */
     private val KITTEN_DEFAULTS: Set<String> = setOf(
         "markdown", "html",
         "currency", "percentage", "ordinal", "time", "date",
@@ -55,9 +55,8 @@ object EngineProfiles {
     )
 
     /**
-     * Kokoro family default rules — applies to both v1.0 and v1.1.
-     * Kokoro (via misaki upstream) handles numbers, abbreviations, and
-     * some symbols natively — skip those rules.
+     * Kokoro family default rules. Kokoro (via misaki upstream) handles
+     * numbers, abbreviations, and some symbols natively — skip those rules.
      */
     private val KOKORO_DEFAULTS: Set<String> = setOf(
         "markdown", "html",
@@ -68,21 +67,16 @@ object EngineProfiles {
     )
 
     /**
-     * Default preprocessing rule sets per engine name. The four sherpa-onnx
-     * engines we ship (Kokoro v1.0 + v1.1, Kitten Nano + Mini) all share
-     * the same upstream phoneme conventions per family, so v1.0 / v1.1 of
-     * Kokoro use the same defaults, and Kitten Nano / Mini share theirs.
-     * Pocket TTS does no native text normalization upstream (per
-     * NekoSpeak's reverse-engineering of the pipeline), so it gets the
-     * full Kitten rule set — same surface as Kitten Nano / Mini.
+     * Default preprocessing rule sets per engine name. The Kitten Direct
+     * variants share the same upstream phoneme conventions, so both use the
+     * Kitten defaults; Kokoro Direct uses the Kokoro defaults. Pocket TTS
+     * does no native text normalization upstream (per NekoSpeak's
+     * reverse-engineering of the pipeline), so it gets the full Kitten rule
+     * set.
      */
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
-        "kitten-nano-v0_8" to KITTEN_DEFAULTS,
-        "kitten-mini-v0_8" to KITTEN_DEFAULTS,
         "kitten-direct-v0_8" to KITTEN_DEFAULTS,
         "kitten-direct-mini-v0_8" to KITTEN_DEFAULTS,
-        "kokoro-v1_0" to KOKORO_DEFAULTS,
-        "kokoro-v1_1" to KOKORO_DEFAULTS,
         "kokoro-direct-v1_0" to KOKORO_DEFAULTS,
         "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
         // Developer-only clean-room Pocket engine — same profile as production Pocket.

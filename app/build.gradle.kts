@@ -23,17 +23,15 @@ android {
         }
 
         // Real Android devices are arm64-v8a (modern) or armeabi-v7a (older
-        // 32-bit ARM). x86 / x86_64 are emulator-only; shipping their
-        // libsherpa-onnx-jni + libonnxruntime cost ~58 MB of APK with zero
-        // real-device benefit. Drop them. Anyone running the app in an x86
-        // emulator can do a from-source build.
+        // 32-bit ARM). x86 / x86_64 are emulator-only; shipping their native
+        // libs costs APK size with zero real-device benefit. Drop them.
+        // Anyone running the app in an x86 emulator can do a from-source build.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
 
         // CMake build for our espeak JNI shim. The shim does dlopen() of
-        // libttsespeak.so from the engine bundle at runtime, so *this shim*
-        // links no espeak at build time. The distributed APK is still a
-        // GPL-3.0-or-later combined work (the sherpa AAR statically links
-        // espeak); the source repo stays MIT. See cpp/espeak_jni.c + NOTICE.md.
+        // libttsespeak.so from the engine bundle at runtime, so the APK links
+        // no espeak at build time — no GPL code ships in the APK. See
+        // cpp/espeak_jni.c + NOTICE.md.
         externalNativeBuild {
             cmake {
                 cppFlags += ""
@@ -93,8 +91,8 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
-        // sherpa-onnx bundles libonnxruntime.so; pick first copy if a future
-        // dependency also bundles it (matches marmalade-android convention).
+        // Pick the first copy if two dependencies ever bundle the same ORT
+        // native lib (harmless with the single onnxruntime-android dep).
         jniLibs {
             pickFirsts += "lib/*/libonnxruntime.so"
             pickFirsts += "lib/*/libonnxruntime4j_jni.so"
@@ -161,18 +159,9 @@ dependencies {
     // DataStore (Preferences)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // Sherpa-ONNX (TTS inference, vendored AAR). 1.13.2 is the first
-    // release with KittenTTS v0.8 support — anything older crashes mid-
-    // synthesis against our v0.8 int8 bundle.
-    implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar"))
-
-    // Microsoft onnxruntime-android (MIT). Used directly by the Pocket TTS
-    // engine (v0.3.0+) — Pocket isn't a sherpa-onnx pipeline, it's a
-    // 5-graph LSD model we run ourselves. Coexists with sherpa-onnx: the
-    // vendored AAR statically links its own ORT 1.13.2 so this dep
-    // doesn't replace it. The `jniLibs.pickFirsts` block below absorbs
-    // the duplicate `libonnxruntime.so` / JNI shim that both providers
-    // bundle for `arm64-v8a` and `armeabi-v7a`.
+    // Microsoft onnxruntime-android (MIT). The inference runtime for every
+    // shipping engine — Kokoro Direct, Kitten Direct, and Pocket each run
+    // their ONNX graphs directly on ORT (no sherpa-onnx wrapper).
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
 
     // Media session (lock-screen + BT transport controls in MarmaladeSynthService).

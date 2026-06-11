@@ -26,17 +26,9 @@ import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
-import app.marmalade.tts.engine.KittenMiniEngine
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
-import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
@@ -69,9 +61,10 @@ import kotlinx.coroutines.withContext
 //     EXTRA_ENGINE (String, optional)   — engine name; default "kokoro".
 //                                          When absent, the engine is derived
 //                                          from EXTRA_VOICE's prefix.
-//     EXTRA_VOICE  (String, optional)   — voice id e.g. "kokoro:af_bella"
-//                                          or "kitten:Bella". Defaults to
-//                                          KokoroV10VoiceCatalog.DEFAULT_VOICE_ID.
+//     EXTRA_VOICE  (String, optional)   — voice id e.g.
+//                                          "kokoro-direct-v1_0:af_bella" or
+//                                          "kitten-direct-v0_8:Bella". Defaults
+//                                          to KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID.
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
 //     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
@@ -152,12 +145,8 @@ import kotlinx.coroutines.withContext
 @AndroidEntryPoint
 class MarmaladeSynthService : Service() {
 
-    @Inject lateinit var kittenNano: KittenNanoEngine
-    @Inject lateinit var kittenMini: KittenMiniEngine
     @Inject lateinit var kittenDirect: KittenDirectEngine
     @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
-    @Inject lateinit var kokoroV10: KokoroV10Engine
-    @Inject lateinit var kokoroV11: KokoroV11Engine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
 
@@ -314,11 +303,7 @@ class MarmaladeSynthService : Service() {
         if (sep <= 0) return DEFAULT_ENGINE
         val name = voiceId.substring(0, sep)
         return when (name) {
-            KokoroV10VoiceCatalog.ENGINE,
-            KokoroV11VoiceCatalog.ENGINE,
             KokoroDirectVoiceCatalog.ENGINE,
-            KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE -> name
@@ -395,11 +380,7 @@ class MarmaladeSynthService : Service() {
         // rather than failing loudly — keeps the foreground service
         // robust to third-party callers sending garbage in EXTRA_ENGINE.
         val engineName = when (resolved.engine) {
-            KokoroV10VoiceCatalog.ENGINE,
-            KokoroV11VoiceCatalog.ENGINE,
             KokoroDirectVoiceCatalog.ENGINE,
-            KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE -> resolved.engine
@@ -477,25 +458,17 @@ class MarmaladeSynthService : Service() {
         speed: Float,
         phonemizationLanguage: String? = null,
     ): SynthAudio = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed, phonemizationLanguage)
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: runOne already narrows engineName to known values.
-        else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** Human-friendly engine label for notification copy. */
     private fun displayNameFor(engineName: String): String = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> "Kokoro v1.0 (legacy)"
-        KokoroV11VoiceCatalog.ENGINE -> "Kokoro v1.1 (legacy)"
         KokoroDirectVoiceCatalog.ENGINE -> "Kokoro"
-        KittenNanoVoiceCatalog.ENGINE -> "Kitten Nano (legacy)"
-        KittenMiniVoiceCatalog.ENGINE -> "Kitten Mini (legacy)"
         KittenDirectVoiceCatalog.ENGINE -> "Kitten Nano"
         KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Mini"
         PocketVoiceCatalog.ENGINE -> "Pocket TTS"
@@ -800,8 +773,7 @@ class MarmaladeSynthService : Service() {
         /**
          * Default engine when [EXTRA_ENGINE] is not provided AND [EXTRA_VOICE]
          * doesn't disambiguate. Kokoro Direct is the recommended-default engine
-         * (matches `EngineCatalog.KOKORO_DIRECT.isRecommended`) and, unlike the
-         * legacy sherpa `kokoro-v1_0`, is visible/installable in release builds.
+         * (matches `EngineCatalog.KOKORO_DIRECT.isRecommended`).
          */
         const val DEFAULT_ENGINE: String = "kokoro-direct-v1_0"
 

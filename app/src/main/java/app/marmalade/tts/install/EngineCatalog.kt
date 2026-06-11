@@ -42,8 +42,8 @@ package app.marmalade.tts.install
  *               to strip during extraction, with trailing `/`. Empty
  *               string means "extract entries as-is, no stripping" —
  *               use that for future archives that aren't wrapper-dir'd.
- *               For Kitten v0.1 this is `"kitten-nano-en-v0_1-fp16/"`
- *               (the directory name Sherpa-ONNX's tarball uses).
+ *               For Kitten Direct this is `"kitten-direct-v0_8/"` (the
+ *               directory name the bundle's tarball uses).
  */
 data class EngineArchive(
     val url: String,
@@ -75,9 +75,10 @@ data class EngineArchive(
  * @property isRecommended     True for the engine pre-checked in the
  *                             onboarding wizard. v0.1 only ships Kitten,
  *                             which is the recommended default.
- * @property developerOnly     True for the legacy sherpa-onnx engines that
- *                             the direct-ORT engines superseded. Hidden from
- *                             the user-facing engine lists (manage screen,
+ * @property developerOnly     True for diagnostic engines (currently the
+ *                             Pocket clean-reference build) that aren't
+ *                             meant for normal users. Hidden from the
+ *                             user-facing engine lists (manage screen,
  *                             onboarding, alias + voice pickers) unless the
  *                             "show developer engines" setting is on — kept
  *                             in the catalog so existing aliases that point
@@ -112,8 +113,8 @@ data class EngineDescriptor(
 /**
  * Static catalog of installable engines.
  *
- * v0.1.9 ships both Kokoro (recommended default) and Kitten. Future engines
- * (piper, pocket) join this list as their bundles are characterised. The
+ * Ships Kokoro Direct (recommended default), Kitten Direct + Kitten Direct
+ * Mini, and Pocket TTS — all running on `onnxruntime-android` directly. The
  * list order is also the display order in the onboarding wizard and
  * Settings → Engines screen.
  */
@@ -121,10 +122,6 @@ object EngineCatalog {
 
     // Unpacked sizes (sum of file sizes after tar extraction). Compute via
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
-    private const val KOKORO_V1_0_INSTALLED_SIZE_BYTES: Long = 400_786_089L
-    private const val KOKORO_V1_1_INSTALLED_SIZE_BYTES: Long = 426_654_376L
-    private const val KITTEN_NANO_INSTALLED_SIZE_BYTES: Long = 78_049_671L
-    private const val KITTEN_MINI_INSTALLED_SIZE_BYTES: Long = 99_550_582L
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 72_862_079L
     private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 94_363_897L
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 482_162_181L
@@ -136,134 +133,17 @@ object EngineCatalog {
     private const val POCKET_TTS_DEV_INSTALLED_SIZE_BYTES: Long = POCKET_TTS_INSTALLED_SIZE_BYTES
 
     /**
-     * Kokoro v1.0 multi-lang fp32 (`kokoro-multi-lang-v1_0`). 53 voices
-     * across 9 languages — American + British English, Spanish, French,
-     * Hindi, Italian, Japanese, Brazilian Portuguese, Mandarin.
+     * Kitten Direct v0.8 (`kitten-direct-v0_8`) — the 15M-param KittenML
+     * acoustic model, 8 voices, run directly on
+     * `onnxruntime-android`. Phonemization is espeak-ng, shipped as a
+     * downloaded `libttsespeak.so` the MIT JNI shim dlopen's at runtime
+     * (rather than statically linked like the sherpa engines).
      *
-     * Recommended default since v0.2.0 split the Kokoro engine family.
-     * v1.0 has noticeably better English audio quality than v1.1 per
-     * pre-ship A/B; v1.1 ships alongside for users who want its 100
-     * Mandarin voices.
-     */
-    private val KOKORO_V1_0: EngineDescriptor = EngineDescriptor(
-        name = "kokoro-v1_0",
-        displayName = "Kokoro v1.0 (legacy)",
-        description = "Legacy engine, kept for comparison — superseded by Kokoro, " +
-            "which has the same 53 voices and 9 languages but runs faster and " +
-            "switches language correctly. Use Kokoro instead. (Runs on the older " +
-            "sherpa-onnx engine.)",
-        downloadSizeBytes = 349_418_188L,
-        installedSizeBytes = KOKORO_V1_0_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
-        developerOnly = true,
-        archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v6/kokoro-multi-lang-v1_0.tar.bz2",
-            sha256 = "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-            sizeBytes = 349_418_188L,
-            archiveRoot = "kokoro-multi-lang-v1_0/",
-        ),
-        licenseNotice = "LICENSES/kokoro-tts.md",
-        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +
-            "53 voices across 9 languages — legacy engine, use Kokoro.",
-    )
-
-    /**
-     * Kokoro v1.1 multi-lang fp32 (`kokoro-multi-lang-v1_1`). 103 voices —
-     * only 3 English (af_maple, af_sol, bf_vale) and 100 Mandarin
-     * (zf_001..zm_100). Mandarin-specialist variant; English audio
-     * quality is lower than v1.0 per pre-ship A/B, so v1.0 stays the
-     * recommended default for English-primary use.
-     *
-     * Installs alongside v1.0 — they're independent engines with disjoint
-     * voice IDs. Users opt into v1.1 if they want the Mandarin catalog.
-     */
-    private val KOKORO_V1_1: EngineDescriptor = EngineDescriptor(
-        name = "kokoro-v1_1",
-        displayName = "Kokoro v1.1 (Mandarin, legacy)",
-        description = "Legacy Mandarin-focused engine, kept for comparison — 100 " +
-            "Mandarin voices plus 3 English. Superseded by Kokoro for most " +
-            "uses. (Runs on the older sherpa-onnx engine.)",
-        downloadSizeBytes = 364_816_464L,
-        installedSizeBytes = KOKORO_V1_1_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
-        developerOnly = true,
-        archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v8/kokoro-multi-lang-v1_1.tar.bz2",
-            sha256 = "a3f4c73d043860e3fd2e5b06f36795eb81de0fc8e8de6df703245edddd87dbad",
-            sizeBytes = 364_816_464L,
-            archiveRoot = "kokoro-multi-lang-v1_1/",
-        ),
-        licenseNotice = "LICENSES/kokoro-tts.md",
-        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer. " +
-            "103 voices (3 English + 100 Mandarin) — Mandarin specialist.",
-    )
-
-    /**
-     * Kitten Nano v0.8 fp32 (`kitten-nano-en-v0_8-fp32`). 15M-parameter
-     * English model, 8 voices, ~61 MB compressed. The lightweight
-     * default Kitten variant. v0.1.22 swapped from int8 to fp32 due to
-     * audible quantisation artifacts in the int8 build.
-     */
-    private val KITTEN_NANO: EngineDescriptor = EngineDescriptor(
-        name = "kitten-nano-v0_8",
-        displayName = "Kitten Nano (v0.8, legacy)",
-        description = "Legacy small English engine, kept for comparison — " +
-            "superseded by the current Kitten Nano, which runs the same model " +
-            "faster. Use it instead. (Runs on the older sherpa-onnx engine.)",
-        downloadSizeBytes = 63_815_222L,
-        installedSizeBytes = KITTEN_NANO_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
-        developerOnly = true,
-        archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v7/kitten-nano-en-v0_8-fp32.tar.bz2",
-            sha256 = "16092117bfe591ddcd58d078e1454603b8e1caea46f85653b2c2efae76bd883e",
-            sizeBytes = 63_815_222L,
-            archiveRoot = "kitten-nano-en-v0_8-fp32/",
-        ),
-        licenseNotice = "LICENSES/kitten-tts.md",
-        licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
-    )
-
-    /**
-     * Kitten Mini v0.8 (`kitten-mini-en-v0_8`). 80M-parameter English
-     * model with upstream's deliberate mixed-precision quantisation
-     * (fp32 + fp16 + selective int8/uint8 — NOT blanket dynamic int8).
-     * ~5.3x more parameters than nano; marginal but audible quality lift
-     * per the pre-ship A/B. Same compressed bundle size as nano (~64 MB).
-     */
-    private val KITTEN_MINI: EngineDescriptor = EngineDescriptor(
-        name = "kitten-mini-v0_8",
-        displayName = "Kitten Mini (v0.8, legacy)",
-        description = "Legacy English engine, kept for comparison — superseded by " +
-            "the current Kitten Mini, which runs the same larger model faster. " +
-            "Use it instead. (Runs on the older sherpa-onnx engine.)",
-        downloadSizeBytes = 67_547_594L,
-        installedSizeBytes = KITTEN_MINI_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
-        developerOnly = true,
-        archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v8/kitten-mini-en-v0_8.tar.bz2",
-            sha256 = "518f9b130320f690d5b5476df77bde4215fca67773cda16710318e5081234b9d",
-            sizeBytes = 67_547_594L,
-            archiveRoot = "kitten-mini-en-v0_8/",
-        ),
-        licenseNotice = "LICENSES/kitten-tts.md",
-        licenseSummary = "Includes GPL-3.0 components (espeak-ng phonemizer).",
-    )
-
-    /**
-     * Kitten Direct v0.8 (`kitten-direct-v0_8`) — Kitten TTS without
-     * sherpa-onnx. Same 15M-param KittenML acoustic model as
-     * [KITTEN_NANO] / [KITTEN_MINI], same 8 voices — but the GPL-3.0
-     * espeak-ng phonemizer that the sherpa engines compile in is
-     * replaced with the BSD-3 OpenPhonemizer running directly on
-     * `onnxruntime-android`.
-     *
-     * Bundle size is bigger than the sherpa-Kitten Nano bundle (109 MiB
-     * vs 61 MiB) because the phonemizer ONNX (~59 MiB) now ships inside
-     * the asset pack instead of being statically linked into the
-     * sherpa-onnx native library. The trade-off is no GPL components
-     * anywhere in the runtime or assets.
+     * The APK code stays MIT — the shim contains no espeak code — but the
+     * downloaded bundle is a GPL-3.0-or-later combination because it carries
+     * espeak-ng; [licenseSummary] discloses this on the install card. (An
+     * earlier design used a BSD-3 OpenPhonemizer ONNX to avoid GPL entirely;
+     * it was dropped because IPA-convention mismatches degraded quality.)
      */
     private val KITTEN_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-v0_8",
@@ -293,12 +173,10 @@ object EngineCatalog {
      * Kitten Direct Mini v0.8 (`kitten-direct-mini-v0_8`) — the 80M-parameter
      * KittenML model on the same direct-ORT path as [KITTEN_DIRECT] (nano,
      * 15M). Larger model, marginally better audio; same 8 voices, same
-     * espeak-ng phonemizer. The direct-ORT replacement for the sherpa
-     * [KITTEN_MINI] engine.
+     * espeak-ng phonemizer.
      *
-     * Speed prior differs from nano: Mini is correctly paced at speed=1.0
-     * (sherpa metadata reports all-1.0 priors), so [KittenDirectMiniEngine]
-     * applies no compensation — see its kdoc.
+     * Speed prior differs from nano: Mini is correctly paced at speed=1.0,
+     * so [KittenDirectMiniEngine] applies no compensation — see its kdoc.
      */
     private val KITTEN_DIRECT_MINI: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-mini-v0_8",
@@ -321,9 +199,8 @@ object EngineCatalog {
     )
 
     /**
-     * Kokoro Direct v1.0 (`kokoro-direct-v1_0`) — Kokoro v1.0 without
-     * sherpa-onnx. Same 53-voice multi-language KokoroML acoustic model
-     * as [KOKORO_V1_0], same speaker ordering — but the inference runs
+     * Kokoro Direct v1.0 (`kokoro-direct-v1_0`) — the 53-voice
+     * multi-language KokoroML v1.0 acoustic model. The inference runs
      * on `onnxruntime-android` directly with the same Pocket-style
      * optimizations as KittenDirect (XNNPACK EP, thread autodetect,
      * direct ByteBuffers, etc.). Espeak-ng (GPL-3.0) ships in the
@@ -449,11 +326,7 @@ object EngineCatalog {
      * ahead of the developer-only ones.
      */
     val all: List<EngineDescriptor> = listOf(
-        KOKORO_V1_0,
-        KOKORO_V1_1,
         KOKORO_DIRECT,
-        KITTEN_NANO,
-        KITTEN_MINI,
         KITTEN_DIRECT,
         KITTEN_DIRECT_MINI,
         POCKET_TTS_EN,
@@ -463,7 +336,7 @@ object EngineCatalog {
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */
     fun byName(name: String): EngineDescriptor? = all.firstOrNull { it.name == name }
 
-    /** Names of the [EngineDescriptor.developerOnly] (legacy sherpa) engines. */
+    /** Names of the [EngineDescriptor.developerOnly] (diagnostic) engines. */
     val developerOnlyNames: Set<String> =
         all.filter { it.developerOnly }.mapTo(mutableSetOf()) { it.name }
 

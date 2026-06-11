@@ -6,10 +6,9 @@ import kotlinx.coroutines.flow.flow
 /**
  * Engine-agnostic TTS surface.
  *
- * Lifted out of [SherpaEngine] so non-sherpa engines (initially Pocket
- * TTS, which runs on Microsoft `onnxruntime-android` directly) can
- * implement the same contract without inheriting sherpa-onnx-specific
- * machinery (model-config builder, speaker-id map, etc.).
+ * Every engine (Kokoro Direct, Kitten Direct, Pocket TTS — all running on
+ * Microsoft `onnxruntime-android` directly) implements this contract so
+ * the synthesis pipeline can route to any of them through one interface.
  *
  * Implementations must be thread-safe — [synthesize] runs on
  * `Dispatchers.Default` from any caller, and [ensureModelLoaded] /
@@ -38,11 +37,9 @@ interface TtsEngine {
      * dispatching, then concatenate the audio.
      *
      * Reasonable bounds:
-     *  - Sherpa-onnx engines (Kokoro, Kitten): around 400 chars. Larger
-     *    inputs stress the internal buffer allocation and risk hitting
-     *    the Android TTS service's 10-second synth watchdog on long
-     *    sentences. Their `OfflineTts.generate` is one-shot from our
-     *    side, so we can't preempt it.
+     *  - Kokoro Direct / Kitten Direct: around 400 chars. Larger inputs
+     *    stress buffer allocation and risk hitting the Android TTS
+     *    service's 10-second synth watchdog on long sentences.
      *  - Pocket TTS: ~120 chars, mapping to its ~50-token-per-chunk
      *    bundle constraint. Beyond this the model skips words.
      *
@@ -98,8 +95,8 @@ interface TtsEngine {
      *
      * Default implementation emits the full synth result as a single
      * element — back-compatible for engines whose pipeline can't
-     * produce partial output (the sherpa-onnx backed engines all fall
-     * here: `OfflineTts.generate` is a single-shot native call).
+     * produce partial output (Kokoro Direct + Kitten Direct fall here:
+     * each ORT run is a single-shot call).
      * PocketEngine overrides this to emit per-chunk during the
      * autoregressive loop, cutting time-to-first-audio.
      *
@@ -128,9 +125,7 @@ interface TtsEngine {
      *
      * Default implementation measures only the coarse wall-clock spans
      * (load, total) — adequate for engines whose synth pipeline is a
-     * single opaque native call (the sherpa-backed engines all fall
-     * here: `OfflineTts.generate` is a black box from our side, so
-     * decomposing it would mean forking sherpa-onnx).
+     * single opaque ORT call (Kokoro Direct + Kitten Direct fall here).
      *
      * Engines that own their inference pipeline (currently
      * [app.marmalade.tts.engine.PocketEngine]) override this to attach

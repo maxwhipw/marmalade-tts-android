@@ -37,16 +37,20 @@ import kotlinx.coroutines.withContext
 // -----------------------------------------------------------------------------
 //
 // Runs the upstream KittenML acoustic model (15M parameters, fp32)
-// directly on `com.microsoft.onnxruntime:onnxruntime-android`, paired
-// with our [OpenPhonemizer] for text→IPA. This replaces the GPL-3.0
-// espeak-ng phonemizer that the sherpa-onnx Kitten engines compile in,
-// so the resulting binary is MIT/Apache/BSD only.
+// directly on `com.microsoft.onnxruntime:onnxruntime-android`, paired with
+// [EspeakPhonemizer] for text→IPA. Unlike the sherpa-onnx Kitten engines
+// (which statically link espeak inside libsherpa-onnx-jni.so), here espeak
+// ships as a downloaded `libttsespeak.so` that the MIT JNI shim dlopen's at
+// runtime — the APK code stays MIT, but the assembled engine bundle is
+// GPL-3.0-or-later because of espeak-ng. (An earlier design used a BSD-3
+// OpenPhonemizer ONNX to stay GPL-free; it was dropped because IPA-
+// convention mismatches degraded quality, so espeak-in-bundle won.)
 //
 // Bundle layout (`${filesDir}/engines/kitten-direct-v0_8/`):
 //   kitten.onnx                       — acoustic model (15M params)
 //   voices/<name>.bin                 — float32 [N, 256] style table per voice
-//   phonemizer/open-phonemizer.onnx   — IPA seq2seq, ~61 MB
-//   phonemizer/dictionary.json        — optional word→IPA cache
+//   phonemizer/<abi>/libttsespeak.so  — espeak-ng shared lib (GPL-3.0)
+//   phonemizer/espeak-ng-data         — espeak dictionaries
 //
 // Carries over the Pocket engine perf lessons (A-G atoms):
 //   - direct ByteBuffers for ONNX inputs

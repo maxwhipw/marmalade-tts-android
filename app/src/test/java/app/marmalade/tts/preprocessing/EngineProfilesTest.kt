@@ -23,9 +23,9 @@ class EngineProfilesTest {
     fun kitten_includes_every_rule() {
         // Kitten ships no native text normalization — its default profile
         // contains every rule we offer. This is the CLI's invariant; if
-        // someone trims kitten's defaults they should know it. Both v0.8
-        // variants share the same profile, so either is a fair witness.
-        val profile = EngineProfiles.defaultsFor("kitten-nano-v0_8")
+        // someone trims kitten's defaults they should know it. Both Kitten
+        // Direct variants share the same profile, so either is a fair witness.
+        val profile = EngineProfiles.defaultsFor("kitten-direct-v0_8")
         val allNames = PreprocessingRules.ALL.map { it.name }.toSet()
         assertEquals(allNames, profile)
     }
@@ -47,9 +47,8 @@ class EngineProfilesTest {
     fun kokoro_omits_what_misaki_handles_natively() {
         // misaki (kokoro's text frontend) handles numbers + abbreviations
         // + ordinals natively. Re-running our generic rules over what
-        // misaki already normalized would garble the output. Both v1.0
-        // and v1.1 share the profile — assert on v1.0 (the default).
-        val profile = EngineProfiles.defaultsFor("kokoro-v1_0")
+        // misaki already normalized would garble the output.
+        val profile = EngineProfiles.defaultsFor("kokoro-direct-v1_0")
         assertFalse("kokoro skips `number` (misaki handles)", "number" in profile)
         assertFalse("kokoro skips `abbreviation` (misaki handles)", "abbreviation" in profile)
         assertFalse("kokoro skips `ordinal` (misaki handles)", "ordinal" in profile)
@@ -70,7 +69,7 @@ class EngineProfilesTest {
         // Matches the CLI's `ENGINE_PROFILES.get(engine, ENGINE_PROFILES["kitten"])`
         // shape. A misspelled or future engine name shouldn't crash —
         // it should yield the "everything on" safe default.
-        val kitten = EngineProfiles.defaultsFor("kitten-nano-v0_8")
+        val kitten = EngineProfiles.defaultsFor("kitten-direct-v0_8")
         val unknown = EngineProfiles.defaultsFor("nonexistent-engine")
         assertEquals(kitten, unknown)
     }

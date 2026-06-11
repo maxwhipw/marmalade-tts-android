@@ -4,17 +4,9 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
-import app.marmalade.tts.engine.KittenMiniEngine
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
-import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
@@ -101,8 +93,8 @@ sealed class SynthesizerException(message: String, cause: Throwable? = null) :
  * Surface area that the ViewModels actually consume from [Synthesizer].
  *
  * Extracted so JVM unit tests can substitute a fake without standing up
- * the real [KittenEngine] (which needs an Android Context for asset
- * access and a Sherpa-ONNX JNI handle).
+ * a real engine (which needs an Android Context for asset access and an
+ * ONNX Runtime session).
  */
 interface SpeechPlayer {
     /**
@@ -172,12 +164,8 @@ interface SpeechPlayer {
  */
 @Singleton
 class Synthesizer @Inject constructor(
-    private val kittenNano: KittenNanoEngine,
-    private val kittenMini: KittenMiniEngine,
     private val kittenDirect: KittenDirectEngine,
     private val kittenDirectMini: KittenDirectMiniEngine,
-    private val kokoroV10: KokoroV10Engine,
-    private val kokoroV11: KokoroV11Engine,
     private val kokoroDirect: KokoroDirectEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
@@ -253,9 +241,9 @@ class Synthesizer @Inject constructor(
     /**
      * Streaming path. Pre-processes input, then hands the full text to
      * the engine's `synthesizeStream` Flow — engines are responsible
-     * for their own input-length handling (sherpa-onnx splits per
-     * sentence internally via `generateWithCallback`; Pocket chunks via
-     * its internal `TextChunker` call inside `synthesizeStream`).
+     * for their own input-length handling (Pocket chunks via its internal
+     * `TextChunker` call inside `synthesizeStream`; the Kokoro/Kitten
+     * direct engines emit a single chunk).
      *
      * Pipelining between producer (synth) and consumer (AudioTrack)
      * runs through a 2-slot `Channel<SynthAudio>`:
@@ -335,10 +323,9 @@ class Synthesizer @Inject constructor(
      * (a non-empty effect chain or prosody emotion ≠ Neutral).
      *
      * Collects the engine's stream (engines that need chunking handle
-     * it internally — see `PocketEngine.synthesizeStream` and
-     * `SherpaEngine.synthesizeStream`). All emitted chunks are
-     * concatenated into one PCM buffer, then shaping runs on the
-     * combined buffer. That keeps reverb tails / vibrato phase
+     * it internally — see `PocketEngine.synthesizeStream`). All emitted
+     * chunks are concatenated into one PCM buffer, then shaping runs on
+     * the combined buffer. That keeps reverb tails / vibrato phase
      * continuous across natural chunk boundaries — applying these
      * per-chunk would clip the tail and reset oscillator phase between
      * chunks.
@@ -437,8 +424,7 @@ class Synthesizer @Inject constructor(
         // settings (e.g. ONNX thread count) that are only read at load time.
         cancel()
         listOf(
-            kittenNano, kittenMini, kittenDirect, kittenDirectMini,
-            kokoroV10, kokoroV11, kokoroDirect, pocket, pocketDev,
+            kittenDirect, kittenDirectMini, kokoroDirect, pocket, pocketDev,
         ).forEach { runCatching { it.release() } }
     }
 
@@ -461,19 +447,15 @@ class Synthesizer @Inject constructor(
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Falls back to the recommended, release-installable Kokoro Direct
-     * engine for malformed inputs (never a release-hidden sherpa engine).
+     * Falls back to the recommended Kokoro Direct engine for malformed
+     * inputs.
      */
     private fun engineNameFor(voiceId: String): String {
         val sep = voiceId.indexOf(':')
         if (sep <= 0) return KokoroDirectVoiceCatalog.ENGINE
         val name = voiceId.substring(0, sep)
         return when (name) {
-            KokoroV10VoiceCatalog.ENGINE,
-            KokoroV11VoiceCatalog.ENGINE,
             KokoroDirectVoiceCatalog.ENGINE,
-            KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
@@ -484,11 +466,7 @@ class Synthesizer @Inject constructor(
 
     /** TtsEngine handle for an engine name. Used for the maxInputChars lookup. */
     private fun engineFor(engineName: String): TtsEngine = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini
         PocketVoiceCatalog.ENGINE -> pocket
@@ -504,18 +482,14 @@ class Synthesizer @Inject constructor(
         speed: Float,
         phonemizationLanguage: String? = null,
     ): SynthAudio = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed, phonemizationLanguage)
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest. Fall back to the
-        // recommended, release-installable engine — not a hidden sherpa one.
+        // recommended engine.
         else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
@@ -523,7 +497,8 @@ class Synthesizer @Inject constructor(
      * Streaming dispatch counterpart to [synthesizeForEngine]. Returns
      * a Flow that emits one or more SynthAudio chunks. Pocket overrides
      * the default to produce multiple chunks (time-to-first-audio win);
-     * sherpa engines inherit the default single-element flow.
+     * the Kokoro/Kitten direct engines inherit the default single-element
+     * flow.
      */
     private fun streamForEngine(
         engineName: String,
@@ -532,11 +507,7 @@ class Synthesizer @Inject constructor(
         speed: Float,
         phonemizationLanguage: String? = null,
     ): Flow<SynthAudio> = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)

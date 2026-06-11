@@ -337,16 +337,15 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
-     * Whether the legacy sherpa-onnx engines (Kokoro v1.0/v1.1, Kitten
-     * Nano/Mini) are surfaced in the engine lists. The direct-ORT engines
-     * superseded them; they stay in the catalog for A/B comparison but are
-     * hidden from normal users by default.
+     * Whether developer-only engines (currently the Pocket clean-reference
+     * diagnostic build) are surfaced in the engine lists. They stay in the
+     * catalog for A/B comparison but are hidden from normal users by default.
      *
-     * Defaults to [BuildConfig.DEBUG]: shown in debug builds (so we keep
-     * comparing direct vs sherpa), hidden in release builds where they're
-     * an explicit opt-in. The user can flip it either way; routing never
-     * consults this flag, so an alias already pointing at a sherpa engine
-     * keeps synthesizing even while the engine is hidden.
+     * Defaults to [BuildConfig.DEBUG]: shown in debug builds (so we keep the
+     * A/B affordance), hidden in release builds where they're an explicit
+     * opt-in. The user can flip it either way; routing never consults this
+     * flag, so an alias already pointing at a hidden engine keeps
+     * synthesizing even while the engine is hidden.
      */
     open val showDeveloperEngines: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_SHOW_DEVELOPER_ENGINES] ?: BuildConfig.DEBUG
@@ -385,9 +384,9 @@ open class SettingsRepository @Inject constructor(
         private val KEY_PRIMARY_ALIAS = stringPreferencesKey("primary_alias_name")
 
         // Last-seeded catalog version. v0.1.19 introduces this so that
-        // expanding KokoroV10VoiceCatalog (11 → 53 voices for multi-lang)
-        // automatically re-seeds existing installs whose DB still has the
-        // pre-expansion rows.
+        // expanding a voice catalog (e.g. Kokoro 11 → 53 voices for
+        // multi-lang) automatically re-seeds existing installs whose DB
+        // still has the pre-expansion rows.
         private val KEY_CATALOG_VERSION = intPreferencesKey("catalog_version")
 
         // Manual ONNX-Runtime intra-op thread count. Absent / ≤0 ⇒ auto-

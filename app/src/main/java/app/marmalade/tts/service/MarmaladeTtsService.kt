@@ -10,18 +10,10 @@ import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
-import app.marmalade.tts.data.KittenMiniVoiceCatalog
-import app.marmalade.tts.data.KittenNanoVoiceCatalog
-import app.marmalade.tts.data.KokoroV10VoiceCatalog
-import app.marmalade.tts.data.KokoroV11VoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.engine.KittenMiniEngine
-import app.marmalade.tts.engine.KittenNanoEngine
-import app.marmalade.tts.engine.KokoroV10Engine
-import app.marmalade.tts.engine.KokoroV11Engine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
@@ -71,9 +63,9 @@ import kotlinx.coroutines.runBlocking
 //      │      ├── Preprocessor.apply(raw, enabled)  ──► normalized text
 //      │      │     (HTML decode, currency, numbers→words, etc.)
 //      │      └── EmojiProsody.stripEmojis(normalized) ──► cleaned text
-//      │              for the engine (Sherpa-ONNX can't phonemize 🤣;
-//      │              espeak would read it as "rolling on the floor
-//      │              laughing face").
+//      │              for the engine (espeak can't phonemize 🤣; it
+//      │              would read it as "rolling on the floor laughing
+//      │              face").
 //      ▼
 //   callback.start(sampleRateFor(engineName), ENCODING_PCM_16BIT, mono)
 //      │
@@ -135,12 +127,8 @@ import kotlinx.coroutines.runBlocking
 @AndroidEntryPoint
 class MarmaladeTtsService : TextToSpeechService() {
 
-    @Inject lateinit var kittenNano: KittenNanoEngine
-    @Inject lateinit var kittenMini: KittenMiniEngine
     @Inject lateinit var kittenDirect: KittenDirectEngine
     @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
-    @Inject lateinit var kokoroV10: KokoroV10Engine
-    @Inject lateinit var kokoroV11: KokoroV11Engine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
 
@@ -265,10 +253,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // the cache stays live for later edits (a Settings → Engine detail
         // toggle re-emits, refreshing the entry).
         val knownEngines = listOf(
-            KokoroV10VoiceCatalog.ENGINE,
-            KokoroV11VoiceCatalog.ENGINE,
-            KittenNanoVoiceCatalog.ENGINE,
-            KittenMiniVoiceCatalog.ENGINE,
+            KokoroDirectVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
@@ -286,11 +271,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             // ensureModelLoaded() throws EngineNotInstalledException for
             // engines without a bundle on disk — that's fine, just skip.
             val loaders: List<Pair<String, () -> Unit>> = listOf(
-                KokoroV10VoiceCatalog.ENGINE to kokoroV10::ensureModelLoaded,
-                KokoroV11VoiceCatalog.ENGINE to kokoroV11::ensureModelLoaded,
                 KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::ensureModelLoaded,
-                KittenNanoVoiceCatalog.ENGINE to kittenNano::ensureModelLoaded,
-                KittenMiniVoiceCatalog.ENGINE to kittenMini::ensureModelLoaded,
                 KittenDirectVoiceCatalog.ENGINE to kittenDirect::ensureModelLoaded,
                 KittenDirectMiniVoiceCatalog.ENGINE to kittenDirectMini::ensureModelLoaded,
                 PocketVoiceCatalog.ENGINE to pocket::ensureModelLoaded,
@@ -344,9 +325,8 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (onIsLanguageAvailable(lang, country, variant)
             != TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            // Kokoro Direct is the recommended, release-installable default; the
-            // legacy sherpa kokoro-v1_0 is hidden in release so it can't be the
-            // default voice a system-TTS caller resolves to.
+            // Kokoro Direct is the recommended default a system-TTS caller
+            // resolves to for English.
             KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         } else {
             ""
@@ -578,28 +558,24 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     /**
      * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Defaults to Kokoro v1.0 when the form doesn't match — the catch-all
+     * Defaults to Kokoro Direct when the form doesn't match — the catch-all
      * keeps the synthesis path robust against junk input from third-party
      * TTS clients that bypass the voice negotiation contract.
      */
     private fun engineNameFor(voiceId: String): String {
         val sep = voiceId.indexOf(':')
-        if (sep <= 0) return KokoroV10VoiceCatalog.ENGINE
+        if (sep <= 0) return KokoroDirectVoiceCatalog.ENGINE
         val name = voiceId.substring(0, sep)
-        return if (isKnownEngine(name)) name else KokoroV10VoiceCatalog.ENGINE
+        return if (isKnownEngine(name)) name else KokoroDirectVoiceCatalog.ENGINE
     }
 
     /** Per-engine sample rate. All engines ship 24 kHz today. */
     private fun sampleRateFor(engineName: String): Int = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.sampleRate
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.sampleRate
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.sampleRate
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.sampleRate
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.sampleRate
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.sampleRate
         PocketVoiceCatalog.ENGINE -> pocket.sampleRate
-        else -> kokoroV10.sampleRate
+        else -> kokoroDirect.sampleRate
     }
 
     /**
@@ -607,7 +583,7 @@ class MarmaladeTtsService : TextToSpeechService() {
      * because each engine hands off to `Dispatchers.Default` internally,
      * which the caller `runBlocking`s on the system-TTS worker thread.
      *
-     * Unknown engine names degrade to Kokoro v1.0 — same fallback as
+     * Unknown engine names degrade to Kokoro Direct — same fallback as
      * [pickVoiceFromRequest]; the upstream voice-negotiation paths already
      * filtered out engines we don't know about.
      */
@@ -618,24 +594,16 @@ class MarmaladeTtsService : TextToSpeechService() {
         speed: Float,
         phonemizationLanguage: String? = null,
     ): SynthAudio = when (engineName) {
-        KokoroV10VoiceCatalog.ENGINE -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KokoroV11VoiceCatalog.ENGINE -> kokoroV11.synthesize(text, voiceId, speed, phonemizationLanguage)
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenNanoVoiceCatalog.ENGINE -> kittenNano.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenMiniVoiceCatalog.ENGINE -> kittenMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroV10.synthesize(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** True for any engine the catalog ships. */
     private fun isKnownEngine(name: String): Boolean =
-        name == KokoroV10VoiceCatalog.ENGINE ||
-            name == KokoroV11VoiceCatalog.ENGINE ||
-            name == KokoroDirectVoiceCatalog.ENGINE ||
-            name == KittenNanoVoiceCatalog.ENGINE ||
-            name == KittenMiniVoiceCatalog.ENGINE ||
+        name == KokoroDirectVoiceCatalog.ENGINE ||
             name == KittenDirectVoiceCatalog.ENGINE ||
             name == KittenDirectMiniVoiceCatalog.ENGINE ||
             name == PocketVoiceCatalog.ENGINE
