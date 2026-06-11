@@ -40,7 +40,8 @@ controls feeling. No cloud. Cloneable voices."*
 - [ ] **`kitten` engine** as the recommended default — small (~42 MB
       on-disk after install), 8 English voices.
 - [ ] **Emoji prosody layer** — emoji → emotion via post-synthesis
-      pitch/rate/volume modulation
+      pitch/rate/volume modulation. Ports the marmalade-tts CLI's
+      `emojivoice` layer (itself based on **EmojiVoice** — rosielab, MIT).
 - [ ] **Share-sheet target** — "Share to Marmalade TTS"
 - [ ] **Quick Settings tile** — Speak Clipboard
 - [ ] **Foreground service** with media notification, audio-focus,
@@ -51,7 +52,7 @@ controls feeling. No cloud. Cloneable voices."*
 
 ## v0.2.0 — More engines + subtitles
 
-- [ ] **Piper engine** via Sherpa-ONNX with in-app voice store +
+- [ ] **Piper engine** via direct ONNX Runtime with in-app voice store +
       downloader
 - [ ] **Kokoro engine** ports
 - [ ] **Full effect chain** (10 presets, matches the CLI) via Oboe +

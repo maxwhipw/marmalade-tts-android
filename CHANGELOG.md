@@ -12,7 +12,15 @@ until validated across a range of devices, then promoted to `1.0.0`.
 ### Changed
 - Engine names dropped the internal "Direct" label — production engines are
   now **Kokoro (v1.0)**, **Kitten Nano (v0.8)**, **Kitten Mini (v0.8)**, and
-  **Pocket TTS**; the legacy sherpa engines are tagged "(legacy)".
+  **Pocket TTS**.
+- **sherpa-onnx removed entirely** (engines, catalogs, and the vendored
+  AAR). Every engine now runs directly on ONNX Runtime. As a result the
+  APK contains no GPL code — espeak-ng ships only inside downloaded
+  engine bundles. DB migration v7→v8 cleans up the old engines' voice
+  rows; the sherpa engines live on in the `experimental/executorch`
+  branch.
+- In-app **Open-source licenses** screen (Settings → About) with
+  per-component license texts bundled in the APK.
 - The alias editor only offers engines you've actually installed.
 
 ### Added

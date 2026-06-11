@@ -108,19 +108,16 @@ investigation won't find what one `onnx.load(...).metadata_props` will.
 
 ## Engine bundle licensing
 
-The Marmalade **source repo** is MIT. The **distributed APK**, however,
-is a **GPL-3.0-or-later combined work** — it links espeak-ng (GPL): the
-vendored sherpa-onnx AAR statically links espeak inside
-`libsherpa-onnx-jni.so` (shipped in every release build), and the
-direct-ORT engines additionally `dlopen` a `libttsespeak.so` the user
-downloads in an engine bundle. Either way, the binary users run is GPL —
-see [NOTICE.md](NOTICE.md). (Planned store-compliance work: remove the
-sherpa AAR from the release build and compile espeak-ng from source into
-the APK, replacing the downloaded `.so`, so espeak becomes the single
-GPL surface — satisfying Play (in-APK) and F-Droid (from-source) with one
-build. The repo stays MIT; the distributed binary stays GPL-3.0-or-later.)
-The **engine bundles** (downloaded after user opt-in into
-`${filesDir}/engines/`) include GPL-3.0-or-later components (espeak-ng).
+The Marmalade **source repo and distributed APK are MIT** — sherpa-onnx
+(the only thing that statically linked espeak into the APK) was removed
+2026-06-09, so **no GPL code ships in the APK**. espeak-ng
+(GPL-3.0-or-later) reaches the device only inside **engine bundles**
+(downloaded after user opt-in into `${filesDir}/engines/`), where the
+direct-ORT engines `dlopen` a `libttsespeak.so`; that GPL combination is
+assembled on the user's device. See [NOTICE.md](NOTICE.md).
+(Remaining store-compliance work: Play forbids runtime-downloading `.so`
+files, so the Play build must carry `libttsespeak.so` **inside the APK**
+— ideally compiled from source, which also satisfies F-Droid.)
 
 The KittenDirect engine (alpha.9, May 2026) made this posture explicit:
 a tiny C JNI shim in the APK does `dlopen`/`dlsym` against

@@ -1,5 +1,10 @@
 # marmalade-tts-android — SPEC
 
+> **Historical document.** This is the original v0.1 spec, kept for
+> design lineage. The shipped architecture has moved on (direct ONNX
+> Runtime engines, no sherpa-onnx, no HTTP API, no cloning UI) — see
+> README.md, ROADMAP.md, and REPO-MAP.md for current truth.
+
 This document captures the v1.0 product surface — feature scope,
 architecture decisions, and what's deliberately out. Companion to
 [ROADMAP.md](ROADMAP.md) (timeline) and the README (pitch).
