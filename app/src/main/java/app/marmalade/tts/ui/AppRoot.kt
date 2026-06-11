@@ -48,6 +48,8 @@ import app.marmalade.tts.ui.screen.EffectEditorViewModel
 import app.marmalade.tts.ui.screen.EffectsScreen
 import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
+import app.marmalade.tts.ui.screen.LicenseTextScreen
+import app.marmalade.tts.ui.screen.LicensesScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
 import app.marmalade.tts.ui.screen.SpeakScreen
 import app.marmalade.tts.ui.screen.VoicePickerScreen
@@ -127,6 +129,18 @@ object Routes {
     fun engineDetail(name: String): String = "$EngineDetail/$name"
 
     /**
+     * Open-source licenses — reached from Settings → About → "Open-source
+     * licenses". Leaf detail screen; the bottom nav bar is hidden while open.
+     */
+    const val Licenses = "licenses"
+
+    /** Full license text for one component. Use [licenseText] to build the route. */
+    const val LicenseText = "license_text"
+
+    /** Build the license-text route for a component [key]. */
+    fun licenseText(key: String): String = "$LicenseText/${Uri.encode(key)}"
+
+    /**
      * Debug-only benchmark surface — measures per-engine synth timings
      * across the installed engines. Reachable from Settings only in
      * `BuildConfig.DEBUG` builds; the composable + route still exist in
@@ -183,6 +197,8 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         currentRoute != Routes.Benchmark &&
         currentRoute != Routes.Engines &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
+        currentRoute != Routes.Licenses &&
+        currentRoute?.startsWith("${Routes.LicenseText}/") != true &&
         // The editor's route template carries query args
         // ("effect_editor?editId={editId}&dupeId={dupeId}"), so match the
         // family by prefix rather than exact string.
@@ -253,6 +269,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 SettingsScreen(
                     onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
                     onNavigateToEngines = { navController.navigate(Routes.Engines) },
+                    onNavigateToLicenses = { navController.navigate(Routes.Licenses) },
                     onNavigateToBenchmark = if (BuildConfig.DEBUG) {
                         { navController.navigate(Routes.Benchmark) }
                     } else {
@@ -297,6 +314,19 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.Benchmark) {
                 BenchmarkScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.Licenses) {
+                LicensesScreen(
+                    onBack = { navController.popBackStack() },
+                    onViewComponentText = { key -> navController.navigate(Routes.licenseText(key)) },
+                )
+            }
+            composable(
+                route = "${Routes.LicenseText}/{key}",
+                arguments = listOf(navArgument("key") { type = NavType.StringType }),
+            ) { entry ->
+                val key = entry.arguments?.getString("key") ?: return@composable
+                LicenseTextScreen(componentKey = key, onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Routes.EngineDetail}/{name}",

@@ -106,6 +106,8 @@ fun SettingsScreen(
     onNavigateToAppMappings: () -> Unit,
     /** Nav callback for Settings → Engines (engines moved off the bottom nav). */
     onNavigateToEngines: () -> Unit,
+    /** Nav callback for Settings → About → Open-source licenses. */
+    onNavigateToLicenses: () -> Unit,
     /**
      * Nav callback for the debug-only Benchmark entry. Null in release
      * builds — the row is hidden when this is null. AppRoot passes the
@@ -194,7 +196,7 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            AboutSection()
+            AboutSection(onNavigateToLicenses = onNavigateToLicenses)
         }
     }
 }
@@ -515,12 +517,27 @@ private fun BenchmarkSection(onClick: () -> Unit) {
 }
 
 @Composable
-private fun AboutSection() {
+private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     SectionHeader("About")
 
     ListItem(
         headlineContent = { Text("Marmalade TTS") },
         supportingContent = { Text("Version ${BuildConfig.VERSION_NAME}") },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
+
+    ListItem(
+        modifier = Modifier.clickable(onClick = onNavigateToLicenses),
+        headlineContent = { Text("Open-source licenses") },
+        supportingContent = {
+            Text("Third-party components, the app's MIT license, and the licenses of downloadable engines.")
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
 }
