@@ -8,18 +8,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 // EspeakPhonemizer — sentence-mode espeak driver.
 //
 // Calls into the espeak C API via a small JNI shim in app/src/main/cpp/.
-// The shim itself only does dlopen()/dlsym() — no espeak code is linked
-// into the APK at build time. libttsespeak.so (GPL-3.0) and the
-// espeak-ng-data directory ship in the engine bundle that the user
-// downloads on opt-in.
+// The shim itself only does dlopen()/dlsym(); libespeak-ng.so is compiled
+// from source (pinned submodule, GPL-3.0-or-later) and ships INSIDE the
+// APK — Play forbids downloading executable code, so the lib can't live in
+// the engine bundles the way it used to. The espeak-ng-data directory is
+// data, not code, and still ships in the downloaded engine bundle.
+// Shipping the lib makes the distributed APK a GPL-3.0-or-later combined
+// work; every source file here stays MIT. See NOTICE.md.
 //
 // Architecture:
 //
-//   Kotlin                JNI shim                espeak (GPL, in bundle)
-//   ──────                ────────                ──────────────────────
-//   EspeakPhonemizer ───▶ libespeak-jni.so ───▶ libttsespeak.so
-//   (MIT, in APK)         (MIT, in APK)          (GPL, dlopen'd at runtime
-//                                                from filesDir bundle path)
+//   Kotlin                JNI shim               espeak (GPL, in APK)
+//   ──────                ────────               ────────────────────
+//   EspeakPhonemizer ───▶ libespeak-jni.so ───▶ libespeak-ng.so
+//   (MIT source)          (MIT source)           (dlopen'd from the APK's
+//                                                nativeLibraryDir)
 //
 // Only one espeak engine instance can be alive in a process — espeak's
 // internal state is global. We enforce that with a singleton-style
@@ -50,7 +53,7 @@ class EspeakPhonemizer(
                 throw IllegalStateException("espeak JNI shim missing from APK", t)
             }
         }
-        require(File(libPath).isFile) { "libttsespeak.so not found at $libPath" }
+        require(File(libPath).isFile) { "espeak library not found at $libPath" }
         require(File(dataPath).isDirectory) { "espeak-ng-data not found at $dataPath" }
     }
 
@@ -146,6 +149,15 @@ class EspeakPhonemizer(
     private external fun nativeClose()
 
     companion object {
+        /**
+         * espeak-ng compiled from source into the APK. The installer-selected
+         * ABI's copy lands in [android.content.pm.ApplicationInfo.nativeLibraryDir],
+         * so no per-ABI path juggling is needed (unlike the old in-bundle
+         * `phonemizer/<abi>/libttsespeak.so` layout).
+         */
+        fun apkLibFile(context: android.content.Context): File =
+            File(context.applicationInfo.nativeLibraryDir, "libespeak-ng.so")
+
         @Volatile private var jniLoaded: Boolean = false
 
         /**

@@ -135,15 +135,12 @@ object EngineCatalog {
     /**
      * Kitten Direct v0.8 (`kitten-direct-v0_8`) — the 15M-param KittenML
      * acoustic model, 8 voices, run directly on
-     * `onnxruntime-android`. Phonemization is espeak-ng, shipped as a
-     * downloaded `libttsespeak.so` the MIT JNI shim dlopen's at runtime
-     * (rather than statically linked like the sherpa engines).
-     *
-     * The APK code stays MIT — the shim contains no espeak code — but the
-     * downloaded bundle is a GPL-3.0-or-later combination because it carries
-     * espeak-ng; [licenseSummary] discloses this on the install card. (An
-     * earlier design used a BSD-3 OpenPhonemizer ONNX to avoid GPL entirely;
-     * it was dropped because IPA-convention mismatches degraded quality.)
+     * `onnxruntime-android`. Phonemization is espeak-ng
+     * (GPL-3.0-or-later), compiled from source into the APK as
+     * libespeak-ng.so and dlopen'd at runtime by the MIT JNI shim; the
+     * bundle supplies the espeak-ng-data dictionaries. (An earlier design
+     * used a BSD-3 OpenPhonemizer ONNX to avoid GPL entirely; it was
+     * dropped because IPA-convention mismatches degraded quality.)
      */
     private val KITTEN_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-v0_8",
@@ -166,7 +163,7 @@ object EngineCatalog {
             archiveRoot = "kitten-direct-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
-        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer (in bundle, not APK).",
+        licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
     )
 
     /**
@@ -195,7 +192,7 @@ object EngineCatalog {
             archiveRoot = "kitten-direct-mini-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
-        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng phonemizer (in bundle, not APK).",
+        licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
     )
 
     /**
@@ -203,15 +200,15 @@ object EngineCatalog {
      * multi-language KokoroML v1.0 acoustic model. The inference runs
      * on `onnxruntime-android` directly with the same Pocket-style
      * optimizations as KittenDirect (XNNPACK EP, thread autodetect,
-     * direct ByteBuffers, etc.). Espeak-ng (GPL-3.0) ships in the
-     * bundle and is dlopen'd at runtime by a tiny MIT JNI shim — no
-     * GPL code enters the APK.
+     * direct ByteBuffers, etc.). Espeak-ng (GPL-3.0-or-later) is compiled
+     * from source into the APK and dlopen'd at runtime by a tiny MIT
+     * JNI shim; the bundle supplies espeak-ng-data.
      *
      * v17 added `lexicon-zh.txt` (sherpa's pre-baked misaki+pypinyin Han→IPA
      * table) for Mandarin. v18 adds `openjtalk_dic/` (Open JTalk's
      * naist-jdic, BSD-3, ~103 MB extracted) for Japanese — kanji→kana reading
      * + cutlet-style IPA conversion, the G2P Kokoro v1.0 was trained with.
-     * espeak (GPL-3.0) now only handles the European languages it does well
+     * espeak now only handles the European languages it does well
      * (en/es/fr/it/hi/pt); zh and ja have dedicated bundled pipelines.
      */
     private val KOKORO_DIRECT: EngineDescriptor = EngineDescriptor(
@@ -236,8 +233,8 @@ object EngineCatalog {
             archiveRoot = "kokoro-direct-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-direct.md",
-        licenseSummary = "Apache-2.0 model + GPL-3.0 espeak-ng (European langs) + " +
-            "BSD-3 Open JTalk (Japanese), all in bundle, not APK.",
+        licenseSummary = "Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); " +
+            "European langs phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
     )
 
     /**

@@ -819,10 +819,10 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * KokoroDirect layout: model.onnx + voices.bin + tokens.txt at top
-     * level, plus phonemizer/{arm64-v8a,armeabi-v7a}/libttsespeak.so and
-     * phonemizer/espeak-ng-data/. The phonemizer/ wrapper mirrors
-     * KittenDirect's layout — espeak is dlopen'd from the bundle at
-     * runtime, so the GPL stays in the asset pack and out of the APK.
+     * level, plus phonemizer/espeak-ng-data/. Older bundles also carry
+     * phonemizer/<abi>/libttsespeak.so — harmless leftovers; the espeak
+     * library now ships inside the APK (built from source), so the
+     * installer no longer requires or checks it.
      *
      * A single voices.bin packs all 53 speakers (510 × 256 floats each),
      * matching the upstream Kokoro `voices.bin` packing order.
@@ -847,9 +847,6 @@ open class EngineInstaller @Inject constructor(
         val ojtDict = File(dir, "openjtalk_dic/sys.dic")
         if (!ojtDict.isFile || ojtDict.length() == 0L) return InstallState.Corrupt
 
-        val arm64Lib = File(dir, "phonemizer/arm64-v8a/libttsespeak.so")
-        val arm32Lib = File(dir, "phonemizer/armeabi-v7a/libttsespeak.so")
-        if (!arm64Lib.isFile && !arm32Lib.isFile) return InstallState.Corrupt
         val espeakData = File(dir, "phonemizer/espeak-ng-data")
         if (!espeakData.isDirectory) return InstallState.Corrupt
         val dataEntries = espeakData.list()?.size ?: 0
@@ -860,21 +857,15 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * KittenDirect layout: kitten.onnx + voices/<name>.bin (8 voices) +
-     * phonemizer/<abi>/libttsespeak.so + phonemizer/espeak-ng-data. The
-     * espeak shared lib is dlopen'd at runtime by the MIT JNI shim, so the
-     * APK code stays MIT while the downloaded bundle is GPL-3.0-or-later.
+     * phonemizer/espeak-ng-data. Older (≤v14) bundles also carry
+     * phonemizer/<abi>/libttsespeak.so — harmless leftovers; the espeak
+     * library now ships inside the APK (built from source), so the
+     * installer no longer requires or checks it.
      */
     private fun verifyKittenDirectLayout(dir: File): InstallState {
         val acoustic = File(dir, "kitten.onnx")
         if (!acoustic.isFile || acoustic.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
 
-        // v14+ bundle: ships libttsespeak.so (GPL-3.0, dlopen'd at
-        // runtime by the JNI shim) under per-ABI subdirs, plus the
-        // espeak-ng-data tree. v11-v13 bundles (without these files)
-        // are caught here as Corrupt and steered to reinstall.
-        val arm64Lib = File(dir, "phonemizer/arm64-v8a/libttsespeak.so")
-        val arm32Lib = File(dir, "phonemizer/armeabi-v7a/libttsespeak.so")
-        if (!arm64Lib.isFile && !arm32Lib.isFile) return InstallState.Corrupt
         val espeakData = File(dir, "phonemizer/espeak-ng-data")
         if (!espeakData.isDirectory) return InstallState.Corrupt
         val dataEntries = espeakData.list()?.size ?: 0

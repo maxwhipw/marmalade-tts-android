@@ -28,9 +28,12 @@ android {
         // Anyone running the app in an x86 emulator can do a from-source build.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
 
-        // CMake build for our espeak JNI shim. The shim does dlopen() of
-        // libttsespeak.so from the engine bundle at runtime, so the APK links
-        // no espeak at build time — no GPL code ships in the APK. See
+        // CMake build: espeak-ng compiled from source (pinned submodule at
+        // third_party/espeak-ng) into libespeak-ng.so, plus our JNI shims.
+        // Play forbids downloading executable code, so the espeak lib must
+        // ship in the APK; building it from source also satisfies F-Droid.
+        // Shipping it makes the distributed APK a GPL-3.0-or-later combined
+        // work — the source tree stays MIT. See cpp/espeak-ng/CMakeLists.txt,
         // cpp/espeak_jni.c + NOTICE.md.
         externalNativeBuild {
             cmake {
@@ -39,8 +42,8 @@ android {
                 // targeting SDK 35+ submitted/updated after 2025-11-01). NDK
                 // 26.3 (r26) does NOT align to 16 KB by default — that only
                 // landed in r28 — so we force it via the linker. Affects this
-                // project's own JNI libs (espeak-jni, openjtalk-jni). Verify the
-                // produced .so with `readelf -lW` → LOAD segments at 0x4000.
+                // project's JNI libs (espeak-jni, openjtalk-jni, espeak-ng).
+                // Verify with `readelf -lW` → LOAD segments at 0x4000.
                 arguments += listOf(
                     "-DANDROID_STL=c++_static",
                     "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",

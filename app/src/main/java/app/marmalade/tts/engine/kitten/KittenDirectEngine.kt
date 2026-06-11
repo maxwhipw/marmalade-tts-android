@@ -38,19 +38,20 @@ import kotlinx.coroutines.withContext
 //
 // Runs the upstream KittenML acoustic model (15M parameters, fp32)
 // directly on `com.microsoft.onnxruntime:onnxruntime-android`, paired with
-// [EspeakPhonemizer] for text→IPA. Unlike the sherpa-onnx Kitten engines
-// (which statically link espeak inside libsherpa-onnx-jni.so), here espeak
-// ships as a downloaded `libttsespeak.so` that the MIT JNI shim dlopen's at
-// runtime — the APK code stays MIT, but the assembled engine bundle is
-// GPL-3.0-or-later because of espeak-ng. (An earlier design used a BSD-3
-// OpenPhonemizer ONNX to stay GPL-free; it was dropped because IPA-
-// convention mismatches degraded quality, so espeak-in-bundle won.)
+// [EspeakPhonemizer] for text→IPA. espeak-ng (GPL-3.0-or-later) is compiled
+// from source into the APK as libespeak-ng.so and dlopen'd by the MIT JNI
+// shim — Play forbids downloading executable code, so the lib can't ride in
+// the engine bundle the way it did through v14. The espeak-ng-data
+// dictionaries are data and stay in the bundle. (An earlier design used a
+// BSD-3 OpenPhonemizer ONNX to stay GPL-free; it was dropped because IPA-
+// convention mismatches degraded quality.)
 //
 // Bundle layout (`${filesDir}/engines/kitten-direct-v0_8/`):
 //   kitten.onnx                       — acoustic model (15M params)
 //   voices/<name>.bin                 — float32 [N, 256] style table per voice
-//   phonemizer/<abi>/libttsespeak.so  — espeak-ng shared lib (GPL-3.0)
 //   phonemizer/espeak-ng-data         — espeak dictionaries
+//   phonemizer/<abi>/libttsespeak.so  — legacy (≤v14 bundles); ignored now
+//                                       that the APK carries libespeak-ng.so
 //
 // Carries over the Pocket engine perf lessons (A-G atoms):
 //   - direct ByteBuffers for ONNX inputs
@@ -193,25 +194,12 @@ open class KittenDirectEngine @Inject constructor(
     override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
         if (!acousticModelFile.isFile) return false
-        if (!espeakLibFile().isFile) return false
         if (!File(phonemizerDir, ESPEAK_DATA_DIR).isDirectory) return false
         if (!voicesDir.isDirectory) return false
         for (voice in voiceMetas) {
             if (!File(voicesDir, "${voice.displayName.lowercase()}.bin").isFile) return false
         }
         return true
-    }
-
-    /**
-     * Bundle ships `libttsespeak.so` under one of two ABI subdirs.
-     * Picks the one matching this device's primary ABI; falls through
-     * to arm64 as the modern default if Build.SUPPORTED_ABIS is empty
-     * (impossible on real devices but harmless to guard).
-     */
-    private fun espeakLibFile(): File {
-        val primary = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
-        val abiDir = if (primary == "armeabi-v7a" || primary == "armeabi") "armeabi-v7a" else "arm64-v8a"
-        return File(phonemizerDir, "$abiDir/libttsespeak.so")
     }
 
     override fun ensureModelLoaded() {
@@ -243,12 +231,10 @@ open class KittenDirectEngine @Inject constructor(
 
         acousticSession = createSession(ort, opts, acousticModelFile)
 
-        // Espeak ships in the engine bundle (GPL-3.0). Our JNI shim
-        // dlopens it from the per-ABI bundle path; espeak code never
-        // enters the APK at build time. See phonemizer/EspeakPhonemizer.kt
-        // and cpp/espeak_jni.c for the GPL-isolation architecture.
+        // libespeak-ng.so is compiled from source into the APK; the bundle
+        // supplies only espeak-ng-data. See phonemizer/EspeakPhonemizer.kt.
         val espeak = EspeakPhonemizer(
-            libPath = espeakLibFile().absolutePath,
+            libPath = EspeakPhonemizer.apkLibFile(ctx).absolutePath,
             dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
             voice = "en-us",
         )

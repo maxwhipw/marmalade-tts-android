@@ -5,8 +5,18 @@ cmake_minimum_required(VERSION 3.22.1)
 project("marmalade-native" LANGUAGES C CXX)
 
 # -----------------------------------------------------------------------------
-# espeak-jni — tiny JNI shim that dlopens libttsespeak.so (GPL-3.0) at runtime
-# from the engine bundle. We deliberately don't link espeak here.
+# espeak-ng — built from source (pinned submodule) into libespeak-ng.so, which
+# ships inside the APK. Required by Google Play (no runtime download of
+# executable code) and preferred by F-Droid (built from source on their
+# buildserver). GPL-3.0-or-later; see espeak-ng/CMakeLists.txt and NOTICE.md.
+# -----------------------------------------------------------------------------
+add_subdirectory(espeak-ng)
+
+# -----------------------------------------------------------------------------
+# espeak-jni — tiny JNI shim that dlopens libespeak-ng.so at runtime from the
+# APK's own native-library directory. Still dlopen rather than a build-time
+# link so the shim's source stays free of espeak headers; the combined APK is
+# GPL-3.0-or-later regardless because libespeak-ng.so ships in it.
 # -----------------------------------------------------------------------------
 add_library(espeak-jni SHARED
         espeak_jni.c

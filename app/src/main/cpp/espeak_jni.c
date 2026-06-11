@@ -1,11 +1,13 @@
 // -----------------------------------------------------------------------------
-// espeak-jni — Kotlin <-> espeak C API bridge for the KittenDirect engine.
+// espeak-jni — Kotlin <-> espeak C API bridge for the direct engines.
 //
-// Loads libttsespeak.so (GPL-3.0, lifted from espeak-ng's official Android
-// APK) at runtime via dlopen, from a path provided by Kotlin. The bundle
-// — not the APK — ships libttsespeak.so and espeak-ng-data. The APK ships
-// only this shim, which contains no espeak code and links no espeak
-// symbols at build time.
+// Loads libespeak-ng.so (GPL-3.0-or-later, compiled from source out of the
+// third_party/espeak-ng submodule into this APK) at runtime via dlopen,
+// from a path provided by Kotlin — normally the APK's own nativeLibraryDir.
+// espeak-ng-data ships in the engine bundle (data, not code). This shim
+// contains no espeak code and links no espeak symbols at build time, so its
+// source stays MIT; the combined APK is GPL because of the espeak lib it
+// carries.
 //
 // The chosen subset of the espeak C API:
 //   espeak_Initialize        — start the engine, point it at espeak-ng-data

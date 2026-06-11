@@ -45,8 +45,9 @@ import kotlinx.coroutines.withContext
 // Runs the upstream `kokoro-multi-lang-v1_0` ONNX (~325 MB fp32) directly
 // on `com.microsoft.onnxruntime:onnxruntime-android`, sharing the same
 // Pocket-style perf stack as KittenDirect (XNNPACK EP, direct ByteBuffers,
-// thread autodetect). Espeak-ng is dlopen'd at runtime from the engine
-// bundle — same JNI-shim pattern KittenDirect uses to keep the APK MIT-only.
+// thread autodetect). Espeak-ng (GPL-3.0-or-later) is compiled from source
+// into the APK as libespeak-ng.so and dlopen'd by the JNI shim — same
+// pattern as KittenDirect; see phonemizer/EspeakPhonemizer.kt.
 //
 // Bundle layout (`${filesDir}/engines/kokoro-direct-v1_0/`):
 //   model.onnx                          — acoustic model (~325 MB)
@@ -54,7 +55,8 @@ import kotlinx.coroutines.withContext
 //   tokens.txt                          — phoneme→ID lookup (114 entries)
 //   phonemizer/
 //     espeak-ng-data/                   — espeak data dir (GPL-3.0)
-//     arm64-v8a/libttsespeak.so         — espeak shared lib (GPL-3.0)
+//     arm64-v8a/libttsespeak.so         — legacy (older bundles); ignored now
+//                                         that the APK carries libespeak-ng.so
 //
 // Differences from KittenDirect (each verified against sherpa-onnx
 // `csrc/offline-tts-kokoro-*` source — see [[compare-at-model-boundary]]):
@@ -231,15 +233,8 @@ open class KokoroDirectEngine @Inject constructor(
         if (!acousticModelFile.isFile) return false
         if (!voicesFile.isFile) return false
         if (!tokensFile.isFile) return false
-        if (!espeakLibFile().isFile) return false
         if (!File(phonemizerDir, ESPEAK_DATA_DIR).isDirectory) return false
         return true
-    }
-
-    private fun espeakLibFile(): File {
-        val primary = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
-        val abiDir = if (primary == "armeabi-v7a" || primary == "armeabi") "armeabi-v7a" else "arm64-v8a"
-        return File(phonemizerDir, "$abiDir/libttsespeak.so")
     }
 
     override fun ensureModelLoaded() {
@@ -280,10 +275,10 @@ open class KokoroDirectEngine @Inject constructor(
         speedScratchBuf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         speedScratchFloat = speedScratchBuf!!.asFloatBuffer()
 
-        // Espeak — see [KittenDirectEngine.doLoad] for the GPL-isolation
-        // architecture (JNI shim dlopens GPL libttsespeak.so from bundle).
+        // libespeak-ng.so is compiled from source into the APK; the bundle
+        // supplies only espeak-ng-data. See phonemizer/EspeakPhonemizer.kt.
         val espeak = EspeakPhonemizer(
-            libPath = espeakLibFile().absolutePath,
+            libPath = EspeakPhonemizer.apkLibFile(ctx).absolutePath,
             dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
             voice = ESPEAK_VOICE,
         )
