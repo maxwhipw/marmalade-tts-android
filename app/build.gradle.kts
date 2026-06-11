@@ -1,9 +1,20 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+}
+
+// Release signing: keystore.properties at the repo root (gitignored; see
+// docs/release/SIGNING.md and scripts/make-keystore-properties.sh). When the
+// file is absent — fresh clones, F-Droid's buildserver — release builds are
+// simply unsigned, which is also correct for F-Droid (they sign their own).
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.isFile) f.inputStream().use { load(it) }
 }
 
 android {
@@ -61,6 +72,17 @@ android {
 
     ndkVersion = "26.3.11579264"
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -72,6 +94,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
