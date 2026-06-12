@@ -480,9 +480,7 @@ private fun AppPickerRow(app: InstalledApp, onClick: () -> Unit) {
             Image(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape),
+                modifier = Modifier.size(32.dp),
             )
         } else {
             Box(
@@ -522,12 +520,16 @@ private fun AppIcon(packageName: String, size: androidx.compose.ui.unit.Dp) {
     }
     val painter = drawable?.let { rememberDrawablePainter(it, sizePx = 96) }
     if (painter != null) {
+        // No Compose-side clip — AdaptiveIconDrawable.draw() already
+        // applies the device's icon mask (a circle on Pixel/AOSP, a
+        // squircle on some OEMs), and clipping a second time in Compose
+        // either crops legacy square BitmapDrawables (Bible Study, etc.)
+        // or doesn't perfectly overlay the bitmap's own circle and
+        // makes adaptive icons look off-centre.
         Image(
             painter = painter,
             contentDescription = null,
-            modifier = Modifier
-                .size(size)
-                .clip(CircleShape),
+            modifier = Modifier.size(size),
         )
     } else {
         Box(
