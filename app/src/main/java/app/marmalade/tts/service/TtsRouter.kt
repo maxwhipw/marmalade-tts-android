@@ -39,17 +39,19 @@ import kotlinx.coroutines.flow.first
  * Resolves the [VoiceAlias] (voice + speed + effect bundle) that should be
  * used for a TTS request, given the calling app's package name.
  *
- * Order of precedence (most-specific wins):
- *   1. **Per-app mapping** — when `callerPackage` is known and a row exists
- *      in `app_alias_mapping`, and the referenced alias still exists.
- *   2. **Primary alias** — when [SettingsRepository.primaryAliasName] points
- *      at an existing alias.
- *   3. **Null** — caller should fall through to the engine's default voice
- *      with default speed (1.0×) and NONE effect.
+ * Two entry points reflect the two precedence rules in the call stack:
  *
- * Note: the caller-specified voice (from `SynthesisRequest.voiceName`)
- * is honored higher up the call stack and never reaches this router —
- * per-app routing is a *fallback* for the no-voice case, not an override.
+ * - [resolvePerApp] — strict per-app lookup. Caller checks this BEFORE
+ *   honoring the caller-specified voice from `SynthesisRequest.voiceName`,
+ *   because the user's explicit "this app gets this voice" mapping should
+ *   override the TTS client's default voice (which most clients auto-fill
+ *   from system Settings; otherwise per-app mappings would never fire).
+ *
+ * - [resolveAlias] — per-app then primary, used as the fallback when
+ *   neither per-app NOR caller-voice produced a result.
+ *
+ * Returns null when nothing maps the call; the caller falls through to
+ * the engine's default voice with default speed (1.0×) and NONE effect.
  *
  * Defensive: if the mapping points at a deleted alias, [resolveAlias] does
  * NOT return null — it falls through to the primary. The mapping itself is
@@ -81,20 +83,26 @@ class TtsRouter @Inject constructor(
      *         or primary alias has been deleted).
      */
     suspend fun resolveAlias(callerPackage: String?): VoiceAlias? {
-        // 1. Per-app match wins if both the mapping exists AND the
-        // referenced alias still exists. Defensive on the alias lookup:
-        // an alias deleted out from under the mapping must NOT short-
-        // circuit to null — the user's primary is the next-best guess.
-        if (callerPackage != null) {
-            val mapping = mappingDao.findByPackage(callerPackage)
-            if (mapping != null) {
-                val perApp = aliasDao.findByName(mapping.aliasName)
-                if (perApp != null) return perApp
-            }
-        }
+        resolvePerApp(callerPackage)?.let { return it }
 
         // 2. Primary fallback.
         val primaryName = settings.primaryAliasName.first() ?: return null
         return aliasDao.findByName(primaryName)
+    }
+
+    /**
+     * Resolve only the per-app mapping for [callerPackage]. Returns null
+     * when there is no mapping, the mapping points at a deleted alias, or
+     * the caller package is unknown. No primary fallback — the caller
+     * decides whether to honor the request voice next or fall through to
+     * [resolveAlias] for the primary path. Defensive on the alias
+     * lookup: a mapping pointing at a deleted alias returns null (not
+     * the primary) so this method's contract stays "did the user pick
+     * something for this exact app?".
+     */
+    suspend fun resolvePerApp(callerPackage: String?): VoiceAlias? {
+        if (callerPackage == null) return null
+        val mapping = mappingDao.findByPackage(callerPackage) ?: return null
+        return aliasDao.findByName(mapping.aliasName)
     }
 }

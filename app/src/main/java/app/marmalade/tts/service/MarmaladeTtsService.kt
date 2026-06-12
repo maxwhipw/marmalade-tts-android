@@ -451,11 +451,15 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Resolve the voice/speed/effect bundle for this synthesis request.
      *
      * Order of precedence (most-specific wins):
-     *   1. Caller-specified [SynthesisRequest.getVoiceName] when it
-     *      matches a seeded voice — engine-default speed (1.0×) and
-     *      no effect, because the caller asked for that exact voice.
-     *   2. Per-app mapping for the caller's package name — voice + speed
-     *      + effect all come from the mapped alias.
+     *   1. **Per-app mapping** for the caller's package name — voice +
+     *      speed + effect from the mapped alias. Beats the caller-
+     *      specified voice on purpose: most TTS clients auto-fill
+     *      `request.voiceName` from system Settings, so without this
+     *      precedence the user's "this app gets this voice" choice
+     *      would never fire for ordinary apps.
+     *   2. Caller-specified [SynthesisRequest.getVoiceName] when it
+     *      matches a seeded voice — engine-default speed (1.0×) and no
+     *      effect, because the caller asked for that exact voice.
      *   3. Primary alias — same fields from the user-designated primary.
      *   4. Engine default voice + 1.0× speed + no effect (the v0.1.10
      *      pre-routing behaviour).
@@ -468,33 +472,35 @@ class MarmaladeTtsService : TextToSpeechService() {
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
         val callerPackage = resolveCallerPackage(request)
 
-        // 1. Honor an explicit, known voice request — cache-first so the
-        // common "request specifies a voice that was seeded at install" path
-        // stays off the synth-worker's blocking road. Falls through to the
-        // combined router pass below on cache miss; that block does one
-        // runBlocking that covers both the voice-id lookup and the alias
-        // resolution (down from two serial blocks in v0.1.15).
-        val cachedEngine = requested?.let { voiceEngineCache[it] }
-        if (requested != null && cachedEngine != null && isKnownEngine(cachedEngine)) {
-            return SynthParams(
-                voiceId = requested,
-                speed = 1.0f,
-                effectBlocks = emptyList(),
-            )
-        }
-
-        // 2 + 3 + 1-fallback. Single defensive runBlocking that covers:
-        //   - the voice-id DAO lookup (when the cache missed — voice may
-        //     have arrived after onCreate's collector started),
-        //   - the per-app router → primary alias resolution.
+        // 1. Per-app mapping wins over the caller-specified voice. Single
+        // runBlocking that also covers the caller-voice DAO lookup on a
+        // cache miss, so we still issue one blocking pull at most.
         // resolveCallerPackage returns null when the UID can't be resolved
-        // (shared UID, etc.) which TtsRouter.resolveAlias handles by
-        // skipping straight to the primary lookup.
+        // (shared UID, etc.); resolvePerApp returns null for that too.
         val resolved: SynthParams? = runBlocking {
+            router.resolvePerApp(callerPackage)?.let { perApp ->
+                return@runBlocking SynthParams(
+                    voiceId = perApp.voiceId,
+                    speed = perApp.speed,
+                    effectBlocks = effectResolver.blocksFor(perApp.effectId),
+                    phonemizationLanguage = perApp.phonemizationLanguage,
+                )
+            }
+
+            // 2. Caller-specified voice. Cache-first so the common
+            // "request specifies a voice that was seeded at install" path
+            // stays off the synth-worker's blocking road.
             if (requested != null) {
+                val cachedEngine = voiceEngineCache[requested]
+                if (cachedEngine != null && isKnownEngine(cachedEngine)) {
+                    return@runBlocking SynthParams(
+                        voiceId = requested,
+                        speed = 1.0f,
+                        effectBlocks = emptyList(),
+                    )
+                }
                 val hit = voiceDao.findById(requested)
                 if (hit != null && isKnownEngine(hit.engine)) {
-                    // Seed the cache so the next request takes the fast path.
                     voiceEngineCache[hit.id] = hit.engine
                     return@runBlocking SynthParams(
                         voiceId = hit.id,
@@ -503,13 +509,15 @@ class MarmaladeTtsService : TextToSpeechService() {
                     )
                 }
             }
-            val alias: VoiceAlias? = router.resolveAlias(callerPackage)
-            if (alias != null) {
+
+            // 3. Primary alias fallback.
+            val primary: VoiceAlias? = router.resolveAlias(callerPackage)
+            if (primary != null) {
                 SynthParams(
-                    voiceId = alias.voiceId,
-                    speed = alias.speed,
-                    effectBlocks = effectResolver.blocksFor(alias.effectId),
-                    phonemizationLanguage = alias.phonemizationLanguage,
+                    voiceId = primary.voiceId,
+                    speed = primary.speed,
+                    effectBlocks = effectResolver.blocksFor(primary.effectId),
+                    phonemizationLanguage = primary.phonemizationLanguage,
                 )
             } else {
                 null
