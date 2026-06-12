@@ -60,19 +60,48 @@ Verified: debug + release unit tests green, `assembleRelease`,
 verified: anything on a device** (intermediate commits also weren't
 individually compiled — only the final tree is).
 
+## Walking the checklist tonight (interrupted)
+
+Started Opus 4.7 driving the device against the new release APK. What
+got done:
+
+- ✅ ADB connected (`100.114.195.29:42377`), release APK installed
+  fresh as `app.marmalade.tts` (your daily `.debug` app is untouched).
+- ✅ Onboarding loaded with the new "phonemized by the app's built-in
+  espeak-ng" copy live. Started installing **all four engines** in the
+  onboarding flow (Kitten Nano + Kitten Mini finished, Kokoro + Pocket
+  were downloading).
+- 🐛 **Found and fixed a real bug** (commit `b9c5b4f`): on the device,
+  `/data/app/.../lib/arm64-v8a/` was **empty** — AGP's default
+  `extractNativeLibs=false` keeps the .so inside the APK, so
+  `File(nativeLibraryDir, "libespeak-ng.so").isFile` returned false
+  and the engines would have failed to load. The fix:
+  `System.loadLibrary("espeak-ng")` in `EspeakPhonemizer.init()` so
+  Android pulls the lib from the APK regardless of extraction, and the
+  shim dlopens it by basename so the linker resolves it from the app's
+  namespace. The lib's five dlsym'd symbols re-verified after rebuild,
+  tests still green.
+- ❌ Could not re-verify on device: the Pixel's wireless ADB session
+  dropped (connection refused). Need fresh wireless-debug + port.
+
 ## Morning checklist (Max)
 
-1. **Install + smoke test** — the R8 release build, signed with the
-   debug key so it installs without the upload keystore:
-   `app/build/outputs/apk/release/app-release-debugsigned.apk`
-   (a debug-variant APK is at `app/build/outputs/apk/debug/` too).
-   If install fails with a signature mismatch, uninstall the previous
-   non-debug-keyed copy first — your daily `.debug`-suffixed app is
-   unaffected.
-   **Test all four engines** — the espeak load path changed, so listen
-   for: Kitten Nano/Mini English, Kokoro English + a European language
-   + Japanese + Mandarin, Pocket. Engine load logs
-   `espeak open: <version>` in logcat (tag `EspeakPhonemizer`).
+1. **Install + smoke test** — wireless ADB pair fresh, then:
+   ```
+   adb -s 100.114.195.29:<port> install -r \
+     app/build/outputs/apk/release/app-release-debugsigned.apk
+   ```
+   The APK already contains the fix above. The daily `.debug` app is
+   unaffected (release APK uses `app.marmalade.tts`, no suffix).
+   Engines from tonight's partial install are still on device — check
+   `app.marmalade.tts`'s filesDir to see what survived, or just re-run
+   onboarding (it'll skip already-installed engines).
+   **Test all four engines** — listen for: Kitten Nano/Mini English,
+   Kokoro English + European + Japanese + Mandarin, Pocket. Engine load
+   logs `espeak open: <version>` in logcat (tag `EspeakPhonemizer`).
+   Negative-log fingerprint of the bug if the fix didn't take:
+   `EspeakPhonemizer  IllegalArgumentException: espeak-ng-data not found`
+   or any `dlopen` failure in tag `EspeakJni`.
 2. **Audit the licensing/console docs** I wrote (NOTICE.md, README
    license section, PLAY-CONSOLE-RESPONSES.md).
 3. **Push**: `git push github main` (never origin — Forgejo mirror
