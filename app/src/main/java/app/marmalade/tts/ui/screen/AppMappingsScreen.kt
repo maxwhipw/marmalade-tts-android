@@ -241,10 +241,10 @@ private fun MappingRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onEdit)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIcon(packageName = mapping.packageName, size = 32.dp)
+        AppIcon(packageName = mapping.packageName, size = 44.dp)
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -472,7 +472,7 @@ private fun AppPickerRow(app: InstalledApp, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val painter = app.icon?.let { rememberDrawablePainter(it, sizePx = 96) }
@@ -480,12 +480,12 @@ private fun AppPickerRow(app: InstalledApp, onClick: () -> Unit) {
             Image(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(44.dp),
             )
         } else {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
