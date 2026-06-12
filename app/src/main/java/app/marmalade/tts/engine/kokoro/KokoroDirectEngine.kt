@@ -278,7 +278,7 @@ open class KokoroDirectEngine @Inject constructor(
         // libespeak-ng.so is compiled from source into the APK; the bundle
         // supplies only espeak-ng-data. See phonemizer/EspeakPhonemizer.kt.
         val espeak = EspeakPhonemizer(
-            libPath = EspeakPhonemizer.apkLibFile(ctx).absolutePath,
+            libPath = EspeakPhonemizer.APK_LIB_NAME,
             dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
             voice = ESPEAK_VOICE,
         )

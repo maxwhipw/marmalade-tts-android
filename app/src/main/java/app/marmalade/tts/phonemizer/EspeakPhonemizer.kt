@@ -41,19 +41,23 @@ class EspeakPhonemizer(
     private val opened = AtomicBoolean(false)
 
     init {
-        // Load the JNI shim from the APK (always present). It registers
-        // the native methods declared below; espeak itself is dlopen'd
-        // inside nativeOpen against [libPath].
-        if (!jniLoaded) {
+        // Load both APK-resident libs through System.loadLibrary so they
+        // resolve under both packaging modes (extractNativeLibs=true →
+        // physical .so under nativeLibraryDir, =false → mapped straight
+        // from inside the APK; AGP defaults to the second). The shim
+        // then dlopens libespeak-ng.so by basename to get a handle for
+        // dlsym — Android's linker finds the already-loaded library in
+        // the app's namespace either way.
+        if (!libsLoaded) {
             try {
+                System.loadLibrary("espeak-ng")
                 System.loadLibrary("espeak-jni")
-                jniLoaded = true
+                libsLoaded = true
             } catch (t: Throwable) {
-                Log.e(TAG, "failed to load libespeak-jni.so", t)
-                throw IllegalStateException("espeak JNI shim missing from APK", t)
+                Log.e(TAG, "failed to load espeak native libs", t)
+                throw IllegalStateException("espeak native libs missing from APK", t)
             }
         }
-        require(File(libPath).isFile) { "espeak library not found at $libPath" }
         require(File(dataPath).isDirectory) { "espeak-ng-data not found at $dataPath" }
     }
 
@@ -150,15 +154,15 @@ class EspeakPhonemizer(
 
     companion object {
         /**
-         * espeak-ng compiled from source into the APK. The installer-selected
-         * ABI's copy lands in [android.content.pm.ApplicationInfo.nativeLibraryDir],
-         * so no per-ABI path juggling is needed (unlike the old in-bundle
-         * `phonemizer/<abi>/libttsespeak.so` layout).
+         * The libespeak-ng.so basename. Passed straight through to dlopen
+         * inside the JNI shim; Android's dynamic linker resolves it
+         * against the app's namespace (works with extractNativeLibs both
+         * true and false). The actual loading is done by System.loadLibrary
+         * in [init] — this string just gets dlopen a handle for dlsym.
          */
-        fun apkLibFile(context: android.content.Context): File =
-            File(context.applicationInfo.nativeLibraryDir, "libespeak-ng.so")
+        const val APK_LIB_NAME: String = "libespeak-ng.so"
 
-        @Volatile private var jniLoaded: Boolean = false
+        @Volatile private var libsLoaded: Boolean = false
 
         /**
          * The voice currently loaded in the process-global espeak instance,
