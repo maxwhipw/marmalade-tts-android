@@ -261,7 +261,10 @@ open class KokoroDirectEngine @Inject constructor(
     }
 
     private fun doLoad(intraOpThreads: Int) {
-        val ort = OrtEnvironment.getEnvironment().also { env = it }
+        // Build everything against a local [ort]; only publish to the
+        // [env] field at the END (see [KittenDirectEngine.doLoad] for
+        // the race rationale).
+        val ort = OrtEnvironment.getEnvironment()
         val opts = buildSessionOptions(intraOpThreads)
 
         acousticSession = createSession(ort, opts, acousticModelFile)
@@ -316,6 +319,10 @@ open class KokoroDirectEngine @Inject constructor(
         } else {
             Log.w(TAG, "openjtalk_dic absent — Japanese falls back to espeak (degraded)")
         }
+
+        // Publish only after every field a sibling caller's runInference
+        // touches is non-null.
+        env = ort
 
         // P-D: warmup runs async — see KittenDirectEngine for details.
         warmupJob = warmupScope.launch {

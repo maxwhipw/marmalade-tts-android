@@ -226,7 +226,13 @@ open class KittenDirectEngine @Inject constructor(
     }
 
     private fun doLoad(intraOpThreads: Int) {
-        val ort = OrtEnvironment.getEnvironment().also { env = it }
+        // Build everything against a local [ort]; only publish to the
+        // [env] field at the END, after [acousticSession] and [phonemizer]
+        // are both set. ensureLoadedSuspending uses an unlocked `if (env
+        // != null) return` fast path — assigning env mid-load lets a
+        // concurrent caller skip the lock and reach runInference with
+        // acousticSession still null ("acoustic session missing").
+        val ort = OrtEnvironment.getEnvironment()
         val opts = buildSessionOptions(intraOpThreads)
 
         acousticSession = createSession(ort, opts, acousticModelFile)
@@ -244,6 +250,10 @@ open class KittenDirectEngine @Inject constructor(
         }
         phonemizer = espeak
         Log.i(TAG, "espeak version=${espeak.version()}")
+
+        // Publish only after every field a sibling caller's runInference
+        // touches is non-null.
+        env = ort
 
         // P-D: warmup runs async so doLoad returns as soon as ORT + espeak
         // are usable. Warmup acquires synthLock to serialise against any
