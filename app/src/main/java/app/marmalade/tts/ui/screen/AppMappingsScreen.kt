@@ -1,7 +1,11 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.produceState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Menu
@@ -238,14 +244,7 @@ private fun MappingRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // No icon caching yet — keeping the data class lightweight to
-        // avoid stale Drawables surviving config changes. The package
-        // name + display name from the cached label tell the user enough.
-        Icon(
-            imageVector = Icons.Filled.Menu,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        AppIcon(packageName = mapping.packageName, size = 32.dp)
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -476,19 +475,21 @@ private fun AppPickerRow(app: InstalledApp, onClick: () -> Unit) {
             .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val painter = app.icon?.let { rememberDrawablePainter(it) }
+        val painter = app.icon?.let { rememberDrawablePainter(it, sizePx = 96) }
         if (painter != null) {
             Image(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape),
             )
         } else {
-            Icon(
-                imageVector = Icons.Filled.Menu,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
             )
         }
         Column(modifier = Modifier
@@ -505,30 +506,65 @@ private fun AppPickerRow(app: InstalledApp, onClick: () -> Unit) {
 }
 
 /**
+ * Look up [packageName]'s icon via PackageManager and render it at [size].
+ * Falls back to a generic Android-icon glyph when the lookup fails or the
+ * package isn't installed any more (e.g. mapping for an uninstalled app).
+ */
+@Composable
+private fun AppIcon(packageName: String, size: androidx.compose.ui.unit.Dp) {
+    val pm = LocalContext.current.packageManager
+    val drawable by produceState<Drawable?>(initialValue = null, packageName) {
+        value = try {
+            pm.getApplicationIcon(packageName)
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
+    }
+    val painter = drawable?.let { rememberDrawablePainter(it, sizePx = 96) }
+    if (painter != null) {
+        Image(
+            painter = painter,
+            contentDescription = null,
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape),
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+    }
+}
+
+/**
  * Minimal `Drawable → Painter` adapter. We avoid pulling in
  * accompanist-drawablepainter (one more dependency for a single use case)
  * by rasterising the Drawable to a Bitmap once and wrapping it.
  *
- * Adaptive icons rasterise correctly because Android resolves the
- * foreground/background layers internally before the Drawable hits the
- * Canvas. Vector drawables likewise rasterise — they're already drawn
- * via Canvas under the hood.
+ * [sizePx] caps both dimensions so an `AdaptiveIconDrawable`'s 108-dp
+ * canvas (which can rasterise at thousands of pixels on hidpi devices)
+ * doesn't waste memory for a 32-dp Image. The drawable is rendered
+ * SQUARE at [sizePx] × [sizePx], matching the launcher icon contract;
+ * the caller applies a circular/squircle clip to mask the bleed area
+ * that adaptive icons leave outside the safe zone.
  */
 @Composable
-private fun rememberDrawablePainter(drawable: Drawable): Painter {
-    return remember(drawable) {
-        val bitmap = drawable.toBitmap()
+private fun rememberDrawablePainter(drawable: Drawable, sizePx: Int): Painter {
+    return remember(drawable, sizePx) {
+        val bitmap = drawable.toBitmap(sizePx)
         BitmapPainter(bitmap)
     }
 }
 
-private fun Drawable.toBitmap(): Bitmap {
-    if (this is BitmapDrawable && bitmap != null) {
+private fun Drawable.toBitmap(sizePx: Int): Bitmap {
+    if (this is BitmapDrawable && bitmap != null &&
+        bitmap.width == sizePx && bitmap.height == sizePx) {
         return bitmap
     }
-    val w = intrinsicWidth.coerceAtLeast(1)
-    val h = intrinsicHeight.coerceAtLeast(1)
-    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     setBounds(0, 0, canvas.width, canvas.height)
     draw(canvas)
