@@ -13,7 +13,7 @@ F-Droid build fully unlocked. Authored 2026-06-14; not yet implemented.
 - **One-time purchase, not subscription.** Marmalade is a utility.
   Subscriptions on utilities feel extractive and Android utility
   precedent (e.g. Bromite, AntennaPod-style donate-ware) is one-time.
-  Product id: `marmalade_pro`. Suggested price **USD 4.99** — adjust in
+  Product id: `marmalade_pro`. Suggested price **USD 3.99** — adjust in
   the Play Console listing, the in-code copy doesn't hard-code it.
 - **Free features stay genuinely useful.** Synth, every voice, built-in
   effect presets, primary alias, system-TTS integration, share-sheet,
@@ -149,7 +149,7 @@ proceed because isPro=true).
 1. App → Monetisation → Products → **In-app products** → Create.
 2. Product id: `marmalade_pro`. Name: "Marmalade Pro". Description:
    "Per-app voice routing and custom audio effects."
-3. Price: USD 4.99 (Play converts to other locales).
+3. Price: USD 3.99 (Play converts to other locales).
 4. Status: **Active**.
 5. Internal testing track must be active before the IAP can be
    purchased in a test build — set up at least one tester (your own
@@ -226,21 +226,52 @@ builds from its own buildserver — the github-attached fdroid APK is
 for users who want to sideload without waiting on F-Droid's index
 update cycle.
 
-## Open questions (decide before implementing)
+## Donations + "more apps" links (decided 2026-06-14)
 
-1. **Price.** USD 4.99 default; willing to be wrong on this. UK/EU
-   pricing tiers Play picks automatically; check the Console preview
-   before locking.
-2. **Sponsor / donate link in the F-Droid build?** Suggest yes — a
-   Settings → "Support development" entry that opens the GitHub
-   Sponsors page. F-Droid build only; Play build hides it.
-3. **Pro user perks beyond features?** Optional: a small "Pro" badge
-   somewhere unobtrusive (e.g. About screen footer). Keep subtle.
-4. **What happens to existing per-app mappings if a user refunds?**
-   Recommendation: keep the rows visible + functional for one more
-   resume after isPro flips, then disable them (so the user notices
-   and either re-purchases or removes them) rather than yanking
-   audio behaviour out from under a running TTS session.
+- **GitHub Sponsors** is the donation channel — built for OSS devs,
+  Stripe handles identity + 1099 reporting, treated as
+  self-employment income on Schedule C for a US individual. No LLC
+  or 501(c)(3) required; sole-proprietor default works. Donations
+  are NOT tax-deductible for donors without 501(c)(3) — say so in
+  the in-app FAQ to avoid misleading anyone. Optional secondary:
+  **Ko-fi** for one-time tips.
+
+- **F-Droid build:** Settings → About → "Support development"
+  opens the GitHub Sponsors page in the browser.
+
+- **Play build: NO donate link.** Google's "alternative billing"
+  policy targets payment for digital goods sold through Play, and
+  voluntary OSS donations aren't legally that — but the safer
+  posture for the first listing is zero gray-area surface. Revisit
+  after Play is approved if a donate link makes sense.
+
+- **Both builds: "More from Marmalade" link** → Max's GitHub
+  profile (sister apps marmalade-tts-cli, marmalade-emoji-tts,
+  whatever lands next). Profile/portfolio links to a developer's
+  other apps are explicitly allowed by Play policy.
+
+## Settled questions
+
+1. **Price: USD 3.99** — same shelf as Sequence/Reeder/AntennaPod;
+   no $5 premium-threshold trigger. UK/EU pricing tiers Play
+   auto-picks; check Console preview before locking.
+2. **Refund behaviour for existing per-app mappings:** keep the
+   rows visible + functional for one more resume after isPro
+   flips, then disable them (so the user notices and either
+   re-purchases or removes them) rather than yanking audio
+   behaviour out from under a running TTS session.
+
+## Open questions (still)
+
+1. **Pro badge?** Optional: a small "Pro" indicator on the About
+   screen footer. Keep subtle if shipped at all.
+2. **Tax reporting for the dev.** Not a code question — but a
+   reminder: GitHub Sponsors will issue a 1099 once payouts cross
+   USD 600/year. The Pro IAP revenue from Play does the same via
+   Google's payout records. Both flow through Schedule C as
+   self-employment income, with self-employment tax on the
+   combined total. Worth a 15-min conversation with a CPA the
+   first year if the revenue is non-trivial.
 
 ## Test plan (manual, on the Pixel)
 
