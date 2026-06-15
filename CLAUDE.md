@@ -106,6 +106,32 @@ exact token sequence reaching the model, the voice/style indexing
 logic, and the scalar reaching the `speed` input. Days of code
 investigation won't find what one `onnx.load(...).metadata_props` will.
 
+## Distribution flavors — `play` vs `fdroid`
+
+**Not yet implemented (2026-06-14); spec in
+[docs/release/PAYWALL-PLAN.md](docs/release/PAYWALL-PLAN.md).** Once it
+lands, the project has two product flavors sharing one signing config
+and one applicationId:
+
+- **`fdroid`** — every feature unlocked, no billing dep, no Google
+  classes. What F-Droid's buildserver compiles.
+- **`play`** — same build PLUS `com.android.billingclient:billing-ktx`
+  (via `playImplementation`, so the dep never reaches the F-Droid
+  source set). Per-app voices and custom effect creation are gated
+  behind a one-time `marmalade_pro` IAP. Built-in effect presets,
+  primary alias, and every synth feature stay free.
+
+`ProEntitlement.isPro` is the single source of truth —
+`FdroidProEntitlement` returns `MutableStateFlow(true)`;
+`PlayProEntitlement` wraps `BillingClient`. UI trip-wires
+(`AppMappingsScreen`, `EffectsScreen`) open the paywall sheet only
+when `!isPro`, so the paywall code path does not exist in the F-Droid
+APK.
+
+The CI workflow's `bundleRelease`/`assembleRelease` becomes
+`bundlePlayRelease`/`assemblePlayRelease`; fdroiddata's recipe needs
+`gradle: [fdroid]`.
+
 ## Engine bundle licensing
 
 The Marmalade **source repo is MIT**; the **distributed APK is

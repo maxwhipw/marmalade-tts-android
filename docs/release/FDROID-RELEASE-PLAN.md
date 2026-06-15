@@ -4,6 +4,13 @@ Step-by-step path to an F-Droid listing. F-Droid builds and signs the
 APK themselves from a tagged commit, so no keystore is needed — but the
 build must succeed on their buildserver from a clean checkout.
 
+> **F-Droid builds the `fdroid` product flavor — fully free, no
+> paywall.** The `play` flavor has a one-time IAP gating per-app
+> voices + custom effects; the `fdroid` flavor returns
+> `isPro = true` unconditionally and contains zero Google Billing
+> classes. See [PAYWALL-PLAN.md](PAYWALL-PLAN.md). The fdroiddata
+> recipe must specify `gradle: [fdroid]`.
+
 ## Phase 0 — code prerequisites
 
 1. **Repo hygiene: already passing.** `git ls-files` contains no
@@ -77,7 +84,7 @@ build must succeed on their buildserver from a clean checkout.
        commit: v1.0.0-beta.1        # the tag
        subdir: app
        submodules: yes              # third_party/espeak-ng (built from source)
-       gradle: [yes]
+       gradle: [fdroid]              # build the F-Droid product flavor (no billing)
        ndk: r26d                    # match ndkVersion in build.gradle.kts
 
    AutoUpdateMode: Version
