@@ -540,6 +540,40 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
+
+    AboutLinkRow(
+        label = "More from Marmalade",
+        supporting = "Other Marmalade apps on GitHub.",
+        url = "https://github.com/maxwhipw",
+    )
+
+    // Flavor-specific entries — see src/{play,fdroid}/.../AboutExtras.kt.
+    // F-Droid renders a "Support development" link to GitHub Sponsors;
+    // Play renders nothing (per docs/release/PAYWALL-PLAN.md the donate
+    // link is omitted from Play for first-listing policy safety).
+    app.marmalade.tts.ui.screen.AboutExtras()
+}
+
+@Composable
+internal fun AboutLinkRow(label: String, supporting: String, url: String) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    ListItem(
+        modifier = Modifier.clickable {
+            ctx.startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        },
+        headlineContent = { Text(label) },
+        supportingContent = { Text(supporting) },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+    )
 }
 
 @Composable
