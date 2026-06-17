@@ -222,6 +222,13 @@ dependencies {
     // + TarArchiveInputStream. Apache-2.0.
     implementation("org.apache.commons:commons-compress:1.27.1")
 
+    // Google Play Billing — **play flavor only**. Drives the
+    // `marmalade_pro` IAP gating per-app voices + custom effects.
+    // `playImplementation` keeps the dep (and its network calls)
+    // entirely out of the F-Droid APK's dependency graph. See
+    // docs/release/PAYWALL-PLAN.md.
+    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
+
     // Testing — JVM
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
