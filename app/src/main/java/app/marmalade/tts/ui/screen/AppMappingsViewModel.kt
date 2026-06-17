@@ -9,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.pro.PaywallReason
+import app.marmalade.tts.pro.ProEntitlement
+import app.marmalade.tts.pro.ProGate
 import app.marmalade.tts.data.db.VoiceAliasDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -103,7 +106,35 @@ class AppMappingsViewModel @Inject constructor(
     private val app: Application,
     private val mappingDao: AppAliasMappingDao,
     aliasDao: VoiceAliasDao,
+    private val proEntitlement: ProEntitlement,
+    private val proGate: ProGate,
 ) : ViewModel() {
+
+    /**
+     * `true` when the user is unlocked. F-Droid build: always true.
+     * Play build: true after a successful `marmalade_pro` purchase.
+     * UI calls [requestEditOrAdd] which honors this internally.
+     */
+    val isPro: StateFlow<Boolean> = proEntitlement.isPro
+
+    /**
+     * Per-app voices is a Pro feature. Free users can SEE the list
+     * (so they know what they'd unlock) but tapping the FAB or any
+     * row opens the paywall sheet via [proGate] instead of the
+     * editor. Pro users get the editor directly.
+     *
+     * Delete is NOT gated — we want refunded users able to clean up
+     * the rows they created while subscribed without being trapped
+     * behind the paywall.
+     */
+    fun requestEditOrAdd(existing: AppAliasMapping? = null) {
+        if (proEntitlement.isPro.value) {
+            loadInstalledApps()
+            openEditor(existing)
+        } else {
+            proGate.show(PaywallReason.PerAppVoice)
+        }
+    }
 
     /** Clock indirection for tests — same idiom as [AliasViewModel]. */
     internal var now: () -> Long = { System.currentTimeMillis() }

@@ -126,10 +126,7 @@ fun AppMappingsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.loadInstalledApps()
-                viewModel.openEditor(null)
-            }) {
+            FloatingActionButton(onClick = { viewModel.requestEditOrAdd(null) }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add mapping")
             }
         },
@@ -146,10 +143,7 @@ fun AppMappingsScreen(
                     items(items = mappings, key = { it.packageName }) { mapping ->
                         MappingRow(
                             mapping = mapping,
-                            onEdit = {
-                                viewModel.loadInstalledApps()
-                                viewModel.openEditor(mapping)
-                            },
+                            onEdit = { viewModel.requestEditOrAdd(mapping) },
                             onDelete = { pendingDelete = mapping },
                         )
                         HorizontalDivider()
