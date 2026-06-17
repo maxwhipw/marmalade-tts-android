@@ -2,7 +2,34 @@
 
 Implementation spec for gating per-app voices + custom sound effects
 behind a one-time Pro purchase in the Play build, while keeping the
-F-Droid build fully unlocked. Authored 2026-06-14; not yet implemented.
+F-Droid build fully unlocked. Authored 2026-06-14.
+
+> **Implementation status (2026-06-17): code-complete, not yet
+> smoke-tested on device.**
+>
+> What's wired:
+> - Two product flavors `play` + `fdroid`, sharing applicationId.
+> - `ProEntitlement` interface in main + flavor impls
+>   (`FdroidProEntitlement` always true, `PlayProEntitlement` wraps
+>   BillingClient 7.1.1 with DataStore-cached entitlement).
+> - `ProGate` + `ProGateHost` paywall sheet, wrapped around AppRoot.
+> - `AppMappingsViewModel.requestEditOrAdd()` gates FAB + row tap;
+>   delete remains free.
+> - `EffectsScreen.onCreate` + `onDuplicate` gated at the AppRoot
+>   navigation level (built-in presets stay free).
+> - Settings → About: "More from Marmalade" (both flavors), "Support
+>   development" → GitHub Sponsors (F-Droid only).
+> - CI workflow builds Play AAB + Play APK + F-Droid APK on tag.
+> - F-Droid APK verified to contain zero billingclient classes
+>   (unzipped + grepped); Play APK has the expected billing surface.
+>
+> What's left:
+> - Smoke test on the Pixel (wireless ADB).
+> - Create the `marmalade_pro` IAP in Play Console (USD 3.99,
+>   one-time INAPP). Requires Play Console account to be approved and
+>   an internal-testing track with at least one tester.
+> - End-to-end purchase test with a Play test account, then a refund
+>   test to confirm isPro flips back.
 
 ## Product decisions (locked unless explicitly revisited)
 
