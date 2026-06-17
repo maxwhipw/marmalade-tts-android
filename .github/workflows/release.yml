@@ -88,8 +88,17 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
-      - name: Build signed AAB + APK
-        run: ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon
+      - name: Build signed Play AAB + Play APK + F-Droid APK
+        # Play AAB is what gets uploaded to the Console; Play APK is
+        # the sideload artifact; F-Droid APK is the no-billing build
+        # attached to the GitHub release so users who don't want the
+        # paywall can install directly without waiting for F-Droid's
+        # index cycle.
+        run: >-
+          ./gradlew --no-daemon
+          :app:bundlePlayRelease
+          :app:assemblePlayRelease
+          :app:assembleFdroidRelease
 
       - name: Stage release artifacts
         id: stage
@@ -107,10 +116,12 @@ jobs:
           esac
           VERSION="${REF_NAME#v}"
           mkdir -p release-artifacts
-          cp app/build/outputs/bundle/release/app-release.aab \
-             "release-artifacts/marmalade-tts-${VERSION}.aab"
-          cp app/build/outputs/apk/release/app-release.apk \
-             "release-artifacts/marmalade-tts-${VERSION}.apk"
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab \
+             "release-artifacts/marmalade-tts-${VERSION}-play.aab"
+          cp app/build/outputs/apk/play/release/app-play-release.apk \
+             "release-artifacts/marmalade-tts-${VERSION}-play.apk"
+          cp app/build/outputs/apk/fdroid/release/app-fdroid-release.apk \
+             "release-artifacts/marmalade-tts-${VERSION}-fdroid.apk"
           (cd release-artifacts && sha256sum *.aab *.apk > SHA256SUMS.txt)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -120,6 +131,7 @@ jobs:
           name: Marmalade TTS ${{ steps.stage.outputs.version }}
           generate_release_notes: true
           files: |
-            release-artifacts/marmalade-tts-${{ steps.stage.outputs.version }}.aab
-            release-artifacts/marmalade-tts-${{ steps.stage.outputs.version }}.apk
+            release-artifacts/marmalade-tts-${{ steps.stage.outputs.version }}-play.aab
+            release-artifacts/marmalade-tts-${{ steps.stage.outputs.version }}-play.apk
+            release-artifacts/marmalade-tts-${{ steps.stage.outputs.version }}-fdroid.apk
             release-artifacts/SHA256SUMS.txt

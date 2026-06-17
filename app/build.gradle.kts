@@ -72,6 +72,25 @@ android {
 
     ndkVersion = "26.3.11579264"
 
+    // Two distribution flavors sharing one applicationId + signing config:
+    //   - `play`   : adds Google Play Billing; paywall sheet gates per-app
+    //                voices + custom effect creation behind `marmalade_pro`.
+    //   - `fdroid` : every feature unlocked, no Google classes whatsoever.
+    // Flavor source sets live under `src/play/` and `src/fdroid/`; the
+    // `playImplementation` config keeps billing-client out of the F-Droid
+    // APK at the dependency-graph level. See docs/release/PAYWALL-PLAN.md.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("fdroid") {
+            dimension = "distribution"
+            buildConfigField("boolean", "BILLING_ENABLED", "false")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "BILLING_ENABLED", "true")
+        }
+    }
+
     signingConfigs {
         if (keystoreProps.isNotEmpty()) {
             create("release") {
