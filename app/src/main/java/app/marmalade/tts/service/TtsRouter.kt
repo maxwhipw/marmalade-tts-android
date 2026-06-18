@@ -4,6 +4,7 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
+import app.marmalade.tts.pro.ProEntitlement
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
@@ -69,6 +70,7 @@ class TtsRouter @Inject constructor(
     private val mappingDao: AppAliasMappingDao,
     private val aliasDao: VoiceAliasDao,
     private val settings: SettingsRepository,
+    private val proEntitlement: ProEntitlement,
 ) {
 
     /**
@@ -102,6 +104,14 @@ class TtsRouter @Inject constructor(
      */
     suspend fun resolvePerApp(callerPackage: String?): VoiceAlias? {
         if (callerPackage == null) return null
+        // Per-app routing is a Pro feature. Free users (Play flavor
+        // without `marmalade_pro`, including refunded users) fall
+        // through to the primary alias — same behaviour as if the
+        // mapping didn't exist. The rows stay in the DB (so a future
+        // re-purchase restores routing seamlessly) but are inert at
+        // synth time. F-Droid flavor's [ProEntitlement.isPro] is
+        // always true so this is a free check there.
+        if (!proEntitlement.isPro.value) return null
         val mapping = mappingDao.findByPackage(callerPackage) ?: return null
         return aliasDao.findByName(mapping.aliasName)
     }
