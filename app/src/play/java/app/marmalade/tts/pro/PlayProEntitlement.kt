@@ -35,6 +35,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 // -----------------------------------------------------------------------------
 // PlayProEntitlement — Google Play Billing wrapper.
@@ -84,6 +87,9 @@ private const val PRODUCT_ID = "marmalade_pro"
 /** 30 days. Cache survives offline launches but eventually expires. */
 private const val CACHE_TTL_MS = 30L * 24L * 60L * 60L * 1000L
 
+/** Hard cap on how long any single [ensureConnected] call may suspend. */
+private const val CONNECT_TIMEOUT_MS = 5_000L
+
 private val Context.proDataStore by preferencesDataStore("pro_entitlement")
 private val KEY_CACHED_PRO = booleanPreferencesKey("pro_isPro_cached")
 private val KEY_VERIFIED_AT = longPreferencesKey("pro_isPro_verifiedAt")
@@ -95,10 +101,34 @@ class PlayProEntitlement @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Serialises [applyPurchases] so a concurrent
+     * onPurchasesUpdated + restorePurchases can't double-process
+     * the same purchase or interleave their DataStore writes.
+     */
+    private val applyMutex = Mutex()
+
     // Public state ---------------------------------------------------------
 
     private val _isPro = MutableStateFlow(false)
     override val isPro: StateFlow<Boolean> = _isPro.asStateFlow()
+
+    /**
+     * Set when a successful PURCHASED transition needed an acknowledge
+     * that failed. We surface the user as Pro (Play already collected
+     * money) but skip writing the cache `verifiedAt` so the next
+     * `restorePurchases` retries the acknowledge before the 3-day
+     * refund window closes.
+     */
+    @Volatile private var lastApplyAckFailed: Boolean = false
+
+    /**
+     * Most recently observed PENDING purchase token, if any. Sheet
+     * surfaces this so the user knows Play is processing payment
+     * rather than seeing the sheet dismiss with no Pro flip.
+     */
+    private val _pending = MutableStateFlow(false)
+    val pendingPurchase: StateFlow<Boolean> = _pending.asStateFlow()
 
     // BillingClient --------------------------------------------------------
 
@@ -148,15 +178,24 @@ class PlayProEntitlement @Inject constructor(
         val result = billingClient.launchBillingFlow(activity, params)
         return when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                // Real outcome arrives in onPurchasesUpdated; this is just
-                // "the Play sheet opened". UI should observe isPro rather
-                // than treat this return value as the final word.
-                PurchaseResult.Success
+                // `OK` here means the Play sheet opened, not that the
+                // purchase succeeded. The user might still cancel,
+                // payment might land in PENDING (gift-card balance
+                // check), or it might clear instantly. The real
+                // outcome arrives via onPurchasesUpdated, which feeds
+                // [isPro] and [pendingPurchase] — surface PENDING
+                // here so the UI can dismiss the sheet with the right
+                // message instead of pretending Success.
+                if (_pending.value) PurchaseResult.Pending else PurchaseResult.Success
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> PurchaseResult.Cancelled
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
                 // Already-purchased on this Play account but our cache
-                // didn't know — kick a restore so isPro flips.
+                // didn't know. restorePurchases() is suspend and
+                // re-queries Play, runs applyPurchases under
+                // [applyMutex], and updates [_isPro] BEFORE this
+                // function returns — so the caller can trust
+                // PurchaseResult.Success here to mean isPro is true.
                 restorePurchases()
                 PurchaseResult.Success
             }
@@ -185,44 +224,65 @@ class PlayProEntitlement @Inject constructor(
         billingResult: BillingResult,
         purchases: MutableList<Purchase>?,
     ) {
+        // Play sometimes delivers USER_CANCELED with a non-null
+        // purchases list (e.g. user cancels a *second* purchase flow
+        // after the first already cleared). Process whatever's in
+        // [purchases] regardless of the response code; only when both
+        // the code is non-OK AND the list is null/empty is there
+        // genuinely nothing to do.
+        val list = purchases.orEmpty()
         if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
-            Log.w(TAG, "onPurchasesUpdated non-OK: ${billingResult.debugMessage}")
-            return
+            Log.w(TAG, "onPurchasesUpdated code=${billingResult.responseCode} " +
+                "${billingResult.debugMessage}, purchases.size=${list.size}")
         }
-        val list = purchases ?: return
+        if (list.isEmpty()) return
         scope.launch { applyPurchases(list) }
     }
 
     // Internals -----------------------------------------------------------
 
-    private suspend fun applyPurchases(purchases: List<Purchase>) {
-        val owned = purchases.any { p ->
-            p.products.contains(PRODUCT_ID) &&
-                p.purchaseState == Purchase.PurchaseState.PURCHASED
-        }
+    private suspend fun applyPurchases(purchases: List<Purchase>) = applyMutex.withLock {
+        val ourPurchases = purchases.filter { it.products.contains(PRODUCT_ID) }
+        val owned = ourPurchases.any { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+        val pending = ourPurchases.any { it.purchaseState == Purchase.PurchaseState.PENDING }
+
+        var ackFailedThisRound = false
         if (owned) {
             // Acknowledge anything not yet acknowledged. Play refunds an
             // unacknowledged purchase within 3 days, so this is critical.
-            purchases.filter { p ->
-                p.products.contains(PRODUCT_ID) &&
-                    p.purchaseState == Purchase.PurchaseState.PURCHASED &&
-                    !p.isAcknowledged
-            }.forEach { p ->
+            // [Purchase.isAcknowledged] is read once per pass; double-ack
+            // is safe in BillingClient but we avoid it via the Mutex.
+            for (p in ourPurchases) {
+                if (p.purchaseState != Purchase.PurchaseState.PURCHASED) continue
+                if (p.isAcknowledged) continue
                 val ack = AcknowledgePurchaseParams.newBuilder()
                     .setPurchaseToken(p.purchaseToken)
                     .build()
                 val ackResult = billingClient.acknowledgePurchase(ack)
                 if (ackResult.responseCode != BillingClient.BillingResponseCode.OK) {
                     Log.w(TAG, "acknowledge failed: ${ackResult.debugMessage}")
+                    ackFailedThisRound = true
                 }
             }
         }
+
         _isPro.value = owned
+        _pending.value = pending
+        lastApplyAckFailed = ackFailedThisRound
+
         context.proDataStore.edit { prefs ->
             prefs[KEY_CACHED_PRO] = owned
-            prefs[KEY_VERIFIED_AT] = System.currentTimeMillis()
+            // Only record a fresh verifiedAt when the ack round
+            // succeeded cleanly. If an ack failed we want the next
+            // restorePurchases (Settings → About → Restore, or the
+            // onResume hook) to retry quickly rather than trusting a
+            // "verified now" timestamp on a transaction Play may yet
+            // auto-refund.
+            if (!ackFailedThisRound) {
+                prefs[KEY_VERIFIED_AT] = System.currentTimeMillis()
+            }
         }
-        Log.i(TAG, "applyPurchases: isPro=$owned (verified against Play)")
+        Log.i(TAG, "applyPurchases: isPro=$owned pending=$pending ackOk=${!ackFailedThisRound}")
     }
 
     private fun cacheValid(prefs: Preferences): Boolean {
@@ -233,29 +293,51 @@ class PlayProEntitlement @Inject constructor(
     }
 
     /**
-     * Suspend until the BillingClient is connected, retrying on
-     * disconnect via Play's recommended exponential backoff. Returns
-     * `true` once `onBillingSetupFinished` reports OK, or `false` when
-     * the device explicitly reports billing unavailable (no Play Store
-     * app, region restriction, etc.) so the caller can render a
-     * meaningful error rather than spinning forever.
+     * Serialises [ensureConnected] so two concurrent callers don't both
+     * fire `startConnection` (which leaks listeners on the BillingClient
+     * for the rest of the process).
+     */
+    private val connectMutex = Mutex()
+
+    /**
+     * Suspend until the BillingClient is connected. Returns `true` once
+     * `onBillingSetupFinished` reports OK, or `false` when Play is
+     * genuinely unavailable (no Play Store app, region-restricted,
+     * connection timeout) so the caller can render a meaningful error
+     * rather than spinning forever.
+     *
+     * Each call serialises through [connectMutex] so we don't pile
+     * up listeners on the BillingClient — earlier versions registered
+     * a fresh anonymous listener every call and never unregistered.
      */
     private suspend fun ensureConnected(): Boolean {
         if (billingClient.isReady) return true
-        val ready = CompletableDeferred<Boolean>()
-        billingClient.startConnection(object : BillingClientStateListener {
-            override fun onBillingSetupFinished(result: BillingResult) {
-                ready.complete(result.responseCode == BillingClient.BillingResponseCode.OK)
-            }
+        return connectMutex.withLock {
+            if (billingClient.isReady) return@withLock true
+            val ready = CompletableDeferred<Boolean>()
+            val listener = object : BillingClientStateListener {
+                override fun onBillingSetupFinished(result: BillingResult) {
+                    if (!ready.isCompleted) {
+                        ready.complete(result.responseCode == BillingClient.BillingResponseCode.OK)
+                    }
+                }
 
-            override fun onBillingServiceDisconnected() {
-                // Connection retries are handled per-call rather than via
-                // a daemon — every public method calls ensureConnected,
-                // so a disconnect just means the next call reconnects.
-                Log.i(TAG, "billing service disconnected")
+                override fun onBillingServiceDisconnected() {
+                    // Per-call reconnect: every public method calls
+                    // ensureConnected before touching the client, so a
+                    // disconnect just causes the next call to reconnect.
+                    Log.i(TAG, "billing service disconnected")
+                }
             }
-        })
-        return ready.await()
+            billingClient.startConnection(listener)
+            // Five seconds covers slow cold-start on first-launch +
+            // Play Store auto-update without spinning forever on a
+            // permanently-offline device.
+            withTimeoutOrNull(CONNECT_TIMEOUT_MS) { ready.await() } ?: run {
+                Log.w(TAG, "billing connect timeout after ${CONNECT_TIMEOUT_MS}ms")
+                false
+            }
+        }
     }
 
     /**

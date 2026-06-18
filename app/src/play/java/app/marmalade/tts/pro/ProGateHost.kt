@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -75,8 +77,13 @@ fun ProGateHost(
                 sheetState = sheetState,
             ) {
                 Column(
+                    // verticalScroll keeps the sheet usable at large
+                    // system font scales (1.5x+) on small minSdk=28
+                    // devices where the content would otherwise clip
+                    // the bottom buttons.
                     modifier = Modifier
                         .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 24.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -95,7 +102,9 @@ fun ProGateHost(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Already accessible without Pro — your primary voice " +
+                        // "available" not "accessible" — screen-reader
+                        // users may parse "accessible" as a11y.
+                        text = "Already available without Pro — your primary voice " +
                             "is used by every app automatically.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -120,8 +129,13 @@ fun ProGateHost(
                                 val result = entitlement.launchPurchase(a)
                                 purchaseInFlight = false
                                 when (result) {
-                                    is PurchaseResult.Success,
-                                    is PurchaseResult.Pending -> play.dismiss()
+                                    is PurchaseResult.Success -> play.dismiss()
+                                    is PurchaseResult.Pending -> {
+                                        purchaseError =
+                                            "Payment is pending Play approval — you'll get " +
+                                            "Pro automatically once it clears (usually within " +
+                                            "a few minutes; gift-card balance checks can take longer)."
+                                    }
                                     is PurchaseResult.Cancelled -> { /* leave sheet open */ }
                                     is PurchaseResult.Error -> purchaseError = result.message
                                     is PurchaseResult.NotApplicable -> play.dismiss()
@@ -135,7 +149,20 @@ fun ProGateHost(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !purchaseInFlight,
                         onClick = {
-                            scope.launch { entitlement.restorePurchases() }
+                            scope.launch {
+                                val before = entitlement.isPro.value
+                                entitlement.restorePurchases()
+                                val after = entitlement.isPro.value
+                                if (after && !before) {
+                                    play.dismiss()
+                                } else if (after) {
+                                    // Already restored — close out the sheet.
+                                    play.dismiss()
+                                } else {
+                                    purchaseError =
+                                        "No Marmalade Pro purchase found on this Google account."
+                                }
+                            }
                         },
                     ) {
                         Text("Restore purchases")
