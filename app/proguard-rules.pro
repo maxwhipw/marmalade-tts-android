@@ -20,6 +20,13 @@
 # Room: keep entity and DAO classes
 -keep class * extends androidx.room.RoomDatabase { *; }
 
+# Google Play Billing (play flavor only — F-Droid APK contains zero
+# billingclient classes, verified). The library ships its own consumer
+# rules but we keep the public API surface defensively — billing
+# crashes in release-only builds are invisible until a Play upload runs.
+-keep class com.android.billingclient.api.** { *; }
+-dontwarn com.android.billingclient.api.**
+
 # Strip debug/verbose logging from RELEASE builds (R8 removes these calls and
 # their argument computation) — this also drops the per-chunk timing logs and
 # any line that logged user text (KokoroDirect/Kitten/Pocket). Info/warn/error

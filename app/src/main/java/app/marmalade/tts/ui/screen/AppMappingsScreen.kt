@@ -103,6 +103,7 @@ fun AppMappingsScreen(
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val installedApps by viewModel.installedApps.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
+    val isPro by viewModel.isPro.collectAsStateWithLifecycle()
 
     var pendingDelete by remember { mutableStateOf<AppAliasMapping?>(null) }
 
@@ -137,7 +138,7 @@ fun AppMappingsScreen(
                 .padding(innerPadding),
         ) {
             if (mappings.isEmpty()) {
-                EmptyState()
+                EmptyState(isPro = isPro)
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(items = mappings, key = { it.packageName }) { mapping ->
@@ -195,7 +196,7 @@ fun AppMappingsScreen(
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(isPro: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -215,10 +216,19 @@ private fun EmptyState() {
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(8.dp))
+        // When !isPro, tapping the FAB opens the paywall sheet — say so
+        // upfront so the user isn't surprised. The F-Droid flavor always
+        // passes isPro=true so this branch is unreachable there.
         Text(
-            text = "Pick a voice persona for each app that asks Marmalade TTS " +
-                "to speak. Anything you don't configure uses your primary alias. " +
-                "Tap + to add one.",
+            text = if (isPro) {
+                "Pick a voice persona for each app that asks Marmalade TTS " +
+                    "to speak. Anything you don't configure uses your primary " +
+                    "alias. Tap + to add one."
+            } else {
+                "Per-app routing is a Marmalade Pro feature. Tap + to learn " +
+                    "more. Without Pro, every app uses your primary alias — " +
+                    "which is the same thing most users want anyway."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
