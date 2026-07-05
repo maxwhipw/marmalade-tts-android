@@ -239,12 +239,12 @@ class SpeakViewModel @Inject constructor(
         // override sticks until the next ViewModel construction.
         autoApplyPrimaryAlias()
 
-        // alpha.10.M: re-sync the cached alias snapshot (speed/effect/
-        // phonemizationLanguage) when the underlying alias row changes
-        // while it's still the active selection. Without this, editing
-        // an alias on the Alias screen and returning to Speak would run
-        // synthesis with the pre-edit values (chip says alias is active
-        // but the cached StateFlows are stale).
+        // alpha.10.M: re-sync the cached alias snapshot (voice/speed/
+        // effect/phonemizationLanguage) when the underlying alias row
+        // changes while it's still the active selection. Without this,
+        // editing an alias on the Alias screen and returning to Speak
+        // would run synthesis with the pre-edit values (chip says alias
+        // is active but the cached StateFlows are stale).
         combine(_activeAlias, aliases) { active, rows ->
             if (active == null) null else rows.firstOrNull { it.name == active }
         }
@@ -253,6 +253,20 @@ class SpeakViewModel @Inject constructor(
                     _currentEffectBlocks.value = effectResolver.blocksFor(fresh.effectId)
                     _currentSpeed.value = fresh.speed
                     _currentPhonemizationLanguage.value = fresh.phonemizationLanguage
+                    // The edit may also have changed the alias's VOICE.
+                    // Follow it (mirroring applyAlias) or the chip keeps
+                    // claiming the alias while synthesis runs the pre-edit
+                    // voice until the user re-taps the chip. Guarded on the
+                    // catalog lookup like applyAlias's missing-voice branch,
+                    // and expectedAliasVoiceId is set first so the
+                    // defaultVoiceId emission isn't misread as a manual pick.
+                    val expected = expectedAliasVoiceId
+                    if (expected != null && fresh.voiceId != expected &&
+                        voiceDao.findById(fresh.voiceId) != null
+                    ) {
+                        expectedAliasVoiceId = fresh.voiceId
+                        settings.setDefaultVoiceId(fresh.voiceId)
+                    }
                 }
             }
             .launchIn(viewModelScope)
