@@ -44,7 +44,7 @@ cite one commit.
 
 Verbatim copies of the licenses referenced here are in
 [`LICENSES/full-texts/`](LICENSES/full-texts/): **GPL-3.0**, **Apache-2.0**,
-**BSD-3-Clause**, **CC-BY-4.0**, **CC-BY-SA-4.0**, and **CC0-1.0**. The running app surfaces a per-component
+**BSD-3-Clause**, **CC-BY-4.0**, **CC-BY-SA-4.0**, **CC0-1.0**, and **OFL-1.1**. The running app surfaces a per-component
 breakdown under **Settings → About → Open-source licenses**, with the full
 license text reachable for each component. License texts that embed the
 licensor's copyright (MIT, BSD) ship **per component with the correct holder**
@@ -84,6 +84,7 @@ bundle contains no GPL components. Per-bundle detail is in the
 | open_jtalk dictionary | Japanese MeCab dictionary | Engine bundle | Modified BSD |
 | lexicon-zh (Mandarin G2P) | Han→IPA Mandarin lexicon | Engine bundle | **CC-BY-SA-4.0** (CC-CEDICT-derived via pypinyin — see [`LICENSES/kokoro-direct.md`](LICENSES/kokoro-direct.md)) |
 | AndroidX / Compose / Kotlin / Hilt / Room | App framework | APK | Apache-2.0 |
+| Manrope + Fredoka fonts | Brand typography | APK | OFL-1.1 (see [`LICENSES/fonts.md`](LICENSES/fonts.md)) |
 
 Full per-component notices, file lists, and upstream URLs are in
 [`LICENSES/`](LICENSES/).

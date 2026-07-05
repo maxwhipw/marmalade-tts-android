@@ -32,7 +32,7 @@ class LicenseCatalogTest {
      * copyright, so each component must ship its own.
      */
     private val noEmbeddedCopyright =
-        setOf("GPL-3.0-or-later", "Apache-2.0", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0")
+        setOf("GPL-3.0-or-later", "Apache-2.0", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "OFL-1.1")
 
     @Test
     fun everyComponentMapsToAKnownLicense() {

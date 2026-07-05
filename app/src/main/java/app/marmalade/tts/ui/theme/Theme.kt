@@ -6,8 +6,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+
+/**
+ * Color for the "marmalade" wordmark, mode-aware per
+ * marmalade-design-scheme-v0: orange in light, cream in dark — bright
+ * orange on a dark surface is an explicit anti-pattern. Non-Marmalade
+ * presets fall back to the scheme primary (same rule as
+ * marmalade-android's extended-color fallback). Provided by
+ * [MarmaladeTtsTheme]; the default matches the light-mode Marmalade value
+ * so previews outside the theme still render sanely.
+ */
+val LocalWordmarkColor = staticCompositionLocalOf { Color(0xFFF97316) }
 
 /**
  * Resolve whether dark theme should be active based on user preference.
@@ -67,10 +81,27 @@ fun MarmaladeTtsTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        shapes = MarmaladeTtsShapes,
-        typography = MaterialTheme.typography,
-        content = content,
-    )
+    val wordmarkColor = when (themePreset) {
+        // The brand palettes keep the locked wordmark tokens: Orange
+        // #F97316 light / Cream #FFEDD5 dark. SYSTEM pre-12 falls back to
+        // the Marmalade scheme, so it gets the brand tokens too on the
+        // dynamic-color path below only when Material You is active.
+        ThemePreset.MARMALADE -> if (darkTheme) Color(0xFFFFEDD5) else Color(0xFFF97316)
+        ThemePreset.SYSTEM ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                colorScheme.primary
+            } else {
+                if (darkTheme) Color(0xFFFFEDD5) else Color(0xFFF97316)
+            }
+        else -> colorScheme.primary
+    }
+
+    CompositionLocalProvider(LocalWordmarkColor provides wordmarkColor) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            shapes = MarmaladeTtsShapes,
+            typography = MarmaladeTypography,
+            content = content,
+        )
+    }
 }

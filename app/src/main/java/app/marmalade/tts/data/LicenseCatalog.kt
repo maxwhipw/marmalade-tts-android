@@ -128,6 +128,14 @@ object LicenseCatalog {
             "CC0-1.0", "CC0-1.0.txt",
             "https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt",
         ),
+        // OFL keeps the font's copyright notice separate from the license
+        // body (the notice travels with the font files), so the body is
+        // shareable like GPL/Apache and Component.copyright carries the
+        // per-font attribution.
+        License(
+            "OFL-1.1", "OFL-1.1.txt",
+            "https://openfontlicense.org",
+        ),
     )
 
     /**
@@ -278,6 +286,26 @@ object LicenseCatalog {
             note = "Includes their transitive dependencies (Okio, Guava, Commons " +
                 "IO/Codec — all Apache-2.0; plus permissive annotation libraries " +
                 "such as jsr305 (BSD) and jakarta.inject (EPL-2.0)).",
+        ),
+        Component(
+            key = "manrope",
+            name = "Manrope", role = "Brand font (body / headings)",
+            shipsIn = "APK",
+            licenseId = "OFL-1.1",
+            copyright = listOf(
+                "Copyright 2019 The Manrope Project Authors " +
+                    "(https://github.com/sharanda/manrope)",
+            ),
+        ),
+        Component(
+            key = "fredoka",
+            name = "Fredoka", role = "Brand font (wordmark)",
+            shipsIn = "APK",
+            licenseId = "OFL-1.1",
+            copyright = listOf(
+                "Copyright 2016 The Fredoka Project Authors " +
+                    "(https://github.com/hafontia/Fredoka-One)",
+            ),
         ),
     )
 

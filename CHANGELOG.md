@@ -3,6 +3,27 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Primary alias routing**: TTS clients auto-fill the request's voice
+  from the engine's advertised default, and that echo outranked the
+  primary alias — a Kitten primary could never fire ("keeps speaking
+  Bella Kokoro"). The advertised default now follows the primary alias,
+  and an auto-filled echo of it no longer beats the alias; deliberate
+  per-app voice picks still win.
+- Editing the alias that's active on the Speak screen now also follows a
+  **voice** change immediately (speed/effect/language already re-synced);
+  previously the new voice only applied after deselecting and re-tapping
+  the chip.
+
+### Changed
+- Brand typography per marmalade-design-scheme-v0: Manrope across the
+  app, and the lowercase "marmalade tts" wordmark (Fredoka 600, orange
+  in light / cream in dark) on the Speak screen top bar. Both fonts are
+  bundled (OFL-1.1; see `LICENSES/fonts.md` and the in-app licenses
+  screen).
+
 ## [1.0.0-beta.1] — 2026-06-07
 
 First public beta — feature-complete and production-ready; held in beta

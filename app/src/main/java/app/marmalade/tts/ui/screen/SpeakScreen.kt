@@ -37,8 +37,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
@@ -46,6 +48,8 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.ui.MarmaladeFilterChip
+import app.marmalade.tts.ui.theme.LocalWordmarkColor
+import app.marmalade.tts.ui.theme.Wordmark
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -112,7 +116,7 @@ import app.marmalade.tts.ui.MarmaladeFilterChip
  * Primary screen — the user's "type something, hear it spoken" surface.
  *
  * Layout (top to bottom):
- *  - Top app bar: title "Marmalade TTS", trailing IconButton → voices.
+ *  - Top app bar: "marmalade tts" wordmark, trailing IconButton → voices.
  *  - Mascot (~64dp) — `mascot_speaking` while audio plays, `mascot_happy` otherwise.
  *  - OutlinedTextField, multi-line (~5 lines visible).
  *  - AssistChip showing the current voice — tap to navigate to picker.
@@ -148,7 +152,18 @@ fun SpeakScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Marmalade TTS") },
+                // Brand wordmark per marmalade-design-scheme-v0: always
+                // lowercase, Fredoka 600, orange in light / cream in dark
+                // (LocalWordmarkColor carries the mode-aware swap).
+                title = {
+                    Text(
+                        text = "marmalade tts",
+                        fontFamily = Wordmark,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 22.sp,
+                        color = LocalWordmarkColor.current,
+                    )
+                },
                 windowInsets = WindowInsets(0),
                 actions = {
                     // The bottom nav exposes Voices as a tab; this in-bar
