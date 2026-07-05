@@ -302,6 +302,94 @@ class MarmaladeTtsServiceTest {
         assertEquals("kokoro-direct-v1_0:bm_lewis", fakeKokoroDirectEngine.calls.single().second)
     }
 
+    // -- primary-alias routing vs auto-filled voiceName --------------------
+    //
+    // TTS clients auto-fill SynthesisRequest.voiceName from the engine's
+    // advertised default (onGetDefaultVoiceNameFor / system Settings).
+    // Such an echo must NOT outrank the user's primary alias — that was
+    // the "kitten primary alias keeps speaking Bella Kokoro" bug.
+
+    /** Wire a kitten primary alias ("kitty", 1.5×) into the service's router. */
+    private fun installKittenPrimary() {
+        val alias = app.marmalade.tts.data.db.VoiceAlias(
+            name = "kitty",
+            engine = "kitten-direct-v0_8",
+            voiceId = "kitten-direct-v0_8:Bella",
+            speed = 1.5f,
+            effectPreset = "NONE",
+            createdAt = 0L,
+        )
+        val aliasDao = object : app.marmalade.tts.data.db.VoiceAliasDao {
+            override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
+                kotlinx.coroutines.flow.flowOf(listOf(alias))
+            override suspend fun findByName(name: String) = alias.takeIf { it.name == name }
+            override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
+            override suspend fun delete(name: String) = Unit
+        }
+        kotlinx.coroutines.runBlocking { fakeSettings.setPrimaryAliasName("kitty") }
+        setField(service, "router", TtsRouter(
+            mappingDao = EmptyMappingDao,
+            aliasDao = aliasDao,
+            settings = fakeSettings,
+            proEntitlement = AlwaysProEntitlement,
+        ))
+    }
+
+    @Test
+    fun onSynthesizeText_autoFilledDefaultVoice_yieldsToPrimaryAlias() {
+        installKittenPrimary()
+        fakeEngine.nextPcm = ShortArray(1024) { 0 }
+
+        // The request carries the catalog default — the auto-fill echo, not
+        // a deliberate pick — so the kitten primary must win.
+        val request = newRequestWithVoice("hello", KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(1, fakeEngine.calls.size)
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        val (_, voiceId, speed) = fakeEngine.calls.single()
+        assertEquals("kitten-direct-v0_8:Bella", voiceId)
+        assertEquals(1.5f, speed)
+    }
+
+    @Test
+    fun onSynthesizeText_requestedVoiceMatchingPrimary_appliesAliasBundle() {
+        installKittenPrimary()
+        fakeEngine.nextPcm = ShortArray(1024) { 0 }
+
+        // Requesting exactly the primary's voice is treated as the alias:
+        // its speed (and effects) ride along instead of the bare 1.0×.
+        val request = newRequestWithVoice("hello", "kitten-direct-v0_8:Bella")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(1.5f, fakeEngine.calls.single().third)
+    }
+
+    @Test
+    fun onSynthesizeText_deliberateVoicePick_stillBeatsPrimaryAlias() {
+        installKittenPrimary()
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024) { 0 }
+
+        // bm_lewis is neither the advertised default nor the primary's
+        // voice — a deliberate caller pick, honored at 1.0× with no effect.
+        val request = newRequestWithVoice("hello", "kokoro-direct-v1_0:bm_lewis")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeEngine.calls.size)
+        val (_, voiceId, speed) = fakeKokoroDirectEngine.calls.single()
+        assertEquals("kokoro-direct-v1_0:bm_lewis", voiceId)
+        assertEquals(1.0f, speed)
+    }
+
+    @Test
+    fun onGetDefaultVoiceNameFor_advertisesPrimaryAliasVoice() {
+        installKittenPrimary()
+        assertEquals(
+            "kitten-direct-v0_8:Bella",
+            service.onGetDefaultVoiceNameFor("en", "US", ""),
+        )
+    }
+
     @Test
     fun onLoadVoice_acceptsBothEnginesAndRejectsUnknown() {
         // Both engines' voices must round-trip — required for the system

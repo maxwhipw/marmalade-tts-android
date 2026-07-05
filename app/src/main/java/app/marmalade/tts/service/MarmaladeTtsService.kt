@@ -47,7 +47,8 @@ import kotlinx.coroutines.runBlocking
 //      │      ▼                                           fallback when no
 //      │   engineNameFor(voiceId)  ──► "kokoro" | "kitten"   match: kokoro
 //      │
-//      ├── if no explicit voiceName: per-app routing fires
+//      ├── if voiceName is absent OR merely echoes our advertised default
+//      │    (clients auto-fill it from onGetDefaultVoiceNameFor): routing fires
 //      │      packageManager.getNameForUid(request.callerUid) ──► pkg?
 //      │      TtsRouter.resolveAlias(pkg)  (suspend, runBlocking)
 //      │        ├── per-app mapping (com.spotify → "narrator") wins, OR
@@ -318,16 +319,19 @@ class MarmaladeTtsService : TextToSpeechService() {
         country: String?,
         variant: String?,
     ): String {
-        // English request → the catalog-recommended default voice.
-        // Kokoro is the recommended engine starting v0.1.9; the picker UX
-        // also tracks isRecommended, so this stays in sync without a
-        // separate source of truth.
+        // English request → the user's primary alias voice when one is
+        // set, falling back to the catalog-recommended default. Clients
+        // auto-fill SynthesisRequest.voiceName from this answer, so
+        // advertising the hardcoded Kokoro default here while the user
+        // had a (say) Kitten primary alias made every request arrive
+        // pre-stamped with Kokoro Bella — and the primary never fired.
+        // runBlocking is fine: this is a rare negotiation callback on a
+        // binder thread, not the per-utterance synthesis hot path.
         return if (onIsLanguageAvailable(lang, country, variant)
             != TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            // Kokoro Direct is the recommended default a system-TTS caller
-            // resolves to for English.
-            KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
+            runBlocking { router.resolveAlias(null)?.voiceId }
+                ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         } else {
             ""
         }
@@ -457,12 +461,22 @@ class MarmaladeTtsService : TextToSpeechService() {
      *      `request.voiceName` from system Settings, so without this
      *      precedence the user's "this app gets this voice" choice
      *      would never fire for ordinary apps.
-     *   2. Caller-specified [SynthesisRequest.getVoiceName] when it
-     *      matches a seeded voice — engine-default speed (1.0×) and no
-     *      effect, because the caller asked for that exact voice.
+     *   2. Caller-specified [SynthesisRequest.getVoiceName] when it is a
+     *      **deliberate pick** — engine-default speed (1.0×) and no
+     *      effect, because the caller asked for that exact voice. A
+     *      requested voice is NOT deliberate when it merely echoes what
+     *      we advertise as the default (the primary alias's voice, or the
+     *      catalog default while a primary exists): clients auto-fill
+     *      `voiceName` from [onGetDefaultVoiceNameFor] / system Settings,
+     *      and before this distinction the auto-filled Kokoro default
+     *      outranked the primary alias on every request, so a Kitten
+     *      primary could never fire ("it keeps speaking Bella Kokoro").
      *   3. Primary alias — same fields from the user-designated primary.
+     *      Also taken when the caller requested exactly the primary's
+     *      voice, so the alias's speed/effect ride along.
      *   4. Engine default voice + 1.0× speed + no effect (the v0.1.10
-     *      pre-routing behaviour).
+     *      pre-routing behaviour). Also honors a caller-requested voice
+     *      when no primary alias is set.
      *
      * Runs blocking on the synth-worker thread per the TextToSpeechService
      * contract (the system explicitly calls `onSynthesizeText` off the
@@ -487,10 +501,22 @@ class MarmaladeTtsService : TextToSpeechService() {
                 )
             }
 
-            // 2. Caller-specified voice. Cache-first so the common
+            // Resolve the primary up front — it decides whether the
+            // caller-supplied voiceName is a deliberate pick or an
+            // auto-filled echo of our advertised default.
+            val primary: VoiceAlias? = router.resolveAlias(callerPackage)
+
+            // 2. Caller-specified voice, when deliberate (see kdoc). With
+            // no primary set, every requested voice is honored — there is
+            // nothing for the auto-fill to mask. Cache-first so the common
             // "request specifies a voice that was seeded at install" path
             // stays off the synth-worker's blocking road.
-            if (requested != null) {
+            val deliberate = requested != null && (
+                primary == null ||
+                    (requested != primary.voiceId &&
+                        requested != KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
+                )
+            if (requested != null && deliberate) {
                 val cachedEngine = voiceEngineCache[requested]
                 if (cachedEngine != null && isKnownEngine(cachedEngine)) {
                     return@runBlocking SynthParams(
@@ -511,7 +537,6 @@ class MarmaladeTtsService : TextToSpeechService() {
             }
 
             // 3. Primary alias fallback.
-            val primary: VoiceAlias? = router.resolveAlias(callerPackage)
             if (primary != null) {
                 SynthParams(
                     voiceId = primary.voiceId,
