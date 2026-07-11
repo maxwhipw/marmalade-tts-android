@@ -432,14 +432,12 @@ class MarmaladeSynthService : Service() {
                     synthesizeBatchedAndPlay(req.text, engineName, resolved, enabled)
                 }
             } catch (e: EngineNotInstalledException) {
-                // Surface as a notification update so the user sees it; the
-                // app-launcher tap will route them to the Engines screen.
                 Log.w(TAG, "Engine not installed", e)
-                updateNotification("${displayNameFor(engineName)} engine not installed")
+                postErrorNotification("${displayNameFor(engineName)} engine not installed")
                 return
             } catch (t: Throwable) {
                 Log.e(TAG, "Synthesis failed", t)
-                updateNotification("Synthesis failed")
+                postErrorNotification("Synthesis failed")
                 return
             }
         } finally {
@@ -839,6 +837,25 @@ class MarmaladeSynthService : Service() {
         notificationManager?.notify(NOTIFICATION_ID, n)
     }
 
+    /**
+     * Post a failure as its own dismissable notification, on a separate
+     * id from the foreground notification. Errors used to go through
+     * [updateNotification], but the job-completion `stopIfIdle()` calls
+     * `stopForeground(STOP_FOREGROUND_REMOVE)` on [NOTIFICATION_ID]
+     * milliseconds later, deleting the message before the user could
+     * read it — failures were effectively silent.
+     */
+    private fun postErrorNotification(message: String) {
+        val n = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Marmalade TTS")
+            .setContentText(message)
+            .setSmallIcon(R.drawable.mascot_speaking)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+        notificationManager?.notify(ERROR_NOTIFICATION_ID, n)
+    }
+
     private fun buildNotification(stateText: String): Notification {
         val session = mediaSession
         val token = session?.sessionToken
@@ -912,6 +929,9 @@ class MarmaladeSynthService : Service() {
         private const val TAG = "MarmaladeSynthService"
         private const val CHANNEL_ID = "marmalade_synth"
         private const val NOTIFICATION_ID = 1
+
+        /** Separate id so stopForeground's removal can't take errors with it. */
+        private const val ERROR_NOTIFICATION_ID = 2
 
         /**
          * Default engine when [EXTRA_ENGINE] is not provided AND [EXTRA_VOICE]
