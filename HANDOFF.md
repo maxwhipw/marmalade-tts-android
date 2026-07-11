@@ -2,8 +2,10 @@
 
 ## State
 
-32 local commits on `main` (NOT pushed), ending `cc11ee3` (atoms AA + AB
-added 2026-07-11 after the greyed-Play diagnosis).
+35 local commits on `main` (NOT pushed), ending with atoms AA (`dc9392a`,
+CHECK_TTS_DATA install state — unblocked the Settings Play button),
+AB (`cc11ee3`, quiet client-stop), and AC (`5529fe3`, abbreviation regex
+matched mid-word: "test." → "te saint" on both engines).
 All from `docs/AUDIT-2026-07-11.md` (the whole-app audit + fix-status —
 **read that file first**, it is the master list with commit hashes).
 
