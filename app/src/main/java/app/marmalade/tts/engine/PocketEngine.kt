@@ -285,7 +285,13 @@ open class PocketEngine @Inject constructor(
     }
 
     private fun doLoad(intraOpThreads: Int) {
-        val ort = OrtEnvironment.getEnvironment().also { env = it }
+        // Build everything against the local [ort]; publish to [env] only
+        // at the END. ensureModelLoaded's unlocked fast path treats
+        // env != null as "fully loaded", so an early publish let a
+        // concurrent first synth see a half-loaded engine ("bundle
+        // missing after load"). Same rationale as KittenDirectEngine /
+        // KokoroDirectEngine.doLoad.
+        val ort = OrtEnvironment.getEnvironment()
         bundle = PocketBundle.load(File(engineDir, "bundle.json"))
         tokenizer = PocketTokenizer.load(File(engineDir, "tokenizer.model"))
 
@@ -351,6 +357,11 @@ open class PocketEngine @Inject constructor(
         mainSeqFloatBuf = mainSeqBuf!!.asFloatBuffer()
         mainTextDummyBuf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         mainTextDummyFloatBuf = mainTextDummyBuf!!.asFloatBuffer()
+
+        // Publish only after every field a sibling caller's synth path
+        // touches is non-null. Warmup launches after the publish because
+        // warmupSynth reads [env] itself.
+        env = ort
 
         // P-D: warmup runs async — see KittenDirectEngine for details.
         warmupJob = warmupScope.launch {
