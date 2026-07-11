@@ -141,11 +141,12 @@ fun OnboardingScreen(
                 onInstall = viewModel::installSelected,
                 onBack = viewModel::back,
                 onSkip = {
-                    // Skipping installs an empty set — installs nothing
-                    // and advances to the CreateAlias step. The user still
-                    // has to create an alias to finish onboarding.
-                    viewModel.installSelected()
-                    viewModel.next()
+                    // Installs nothing (the selection set pre-selects the
+                    // recommended engines, so installSelected() here would
+                    // silently download them) and advances to CreateAlias.
+                    // The user still has to create an alias to finish
+                    // onboarding.
+                    viewModel.skipEngineInstall()
                 },
             )
             OnboardingStep.Installing -> InstallingStep(

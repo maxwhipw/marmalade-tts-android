@@ -255,6 +255,15 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
+     * Skip engine installation entirely — download nothing (regardless
+     * of what's pre-selected) and jump straight to [OnboardingStep.CreateAlias].
+     * Engines can always be installed later from Settings → Engines.
+     */
+    fun skipEngineInstall() {
+        _step.value = OnboardingStep.CreateAlias
+    }
+
+    /**
      * Retry an install that failed on the progress screen. Reuses the
      * existing [installSelected] machinery but for a single engine.
      */
