@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,6 +139,11 @@ fun SpeakScreen(
     val currentVoice by viewModel.currentVoice.collectAsStateWithLifecycle()
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val activeAlias by viewModel.activeAlias.collectAsStateWithLifecycle()
+
+    // Re-entering the screen (e.g. back from Settings → Engines after an
+    // install) re-probes a stuck ModelMissing banner — see the kdoc on
+    // onScreenEntered for why no flow catches this case.
+    LaunchedEffect(Unit) { viewModel.onScreenEntered() }
 
     val isSpeaking = playbackState is PlaybackState.Speaking
     val isModelMissing = playbackState is PlaybackState.ModelMissing

@@ -283,11 +283,13 @@ class SpeakViewModel @Inject constructor(
                         val loaded = synthesizer.preload(voice.id)
                         // If the selected voice's engine IS present (preload
                         // succeeded), clear a stale ModelMissing left by an
-                        // earlier failed speak on a now-installed engine. This
-                        // runs on voice change AND on screen re-entry (the flow
-                        // restarts under WhileSubscribed), so coming back from
-                        // Settings → Engines after installing unsticks the
-                        // banner even when the voice itself didn't change.
+                        // earlier failed speak on a now-installed engine.
+                        // Only fires on voice CHANGE: the WhileSubscribed
+                        // flows never actually restart (this VM's own
+                        // launchIn collectors keep them permanently
+                        // subscribed) and StateFlow dedups an unchanged
+                        // voice — screen re-entry with the same voice goes
+                        // through [onScreenEntered] instead.
                         if (loaded && _playbackState.value is PlaybackState.ModelMissing) {
                             _playbackState.value = PlaybackState.Idle
                         }
@@ -295,6 +297,26 @@ class SpeakViewModel @Inject constructor(
                 }
             }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * Called by the Speak screen every time it (re-)enters composition.
+     * Re-probes the current voice's engine when the last speak() ended in
+     * [PlaybackState.ModelMissing]: installing the engine from Settings →
+     * Engines and navigating back doesn't change the voice, so no flow
+     * re-emits — without this hook the "Tap to install" banner stayed
+     * stuck (Speak disabled) until the user typed or switched voice.
+     */
+    fun onScreenEntered() {
+        if (_playbackState.value !is PlaybackState.ModelMissing) return
+        val voice = currentVoice.value ?: return
+        viewModelScope.launch {
+            if (synthesizer.preload(voice.id) &&
+                _playbackState.value is PlaybackState.ModelMissing
+            ) {
+                _playbackState.value = PlaybackState.Idle
+            }
+        }
     }
 
     /**
