@@ -172,7 +172,7 @@ open class KittenDirectEngine @Inject constructor(
 
     // -- live state (null while not loaded) -----------------------------------
 
-    private var env: OrtEnvironment? = null
+    @Volatile private var env: OrtEnvironment? = null
     private var acousticSession: OrtSession? = null
     private var phonemizer: EspeakPhonemizer? = null
 
@@ -604,8 +604,12 @@ open class KittenDirectEngine @Inject constructor(
     }
 
     override fun release() {
+        // synthLock excludes an in-flight chunk inference / warmup (closing
+        // a session mid-run() is a native SIGSEGV — synth holds it at most
+        // one chunk at a time); loadLock excludes a concurrent load. This
+        // is the only place both are held, so the order can't deadlock.
         kotlinx.coroutines.runBlocking {
-            loadLock.withLock { releaseInternal() }
+            synthLock.withLock { loadLock.withLock { releaseInternal() } }
         }
     }
 

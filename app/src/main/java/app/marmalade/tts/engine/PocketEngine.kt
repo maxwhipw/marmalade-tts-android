@@ -112,9 +112,16 @@ open class PocketEngine @Inject constructor(
     private val loadLock = Mutex()
     private val synthLock = Mutex()
 
+    /**
+     * Raised by [release] so an in-flight synth (which holds [synthLock]
+     * for the whole utterance) aborts at its next per-frame check instead
+     * of making release wait out the full AR loop.
+     */
+    private val releaseRequested = java.util.concurrent.atomic.AtomicBoolean(false)
+
     // -- live state (null while not loaded) ----------------------------------
 
-    private var env: OrtEnvironment? = null
+    @Volatile private var env: OrtEnvironment? = null
     private var bundle: PocketBundle? = null
     private var tokenizer: PocketTokenizer? = null
 
@@ -971,6 +978,7 @@ open class PocketEngine @Inject constructor(
             // count); without this check, a Stop tap couldn't take effect
             // until the current mini-chunk finished its full AR loop.
             coroutineContext.ensureActive()
+            check(!releaseRequested.get()) { "Pocket engine released mid-synthesis" }
             val tStart = System.currentTimeMillis()
             val step = stepAr(ar) ?: break
             if (frameTimes != null && frameTimes.size < 8) {
@@ -1177,13 +1185,23 @@ open class PocketEngine @Inject constructor(
 
     override fun release() {
         try {
-            // Guard with loadLock so a concurrent load can't be mid-flight while
-            // we null + close() the ONNX sessions — without it, an engine
-            // uninstall firing during a Pocket synth/load could close a session
-            // another thread is about to run() → native SIGSEGV. Mirrors
-            // KokoroDirectEngine / KittenDirectEngine.release().
-            kotlinx.coroutines.runBlocking {
-                loadLock.withLock { releaseInternal() }
+            // Closing a session another thread is mid-run() on is a native
+            // SIGSEGV, so release must exclude BOTH a concurrent load
+            // (loadLock) and a concurrent synth (synthLock). synthesizeStream
+            // holds synthLock for the whole utterance, so we first raise
+            // [releaseRequested] — the AR loop's per-frame check aborts the
+            // synth within ~one frame — then take synthLock → loadLock and
+            // close. That lock order can't deadlock: this is the only place
+            // both locks are held at once (load never waits on synthLock;
+            // synth takes loadLock only via ensureLoadedSuspending, before
+            // acquiring synthLock).
+            releaseRequested.set(true)
+            try {
+                kotlinx.coroutines.runBlocking {
+                    synthLock.withLock { loadLock.withLock { releaseInternal() } }
+                }
+            } finally {
+                releaseRequested.set(false)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "release() ignored failure: ${t.message}")
