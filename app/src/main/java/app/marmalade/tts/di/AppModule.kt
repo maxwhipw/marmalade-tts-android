@@ -110,12 +110,15 @@ object AppModule {
     /**
      * Resolves an alias's `effectId` to the playable [EffectBlock] chain.
      * Wraps [EffectDao] + JSON decode behind the [EffectResolver] seam so the
-     * synth-path callers don't depend on Room/org.json directly.
+     * synth-path callers don't depend on Room/org.json directly. Custom
+     * effects gate on [ProEntitlement] at synth time — see the resolver kdoc.
      */
     @Provides
     @Singleton
-    fun provideEffectResolver(effectDao: EffectDao): EffectResolver =
-        DefaultEffectResolver(effectDao)
+    fun provideEffectResolver(
+        effectDao: EffectDao,
+        proEntitlement: app.marmalade.tts.pro.ProEntitlement,
+    ): EffectResolver = DefaultEffectResolver(effectDao, proEntitlement)
 
     /**
      * Engine install root — wraps the app's private `filesDir` so the
