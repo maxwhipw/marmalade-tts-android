@@ -33,17 +33,14 @@ build must succeed on their buildserver from a clean checkout.
    no anti-feature. Expect maintainers to tag **NonFreeNet** — accept
    it. The Play fix landed 2026-06-11 (espeak built from source into
    the APK), so the strongest objection — downloading executable code —
-   is gone; bundles now carry only models and data. (Older bundle
-   releases still contain a leftover `.so` the app never loads; a bundle
-   re-spin removing it is queued.)
-3. **GPL §6 gap to close in the engines repo
-   (marmalade-tts-android-engines):** the bundles redistribute a GPL
-   `libttsespeak.so` but the repo doesn't document its exact source
-   revision or build provenance. Add to its README: espeak-ng version
-   (binary 1.52.0 from the official espeak Android APK; data from
-   Debian 1.51+dfsg), a link to the exact upstream source tag, and —
-   when the from-source build lands — the build script. Reviewers
-   poke at exactly this.
+   is gone; bundles now carry only models and data. (Resolved 2026-07-11:
+   the v22 bundle re-spin removed the leftover `.so` — bundles now
+   carry no executable code at rest.)
+3. **GPL §6 gap: CLOSED 2026-07-11.** Engines release v22 removed the
+   legacy `libttsespeak.so` from all bundles and rebuilt
+   espeak-ng-data from the 1.52.0 tag (same tag the APK compiles); the
+   engines repo README now carries the full §6 provenance block
+   (upstream tag, CMake `data` target, reproduction steps).
 4. **Commit + tag.** F-Droid builds from a signed/annotated git tag
    (e.g. `v1.0.0-beta.1`) on a public repo —
    https://github.com/maxwhipw/marmalade-tts-android. Push main + the
@@ -56,9 +53,8 @@ build must succeed on their buildserver from a clean checkout.
    and `changelogs/33.txt` all exist and are accurate (the
    full_description plainly states the opt-in GitHub download —
    reviewers want that disclosed).
-6. Add `fastlane/metadata/android/en-US/images/icon.png` (512×512) and
-   at least 2 `images/phoneScreenshots/*.png`. Same assets as the Play
-   listing.
+6. Done: `images/icon.png` (512×512) + 5 fresh `phoneScreenshots/*.png`
+   (2026-07-11 set). Same assets as the Play listing.
 
 ## Phase 2 — submission
 

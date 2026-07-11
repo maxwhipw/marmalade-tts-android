@@ -30,18 +30,25 @@ listing is live, so there's a one-tap install link.
 
 ### Phase A — cut the release candidate (repo work, mostly Claude)
 
-1. Finish the device-gated audit tail: Pocket regression listen +
-   remaining HANDOFF.md items that touch shipped behavior.
-2. Runtime smoke of the **minified release build** (R8) on the Pixel —
-   assembleRelease passes but has never been run on device.
-3. Engines repo: re-spin bundles without the leftover `libttsespeak.so`
-   (Play optics + F-Droid reviewer bait) and add GPL §6 provenance to
-   its README (exact espeak-ng tag, build provenance).
-4. Refresh screenshots (current ones are 2026-06-08, pre-audit UI) —
-   reuse for Play, F-Droid fastlane, and the README.
-5. Decide version: promote to `1.0.0` (or `-rc.1`), bump versionCode,
-   update changelog, tag annotated `v1.0.0`, push tag. CI builds Play
-   AAB + both APKs.
+1. ~~Pocket regression data~~ DONE 2026-07-11 (StreamPerf on a 4-chunk
+   share-sheet run shows the KNOWN slower-than-realtime underrun gaps,
+   no new seam regression signal). **[Max] listen test still open** —
+   share a paragraph with a Pocket alias and listen for chunk-seam
+   artifacts.
+2. ~~R8 runtime smoke~~ DONE 2026-07-11 via `-PsmokeRelease`
+   (side-by-side `.rc` install): onboarding, engine download/extract,
+   synthesis + playback, system-TTS negotiation all pass minified.
+3. ~~Engines re-spin + GPL §6~~ DONE 2026-07-11: engines repo release
+   v22 (kitten/kitten-mini/kokoro without libttsespeak.so, espeak data
+   rebuilt from the 1.52.0 tag; pocket clean on v21), catalog pinned
+   (atom AD), NOTICE.md version-split note resolved, engines README
+   rewritten with §6 provenance. v16→v22 update flow device-verified.
+4. ~~Screenshots~~ DONE 2026-07-11: fresh 5-screen set in fastlane +
+   the README's docs/screenshots/ (which had been EMPTY — broken
+   embeds since the README was written).
+5. **[Max] Decide version**: promote to `1.0.0` (or `-rc.1`), bump
+   versionCode, update changelog, tag annotated `v1.0.0`, push tag.
+   CI builds Play AAB + both APKs.
 6. targetSdk: Google requires 36 for new apps by ~Aug 31 2026. We ship
    35 — fine if the listing goes live before then, but schedule the
    36 bump regardless.
