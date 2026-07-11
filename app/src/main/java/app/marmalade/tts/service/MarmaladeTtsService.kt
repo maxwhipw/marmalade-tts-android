@@ -438,6 +438,16 @@ class MarmaladeTtsService : TextToSpeechService() {
             // callback cleanly; the framework discards anything after stop.
             Log.d(TAG, "Synthesis stopped by client")
             callback.done()
+        } catch (e: ChunkRejectedException) {
+            // audioAvailable started returning non-SUCCESS mid-stream. In
+            // practice that's a client stop/disconnect (e.g. backing out of
+            // Settings during the example) — the framework has already torn
+            // the request down and error() is a no-op. A genuine sink
+            // failure (file-synthesis IO error) takes the same path, where
+            // error() does report it. Either way it's routine, not a
+            // synthesis fault — one warning line, no stack trace.
+            Log.w(TAG, "${e.message} — aborting synthesis (client stop or sink failure)")
+            callback.error()
         } catch (e: Exception) {
             // Covers IllegalStateException from either engine (assets
             // missing / corrupt / JNI failure) and any other synthesis
@@ -523,6 +533,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // Engines observe cancellation between chunks (Pocket checks per
         // AR frame), so a long utterance stops burning CPU within ~one
         // chunk instead of running to completion.
+        Log.d(TAG, "onStop: client requested stop")
         synthJob?.cancel()
     }
 
@@ -781,6 +792,8 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Stream [pcm] through the synthesis callback in chunks of at most
      * `callback.maxBufferSize` bytes (the system-imposed cap). The audio
      * is encoded little-endian per the `ENCODING_PCM_16BIT` contract.
+     * Throws [ChunkRejectedException] as soon as the callback stops
+     * accepting audio (client stop/disconnect, or a sink failure).
      */
     private fun streamPcm(callback: SynthesisCallback, pcm: ShortArray) {
         val bytes = pcm16ToLittleEndianBytes(pcm)
@@ -790,12 +803,21 @@ class MarmaladeTtsService : TextToSpeechService() {
             val n = minOf(chunkSize, bytes.size - offset)
             val written = callback.audioAvailable(bytes, offset, n)
             if (written != TextToSpeech.SUCCESS) {
-                Log.w(TAG, "callback.audioAvailable returned $written — aborting stream")
-                throw RuntimeException("audioAvailable rejected chunk: $written")
+                throw ChunkRejectedException(written)
             }
             offset += n
         }
     }
+
+    /**
+     * `callback.audioAvailable` returned non-SUCCESS mid-stream. The
+     * framework returns the same code for "client stopped listening" and
+     * "audio sink failed", so this is handled as a routine abort (single
+     * warning, `callback.error()`), not a synthesis failure with a stack
+     * trace — see the catch in [onSynthesizeText].
+     */
+    private class ChunkRejectedException(code: Int) :
+        RuntimeException("audioAvailable rejected chunk: $code")
 
     companion object {
         private const val TAG = "MarmaladeTtsService"
