@@ -29,8 +29,11 @@ everything else Claude can do or has done.
    screen, and licensing-posture fixes are uncommitted as of
    2026-06-10. Split into logical commits, install on the Pixel 8a,
    and smoke-test all four engines (Kokoro, Kitten ×2, Pocket) —
-   including a **minified release build** (`assembleRelease` now
-   passes; runtime smoke of the R8 build is still pending).
+   including a **minified release build** — DONE 2026-07-11: R8 build
+   smoke-tested on the Pixel 8a via `-PsmokeRelease` (side-by-side
+   install mechanism in app/build.gradle.kts): onboarding, engine
+   download/extract, synthesis + playback, system-TTS negotiation all
+   pass minified.
 3. Done already: R8/proguard fixed (ORT keep + commons-compress
    dontwarn), 16 KB alignment for in-APK libs, Room v7→v8 migration,
    licensing docs/in-app screen tell the MIT-APK story.
