@@ -45,6 +45,23 @@ tracking, no network calls during synthesis. Ever.
   &nbsp;<img src="docs/screenshots/03-effects.png" alt="Effects screen" width="240">
 </p>
 
+## Install
+
+Store listings (Google Play and F-Droid) are in progress — see
+[docs/release/DISTRIBUTION-GAMEPLAN.md](docs/release/DISTRIBUTION-GAMEPLAN.md).
+Until they land (and forever after, for sideloaders):
+
+- **[GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases)** —
+  grab the latest `fdroid`-flavor APK (every feature unlocked, no
+  billing code) and install it.
+- **[Obtainium](https://github.com/ImranR98/Obtainium)** — add
+  `https://github.com/maxwhipw/marmalade-tts-android` as an app source
+  and you'll get updates automatically as new versions are tagged.
+
+After installing, enable it as the system voice under **Android
+Settings → Accessibility → Text-to-speech output → Preferred engine**
+(path varies slightly by device).
+
 ## Installing engines
 
 Marmalade ships small — the APK bundles no model files. On first launch you
