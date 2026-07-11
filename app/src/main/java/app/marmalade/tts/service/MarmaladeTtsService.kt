@@ -175,6 +175,9 @@ class MarmaladeTtsService : TextToSpeechService() {
     // been populated yet, then trigger an async refresh.
     private val rulesCache: ConcurrentHashMap<String, Set<String>> = ConcurrentHashMap()
 
+    /** One-shot guard for [warmUpEngine]'s collect-forever rule collectors. */
+    private val rulesCacheSeeded = java.util.concurrent.atomic.AtomicBoolean(false)
+
     /**
      * Job driving the in-flight [onSynthesizeText] runBlocking, if any.
      * [onStop] cancels it from the binder thread. One synthesis at a time
@@ -266,17 +269,25 @@ class MarmaladeTtsService : TextToSpeechService() {
         // thread so onSynthesizeText doesn't have to runBlocking on the
         // DataStore round-trip. Each engine is collected independently and
         // the cache stays live for later edits (a Settings → Engine detail
-        // toggle re-emits, refreshing the entry).
-        val knownEngines = listOf(
-            KokoroDirectVoiceCatalog.ENGINE,
-            KittenDirectVoiceCatalog.ENGINE,
-            KittenDirectMiniVoiceCatalog.ENGINE,
-            PocketVoiceCatalog.ENGINE,
-        )
-        for (engineName in knownEngines) {
-            serviceScope.launch {
-                settings.enabledRules(engineName).collect { rules ->
-                    rulesCache[engineName] = rules
+        // toggle re-emits, refreshing the entry). Once per service
+        // lifetime: warmUpEngine fires on EVERY positive onLoadLanguage,
+        // and these are collect-forever coroutines — without the guard
+        // they accumulated on serviceScope for as long as the service
+        // lived. (The model warm-up below stays unguarded on purpose: an
+        // engine installed after the first call still gets warmed by a
+        // later onLoadLanguage, and ensureModelLoaded is idempotent.)
+        if (rulesCacheSeeded.compareAndSet(false, true)) {
+            val knownEngines = listOf(
+                KokoroDirectVoiceCatalog.ENGINE,
+                KittenDirectVoiceCatalog.ENGINE,
+                KittenDirectMiniVoiceCatalog.ENGINE,
+                PocketVoiceCatalog.ENGINE,
+            )
+            for (engineName in knownEngines) {
+                serviceScope.launch {
+                    settings.enabledRules(engineName).collect { rules ->
+                        rulesCache[engineName] = rules
+                    }
                 }
             }
         }
