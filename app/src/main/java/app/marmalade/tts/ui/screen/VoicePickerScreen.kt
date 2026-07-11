@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -160,12 +161,19 @@ fun VoicePickerScreen(
             // Group by engine so the user can see at a glance which engine
             // each voice belongs to — and so they can pick "any kokoro
             // voice" vs "any kitten voice" without rummaging a flat list.
-            val groupedByEngine = voices.groupBy { it.engine }
-            // Sort engines so the most-installed-likely (kokoro, then kitten)
-            // surfaces first. Anything else falls in alphabetical order.
-            val engineOrder = listOf("kokoro", "kitten")
-            val orderedEngines = engineOrder.filter { it in groupedByEngine.keys } +
-                groupedByEngine.keys.filter { it !in engineOrder }.sorted()
+            // remember(voices): the grouping/ordering shouldn't recompute
+            // on every preview-chip recomposition.
+            val (groupedByEngine, orderedEngines) = remember(voices) {
+                val grouped = voices.groupBy { it.engine }
+                // Recommended-first ordering, from the catalog's real engine
+                // ids (a previous hardcoded listOf("kokoro", "kitten") never
+                // matched the versioned ids, so everything silently fell to
+                // alphabetical — Kitten above the recommended Kokoro).
+                val engineOrder = EngineCatalog.all.map { it.name }
+                val ordered = engineOrder.filter { it in grouped.keys } +
+                    grouped.keys.filter { it !in engineOrder }.sorted()
+                grouped to ordered
+            }
 
             // Seed initial expansion: open the engine that owns the
             // currently-selected voice; everything else starts collapsed
