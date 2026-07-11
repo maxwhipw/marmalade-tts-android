@@ -186,8 +186,11 @@ object PreprocessingRules {
             val (major, minor) = currencySymbols[sym] ?: ("units" to "")
             if ("." in amount) {
                 val parts = amount.split(".", limit = 2)
-                val majorN = parts[0].ifEmpty { "0" }.toLong()
-                val minorN = parts[1].ifEmpty { "0" }.toLong()
+                // toLongOrNull: a >19-digit amount overflows Long; leave the
+                // match unchanged rather than throwing out of the pipeline
+                // (same policy as expandOrdinal / expandNumber).
+                val majorN = parts[0].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
+                val minorN = parts[1].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
                 val pieces = mutableListOf<String>()
                 if (majorN > 0L) {
                     pieces += "$majorN $major${if (majorN != 1L) "s" else ""}"
@@ -199,7 +202,7 @@ object PreprocessingRules {
                 }
                 if (pieces.isEmpty()) amount else pieces.joinToString(" and ")
             } else {
-                val n = amount.toLong()
+                val n = amount.toLongOrNull() ?: return@replace m.value
                 "$n $major${if (n != 1L) "s" else ""}"
             }
         }

@@ -97,6 +97,17 @@ class PreprocessorTest {
         assertEquals("3 pounds and 50 pennies", only("currency", "£3.50"))
     }
 
+    @Test
+    fun currency_overflowingAmountIsLeftUnchanged() {
+        // >19 digits overflows Long. Must pass through untouched instead
+        // of throwing NumberFormatException out of the synthesis pipeline
+        // (the in-app path has no catch above Preprocessor.apply).
+        val whale = "\$99999999999999999999"
+        assertEquals(whale, only("currency", whale))
+        val whaleCents = "\$99999999999999999999.99"
+        assertEquals(whaleCents, only("currency", whaleCents))
+    }
+
     // ── percentage ──────────────────────────────────────────────────
 
     @Test
