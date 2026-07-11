@@ -532,7 +532,11 @@ private fun AddBlockButton(onAdd: (EffectBlock) -> Unit) {
             onDismissRequest = { showPicker = false },
             title = { Text("Add block") },
             text = {
-                Column {
+                // M3 AlertDialog doesn't scroll custom text content on its
+                // own; ~20 rows exceed any phone screen, so without this the
+                // bottom entries were unreachable. Same fix as AliasScreen's
+                // effect picker.
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     for ((label, factory) in BLOCK_FACTORIES) {
                         Text(
                             text = label,
