@@ -341,10 +341,15 @@ object PreprocessingRules {
     //
     // U.S.A. → U S A, e.g. → for example, Dr. → doctor. CLI: _abbreviation.
 
+    // The \b before the second group is load-bearing (and matches the CLI
+    // pattern): without it the short abbreviations matched mid-word, so any
+    // word ending in "st." at a sentence boundary — "smoke test. This" —
+    // became "te saint This", swallowing the period ("left." hit ft. the
+    // same way).
     private val abbreviationRegex = Regex(
-        "\\b(?:[A-Z]\\.){2,}|(?:e\\.g\\.|i\\.e\\.|etc\\.|vs\\.|" +
+        "\\b(?:[A-Z]\\.){2,}|\\b(?:e\\.g\\.|i\\.e\\.|etc\\.|vs\\.|" +
             "[Mm]r\\.|[Mm]rs\\.|[Mm]s\\.|[Dd]r\\.|[Ss]r\\.|[Jj]r\\.|" +
-            "[Ss]t\\.|ft\\.|lb\\.|oz\\.|\\b[Ee]x\\.)",
+            "[Ss]t\\.|ft\\.|lb\\.|oz\\.|[Ee]x\\.)",
     )
     private val COMMON_ABBREVIATIONS: Map<String, String> = mapOf(
         "e.g." to "for example", "i.e." to "that is", "etc." to "et cetera",

@@ -205,6 +205,25 @@ class PreprocessorTest {
     }
 
     @Test
+    fun abbreviation_does_not_match_mid_word() {
+        // Regression: the port dropped the CLI's \b before the short-
+        // abbreviation group, so "test." (and every ...st.-final word at a
+        // sentence boundary) matched "st." → "te saint", swallowing the
+        // period. "left." hit "ft." the same way.
+        val sentence = "Hello from the smoke test. This is a second sentence."
+        assertEquals(sentence, only("abbreviation", sentence))
+        assertEquals(
+            "They left. Then came back.",
+            only("abbreviation", "They left. Then came back."),
+        )
+    }
+
+    @Test
+    fun abbreviation_saint_still_expands_at_word_start() {
+        assertEquals("saint Louis", only("abbreviation", "St. Louis"))
+    }
+
+    @Test
     fun abbreviation_dot_separated_acronym() {
         // U.S.A. → U S A (CLI dot-separated branch). After the
         // unconditional whitespace collapse we expect a single-spaced
