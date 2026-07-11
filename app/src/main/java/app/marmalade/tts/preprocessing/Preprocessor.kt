@@ -15,7 +15,7 @@ import javax.inject.Singleton
 //     ├── for each rule in PreprocessingRules.ALL (CLI priority order):
 //     │       if rule.name in enabledRules: text = rule.transform(text)
 //     │
-//     ├── collapse whitespace runs to single spaces
+//     ├── collapse whitespace runs (newline-preserving — see below)
 //     │
 //     └── trim leading/trailing whitespace
 //                │
@@ -26,8 +26,16 @@ import javax.inject.Singleton
 //     - enabledRules order is irrelevant; ALL is the source of truth
 //       for application order (so toggling rules in any order in
 //       Settings can never break the pipeline).
-//     - Whitespace collapse is unconditional; matches the CLI's final
-//       `re.sub(r"\s+", " ", text).strip()` in preprocess().
+//     - The whitespace collapse is unconditional but PRESERVES newline
+//       structure: horizontal runs → one space, runs containing one
+//       newline → "\n", runs containing 2+ newlines → "\n\n". This is a
+//       deliberate divergence from the CLI's `re.sub(r"\s+", " ", ...)`:
+//       the CLI splits lines BEFORE preprocessing (batch mode) so it can
+//       flatten freely, whereas Android's consumers read the newline
+//       structure AFTER preprocessing — TextChunker splits clauses on
+//       `\n+` and paragraphs on `\n\s*\n`, and Pocket's P-AM rewrite
+//       turns line breaks into sentence pauses. A flat `\s+ → " "` here
+//       silently disabled all of that (audit 2026-07-11).
 // -----------------------------------------------------------------------------
 
 /**
@@ -64,7 +72,23 @@ class Preprocessor @Inject constructor(
                 out = rule.transform(out)
             }
         }
-        // Final whitespace collapse — matches the CLI's final pass.
-        return out.replace(Regex("\\s+"), " ").trim()
+        // Final whitespace collapse, newline-preserving (see the module
+        // comment for why this diverges from the CLI's flat collapse).
+        return out
+            .replace(PARAGRAPH_RUN, "\n\n")
+            .replace(NEWLINE_RUN, "\n")
+            .replace(HORIZONTAL_RUN, " ")
+            .trim()
+    }
+
+    private companion object {
+        /** Whitespace run containing two or more newlines → paragraph break. */
+        val PARAGRAPH_RUN = Regex("[^\\S\\n]*\\n(?:[^\\S\\n]*\\n)+[^\\S\\n]*")
+
+        /** Whitespace run containing exactly one newline → line break. */
+        val NEWLINE_RUN = Regex("[^\\S\\n]*\\n[^\\S\\n]*")
+
+        /** Horizontal whitespace run (spaces/tabs, no newline) → one space. */
+        val HORIZONTAL_RUN = Regex("[^\\S\\n]+")
     }
 }

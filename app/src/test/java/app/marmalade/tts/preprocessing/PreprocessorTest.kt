@@ -42,6 +42,29 @@ class PreprocessorTest {
     private fun only(rule: String, text: String): String =
         preprocessor.apply(text, setOf(rule))
 
+    // ── whitespace collapse (newline-preserving) ─────────────────────
+
+    @Test
+    fun whitespace_horizontalRunsCollapseToOneSpace() {
+        assertEquals("a b c", preprocessor.apply("a  \t b   c", emptySet()))
+    }
+
+    @Test
+    fun whitespace_singleNewlinesSurvive() {
+        // TextChunker splits clauses on \n+ and Pocket's P-AM turns line
+        // breaks into sentence pauses — the collapse must not eat them.
+        assertEquals("Title\nBody text", preprocessor.apply("Title  \n  Body   text", emptySet()))
+    }
+
+    @Test
+    fun whitespace_paragraphBreaksNormalizeToDoubleNewline() {
+        // \n\s*\n is TextChunker's paragraph boundary.
+        assertEquals(
+            "Para one.\n\nPara two.",
+            preprocessor.apply("Para one. \n \n\n  Para two.", emptySet()),
+        )
+    }
+
     // ── terminal punctuation (CJK + Spanish aware) ──────────────────────
 
     @Test
