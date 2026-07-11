@@ -36,7 +36,10 @@ import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.ArrayDeque
@@ -46,6 +49,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -407,21 +414,23 @@ class MarmaladeSynthService : Service() {
 
             // Per-engine preprocessing (currency, numbers, abbreviations,
             // …) feeds the engine the same normalised text the user gets
-            // on the CLI. The shared SynthesisPipeline owns the canonical
-            // chain: emoji-detect → preprocess → strip → synth → emotion
-            // shaping → effect chain.
+            // on the CLI. Streaming eligibility mirrors Synthesizer.speak
+            // and the system TTS service: effects stream through
+            // StreamingEffectChain; only non-neutral emotion still needs
+            // the batched pipeline (ProsodyApplier shapes the whole PCM).
+            // This is the long-form path (shared articles, clipboard), so
+            // streaming matters most here: playback starts after the first
+            // chunk's inference instead of after the whole article, and
+            // the article's PCM never sits on the heap in full.
             val enabled = settings.enabledRules(engineName).first()
+            val emotion = EmojiProsody.detect(req.text).emotion
 
-            val result = try {
-                runSynthesisPipeline(
-                    rawText = req.text,
-                    voiceId = resolved.voice,
-                    speed = resolved.speed,
-                    enabledRules = enabled,
-                    effectBlocks = resolved.effectBlocks,
-                    preprocessor = preprocessor,
-                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage) },
-                )
+            try {
+                if (emotion == Emotion.Neutral) {
+                    streamAndPlay(req.text, engineName, resolved, enabled)
+                } else {
+                    synthesizeBatchedAndPlay(req.text, engineName, resolved, enabled)
+                }
             } catch (e: EngineNotInstalledException) {
                 // Surface as a notification update so the user sees it; the
                 // app-launcher tap will route them to the Engines screen.
@@ -433,20 +442,89 @@ class MarmaladeSynthService : Service() {
                 updateNotification("Synthesis failed")
                 return
             }
-
-            val shaped = when (result) {
-                // Input collapsed to nothing speakable (blank text or
-                // emoji-only that stripped to "") — nothing to play.
-                is PipelineResult.Empty -> return
-                is PipelineResult.Audio -> result
-            }
-            try {
-                playPcm(shaped.pcm, shaped.sampleRate)
-            } catch (t: Throwable) {
-                Log.e(TAG, "Playback failed", t)
-            }
         } finally {
             releaseFocus()
+        }
+    }
+
+    /**
+     * Streaming synthesis + playback (the common, emotion-neutral case).
+     * Producer (engine chunks → effect chain) and consumer (AudioTrack)
+     * run in parallel through a 2-slot channel — same shape as
+     * Synthesizer.speakStreaming. Transport composes via backpressure:
+     * pause blocks the consumer, the channel fills, and the producer
+     * suspends on send until playback resumes.
+     */
+    private suspend fun streamAndPlay(
+        rawText: String,
+        engineName: String,
+        resolved: SpeakRequest,
+        enabledRules: Set<String>,
+    ) {
+        val preprocessed = preprocessor.apply(rawText, enabledRules)
+        val stripped = EmojiProsody.stripEmojis(preprocessed)
+        if (stripped.isBlank()) return
+
+        coroutineScope {
+            val audioChannel = Channel<SynthAudio>(capacity = 2)
+            val producer = launch(Dispatchers.Default) {
+                try {
+                    var chain: StreamingEffectChain? = null
+                    var sr = 0
+                    streamForEngine(engineName, stripped, resolved.voice, resolved.speed, resolved.phonemizationLanguage)
+                        .collect { audio ->
+                            val c = chain ?: StreamingEffectChain(resolved.effectBlocks, audio.sampleRate)
+                                .also { chain = it; sr = audio.sampleRate }
+                            audioChannel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
+                        }
+                    chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
+                        audioChannel.send(SynthAudio(tail, sr))
+                    }
+                } finally {
+                    audioChannel.close()
+                }
+            }
+            try {
+                playFromChannel(audioChannel)
+            } finally {
+                // Playback ended early (Stop / focus loss) — stop burning
+                // CPU on chunks nobody will hear. A producer failure
+                // (EngineNotInstalled etc.) propagates out of this scope
+                // to runOne's catch.
+                producer.cancel()
+            }
+        }
+    }
+
+    /**
+     * Batched pipeline — only for non-neutral emotion, where
+     * ProsodyApplier needs the complete PCM before shaping.
+     */
+    private suspend fun synthesizeBatchedAndPlay(
+        rawText: String,
+        engineName: String,
+        resolved: SpeakRequest,
+        enabledRules: Set<String>,
+    ) {
+        val result = runSynthesisPipeline(
+            rawText = rawText,
+            voiceId = resolved.voice,
+            speed = resolved.speed,
+            enabledRules = enabledRules,
+            effectBlocks = resolved.effectBlocks,
+            preprocessor = preprocessor,
+            synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage) },
+        )
+        val shaped = when (result) {
+            // Input collapsed to nothing speakable (blank text or
+            // emoji-only that stripped to "") — nothing to play.
+            is PipelineResult.Empty -> return
+            is PipelineResult.Audio -> result
+        }
+        try {
+            playPcm(shaped.pcm, shaped.sampleRate)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Playback failed", t)
         }
     }
 
@@ -464,6 +542,21 @@ class MarmaladeSynthService : Service() {
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: runOne already narrows engineName to known values.
         else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+    }
+
+    /** Streaming counterpart of [synthesizeForEngine] — same routing. */
+    private fun streamForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String? = null,
+    ): Flow<SynthAudio> = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** Human-friendly engine label for notification copy. */
@@ -577,74 +670,124 @@ class MarmaladeSynthService : Service() {
     // -- playback -------------------------------------------------------------
 
     /**
+     * Build the playback AudioTrack at [sampleRate]. Buffer aims for
+     * ~250 ms of headroom — small enough that pause/cancel feels
+     * responsive (the audio device drains the buffer before we see the
+     * effect), large enough that the write loops aren't constantly
+     * stalling on full-buffer back-pressure.
+     */
+    private fun buildTrack(sampleRate: Int): AudioTrack {
+        val minBuf = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        ).coerceAtLeast(sampleRate * 2 / 4)
+
+        return AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build(),
+            )
+            .setBufferSizeInBytes(minBuf)
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
+    }
+
+    /**
+     * Write [pcm] into [track], honouring the `paused` / `cancelled`
+     * flags. Returns the number of samples written (== pcm.size unless
+     * cancelled or the track errored).
+     */
+    private fun writePcm(track: AudioTrack, pcm: ShortArray): Int {
+        var written = 0
+        while (written < pcm.size && !cancelled) {
+            while (paused && !cancelled) {
+                try { Thread.sleep(50L) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt(); break
+                }
+            }
+            if (cancelled) break
+            val n = track.write(pcm, written, pcm.size - written, AudioTrack.WRITE_BLOCKING)
+            if (n <= 0) {
+                Log.w(TAG, "AudioTrack.write returned $n; aborting")
+                break
+            }
+            written += n
+        }
+        return written
+    }
+
+    /** Busy-wait until [track]'s playback head reaches [written] samples. */
+    private fun drainTrack(track: AudioTrack, written: Int) {
+        while (!cancelled) {
+            val pos = try { track.playbackHeadPosition } catch (_: IllegalStateException) { written }
+            if (pos >= written) break
+            try { Thread.sleep(10L) } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt(); break
+            }
+        }
+    }
+
+    private fun releaseTrack(track: AudioTrack) {
+        try {
+            track.pause(); track.flush(); track.stop()
+        } catch (_: IllegalStateException) { /* already stopped */ }
+        track.release()
+        if (currentTrack === track) currentTrack = null
+    }
+
+    /**
      * Allocate an AudioTrack at [sampleRate], stream [pcm] into it, and
      * return when the playback head has drained. Honours `paused` and
      * `cancelled` flags so the transport actions feel immediate.
      */
     private suspend fun playPcm(pcm: ShortArray, sampleRate: Int) =
         withContext(Dispatchers.IO) {
-            // Aim for ~250 ms of headroom — small enough that pause/cancel
-            // feels responsive (the audio device drains the buffer before we
-            // see the effect), large enough that the write loop below isn't
-            // constantly stalling on full-buffer back-pressure.
-            val minBuf = AudioTrack.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-            ).coerceAtLeast(sampleRate * 2 / 4)
-
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build(),
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(sampleRate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build(),
-                )
-                .setBufferSizeInBytes(minBuf)
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build()
-
+            val track = buildTrack(sampleRate)
             currentTrack = track
             updateMediaState(PlaybackStateCompat.STATE_PLAYING)
             try {
                 track.play()
-                var written = 0
-                while (written < pcm.size && !cancelled) {
-                    while (paused && !cancelled) {
-                        try { Thread.sleep(50L) } catch (_: InterruptedException) {
-                            Thread.currentThread().interrupt(); break
-                        }
-                    }
-                    if (cancelled) break
-                    val remaining = pcm.size - written
-                    val n = track.write(pcm, written, remaining, AudioTrack.WRITE_BLOCKING)
-                    if (n <= 0) {
-                        Log.w(TAG, "AudioTrack.write returned $n; aborting")
-                        break
-                    }
-                    written += n
-                }
-                // Drain.
-                while (!cancelled) {
-                    val pos = try { track.playbackHeadPosition } catch (_: IllegalStateException) { written }
-                    if (pos >= written) break
-                    try { Thread.sleep(10L) } catch (_: InterruptedException) {
-                        Thread.currentThread().interrupt(); break
-                    }
-                }
+                val written = writePcm(track, pcm)
+                drainTrack(track, written)
             } finally {
-                try {
-                    track.pause(); track.flush(); track.stop()
-                } catch (_: IllegalStateException) { /* already stopped */ }
-                track.release()
-                if (currentTrack === track) currentTrack = null
+                releaseTrack(track)
+            }
+        }
+
+    /**
+     * Consumer half of [streamAndPlay]: open the AudioTrack lazily on the
+     * first chunk (its sample rate sets the format), write chunks as they
+     * arrive, then drain. Pause blocks this consumer, which backpressures
+     * the producer through the channel.
+     */
+    private suspend fun playFromChannel(channel: ReceiveChannel<SynthAudio>) =
+        withContext(Dispatchers.IO) {
+            var track: AudioTrack? = null
+            var written = 0
+            try {
+                for (audio in channel) {
+                    if (cancelled) break
+                    val t = track ?: buildTrack(audio.sampleRate).also {
+                        track = it
+                        currentTrack = it
+                        updateMediaState(PlaybackStateCompat.STATE_PLAYING)
+                        it.play()
+                    }
+                    written += writePcm(t, audio.pcm)
+                }
+                track?.let { drainTrack(it, written) }
+            } finally {
+                track?.let { releaseTrack(it) }
             }
         }
 
