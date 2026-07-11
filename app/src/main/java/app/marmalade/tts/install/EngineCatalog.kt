@@ -122,9 +122,9 @@ object EngineCatalog {
 
     // Unpacked sizes (sum of file sizes after tar extraction). Compute via
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
-    private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 72_862_079L
-    private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 94_363_897L
-    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 482_162_181L
+    private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
+    private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 99_919_078L
+    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 481_353_035L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
     // The clean-reference dev engine still pins the older 8-voice v10 archive
@@ -149,17 +149,17 @@ object EngineCatalog {
             "to start speaking. English only, 8 voices. A good pick when you want " +
             "speed and a small footprint over the widest language coverage. Runs " +
             "fully on your device with a bundled espeak-ng phonemizer.",
-        downloadSizeBytes = 61_007_823L,
+        downloadSizeBytes = 64_218_626L,
         installedSizeBytes = KITTEN_DIRECT_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
-            // v16: same bundle as v14, recompressed as tar.gz for ~5× faster
-            // on-device install (native zlib vs pure-Java bzip2). Installer
-            // detects format from magic bytes; v14 .tar.bz2 still works for
-            // anyone with cached URLs.
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v16/kitten-direct-v0_8.tar.gz",
-            sha256 = "f31b9f2ca81c53099e7f0490fa1f531bb6749a6d5de3c0f8e000cf29cab70073",
-            sizeBytes = 61_007_823L,
+            // v22: legacy libttsespeak.so removed (bundles carry no executable
+            // code at rest) and espeak-ng-data rebuilt from the 1.52.0 tag —
+            // the same tag compiled into the APK. tar.gz since v16 (~5× faster
+            // on-device install than bzip2).
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v22/kitten-direct-v0_8.tar.gz",
+            sha256 = "591e1e163f7804c9673c8d2b63d6eb5f43bb2f2b620580af84dd32c55b283199",
+            sizeBytes = 64_218_626L,
             archiveRoot = "kitten-direct-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
@@ -182,13 +182,15 @@ object EngineCatalog {
             "and light — the same 8 English voices with a larger model, and still " +
             "a small download. Runs fully on your device with a bundled espeak-ng " +
             "phonemizer. (80M-parameter model vs Kitten Nano's 15M.)",
-        downloadSizeBytes = 65_470_846L,
+        downloadSizeBytes = 68_682_800L,
         installedSizeBytes = KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v20/kitten-direct-mini-v0_8.tar.gz",
-            sha256 = "6d2c75719f8752a90a2832bcad53c2592dad7a095e0c93020a6f9f8d2b66274a",
-            sizeBytes = 65_470_846L,
+            // v22: legacy libttsespeak.so removed; espeak-ng-data rebuilt from
+            // the 1.52.0 tag (see KITTEN_DIRECT).
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v22/kitten-direct-mini-v0_8.tar.gz",
+            sha256 = "603aad5ec2eac370b7d69338aa296e0de1276bae91487993f0a8a7d231f855e1",
+            sizeBytes = 68_682_800L,
             archiveRoot = "kitten-direct-mini-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
@@ -220,16 +222,16 @@ object EngineCatalog {
             "most people. Runs fully on your device; Japanese and Mandarin use " +
             "bundled pronunciation data and the other languages use espeak-ng, " +
             "all loaded at runtime.",
-        downloadSizeBytes = 360_529_858L,
+        downloadSizeBytes = 360_207_868L,
         installedSizeBytes = KOKORO_DIRECT_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
-            // v18: adds openjtalk_dic/ (~24 MB compressed) for Japanese G2P via
-            // the Open JTalk frontend + cutlet IPA conversion. Otherwise the
-            // same payload as v17 (which added lexicon-zh.txt for Mandarin).
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v18/kokoro-direct-v1_0.tar.gz",
-            sha256 = "30493e0a054fb54158db155fa109d3e1d5e5a1ea44919238a4ea988887cd1de0",
-            sizeBytes = 360_529_858L,
+            // v22: legacy libttsespeak.so removed; espeak-ng-data rebuilt from
+            // the 1.52.0 tag (see KITTEN_DIRECT). v18 added openjtalk_dic/
+            // (Japanese G2P); v17 added lexicon-zh.txt (Mandarin).
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v22/kokoro-direct-v1_0.tar.gz",
+            sha256 = "039b972081429b9770afc7867ff1874bd9dea39128b972c13853337a1b194ea7",
+            sizeBytes = 360_207_868L,
             archiveRoot = "kokoro-direct-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-direct.md",
