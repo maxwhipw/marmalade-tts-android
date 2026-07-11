@@ -404,6 +404,38 @@ class MarmaladeTtsServiceTest {
         assertEquals(TextToSpeech.ERROR, service.onLoadVoice(null))
     }
 
+    // -- onStop cancellation ------------------------------------------------
+
+    @Test
+    fun onStop_cancelsInFlightSynthesisAndClosesCallbackCleanly() {
+        fakeKokoroDirectEngine.streamForever = true
+        val callback = FakeSynthesisCallback()
+        val request = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
+
+        val synthThread = Thread { service.onSynthesizeText(request, callback) }
+        synthThread.start()
+        // Wait for streaming to actually start (first chunk delivered).
+        val deadline = System.currentTimeMillis() + 5_000
+        while (
+            callback.events.none { it is FakeSynthesisCallback.Event.AudioAvailable } &&
+            System.currentTimeMillis() < deadline
+        ) {
+            Thread.sleep(10)
+        }
+        assertTrue(
+            "stream should have delivered at least one chunk before stop",
+            callback.events.any { it is FakeSynthesisCallback.Event.AudioAvailable },
+        )
+
+        service.onStop()
+        synthThread.join(5_000)
+
+        assertTrue("onSynthesizeText should return after onStop", !synthThread.isAlive)
+        // Stop is not an error; the callback must close cleanly.
+        assertEquals(0, callback.events.count { it is FakeSynthesisCallback.Event.Error })
+        assertEquals(FakeSynthesisCallback.Event.Done, callback.events.last())
+    }
+
     // -- 4. language negotiation for en-US --------------------------------
 
     @Test
@@ -476,7 +508,9 @@ internal class FakeSynthesisCallback(
         data class RangeStart(val markerInFrames: Int, val start: Int, val end: Int) : Event()
     }
 
-    val events: MutableList<Event> = mutableListOf()
+    // CopyOnWriteArrayList: the onStop test polls events from the test
+    // thread while the synth thread appends.
+    val events: MutableList<Event> = java.util.concurrent.CopyOnWriteArrayList()
     private var started = false
     private var finished = false
 
@@ -552,6 +586,20 @@ internal class FakeKittenDirectEngine(
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
     }
+
+    // The service's streaming path collects synthesizeStream; the real
+    // override would hit runInference (no ORT session in Robolectric), so
+    // emit the fixture PCM as a single chunk instead.
+    override fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        calls += Triple(text, voiceId, speed)
+        synthesizeException?.let { throw it }
+        emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -587,6 +635,31 @@ internal class FakeKokoroDirectEngine(
         calls += Triple(text, voiceId, speed)
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
+    }
+
+    /**
+     * When true, synthesizeStream emits chunks forever (with a small
+     * cancellable delay) — lets the onStop test verify cancellation
+     * actually tears the collection down.
+     */
+    var streamForever: Boolean = false
+
+    // See FakeKittenDirectEngine.synthesizeStream.
+    override fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        calls += Triple(text, voiceId, speed)
+        synthesizeException?.let { throw it }
+        if (streamForever) {
+            while (true) {
+                emit(SynthAudio(pcm = ShortArray(512), sampleRate = sampleRate))
+                kotlinx.coroutines.delay(5)
+            }
+        }
+        emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
     }
 }
 

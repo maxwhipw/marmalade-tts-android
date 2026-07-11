@@ -21,15 +21,21 @@ import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.preprocessing.EmojiProsody
+import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -168,6 +174,14 @@ class MarmaladeTtsService : TextToSpeechService() {
     // onSynthesizeText fall back to the default set if the cache hasn't
     // been populated yet, then trigger an async refresh.
     private val rulesCache: ConcurrentHashMap<String, Set<String>> = ConcurrentHashMap()
+
+    /**
+     * Job driving the in-flight [onSynthesizeText] runBlocking, if any.
+     * [onStop] cancels it from the binder thread. One synthesis at a time
+     * per the TextToSpeechService contract, so a plain field suffices.
+     */
+    @Volatile
+    private var synthJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -390,29 +404,29 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
 
         try {
-            val result = runBlocking {
-                runSynthesisPipeline(
-                    rawText = rawText,
-                    voiceId = voiceId,
-                    speed = params.speed,
-                    enabledRules = enabled,
-                    effectBlocks = params.effectBlocks,
-                    preprocessor = preprocessor,
-                    synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage) },
-                )
-            }
-            when (result) {
-                is PipelineResult.Empty -> {
-                    // Input collapsed to nothing speakable (e.g. emoji-only
-                    // text stripped to ""). Close the callback cleanly so
-                    // the system isn't left waiting.
-                    callback.done()
-                }
-                is PipelineResult.Audio -> {
-                    streamPcm(callback, result.pcm)
-                    callback.done()
+            // Streaming eligibility mirrors Synthesizer.speak: effects run
+            // on the streaming path (StreamingEffectChain carries DSP state
+            // across chunk seams); only non-neutral emotion still needs the
+            // batched path, because ProsodyApplier shapes the whole PCM and
+            // has no streaming form yet.
+            val emotion = EmojiProsody.detect(rawText).emotion
+            runBlocking {
+                synthJob = coroutineContext[Job]
+                try {
+                    if (emotion == Emotion.Neutral) {
+                        streamingSynthesis(callback, rawText, engineName, params, enabled)
+                    } else {
+                        batchedSynthesis(callback, rawText, engineName, params, enabled)
+                    }
+                } finally {
+                    synthJob = null
                 }
             }
+        } catch (e: CancellationException) {
+            // onStop() fired mid-synthesis. Not an error — close the
+            // callback cleanly; the framework discards anything after stop.
+            Log.d(TAG, "Synthesis stopped by client")
+            callback.done()
         } catch (e: Exception) {
             // Covers IllegalStateException from either engine (assets
             // missing / corrupt / JNI failure) and any other synthesis
@@ -423,11 +437,82 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
     }
 
-    // TODO: STUBS.md — onStop cancellation
-    override fun onStop() {
-        // Nothing to cancel: synthesis is synchronous and the system will
-        // simply ignore any pcm we'd write after onStop returns. Future
-        // work (chunked streaming generation) will set a cancel flag here.
+    /**
+     * Streaming synthesis (the common, emotion-neutral case): collect the
+     * engine's chunk flow and hand each chunk to the framework as soon as
+     * it exists. First audio reaches the client after the first chunk's
+     * inference instead of after the whole utterance, the utterance never
+     * sits on the heap in full, and [onStop] gets a real cancellation
+     * point between chunks (per AR frame on Pocket).
+     */
+    private suspend fun streamingSynthesis(
+        callback: SynthesisCallback,
+        rawText: String,
+        engineName: String,
+        params: SynthParams,
+        enabledRules: Set<String>,
+    ) {
+        val preprocessed = preprocessor.apply(rawText, enabledRules)
+        val stripped = EmojiProsody.stripEmojis(preprocessed)
+        if (stripped.isBlank()) {
+            // Input collapsed to nothing speakable (e.g. emoji-only text).
+            callback.done()
+            return
+        }
+        // The chain is built lazily on the first chunk (its filter
+        // coefficients need the sample rate). Empty chain = pass-through.
+        var chain: StreamingEffectChain? = null
+        var sr = 0
+        streamForEngine(engineName, stripped, params.voiceId, params.speed, params.phonemizationLanguage)
+            .collect { audio ->
+                val c = chain ?: StreamingEffectChain(params.effectBlocks, audio.sampleRate)
+                    .also { chain = it; sr = audio.sampleRate }
+                val shaped = c.process(audio.pcm)
+                if (shaped.isNotEmpty()) streamPcm(callback, shaped)
+            }
+        // Drain the effect tail (e.g. reverb ring-out) as a final chunk.
+        chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
+            streamPcm(callback, tail)
+        }
+        callback.done()
+    }
+
+    /**
+     * Batched synthesis — only for non-neutral emotion, where
+     * ProsodyApplier needs the complete PCM before shaping.
+     */
+    private suspend fun batchedSynthesis(
+        callback: SynthesisCallback,
+        rawText: String,
+        engineName: String,
+        params: SynthParams,
+        enabledRules: Set<String>,
+    ) {
+        val result = runSynthesisPipeline(
+            rawText = rawText,
+            voiceId = params.voiceId,
+            speed = params.speed,
+            enabledRules = enabledRules,
+            effectBlocks = params.effectBlocks,
+            preprocessor = preprocessor,
+            synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage) },
+        )
+        when (result) {
+            is PipelineResult.Empty -> callback.done()
+            is PipelineResult.Audio -> {
+                streamPcm(callback, result.pcm)
+                callback.done()
+            }
+        }
+    }
+
+    // Widened to public for MarmaladeTtsServiceTest, like onSynthesizeText.
+    public override fun onStop() {
+        // Cancels the runBlocking job driving the current synthesis.
+        // Engines observe cancellation between chunks (Pocket checks per
+        // AR frame), so a long utterance stops burning CPU within ~one
+        // chunk instead of running to completion.
+        synthJob?.cancel()
     }
 
     override fun onDestroy() {
@@ -632,6 +717,24 @@ class MarmaladeTtsService : TextToSpeechService() {
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+    }
+
+    /**
+     * Streaming counterpart of [synthesizeForEngine] — same routing, but
+     * returns the engine's chunk flow for [streamingSynthesis] to collect.
+     */
+    private fun streamForEngine(
+        engineName: String,
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String? = null,
+    ): Flow<SynthAudio> = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
     /** True for any engine the catalog ships. */
