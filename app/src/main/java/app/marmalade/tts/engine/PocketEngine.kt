@@ -159,10 +159,8 @@ open class PocketEngine @Inject constructor(
     private var flowMainRequestedNonPinned: Set<String> = emptySet()
 
     /**
-     * P-Y — engine-level state maps for flow_lm_main and mimi_decoder.
-     * Previously these were allocated fresh per chunk (flow_lm: 18 slots
-     * × ~MB each, plus a second pinned-output buffer per pinnable slot)
-     * and per stream (mimi: 56 slots). The freshly-discarded direct
+     * P-Y — engine-level mimi_decoder state map (56 slots). Previously
+     * allocated fresh per stream; the freshly-discarded direct
      * ByteBuffers from the previous synth piled up waiting on Cleaner
      * because direct buffers don't pressure the Java heap — three
      * adversarial reviewers converged on this as the root cause of the
@@ -171,25 +169,16 @@ open class PocketEngine @Inject constructor(
      * Allocated once at engine load. `resetStatesToInit(...)` re-fills
      * values in-place at the start of each synth — zero per-synth
      * allocations.
-     */
-    private var flowLmState: PocketStates? = null
-    private var mimiState: PocketStates? = null
-
-    /**
-     * P-Z — engine-level scratch buffers for the AR-step `sequence` and
-     * `text_embeddings` inputs. Previously allocated fresh per AR frame
-     * (~12.5 fps × multi-second utterance = hundreds of small direct
-     * buffers per synth, all waiting on Cleaner). Allocated once at
-     * engine load + reused across every AR step of every synth.
      *
-     * Refilled per frame in [stepAr] (sequence with [ArSession.previousLatent];
-     * the text-dummy buffer is shape `[1, 0, conditioningDim]` so its
-     * contents are never read).
+     * NOTE: the flow_lm half of P-Y (plus P-Z's AR-step scratch and
+     * P-Z's runFlowLmMainAr entry point) was reverted by the P-Y bisect
+     * — [startArSession] builds fresh flow_lm state per chunk. The
+     * reverted machinery lived on here as write-only fields holding
+     * MB-scale pinned buffers until the 2026-07-11 audit removed it;
+     * see git history and docs/PERF-IDEAS-pocket-2026-06.md item 5 for
+     * the planned reattempt.
      */
-    private var mainSeqBuf: ByteBuffer? = null
-    private var mainSeqFloatBuf: java.nio.FloatBuffer? = null
-    private var mainTextDummyBuf: ByteBuffer? = null
-    private var mainTextDummyFloatBuf: java.nio.FloatBuffer? = null
+    private var mimiState: PocketStates? = null
 
     /** `[1, 1, 1024]` learned embedding prepended to the voice prompt. */
     private var bosBeforeVoice: FloatArray? = null
@@ -205,19 +194,6 @@ open class PocketEngine @Inject constructor(
      */
     private val warmupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var warmupJob: Job? = null
-
-    /**
-     * Detailed phase timings from the most recent [synthesize] call.
-     * Read by [synthesizeWithTimings] to attach to the returned
-     * [EnginePhaseTimings]. Protected by [synthLock] — never read while
-     * a synth is in flight.
-     *
-     * Bench-only. Plain [synthesize] callers ignore this; the overhead
-     * is a handful of `System.currentTimeMillis()` calls per synth so
-     * we always populate it.
-     */
-    @Volatile
-    private var lastDetailedPhases: List<PhaseSpan> = emptyList()
 
     override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
@@ -339,24 +315,10 @@ open class PocketEngine @Inject constructor(
         introspectFlowMainOutputs(bundle!!, flowLmMainSession!!)
         flowLmFlowSession = createSession(ort, flowFlowOpts, files.flowLmFlow)
 
-        // P-Y — engine-level state maps. Allocated once, reset per synth.
-        // Pinning is enabled here too (was previously per-AR-session).
-        flowLmState = initStates(bundle!!.flowLmStateManifest).also { state ->
-            if (FLOW_MAIN_PINNED_OUTPUTS && flowMainPinnableSpecs.isNotEmpty()) {
-                enableStatePinning(state, flowMainPinnableSpecs)
-            }
-        }
+        // P-Y — engine-level mimi state map. Allocated once, reset per
+        // synth. (flow_lm state is built fresh per chunk in
+        // startArSession — the P-Y bisect reverted its engine-level half.)
         mimiState = initStates(bundle!!.mimiStateManifest)
-
-        // P-Z — engine-level direct scratch for AR-step inputs.
-        // `sequence` is [1, 1, latentDim]; `text_embeddings` is
-        // [1, 0, conditioningDim] (empty time dim — the dummy buffer is
-        // never read by the model, but ORT requires non-null backing).
-        val latentBytes = bundle!!.latentDim * 4
-        mainSeqBuf = ByteBuffer.allocateDirect(latentBytes).order(ByteOrder.nativeOrder())
-        mainSeqFloatBuf = mainSeqBuf!!.asFloatBuffer()
-        mainTextDummyBuf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
-        mainTextDummyFloatBuf = mainTextDummyBuf!!.asFloatBuffer()
 
         // Publish only after every field a sibling caller's synth path
         // touches is non-null. Warmup launches after the publish because
@@ -554,9 +516,6 @@ open class PocketEngine @Inject constructor(
      * anyone passing full text in one call) gets correct behaviour
      * without needing to know the chunking rules.
      *
-     * The lock-protected single-chunk inference body (which used to be
-     * inlined here) is preserved in [synthesizeSingleChunk] for the
-     * detailed-phase variant in [synthesizeWithTimings].
      */
     override suspend fun synthesize(
         text: String,
@@ -586,101 +545,6 @@ open class PocketEngine @Inject constructor(
             pos += p.size
         }
         SynthAudio(pcm = merged, sampleRate = sampleRate)
-    }
-
-    /**
-     * Single-chunk inference with the detailed phase-timing
-     * instrumentation. Bypasses [TextChunker] — caller must ensure the
-     * input is already ≤ [PocketBundle.maxTokenPerChunk] tokens. Only
-     * used by [synthesizeWithTimings] for the bench's phase-breakdown
-     * mode (kept for diagnostic value even though the bench's UI
-     * default no longer exposes it).
-     */
-    private suspend fun synthesizeSingleChunk(
-        text: String,
-        voiceId: String,
-        speed: Float,
-    ): SynthAudio = withContext(Dispatchers.Default) {
-        ensureLoadedSuspending()
-        val bundle = bundle ?: error("bundle missing after load")
-        val tokenizer = tokenizer ?: error("tokenizer missing after load")
-
-        synthLock.withLock {
-            val phases = ArrayList<PhaseSpan>(8)
-            val voiceName = voiceId.substringAfter(':', voiceId)
-
-            val voiceEncStart = System.currentTimeMillis()
-            val voiceWasCached = voiceEmbeddings.containsKey(voiceName)
-            val voiceEmb = embeddingForVoice(voiceName)
-            val voiceEncMs = System.currentTimeMillis() - voiceEncStart
-            if (!voiceWasCached) {
-                phases.add(PhaseSpan("voice-encode (cold)", voiceEncMs))
-            } else if (voiceEncMs > 0) {
-                // Sub-ms warm hit; only record if it actually showed up.
-                phases.add(PhaseSpan("voice-encode (warm)", voiceEncMs))
-            }
-
-            // Tokenize. Apply the preprocessing flags the bundle exposes
-            // (semicolons, short-input padding); these are no-ops for the
-            // common case but matter for short / punctuation-heavy inputs.
-            val tokStart = System.currentTimeMillis()
-            val preprocessed = preprocessForPocket(text, bundle)
-            val tokens = tokenizer.encode(preprocessed)
-            val tokMs = System.currentTimeMillis() - tokStart
-            phases.add(PhaseSpan("tokenize", tokMs, detail = "${tokens.size} tokens"))
-            if (tokens.size > bundle.maxTokenPerChunk) {
-                Log.w(
-                    TAG,
-                    "Input is ${tokens.size} tokens; bundle's max_token_per_chunk is " +
-                        "${bundle.maxTokenPerChunk}. Output may skip words. " +
-                        "(Sentence chunker lands in a future alpha.)",
-                )
-            }
-
-            // Run the full inference pipeline. `speed` is currently
-            // ignored — Pocket's LSD pipeline doesn't expose a
-            // length-scale parameter natively. A sox-style post-resample
-            // is the right home for speed; that's a Synthesizer-layer
-            // concern, not engine-layer.
-            if (speed != 1.0f) {
-                Log.d(TAG, "Pocket TTS ignores speed=$speed (not exposed natively in this build)")
-            }
-
-            val flowStart = System.currentTimeMillis()
-            val flowResult = runFlowLm(bundle, voiceEmb, tokens, preprocessed, phases)
-            val flowMs = System.currentTimeMillis() - flowStart
-            // The phase spans for phase-1, phase-2, AR loop are added by runFlowLm.
-            // This "flow-lm total" is just a sanity sum for the bench UI.
-            phases.add(
-                PhaseSpan(
-                    "flow-lm total",
-                    flowMs,
-                    detail = "${flowResult.numFrames} latent frames" +
-                        if (flowResult.eosFiredAt >= 0) ", EOS at #${flowResult.eosFiredAt}"
-                        else ", no EOS (capped)",
-                ),
-            )
-
-            val decStart = System.currentTimeMillis()
-            val pcmFloat = runMimiDecoder(bundle, flowResult.latents)
-            val decMs = System.currentTimeMillis() - decStart
-            val audioSeconds = pcmFloat.size.toDouble() / bundle.sampleRate.toDouble()
-            phases.add(
-                PhaseSpan(
-                    "mimi-decode",
-                    decMs,
-                    detail = "→ %.2f s of audio".format(audioSeconds),
-                ),
-            )
-
-            val pcm16Start = System.currentTimeMillis()
-            val pcm16 = floatToPcm16(pcmFloat)
-            val pcm16Ms = System.currentTimeMillis() - pcm16Start
-            if (pcm16Ms > 0) phases.add(PhaseSpan("pcm16 convert", pcm16Ms))
-
-            lastDetailedPhases = phases
-            SynthAudio(pcm = pcm16, sampleRate = bundle.sampleRate)
-        }
     }
 
     /**
@@ -856,11 +720,6 @@ open class PocketEngine @Inject constructor(
                 )
                 val arMs = (System.nanoTime() - arStartNs) / 1_000_000
                 Log.d(PERF_TAG, "pocket chunk=$idx ar=${arMs}ms (text='${miniChunk.take(40)}${if (miniChunk.length > 40) "…" else ""}')")
-
-                // P-AJ — dump latents + re-decode under 4 window policies for
-                // off-device numeric comparison (uses its own mimi state, so
-                // it doesn't disturb the real streaming decode below).
-                if (DECODE_EXPERIMENT) latents?.let { runDecodeExperiment(bundle, it, idx) }
 
                 // 2. After chunk 0, calculate K from observed frame times.
                 //
@@ -1167,33 +1026,6 @@ open class PocketEngine @Inject constructor(
         return out
     }
 
-    /**
-     * Override the default timed-synth wrapper so the bench UI gets our
-     * detailed phase breakdown. Production callers stay on plain
-     * [synthesize] and never trip this path.
-     */
-    override suspend fun synthesizeWithTimings(
-        text: String,
-        voiceId: String,
-        speed: Float,
-    ): TimedSynthAudio = withContext(Dispatchers.Default) {
-        val loadStart = System.currentTimeMillis()
-        ensureLoadedSuspending()
-        val loadMs = System.currentTimeMillis() - loadStart
-        val t0 = System.currentTimeMillis()
-        val audio = synthesize(text, voiceId, speed)
-        val totalMs = System.currentTimeMillis() - t0
-        TimedSynthAudio(
-            audio = audio,
-            timings = EnginePhaseTimings(
-                engineName = engineName,
-                totalMs = totalMs,
-                loadMs = loadMs,
-                phases = lastDetailedPhases,
-            ),
-        )
-    }
-
     override fun release() {
         try {
             // Closing a session another thread is mid-run() on is a native
@@ -1241,6 +1073,10 @@ open class PocketEngine @Inject constructor(
         bundle = null
         tokenizer = null
         bosBeforeVoice = null
+        // The 56 mimi state slots are MB-scale direct buffers — nulling
+        // here is what actually frees the native memory after uninstall
+        // (this @Singleton outlives the engine's files).
+        mimiState = null
         voiceEmbeddings.clear()
         // OrtEnvironment is process-scoped; don't close it.
         env = null
@@ -1450,22 +1286,13 @@ open class PocketEngine @Inject constructor(
 
     // -- flow LM pipeline ----------------------------------------------------
 
-    /** Return-shape from [runFlowLm]: flattened latents + telemetry for the bench. */
-    private data class FlowLmResult(
-        val latents: FloatArray,
-        val numFrames: Int,
-        /** Frame index at which the EOS logit first crossed the threshold, or -1 if it never did. */
-        val eosFiredAt: Int,
-    )
-
     /**
      * Live state of an in-flight autoregressive synthesis. Held across
      * many [stepAr] calls; not safe to share between synths.
      *
      * Carved out of the old monolithic `runFlowLm` so the AR loop can
-     * be driven frame-by-frame from either the batch path (non-streaming
-     * `synthesize`) or the streaming path (`synthesizeStream`'s flow
-     * builder).
+     * be driven frame-by-frame from `synthesizeStream`'s flow builder
+     * (the batched `synthesize` collects that same stream).
      */
     private class ArSession(
         val bundle: PocketBundle,
@@ -1673,51 +1500,6 @@ open class PocketEngine @Inject constructor(
         return ArStepResult(nextLatent, capture.eosLogit)
     }
 
-    /**
-     * Non-streaming AR loop: drive [stepAr] to completion, collect every
-     * latent, return them as one flat buffer. Used by [synthesize]; the
-     * streaming path drives [stepAr] itself with adaptive buffering.
-     */
-    private fun runFlowLm(
-        bundle: PocketBundle,
-        voiceEmbedding: FloatArray,
-        tokens: IntArray,
-        originalText: String,
-        phases: MutableList<PhaseSpan>,
-    ): FlowLmResult {
-        val ar = startArSession(bundle, voiceEmbedding, tokens, originalText, phases)
-        val latents = ArrayList<FloatArray>(ar.maxFrames)
-        val arStart = System.currentTimeMillis()
-        while (true) {
-            val step = stepAr(ar) ?: break
-            latents.add(step.latent)
-        }
-        val arMs = System.currentTimeMillis() - arStart
-        val perFrameMs = if (latents.isNotEmpty()) (arMs.toDouble() / latents.size) else 0.0
-        val msPerFrameRealtime = 1000.0 / bundle.frameRate
-        val realtimeRatio = if (perFrameMs > 0) (msPerFrameRealtime / perFrameMs) else 0.0
-        phases.add(
-            PhaseSpan(
-                "flow-lm phase 3 (AR loop)",
-                arMs,
-                detail = "${latents.size} frames @ %.1f ms/frame, %.2fx realtime".format(
-                    perFrameMs, realtimeRatio,
-                ),
-            ),
-        )
-        if (!ar.eosFired) {
-            Log.w(TAG, "Hit max frames (${ar.maxFrames}) without EOS — output may be truncated")
-        }
-
-        val flat = FloatArray(latents.size * bundle.latentDim)
-        var pos = 0
-        for (l in latents) {
-            System.arraycopy(l, 0, flat, pos, bundle.latentDim)
-            pos += bundle.latentDim
-        }
-        return FlowLmResult(latents = flat, numFrames = latents.size, eosFiredAt = ar.eosFiredAtFrame)
-    }
-
     /** Result of a `flow_lm_main` call when phase 3 captures the value outputs. */
     private data class FlowLmCapture(val conditioning: FloatArray, val eosLogit: Float)
 
@@ -1781,35 +1563,6 @@ open class PocketEngine @Inject constructor(
         val textT = directFloatTensor(ort, textEmbedsData, textEmbedsShape)
         return runFlowLmMainWithTensors(
             session = session, bundle = bundle, ort = ort, state = state,
-            seqT = seqT, textT = textT,
-            captureConditioning = captureConditioning,
-        )
-    }
-
-    /**
-     * P-Z — AR-step entry point. Wraps the engine-level [mainSeqBuf] and
-     * [mainTextDummyBuf] in fresh OnnxTensor handles (P-M-safe: wrappers
-     * per-call, buffers persistent for the engine's lifetime) and
-     * delegates. Caller must have written `previousLatent` into
-     * [mainSeqFloatBuf] before calling.
-     */
-    private fun runFlowLmMainAr(
-        ar: ArSession,
-        captureConditioning: Boolean,
-    ): FlowLmCapture? {
-        val seqBuf = mainSeqFloatBuf ?: error("mainSeqFloatBuf missing")
-        val textBuf = mainTextDummyFloatBuf ?: error("mainTextDummyFloatBuf missing")
-        val seqT = OnnxTensor.createTensor(
-            ar.ort, seqBuf,
-            longArrayOf(1, 1, ar.bundle.latentDim.toLong()),
-        )
-        val textT = OnnxTensor.createTensor(
-            ar.ort, textBuf,
-            longArrayOf(1, 0, ar.bundle.conditioningDim.toLong()),
-        )
-        return runFlowLmMainWithTensors(
-            session = ar.main, bundle = ar.bundle, ort = ar.ort,
-            state = ar.flowLmState,
             seqT = seqT, textT = textT,
             captureConditioning = captureConditioning,
         )
@@ -2121,81 +1874,6 @@ open class PocketEngine @Inject constructor(
         return pcm
     }
 
-    // -- P-AJ decode-strategy experiment (DEV-ONLY) --------------------------
-
-    /**
-     * Re-decode [latents] under four window policies from a freshly-reset
-     * mimi state, dumping each PCM (+ the raw latents) to external files for
-     * off-device numeric comparison. Decode is deterministic given the
-     * latents, so this isolates the decode strategy from the stochastic AR
-     * generator. See [DECODE_EXPERIMENT].
-     */
-    private fun runDecodeExperiment(bundle: PocketBundle, latents: FloatArray, chunkIdx: Int) {
-        val numFrames = latents.size / bundle.latentDim
-        if (numFrames == 0) return
-        val dir = File(ctx.getExternalFilesDir(null), "pocket-decode-exp").apply { mkdirs() }
-        dumpFloats(File(dir, "chunk${chunkIdx}_F${numFrames}_D${bundle.latentDim}.latents"), latents)
-        val st = initStates(bundle.mimiStateManifest)
-        // policy: 1 = per-frame; 64 = fixed 64-batch (no ramp);
-        // Int.MAX_VALUE = whole chunk in one run(); -1 = graduated (current).
-        for ((name, policy) in listOf(
-            "perframe" to 1,
-            "batch64" to 64,
-            "whole" to Int.MAX_VALUE,
-            "graduated" to -1,
-        )) {
-            resetStatesToInit(st, bundle.mimiStateManifest)
-            val pcm = decodeWithWindowPolicy(bundle, latents, numFrames, st, policy)
-            dumpFloats(File(dir, "chunk${chunkIdx}_$name.pcm"), pcm)
-            Log.i(
-                TAG,
-                "DECODE-EXP chunk=$chunkIdx strat=$name frames=$numFrames " +
-                    "pcmFloats=${pcm.size} dir=${dir.absolutePath}",
-            )
-        }
-    }
-
-    /**
-     * Generalised [runMimiDecoder]: decode [latents] in windows chosen by
-     * [policy] — 1=per-frame, N=fixed N-batch, Int.MAX_VALUE=whole chunk in
-     * one run(), -1=graduated (ramp then [MIMI_CHUNK_FRAMES] batches).
-     */
-    private fun decodeWithWindowPolicy(
-        bundle: PocketBundle,
-        latents: FloatArray,
-        numFrames: Int,
-        state: PocketStates,
-        policy: Int,
-    ): FloatArray {
-        val pcm = FloatArray(numFrames * bundle.samplesPerFrame)
-        var pcmPos = 0
-        var frame = 0
-        while (frame < numFrames) {
-            val window = if (policy == -1) {
-                if (frame < MIMI_RAMP_FRAMES) 1 else MIMI_CHUNK_FRAMES
-            } else {
-                policy
-            }
-            val chunk = minOf(window, numFrames - frame)
-            val chunkFloats = chunk * bundle.latentDim
-            val chunkData = FloatArray(chunkFloats)
-            System.arraycopy(latents, frame * bundle.latentDim, chunkData, 0, chunkFloats)
-            val chunkPcm = decodeMimiChunk(bundle, chunkData, chunk, state)
-            System.arraycopy(chunkPcm, 0, pcm, pcmPos, chunkPcm.size)
-            pcmPos += chunkPcm.size
-            frame += chunk
-        }
-        return pcm
-    }
-
-    private fun dumpFloats(file: File, data: FloatArray) {
-        val bb = java.nio.ByteBuffer
-            .allocate(data.size * 4)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        bb.asFloatBuffer().put(data)
-        file.writeBytes(bb.array())
-    }
-
     // -- helpers -------------------------------------------------------------
 
     /**
@@ -2433,20 +2111,6 @@ open class PocketEngine @Inject constructor(
         private const val MIMI_OVERLAP_FRAMES = 8
 
         /**
-         * P-AJ — DEV-ONLY decode-strategy experiment. When true, every
-         * streaming chunk re-decodes its OWN latents under four window
-         * policies (per-frame / fixed-64-batch / whole-chunk / graduated)
-         * from a fresh mimi state, dumping each PCM + the latents to
-         * `getExternalFilesDir()/pocket-decode-exp/` for off-device numeric
-         * comparison. Decode consumes no RNG, so this isolates the decode
-         * strategy from the stochastic AR generator (settles whether the
-         * glitch is a window-CHANGE seam, intrinsic leading-edge corruption,
-         * or latent-side). SLOW (4× extra decodes per chunk) — remove before
-         * shipping.
-         */
-        private const val DECODE_EXPERIMENT = false
-
-        /**
          * P-T diagnostic toggle. When true, every Pocket session gets
          * VERBOSE ORT logging (level 0). Captures kernel placement at
          * session-create so we can see which ops escape XNNPACK. Flip back
@@ -2549,17 +2213,12 @@ open class PocketEngine @Inject constructor(
         // -- chunking + pre-roll knobs (synthesizeStream) -----------------
         //
         // Pocket adopts KokoroDirect's chunking discipline (sentence-only,
-        // char-bound, minChars-merge). [MAX_TOKENS_PER_MINI_CHUNK] used to
-        // drive a token-based bin-pack — that produced orphan fragments
-        // ("Outside,") whenever a sentence got comma-split, which broke
-        // Pocket's per-chunk prosody seed and sounded choppy. The constant
-        // is retained for the rare fallback path in [chunkPocketByTokens]
-        // (oversized single sentence beyond the model's hard token cap),
-        // but the main path now uses [TextChunker.chunk] with the same
-        // params as KokoroDirect.
-
-        /** Token cap for the fallback word-splitter — only fires on >maxTokenPerChunk single chunks. */
-        private const val MAX_TOKENS_PER_MINI_CHUNK = 25
+        // char-bound, minChars-merge). An older token-based bin-pack
+        // produced orphan fragments ("Outside,") whenever a sentence got
+        // comma-split, which broke Pocket's per-chunk prosody seed and
+        // sounded choppy; the main path now uses [TextChunker.chunk] with
+        // the same params as KokoroDirect, and the rare oversized-sentence
+        // fallback ([chunkPocketByTokens]) caps at bundle.maxTokenPerChunk.
 
         /** Same as KokoroDirect.maxInputChars — sentence-boundary cap. */
         private const val POCKET_MAX_CHARS_PER_CHUNK = 255
