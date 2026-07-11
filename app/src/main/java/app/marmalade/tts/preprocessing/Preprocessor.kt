@@ -74,21 +74,30 @@ class Preprocessor @Inject constructor(
         }
         // Final whitespace collapse, newline-preserving (see the module
         // comment for why this diverges from the CLI's flat collapse).
-        return out
-            .replace(PARAGRAPH_RUN, "\n\n")
-            .replace(NEWLINE_RUN, "\n")
-            .replace(HORIZONTAL_RUN, " ")
-            .trim()
-    }
-
-    private companion object {
-        /** Whitespace run containing two or more newlines → paragraph break. */
-        val PARAGRAPH_RUN = Regex("[^\\S\\n]*\\n(?:[^\\S\\n]*\\n)+[^\\S\\n]*")
-
-        /** Whitespace run containing exactly one newline → line break. */
-        val NEWLINE_RUN = Regex("[^\\S\\n]*\\n[^\\S\\n]*")
-
-        /** Horizontal whitespace run (spaces/tabs, no newline) → one space. */
-        val HORIZONTAL_RUN = Regex("[^\\S\\n]+")
+        return collapseWhitespacePreservingNewlines(out)
     }
 }
+
+/** Whitespace run containing two or more newlines → paragraph break. */
+private val PARAGRAPH_RUN = Regex("[^\\S\\n]*\\n(?:[^\\S\\n]*\\n)+[^\\S\\n]*")
+
+/** Whitespace run containing exactly one newline → line break. */
+private val NEWLINE_RUN = Regex("[^\\S\\n]*\\n[^\\S\\n]*")
+
+/** Horizontal whitespace run (spaces/tabs, no newline) → one space. */
+private val HORIZONTAL_RUN = Regex("[^\\S\\n]+")
+
+/**
+ * Collapse whitespace runs while keeping the newline structure the
+ * downstream chunkers/pause rewrites read: horizontal runs → one space,
+ * one-newline runs → "\n", 2+-newline runs → "\n\n". Shared by
+ * [Preprocessor.apply] and [EmojiProsody.stripEmojis] — both run before
+ * the engine, and either one flattening newlines would silently disable
+ * TextChunker's paragraph handling and Pocket's P-AM line-break pauses.
+ */
+internal fun collapseWhitespacePreservingNewlines(text: String): String =
+    text
+        .replace(PARAGRAPH_RUN, "\n\n")
+        .replace(NEWLINE_RUN, "\n")
+        .replace(HORIZONTAL_RUN, " ")
+        .trim()

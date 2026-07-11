@@ -162,8 +162,11 @@ object EmojiProsody {
             i += unitLen
         }
         if (!stripped) return text
-        // Collapse runs of whitespace to a single space, then trim ends.
-        return sb.toString().replace(Regex("\\s+"), " ").trim()
+        // Collapse the whitespace the removed emojis left behind — via the
+        // shared newline-preserving collapse (a flat \s+ -> " " here undid
+        // Preprocessor.apply's newline preservation whenever an emotion
+        // emoji was present), hoisted so the regexes compile once.
+        return collapseWhitespacePreservingNewlines(sb.toString())
     }
 
     /**
