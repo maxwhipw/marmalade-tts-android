@@ -360,11 +360,12 @@ open class KittenDirectEngine @Inject constructor(
         val loadWaitMs = (System.nanoTime() - streamStartNs) / 1_000_000
         // Kitten ships English-only — `phonemizationLanguage` here is
         // effectively a user override (e.g. `"en-gb"` for British accent).
-        // Always call setVoice with an explicit effective value so a
-        // null-after-non-null sequence doesn't leave espeak stuck on
-        // the previous override (cached internally, so this is cheap
-        // when the language hasn't changed).
-        phonemizer?.setVoice(phonemizationLanguage ?: KITTEN_DEFAULT_ESPEAK_VOICE)
+        // setVoice is only a warm-up (pays the ~50 ms language load before
+        // chunk 1); per-chunk phonemize(text, lang) re-asserts the voice
+        // atomically, since espeak's active voice is process-global and a
+        // concurrent synth on the other engine can flip it between chunks.
+        val effectiveLang = phonemizationLanguage ?: KITTEN_DEFAULT_ESPEAK_VOICE
+        phonemizer?.setVoice(effectiveLang)
         val voiceName = voiceId.substringAfter(':', voiceId)
         // KittenDirect chunking rules (per device-testing feedback):
         //  - never split mid-word — even at maxChars boundary
@@ -395,7 +396,7 @@ open class KittenDirectEngine @Inject constructor(
             // Single ORT session is non-reentrant, so we serialise per chunk.
             // The send() outside the lock is fine because PCM is already a
             // ShortArray; no further session access happens during emit.
-            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed) }
+            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed, effectiveLang) }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
                 val audioMs = pcm.size * 1000L / sampleRate
@@ -418,12 +419,17 @@ open class KittenDirectEngine @Inject constructor(
      * [synthLock] (warmup runs on the load thread, before the engine is
      * advertised as ready).
      */
-    private fun runInference(text: String, voiceName: String, speed: Float): ShortArray {
+    private fun runInference(
+        text: String,
+        voiceName: String,
+        speed: Float,
+        lang: String = KITTEN_DEFAULT_ESPEAK_VOICE,
+    ): ShortArray {
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
         val phon = phonemizer ?: error("phonemizer missing")
 
-        val rawIpa = phon.phonemize(text)
+        val rawIpa = phon.phonemize(text, lang)
         if (rawIpa.isEmpty()) return ShortArray(0)
 
         // BERT position-embedding cap: any phoneme tail past this would

@@ -397,8 +397,10 @@ open class KokoroDirectEngine @Inject constructor(
         // natural language. espeakVoiceFor maps each voice prefix (af_*→en-us,
         // jf_*→ja, zf_*→en-us-since-zh-goes-through-lexicon). The value also
         // selects the phonemizer in encodeTextToTokens: "ja" → Open JTalk +
-        // cutlet, else espeak (+ zh lexicon for CJK runs). setVoice is cached,
-        // so back-to-back same-language synths skip the ~50ms espeak reload.
+        // cutlet, else espeak (+ zh lexicon for CJK runs). setVoice here is
+        // only a warm-up — per-chunk phonemize(text, lang) re-asserts the
+        // voice atomically, since espeak's voice is process-global and a
+        // concurrent synth on the other engine can flip it between chunks.
         val effectiveLang = phonemizationLanguage
             ?: KokoroDirectVoiceCatalog.espeakVoiceFor(voiceName)
         phonemizer?.setVoice(effectiveLang)
@@ -546,7 +548,7 @@ open class KokoroDirectEngine @Inject constructor(
 
         val lex = lexiconZh
         if (lex == null || !LexiconZh.CJK_RUN_PATTERN.containsMatchIn(text)) {
-            return encodePhonemesKokoro(phon.phonemize(text))
+            return encodePhonemesKokoro(phon.phonemize(text, lang))
         }
 
         Log.d(TAG, "zh-aware encode for '$text'")
@@ -562,13 +564,13 @@ open class KokoroDirectEngine @Inject constructor(
 
         for (m in LexiconZh.CJK_RUN_PATTERN.findAll(text)) {
             if (m.range.first > cursor) {
-                append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor, m.range.first))))
+                append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor, m.range.first), lang)))
             }
             append(lex.match(m.value))
             cursor = m.range.last + 1
         }
         if (cursor < text.length) {
-            append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor))))
+            append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor), lang)))
         }
         return out.copyOf(pos)
     }
