@@ -114,6 +114,15 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.findByName("release")
+            // On-device R8 smoke testing: `-PsmokeRelease` builds this same
+            // minified release variant but installable side-by-side as
+            // app.marmalade.tts.rc, signed with the debug key so adb can
+            // install it without keystore.properties. Never distribute a
+            // smokeRelease artifact.
+            if (project.hasProperty("smokeRelease")) {
+                applicationIdSuffix = ".rc"
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 
