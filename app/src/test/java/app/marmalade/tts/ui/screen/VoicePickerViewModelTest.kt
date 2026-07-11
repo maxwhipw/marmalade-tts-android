@@ -90,7 +90,7 @@ private class PickerFakeInstaller(
     private val installedEngines: Set<String> = setOf("kitten-direct-v0_8", "kokoro-direct-v1_0"),
 ) : EngineInstaller(
     filesDir = { java.io.File("/tmp/voicepicker-test-unused") },
-    kittenEngine = { /* no-op release */ },
+    engineHandle = { /* no-op release */ },
     httpFetcher = { _ -> throw java.io.IOException("not used in this test") },
 ) {
     override suspend fun verify(engineName: String): InstallState =

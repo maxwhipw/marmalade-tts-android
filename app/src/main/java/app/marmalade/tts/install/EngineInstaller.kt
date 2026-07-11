@@ -314,7 +314,7 @@ sealed class InstallState {
 @Singleton
 open class EngineInstaller @Inject constructor(
     private val filesDir: EngineFilesDir,
-    private val kittenEngine: NativeEngineHandle,
+    private val engineHandle: NativeEngineHandle,
     private val httpFetcher: HttpFetcher,
 ) {
 
@@ -382,24 +382,20 @@ open class EngineInstaller @Inject constructor(
         val scratchDir = scratchDirFor(engineName)
         val archiveTmp = archiveTmpFor(engineName)
 
-        // Clean up any leftover scratch dir + final dir, but KEEP the
-        // partial archive — [downloadArchive] knows how to resume from it
-        // via HTTP Range requests, and the post-download SHA-256 check
-        // guarantees a partial that doesn't match the expected hash is
-        // rejected. Reusing the bytes is a big win when a 98 MB Pocket
-        // bundle aborts mid-download.
+        // Clean up any leftover scratch dir, but KEEP the partial archive —
+        // [downloadArchive] knows how to resume from it via HTTP Range
+        // requests, and the post-download SHA-256 check guarantees a partial
+        // that doesn't match the expected hash is rejected. Reusing the
+        // bytes is a big win when a 98 MB Pocket bundle aborts mid-download.
+        //
+        // A pre-existing finalDir (reinstall/update) is deliberately NOT
+        // touched here: the currently-working engine must survive a failed
+        // download or extraction. It's deleted at the last moment, right
+        // before the atomic rename in step 5. The cost is transient double
+        // disk usage during an update (old engine + new scratch); the win is
+        // that an aborted update on flaky wifi never leaves the user with no
+        // engine at all.
         if (scratchDir.exists()) scratchDir.deleteRecursively()
-        if (finalDir.exists()) {
-            // Release the engine's native handle before deleting its files,
-            // otherwise OfflineTts could be holding open mmap'd model bytes.
-            try {
-                kittenEngine.release()
-            } catch (_: Throwable) {
-                // Best effort — release() should be idempotent and exception-
-                // free, but a faulty native build shouldn't block a reinstall.
-            }
-            finalDir.deleteRecursively()
-        }
         scratchDir.mkdirs()
         archiveTmp.parentFile?.mkdirs()
 
@@ -452,7 +448,21 @@ open class EngineInstaller @Inject constructor(
             // 4. Delete the archive scratch file — it's served its purpose.
             archiveTmp.delete()
 
-            // 5. Atomic rename. Scratch dir and final dir share the same
+            // 5. Swap the new bundle in. Only now — with the download and
+            // extraction fully succeeded — does a reinstall/update drop the
+            // old working engine. Release the native handle first, otherwise
+            // the engine could be holding open mmap'd model bytes.
+            if (finalDir.exists()) {
+                try {
+                    engineHandle.release()
+                } catch (_: Throwable) {
+                    // Best effort — release() should be idempotent and
+                    // exception-free, but a faulty native build shouldn't
+                    // block a reinstall.
+                }
+                finalDir.deleteRecursively()
+            }
+            // Atomic rename. Scratch dir and final dir share the same
             // parent (${filesDir}/engines/), so rename is just an inode flip
             // — no cross-filesystem fallback needed.
             if (!scratchDir.renameTo(finalDir)) {
@@ -524,7 +534,7 @@ open class EngineInstaller @Inject constructor(
             // disappears immediately. The injected NativeEngineHandle
             // releases every loaded engine; release() is idempotent on
             // engines that aren't currently loaded.
-            kittenEngine.release()
+            engineHandle.release()
 
             val dir = engineDirFor(engineName)
             if (dir.exists() && !dir.deleteRecursively()) {

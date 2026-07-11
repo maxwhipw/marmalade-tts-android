@@ -185,7 +185,7 @@ class EngineInstallerTest {
 
         assertTrue("uninstall should succeed, got $result", result.isSuccess)
         assertFalse("engine dir should be removed", engineDir.exists())
-        assertTrue("kittenEngine.release() should have been called", fakeEngine.released)
+        assertTrue("engineHandle.release() should have been called", fakeEngine.released)
     }
 
     @Test
@@ -301,6 +301,24 @@ class EngineInstallerTest {
             "reinstall should release the native handle before deleting model files",
             fakeEngine.released,
         )
+    }
+
+    @Test
+    fun failedUpdateKeepsExistingEngineIntact() = runTest {
+        val v1Descriptor = stageBundle(KITTEN_LAYOUT)
+        val first = installer.install(v1Descriptor) {}
+        assertTrue("first install should succeed, got $first", first.isSuccess)
+
+        // Update attempt whose download fails (URL no longer registered).
+        fetcher.payloads.remove(v1Descriptor.archive.url)
+        val second = installer.install(v1Descriptor) {}
+        assertTrue("expected update failure, got $second", second.isFailure)
+
+        // The previously-working engine must survive the failed update.
+        val engineDir = File(filesDir, "engines/${v1Descriptor.name}")
+        assertTrue("engine dir should survive a failed update", engineDir.isDirectory)
+        assertEquals("voice-bella", File(engineDir, "voices/bella.bin").readText())
+        assertEquals(InstallState.Installed, installer.verifyAgainst(v1Descriptor))
     }
 
     // -- fixture machinery -------------------------------------------------

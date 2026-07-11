@@ -184,7 +184,7 @@ private class FakeInstaller(
     },
 ) : EngineInstaller(
     filesDir = { filesRoot },
-    kittenEngine = { /* no-op release */ },
+    engineHandle = { /* no-op release */ },
     httpFetcher = { _ -> throw java.io.IOException("not used") },
 ) {
     override suspend fun install(

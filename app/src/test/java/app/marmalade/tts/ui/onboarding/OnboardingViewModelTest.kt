@@ -293,7 +293,7 @@ private class RecordingInstaller(
     private val behaviour: () -> Result<Unit>,
 ) : EngineInstaller(
     filesDir = { java.io.File("/tmp/onboarding-test-unused") },
-    kittenEngine = { /* no-op release */ },
+    engineHandle = { /* no-op release */ },
     httpFetcher = { _ -> throw java.io.IOException("not used") },
 ) {
     val installCalls = mutableListOf<String>()
