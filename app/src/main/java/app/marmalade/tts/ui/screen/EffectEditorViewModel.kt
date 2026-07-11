@@ -71,6 +71,14 @@ class EffectEditorViewModel @Inject constructor(
     /** The id we'll save under: the edited effect's id, or a freshly minted one. */
     private var saveId: String = newCustomId()
 
+    /**
+     * Original creation timestamp when editing. Preserved through [save]
+     * — the Effects list sorts by createdAt, so stamping "now" on every
+     * edit silently moved the effect to the bottom. Null = new effect
+     * (save() stamps now). Mirrors AliasViewModel.save().
+     */
+    private var originalCreatedAt: Long? = null
+
     private val _state = MutableStateFlow(EffectEditorState())
     val state: StateFlow<EffectEditorState> = _state.asStateFlow()
 
@@ -81,6 +89,7 @@ class EffectEditorViewModel @Inject constructor(
                     val existing = effectDao.findById(editId)
                     if (existing != null) {
                         saveId = existing.id
+                        originalCreatedAt = existing.createdAt
                         _state.value = EffectEditorState(
                             name = existing.name,
                             blocks = decode(existing.blocksJson),
@@ -201,7 +210,7 @@ class EffectEditorViewModel @Inject constructor(
                     name = name,
                     isBuiltin = false,
                     blocksJson = EffectBlockJson.encode(_state.value.blocks),
-                    createdAt = System.currentTimeMillis(),
+                    createdAt = originalCreatedAt ?: System.currentTimeMillis(),
                 ),
             )
             onSaved()
