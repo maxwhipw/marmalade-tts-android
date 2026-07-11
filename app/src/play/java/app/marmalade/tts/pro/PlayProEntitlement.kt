@@ -90,6 +90,12 @@ private const val CACHE_TTL_MS = 30L * 24L * 60L * 60L * 1000L
 /** Hard cap on how long any single [ensureConnected] call may suspend. */
 private const val CONNECT_TIMEOUT_MS = 5_000L
 
+/**
+ * Hang-guard on awaiting the billing sheet's outcome. Generous — the
+ * user may legitimately sit in Play checkout adding a payment method.
+ */
+private const val FLOW_OUTCOME_TIMEOUT_MS = 10L * 60L * 1000L
+
 private val Context.proDataStore by preferencesDataStore("pro_entitlement")
 private val KEY_CACHED_PRO = booleanPreferencesKey("pro_isPro_cached")
 private val KEY_VERIFIED_AT = longPreferencesKey("pro_isPro_verifiedAt")
@@ -144,6 +150,16 @@ class PlayProEntitlement @Inject constructor(
     /** Resolved once per process — the product's cached [ProductDetails]. */
     @Volatile private var productDetails: ProductDetails? = null
 
+    /**
+     * Outcome of the billing flow currently on screen, if any. Created
+     * by [launchPurchase] BEFORE `launchBillingFlow` (so a fast callback
+     * can't race the field write) and completed by [onPurchasesUpdated]
+     * — Play reports cancel/success/pending through that listener, not
+     * through `launchBillingFlow`'s return (which only means "the sheet
+     * opened"). One flow at a time per Play's own UI contract.
+     */
+    @Volatile private var flowOutcome: CompletableDeferred<PurchaseResult>? = null
+
     // Cold-start: surface the cache to UI ASAP, then verify against Play.
     init {
         scope.launch {
@@ -175,18 +191,26 @@ class PlayProEntitlement @Inject constructor(
                 )
             )
             .build()
+        // Arm the outcome BEFORE launching so onPurchasesUpdated can't
+        // race the field write on an instantly-clearing purchase.
+        val outcome = CompletableDeferred<PurchaseResult>()
+        flowOutcome = outcome
         val result = billingClient.launchBillingFlow(activity, params)
         return when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                // `OK` here means the Play sheet opened, not that the
-                // purchase succeeded. The user might still cancel,
-                // payment might land in PENDING (gift-card balance
-                // check), or it might clear instantly. The real
-                // outcome arrives via onPurchasesUpdated, which feeds
-                // [isPro] and [pendingPurchase] — surface PENDING
-                // here so the UI can dismiss the sheet with the right
-                // message instead of pretending Success.
-                if (_pending.value) PurchaseResult.Pending else PurchaseResult.Success
+                // `OK` only means the Play sheet OPENED. The real outcome
+                // (purchase / cancel / pending) arrives via
+                // onPurchasesUpdated, which completes [outcome] after
+                // applyPurchases has run — so Success here genuinely means
+                // isPro is already true. The timeout is a hang-guard, not
+                // a UX budget: if it ever fires while the user is still
+                // mid-checkout, a later onPurchasesUpdated still flips
+                // [isPro] and the UI observing the flow catches up.
+                withTimeoutOrNull(FLOW_OUTCOME_TIMEOUT_MS) { outcome.await() }
+                    ?: PurchaseResult.Error(
+                        "Timed out waiting for Google Play. If you completed " +
+                            "the purchase, Pro will unlock automatically."
+                    )
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> PurchaseResult.Cancelled
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
@@ -202,6 +226,8 @@ class PlayProEntitlement @Inject constructor(
             else -> PurchaseResult.Error(
                 "Play billing error: ${result.responseCode} ${result.debugMessage}"
             )
+        }.also {
+            if (flowOutcome === outcome) flowOutcome = null
         }
     }
 
@@ -229,14 +255,44 @@ class PlayProEntitlement @Inject constructor(
         // after the first already cleared). Process whatever's in
         // [purchases] regardless of the response code; only when both
         // the code is non-OK AND the list is null/empty is there
-        // genuinely nothing to do.
+        // genuinely nothing to process — but even then an in-flight
+        // [flowOutcome] gets its terminal answer (cancel/error).
         val list = purchases.orEmpty()
         if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
             Log.w(TAG, "onPurchasesUpdated code=${billingResult.responseCode} " +
                 "${billingResult.debugMessage}, purchases.size=${list.size}")
         }
-        if (list.isEmpty()) return
-        scope.launch { applyPurchases(list) }
+        val awaiting = flowOutcome
+        if (list.isEmpty()) {
+            awaiting?.complete(
+                when (billingResult.responseCode) {
+                    BillingClient.BillingResponseCode.USER_CANCELED -> PurchaseResult.Cancelled
+                    else -> PurchaseResult.Error(
+                        "Play billing error: ${billingResult.responseCode} " +
+                            billingResult.debugMessage
+                    )
+                }
+            )
+            return
+        }
+        scope.launch {
+            applyPurchases(list)
+            // Completed AFTER applyPurchases so a Success answer implies
+            // isPro is already true (and acknowledged, or queued for the
+            // onResume retry). complete() on an already-answered deferred
+            // is a no-op.
+            awaiting?.complete(
+                when {
+                    _isPro.value -> PurchaseResult.Success
+                    _pending.value -> PurchaseResult.Pending
+                    billingResult.responseCode == BillingClient.BillingResponseCode.USER_CANCELED ->
+                        PurchaseResult.Cancelled
+                    else -> PurchaseResult.Error(
+                        "Purchase did not complete (Play code ${billingResult.responseCode})"
+                    )
+                }
+            )
+        }
     }
 
     // Internals -----------------------------------------------------------

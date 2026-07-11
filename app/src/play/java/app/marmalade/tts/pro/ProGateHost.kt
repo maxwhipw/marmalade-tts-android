@@ -143,7 +143,7 @@ fun ProGateHost(
                             }
                         },
                     ) {
-                        Text(if (purchaseInFlight) "Opening Play…" else "Upgrade to Pro")
+                        Text(if (purchaseInFlight) "Waiting for Google Play…" else "Upgrade to Pro")
                     }
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
