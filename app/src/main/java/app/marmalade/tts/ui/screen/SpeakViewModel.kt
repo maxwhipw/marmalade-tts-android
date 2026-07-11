@@ -425,6 +425,17 @@ class SpeakViewModel @Inject constructor(
      *   - playback is already in flight (state != Idle), or
      *   - no voice is currently resolved (race during initial load).
      */
+    /**
+     * Monotonic token for the latest speak/cancel. A superseded speak's
+     * coroutine still completes (Synthesizer.speak returns success on
+     * cancellation) and would otherwise write its terminal state over
+     * whatever the newer action set — e.g. Stop-then-Speak: the stopped
+     * coroutine's Idle flipped the button back to "Speak" mid-synthesis
+     * and re-opened the [speak] guard for a second concurrent synthesis.
+     * Main-thread only (UI callbacks + viewModelScope), so a plain var.
+     */
+    private var speakGeneration = 0L
+
     fun speak() {
         val currentText = _text.value
         if (currentText.isBlank()) return
@@ -434,9 +445,11 @@ class SpeakViewModel @Inject constructor(
         val effectBlocks = _currentEffectBlocks.value
         val speed = _currentSpeed.value
         val language = _currentPhonemizationLanguage.value
+        val generation = ++speakGeneration
         _playbackState.value = PlaybackState.Speaking
         viewModelScope.launch {
             val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language)
+            if (generation != speakGeneration) return@launch // superseded
             _playbackState.value = result.fold(
                 onSuccess = { PlaybackState.Idle },
                 onFailure = { err ->
@@ -454,6 +467,9 @@ class SpeakViewModel @Inject constructor(
 
     /** Stop any in-flight playback and return to Idle. Used by the UI's stop affordance. */
     fun cancel() {
+        // Orphan the in-flight coroutine's terminal write — Idle is set
+        // here and must not be re-written (or contradicted) by it.
+        speakGeneration++
         synthesizer.cancel()
         _playbackState.value = PlaybackState.Idle
     }

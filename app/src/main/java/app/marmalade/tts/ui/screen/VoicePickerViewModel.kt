@@ -221,14 +221,25 @@ class VoicePickerViewModel @Inject constructor(
      * sound like before committing. Phrasing the sentence with the voice's
      * own name doubles as a small bit of personality.
      */
+    /**
+     * Monotonic token for the latest [preview]. A superseded preview's
+     * coroutine still completes (Synthesizer.speak returns success on
+     * cancellation) — without the token check it would overwrite the
+     * NEW preview's Playing chip with its own terminal state.
+     * Main-thread only (UI callback + viewModelScope), so a plain var.
+     */
+    private var previewGeneration = 0L
+
     fun preview(voice: VoiceMeta) {
         // Don't stack previews — cancel anything in flight first.
         synthesizer.cancel()
+        val generation = ++previewGeneration
         _previewState.value = PreviewState.Playing(voice.id)
 
         viewModelScope.launch {
             val phrase = "Hello, I'm ${voice.displayName}."
             val result = synthesizer.speak(phrase, voice.id)
+            if (generation != previewGeneration) return@launch // superseded
             _previewState.value = result.fold(
                 onSuccess = { PreviewState.Idle },
                 onFailure = { err ->

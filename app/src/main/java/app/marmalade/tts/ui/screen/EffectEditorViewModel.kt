@@ -144,18 +144,29 @@ class EffectEditorViewModel @Inject constructor(
      * in-progress chain, then play it. The chip "Playing" state clears when
      * [SpeechPlayer.speak] returns (it suspends until playback drains).
      */
+    /**
+     * Monotonic token for the latest preview/stop. A stopped preview's
+     * coroutine still completes (Synthesizer.speak returns success on
+     * cancellation) and must not overwrite the state a newer action set.
+     * Main-thread only (UI callbacks + viewModelScope), so a plain var.
+     */
+    private var previewGeneration = 0L
+
     fun preview() {
         if (_state.value.preview is EffectPreviewState.Playing) return
+        val generation = ++previewGeneration
         _state.value = _state.value.copy(preview = EffectPreviewState.Playing)
         viewModelScope.launch {
             val voiceId = settings.defaultVoiceId.first()
             if (voiceId.isBlank()) {
+                if (generation != previewGeneration) return@launch
                 _state.value = _state.value.copy(
                     preview = EffectPreviewState.Error("Pick a default voice on the Speak screen first."),
                 )
                 return@launch
             }
             val result = synthesizer.speak(PREVIEW_TEXT, voiceId, 1.0f, _state.value.blocks, null)
+            if (generation != previewGeneration) return@launch // superseded
             _state.value = _state.value.copy(
                 preview = result.fold(
                     onSuccess = { EffectPreviewState.Idle },
@@ -166,6 +177,8 @@ class EffectEditorViewModel @Inject constructor(
     }
 
     fun stopPreview() {
+        // Orphan the in-flight coroutine's terminal write (see previewGeneration).
+        previewGeneration++
         synthesizer.cancel()
         _state.value = _state.value.copy(preview = EffectPreviewState.Idle)
     }
