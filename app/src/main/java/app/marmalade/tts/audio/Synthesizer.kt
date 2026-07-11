@@ -357,7 +357,7 @@ class Synthesizer @Inject constructor(
         val pieces = ArrayList<ShortArray>()
         var sampleRate = 0
         try {
-            streamForEngine(engineName, stripped, voiceId, speed).collect { audio ->
+            streamForEngine(engineName, stripped, voiceId, speed, phonemizationLanguage).collect { audio ->
                 if (cancelled) throw CancellationException("user cancel")
                 pieces.add(audio.pcm)
                 sampleRate = audio.sampleRate
