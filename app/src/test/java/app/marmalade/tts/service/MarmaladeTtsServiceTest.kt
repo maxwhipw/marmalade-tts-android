@@ -404,6 +404,23 @@ class MarmaladeTtsServiceTest {
         assertEquals(TextToSpeech.ERROR, service.onLoadVoice(null))
     }
 
+    // -- client speech rate ---------------------------------------------------
+
+    @Test
+    fun onSynthesizeText_clientSpeechRateMultipliesResolvedSpeed() {
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+        val request = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
+        // 200 = 2.0x per the framework contract (100 = normal).
+        val rateField = SynthesisRequest::class.java.getDeclaredField("mSpeechRate")
+        rateField.isAccessible = true
+        rateField.set(request, 200)
+
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        val (_, _, speed) = fakeKokoroDirectEngine.calls.single()
+        assertEquals(2.0f, speed)
+    }
+
     // -- onStop cancellation ------------------------------------------------
 
     @Test

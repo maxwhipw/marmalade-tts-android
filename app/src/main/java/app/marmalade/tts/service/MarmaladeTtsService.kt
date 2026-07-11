@@ -633,15 +633,37 @@ class MarmaladeTtsService : TextToSpeechService() {
                 null
             }
         }
-        if (resolved != null) return resolved
+        if (resolved != null) return applyClientRate(request, resolved)
 
         // 4. Absolute fallback — the engine's default voice with
         // unchanged speed and no effect. Matches v0.1.10 behaviour.
-        return SynthParams(
-            voiceId = KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
-            speed = 1.0f,
-            effectBlocks = emptyList(),
+        return applyClientRate(
+            request,
+            SynthParams(
+                voiceId = KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
+                speed = 1.0f,
+                effectBlocks = emptyList(),
+            ),
         )
+    }
+
+    /**
+     * Scale the resolved speed by the client's requested speech rate
+     * (Android Settings → Text-to-speech → Speech rate, or a client's
+     * `TextToSpeech.setSpeechRate`). 100 = normal per the framework
+     * contract; <= 0 (unset on a hand-built request) is treated as
+     * normal. The multiplier composes with the alias speed — "this
+     * alias speaks at 1.2x" and "the user's system rate is 2x" stack —
+     * and the product is clamped to a range every engine tolerates.
+     *
+     * `request.pitch` remains unhonored: no engine exposes a native
+     * pitch knob, and a DSP pitch-shift stage would add latency for a
+     * parameter few clients set. Documented gap.
+     */
+    private fun applyClientRate(request: SynthesisRequest, params: SynthParams): SynthParams {
+        val rate = request.speechRate.let { if (it > 0) it / 100f else 1f }
+        if (rate == 1f) return params
+        return params.copy(speed = (params.speed * rate).coerceIn(MIN_SPEED, MAX_SPEED))
     }
 
     /**
@@ -766,6 +788,14 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     companion object {
         private const val TAG = "MarmaladeTtsService"
+
+        /**
+         * Bounds for the alias-speed × client-rate product. The framework
+         * slider alone spans 0.1–6.0x; engines produce artifacts well
+         * before those extremes, so clamp to a range they all tolerate.
+         */
+        private const val MIN_SPEED = 0.25f
+        private const val MAX_SPEED = 4.0f
 
         /** Convert PCM16 samples to a little-endian byte array. */
         internal fun pcm16ToLittleEndianBytes(pcm: ShortArray): ByteArray {
