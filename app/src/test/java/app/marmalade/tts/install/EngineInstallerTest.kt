@@ -304,6 +304,33 @@ class EngineInstallerTest {
     }
 
     @Test
+    fun leftoverFullyDownloadedArchiveInstallsWithoutRefetching() = runTest {
+        // A previous attempt downloaded the whole archive, then failed after
+        // the download (e.g. disk full during extraction — the installer
+        // keeps the archive for resume). A resume request for
+        // `bytes=<totalBytes>-` would be HTTP 416 from a real server; the
+        // installer must skip the network entirely. Prove it by NOT
+        // registering the URL — any fetch attempt throws. kitten-direct
+        // name so post-install layout verification routes to
+        // verifyKittenDirectLayout (same convention as stageBundle).
+        val archive = buildArchive(KITTEN_LAYOUT, archiveRootName = ARCHIVE_ROOT)
+        val descriptor = engineDescriptor(
+            name = "kitten-direct-v0_8",
+            url = "https://test/kitten-direct/bundle.tar.bz2",
+            archiveBytes = archive,
+        )
+        val archiveTmp = File(filesDir, "engines/${descriptor.name}.archive.tmp")
+        archiveTmp.parentFile!!.mkdirs()
+        archiveTmp.writeBytes(archive)
+
+        val result = installer.install(descriptor) {}
+
+        assertTrue("install from leftover archive should succeed, got $result", result.isSuccess)
+        assertTrue(File(filesDir, "engines/${descriptor.name}/kitten.onnx").isFile)
+        assertFalse("archive scratch should be consumed", archiveTmp.exists())
+    }
+
+    @Test
     fun failedUpdateKeepsExistingEngineIntact() = runTest {
         val v1Descriptor = stageBundle(KITTEN_LAYOUT)
         val first = installer.install(v1Descriptor) {}

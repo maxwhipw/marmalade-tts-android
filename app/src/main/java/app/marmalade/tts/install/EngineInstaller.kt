@@ -645,6 +645,26 @@ open class EngineInstaller @Inject constructor(
         // Look for a partial download from a previous attempt. If the file
         // exists and is non-empty we'll try to resume; the server may decline.
         val partialBytes = if (target.isFile) target.length() else 0L
+        // A previous attempt may have downloaded the WHOLE archive and then
+        // failed later (e.g. disk full during extraction — the catch keeps
+        // the archive). Requesting `Range: bytes=<totalBytes>-` gets HTTP 416
+        // from any spec-compliant server, which would brick every retry.
+        // Skip the network entirely and just hash what's on disk: the SHA
+        // check upstream accepts good bytes, and wipes bad/oversized ones so
+        // the next attempt starts clean.
+        if (totalBytes > 0L && partialBytes >= totalBytes) {
+            Log.d(TAG, "Archive already fully on disk ($partialBytes bytes); skipping download")
+            target.inputStream().use { existing ->
+                val rb = ByteArray(BUFFER_SIZE)
+                while (true) {
+                    val n = existing.read(rb)
+                    if (n == -1) break
+                    digest.update(rb, 0, n)
+                }
+            }
+            onProgress(partialBytes)
+            return digest.digest().toHex()
+        }
         // Ask the server for the remaining bytes. The fetcher returns
         // `startedAtBytes` so we can tell whether the resume was honored
         // (206) or the server gave us the whole body (200).
