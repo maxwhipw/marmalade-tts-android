@@ -9,9 +9,10 @@ import androidx.room.PrimaryKey
  * One row per (engine, voice) pair. Powered by Room and exposed via
  * [VoiceMetaDao] as a Flow so the UI can observe install state changes.
  *
- * `isInstalled` is the source of truth for "does the underlying model
- * exist on disk?" — voice picker filters on it, system-TTS voice
- * negotiation rejects voices where it is false.
+ * `isInstalled` is vestigial: nothing in production ever flips it to
+ * true (the engine installer doesn't write back to this table), so
+ * consumers that need real install state derive it from disk via
+ * `TtsEngine.isInstalled()` / `EngineInstaller.verify()` instead.
  *
  * @property id           Stable identifier — convention `"<engine>:<displayName>"`,
  *                        e.g. `"kitten:Bella"`. Used as the `voiceName` token
@@ -24,8 +25,8 @@ import androidx.room.PrimaryKey
  * @property sampleRate   Native PCM sample rate the model emits (Hz).
  *                        Kitten-nano = 24000.
  * @property gender       `"female"`, `"male"`, or null if unspecified.
- * @property isInstalled  True if the engine's model files are present on
- *                        disk and synthesis would succeed. Defaults false.
+ * @property isInstalled  Vestigial — always false in production; see the
+ *                        class kdoc. Defaults false.
  */
 @Entity(tableName = "voice_meta")
 data class VoiceMeta(

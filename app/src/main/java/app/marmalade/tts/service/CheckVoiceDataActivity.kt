@@ -5,7 +5,16 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.activity.ComponentActivity
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
+import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -18,48 +27,47 @@ import kotlinx.coroutines.runBlocking
  * `voice data integrity check failed` and hides the engine.
  *
  * No UI — themed `@android:style/Theme.NoDisplay` and finished from
- * [onCreate]. We query [VoiceMetaDao] for installed voices and report
- * them in the engine's `lang-COUNTRY-VARIANT` ISO-639-3 form (Android's
+ * [onCreate]. We report each catalog voice's language in the engine's
+ * `lang-COUNTRY-VARIANT` ISO-639-3 form (Android's
  * `Locale.getISO3Language()` shape, the same convention every published
- * TTS engine uses). When no voices are installed we still return
- * `RESULT_OK` with an empty `EXTRA_AVAILABLE_VOICES` list — that's
- * enough for the framework to enumerate us; the user can then install
- * voices through Marmalade's in-app installer.
+ * TTS engine uses), classifying by the owning engine's real on-disk
+ * install state ([app.marmalade.tts.engine.TtsEngine.isInstalled] — the
+ * same signal the rest of the app trusts; `VoiceMeta.isInstalled` is
+ * never flipped in production). Settings gates its Play-example button
+ * and Language picker on the default locale appearing in
+ * `EXTRA_AVAILABLE_VOICES`, so an empty available list greys both out.
+ * When no engine is installed we still return `CHECK_VOICE_DATA_PASS`
+ * with an empty available list — that's enough for the framework to
+ * enumerate us; the user can then install engines through Marmalade.
  */
 @AndroidEntryPoint
 class CheckVoiceDataActivity : ComponentActivity() {
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
+    @Inject lateinit var kittenDirect: KittenDirectEngine
+    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
+    @Inject lateinit var kokoroDirect: KokoroDirectEngine
+    @Inject lateinit var pocket: PocketEngine
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Runs blocking on the main thread because the contract requires
         // a synchronous setResult+finish. The DAO read is a single
-        // indexed query against a tiny table (≤ ~80 rows), so the cost
-        // is well under the ANR threshold.
+        // indexed query against a tiny table (≤ ~80 rows) and each
+        // isInstalled() is a handful of stat calls, so the cost is well
+        // under the ANR threshold.
         // Single snapshot of the Flow is sufficient — we're firing once
         // per CHECK_TTS_DATA dispatch, not subscribing.
-        val installedVoices = runBlocking { voiceDao.getAll().first() }
-
-        val available = ArrayList<String>()
-        val unavailable = ArrayList<String>()
-        for (v in installedVoices) {
-            val tag = bcp47ToTtsTag(v.languageCode) ?: continue
-            if (v.isInstalled) {
-                if (!available.contains(tag)) available.add(tag)
-            } else {
-                if (!unavailable.contains(tag) && !available.contains(tag)) {
-                    unavailable.add(tag)
-                }
-            }
+        val voices = runBlocking { voiceDao.getAll().first() }
+        val installedEngines = buildSet {
+            if (kokoroDirect.isInstalled()) add(KokoroDirectVoiceCatalog.ENGINE)
+            if (kittenDirect.isInstalled()) add(KittenDirectVoiceCatalog.ENGINE)
+            if (kittenDirectMini.isInstalled()) add(KittenDirectMiniVoiceCatalog.ENGINE)
+            if (pocket.isInstalled()) add(PocketVoiceCatalog.ENGINE)
         }
-
-        // English is the engine's baseline language even when nothing is
-        // installed — declare it so the picker can list us pre-install.
-        if (available.isEmpty() && !unavailable.contains("eng-USA")) {
-            unavailable.add("eng-USA")
-        }
+        val (available, unavailable) = classifyVoices(voices, installedEngines)
 
         val data = Intent().apply {
             putStringArrayListExtra(
@@ -83,6 +91,42 @@ class CheckVoiceDataActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "MarmaladeTts.CheckData"
+
+        /**
+         * Split the catalog into available/unavailable language tags by
+         * whether each voice's engine is in [installedEngines]. Voices
+         * whose engine isn't in the known-engine set (e.g. developer-only
+         * Pocket dev rows) count as unavailable. Pure so the classification
+         * is unit-testable without Robolectric.
+         */
+        internal fun classifyVoices(
+            voices: List<VoiceMeta>,
+            installedEngines: Set<String>,
+        ): Pair<ArrayList<String>, ArrayList<String>> {
+            val available = ArrayList<String>()
+            val unavailable = ArrayList<String>()
+            for (v in voices) {
+                val tag = bcp47ToTtsTag(v.languageCode) ?: continue
+                if (v.engine in installedEngines) {
+                    if (!available.contains(tag)) available.add(tag)
+                } else {
+                    if (!unavailable.contains(tag) && !available.contains(tag)) {
+                        unavailable.add(tag)
+                    }
+                }
+            }
+            // A language can be reported by both an installed and an
+            // uninstalled engine — available wins, drop the duplicate.
+            unavailable.removeAll(available)
+
+            // English is the engine's baseline language even when nothing
+            // is installed — declare it so the picker can list us
+            // pre-install.
+            if (available.isEmpty() && !unavailable.contains("eng-USA")) {
+                unavailable.add("eng-USA")
+            }
+            return available to unavailable
+        }
 
         /**
          * Convert a BCP-47 tag like `"en-US"` to the TTS engine's
