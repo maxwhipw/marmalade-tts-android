@@ -2,7 +2,8 @@
 
 ## State
 
-30 local commits on `main` (NOT pushed), ending `d6c59f3` + smoke session.
+32 local commits on `main` (NOT pushed), ending `cc11ee3` (atoms AA + AB
+added 2026-07-11 after the greyed-Play diagnosis).
 All from `docs/AUDIT-2026-07-11.md` (the whole-app audit + fix-status —
 **read that file first**, it is the master list with commit hashes).
 
@@ -24,33 +25,35 @@ Verified live:
   `adb shell cmd media_session dispatch pause|play|stop` all clean,
   service tore down properly.
 
-NOT yet verified (blocked): **system TTS service path (atoms F/G)** — in
-Android Settings → TTS output with the debug engine selected, the Play
-example button is GREYED OUT (Language row also disabled), so no synth
-fires. Release-app engine works there, so suspicion: something the debug
-engine reports during voice/language negotiation (onIsLanguageAvailable /
-CHECK_TTS_DATA / onGetVoices?) differs — CheckVoiceDataActivity DID launch.
-Debug this next: compare `dumpsys texttospeech`, add logging to the
-negotiation callbacks, or drive a real client (ebook reader / TalkBack).
-Note: it may also be pre-existing behavior for a freshly-selected engine —
-compare against the release app before assuming the audit fixes broke it.
+RESOLVED 2026-07-11: **system TTS Play greyed out** was pre-existing on
+release too (tapping release Play fired nothing) — NOT an audit
+regression. Root cause: CheckVoiceDataActivity reported availability
+from the vestigial `VoiceMeta.isInstalled` flag (never flipped in
+production), so CHECK_TTS_DATA returned `available=[]` and Settings
+disabled Play + Language. Fixed as atom AA (`dc9392a`, classify by
+`TtsEngine.isInstalled()` disk state). Follow-up atom AB (`cc11ee3`):
+client stop mid-stream no longer logs an `E Synthesis failed` stack.
+
+Atoms F + G now device-verified through the unblocked Play button:
+`speed=3.07` / `speed=0.5` at the rate-slider extremes, StreamPerf
+per-chunk emits through the framework callback, onStop → clean
+'Synthesis stopped by client'. Max's real speech rate is **307**, not
+the 100 this file previously claimed — restore
+`tts_default_rate` to 307 after tests (done).
 
 ## Next tasks (in order)
 
-1. **System-TTS Play greyed out** — diagnose + verify atoms F (streaming,
-   onStop) and G (speech-rate multiplier; look for `speed=` in
-   `onSynthesizeText` logcat) on device.
-2. Pocket regression listen: install Pocket on the debug app, share-sheet a
+1. Pocket regression listen: install Pocket on the debug app, share-sheet a
    paragraph, listen for chunk-seam artifacts (atom P removed dead code
    only, but confirm) + check `StreamPerf` gaps.
-3. Device-gated perf work from the audit "Still open" list: Pocket
+2. Device-gated perf work from the audit "Still open" list: Pocket
    voice-cond KV snapshot (top RTF item, machinery in PocketStateManager
    snapshot/restore, A/B via `adb logcat -s StreamPerf`), chunk-0 minChars
    TTFA exemption (needs listen test).
-4. Remaining low items listed at the end of docs/AUDIT-2026-07-11.md
+3. Remaining low items listed at the end of docs/AUDIT-2026-07-11.md
    (install mutex, AppMappings icon loading, REPO-MAP.md refresh — it still
    describes the sherpa-onnx architecture).
-5. Push: `git push github main` when Max says so (github is authoritative;
+4. Push: `git push github main` when Max says so (github is authoritative;
    never push origin/Forgejo by hand).
 
 ## Guardrails
@@ -58,7 +61,7 @@ compare against the release app before assuming the audit fixes broke it.
 - Max's daily = the RELEASE app; never uninstall it, never
   `connectedAndroidTest` (wipes data). Debug app is disposable.
 - Restore any `settings put secure tts_default_synth/tts_default_rate`
-  changes after testing (original: `app.marmalade.tts` / 100).
+  changes after testing (original: `app.marmalade.tts` / 307).
 - Lettered atoms, one commit each, compile + unit test before commit.
 - Build: `./gradlew :app:compileFdroidDebugKotlin` (fast check),
   `:app:testFdroidDebugUnitTest` (suite), `:app:assembleFdroidDebug` (APK),
