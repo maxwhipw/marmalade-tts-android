@@ -54,27 +54,6 @@ how to finish it.
   '*ShareAndTileInstrumentedTest*'` with a device attached and the
   engine installed (run through onboarding once).
 
-### `MarmaladeTtsService.onStop` cancellation
-- **Reference:** whole-project review, Major / Minor #2 (lines 363–376).
-- **File:** `app/src/main/java/app/marmalade/tts/service/MarmaladeTtsService.kt`
-  (the `// TODO: STUBS.md — onStop cancellation` marker near `onStop`
-  points at this entry).
-- **What's missing:** `onStop` is a no-op while `engine.synthesize(...)`
-  is running. Because synthesis is wrapped in `runBlocking { … }` inside
-  `onSynthesizeText`, long-form text can't be interrupted mid-synthesis
-  — the system's stop request is honoured only after the current
-  synthesise call returns. For a multi-sentence read on a mid-range
-  device that's a 2–5 second lag before the engine actually stops.
-- **Why deferred:** the proper fix is restructuring `runBlocking { … }`
-  to `kotlinx.coroutines.runInterruptible` plus a tracked `Job?` so
-  `onStop` can cancel it. Out of scope for v0.1's fix-the-bug pass.
-- **How to finish:** introduce a `currentSynthJob: Job?` field on the
-  service, store the launched job in `onSynthesizeText`, and call
-  `currentSynthJob?.cancel()` from `onStop`. Make sure the cancellation
-  unwinds cleanly back through the JNI boundary (Sherpa-ONNX
-  `OfflineTts.generate` is synchronous, so the cancel won't interrupt
-  the in-flight inference — it just discards the result post-hoc).
-
 ### `WorkManager`-backed engine installs
 - **Reference:** whole-project review, Minor #6 (lines 417–434).
 - **File:** `app/src/main/java/app/marmalade/tts/install/EngineInstaller.kt`
