@@ -203,6 +203,7 @@ fun SettingsScreen(
 
 // -- Sections -----------------------------------------------------------------
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppearanceSection(
     currentPreset: ThemePreset,
@@ -239,11 +240,10 @@ private fun AppearanceSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
     )
-    // FlowRow would be the right primitive here but it's still in the
-    // experimental compose-foundation-layout artifact for our BOM. A
-    // simple wrapping Row with arrangement.spacedBy + horizontal padding
-    // covers the same use case for 5 short chips on a phone-width screen.
-    Row(
+    // FlowRow so the five preset chips wrap on narrow screens / large
+    // font scale instead of pushing the last chip off the edge — same
+    // primitive PerformanceSection and KeepaliveSection already use.
+    FlowRow(
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
