@@ -201,7 +201,10 @@ fun VoicePickerScreen(
                                 voice = voice,
                                 isSelected = voice.id == selectedId,
                                 isPreviewing = (previewState as? PreviewState.Playing)?.voiceId == voice.id,
-                                previewEnabled = !modelMissing,
+                                // Only disable preview for rows of the engine
+                                // that actually failed — a Kitten ModelMissing
+                                // shouldn't grey out installed Kokoro rows.
+                                previewEnabled = modelMissingState?.engineName != voice.engine,
                                 onClick = {
                                     viewModel.selectVoice(voice.id)
                                     onVoiceSelected()
