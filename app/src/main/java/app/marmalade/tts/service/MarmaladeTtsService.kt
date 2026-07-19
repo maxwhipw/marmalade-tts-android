@@ -18,9 +18,11 @@ import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.preprocessing.EmojiProsody
@@ -138,6 +140,7 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
+    @Inject lateinit var cloudApi: CloudApiEngine
 
     @Inject lateinit var voiceDao: VoiceMetaDao
 
@@ -723,6 +726,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.sampleRate
         PocketVoiceCatalog.ENGINE -> pocket.sampleRate
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.sampleRate
         else -> kokoroDirect.sampleRate
     }
 
@@ -746,6 +750,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
 
@@ -764,6 +769,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
@@ -772,7 +778,8 @@ class MarmaladeTtsService : TextToSpeechService() {
         name == KokoroDirectVoiceCatalog.ENGINE ||
             name == KittenDirectVoiceCatalog.ENGINE ||
             name == KittenDirectMiniVoiceCatalog.ENGINE ||
-            name == PocketVoiceCatalog.ENGINE
+            name == PocketVoiceCatalog.ENGINE ||
+            name == CloudApiVoiceCatalog.ENGINE
 
     /**
      * Stream [pcm] through the synthesis callback in chunks of at most

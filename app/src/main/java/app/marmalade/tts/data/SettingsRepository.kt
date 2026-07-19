@@ -351,6 +351,28 @@ open class SettingsRepository @Inject constructor(
         prefs[KEY_SHOW_DEVELOPER_ENGINES] ?: BuildConfig.DEBUG
     }
 
+    /**
+     * API key for the Cloud API engine (Venice.ai). Blank = engine
+     * unconfigured, which the app treats as "not installed"
+     * ([app.marmalade.tts.engine.api.CloudApiEngine.isInstalled]).
+     *
+     * Plain DataStore is acceptable here: the file is app-private and
+     * `android:allowBackup="false"` keeps it out of device backups.
+     * Never log this value.
+     */
+    open val cloudApiKey: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_CLOUD_API_KEY] ?: ""
+    }
+
+    /** Persist the Cloud API key; blank removes it. */
+    open suspend fun setCloudApiKey(value: String) {
+        dataStore.edit { prefs ->
+            val trimmed = value.trim()
+            if (trimmed.isEmpty()) prefs.remove(KEY_CLOUD_API_KEY)
+            else prefs[KEY_CLOUD_API_KEY] = trimmed
+        }
+    }
+
     /** Persist the show-developer-engines toggle. */
     open suspend fun setShowDeveloperEngines(value: Boolean) {
         dataStore.edit { prefs ->
@@ -398,6 +420,9 @@ open class SettingsRepository @Inject constructor(
         // Show the legacy sherpa engines in the engine lists. Absent ⇒
         // BuildConfig.DEBUG (shown in debug, hidden in release). v0.3.0-alpha.10.Z.
         private val KEY_SHOW_DEVELOPER_ENGINES = booleanPreferencesKey("show_developer_engines")
+
+        // Cloud API engine key (Venice.ai). Absent => engine unconfigured.
+        private val KEY_CLOUD_API_KEY = stringPreferencesKey("cloud_api_key")
 
         // P-K — keepalive mode, stored as KeepaliveMode.name string.
         // Absent ⇒ Smart (default). Stable key; semver-protected.

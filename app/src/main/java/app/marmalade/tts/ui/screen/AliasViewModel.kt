@@ -2,6 +2,7 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
@@ -10,7 +11,6 @@ import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
-import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -190,11 +191,20 @@ class AliasViewModel @Inject constructor(
      * [EngineCatalog.byName] is unfiltered, and [EngineDropdown] falls back to
      * the raw name); it just won't appear as a fresh pick.
      */
-    val engines: StateFlow<List<EngineDescriptor>> = combine(
+    val engines: StateFlow<List<EngineOption>> = combine(
         settings.showDeveloperEngines,
         _installedEngines,
     ) { showDeveloper, installed ->
-        EngineCatalog.visibleTo(showDeveloper).filter { it.name in installed }
+        val options = EngineCatalog.visibleTo(showDeveloper)
+            .filter { it.name in installed }
+            .map { EngineOption(it.name, it.displayName) }
+        // Cloud API engine lives outside EngineCatalog (no bundle);
+        // offer it when its key is configured, after the local engines.
+        if (CloudApiVoiceCatalog.ENGINE in installed) {
+            options + EngineOption(CloudApiVoiceCatalog.ENGINE, "Cloud API (Venice)")
+        } else {
+            options
+        }
     }
         .stateIn(
             scope = viewModelScope,
@@ -244,6 +254,10 @@ class AliasViewModel @Inject constructor(
                 if (installer.verify(engine.name) is InstallState.Installed) {
                     installed += engine.name
                 }
+            }
+            // Cloud API engine: configured key == installed (no bundle).
+            if (settings.cloudApiKey.firstOrNull().orEmpty().isNotBlank()) {
+                installed += CloudApiVoiceCatalog.ENGINE
             }
             _installedEngines.value = installed
         }
@@ -459,3 +473,10 @@ class AliasViewModel @Inject constructor(
         else -> error
     }
 }
+
+/**
+ * Engine choice for the alias editor's picker — decoupled from
+ * [app.marmalade.tts.install.EngineDescriptor] so engines without an installable bundle (the Cloud
+ * API engine) can be offered alongside catalog engines.
+ */
+data class EngineOption(val name: String, val displayName: String)

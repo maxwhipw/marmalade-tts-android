@@ -4,10 +4,12 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.PocketDevEngine
+import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
@@ -169,6 +171,7 @@ class Synthesizer @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
+    private val cloudApi: CloudApiEngine,
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
     private val keepaliveCoordinator: app.marmalade.tts.service.KeepaliveCoordinator,
@@ -459,7 +462,8 @@ class Synthesizer @Inject constructor(
             KittenDirectVoiceCatalog.ENGINE,
             KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
-            PocketDevVoiceCatalog.ENGINE -> name
+            PocketDevVoiceCatalog.ENGINE,
+            CloudApiVoiceCatalog.ENGINE -> name
             else -> KokoroDirectVoiceCatalog.ENGINE
         }
     }
@@ -471,6 +475,7 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev
+        CloudApiVoiceCatalog.ENGINE -> cloudApi
         else -> kokoroDirect
     }
 
@@ -487,6 +492,7 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: engineNameFor already narrows to known values, but
         // the exhaustive `when` keeps the compiler honest. Fall back to the
         // recommended engine.
@@ -512,6 +518,7 @@ class Synthesizer @Inject constructor(
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 

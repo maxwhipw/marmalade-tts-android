@@ -59,7 +59,6 @@ import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
-import app.marmalade.tts.install.EngineDescriptor
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -351,7 +350,7 @@ private fun AliasRow(
 @Composable
 private fun AliasEditorDialog(
     state: EditorState,
-    engines: List<EngineDescriptor>,
+    engines: List<EngineOption>,
     voices: List<VoiceMeta>,
     effects: List<Effect>,
     onNameChange: (String) -> Unit,
@@ -441,7 +440,7 @@ private fun AliasEditorDialog(
 @Composable
 private fun EngineDropdown(
     selected: String,
-    engines: List<EngineDescriptor>,
+    engines: List<EngineOption>,
     onPick: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }

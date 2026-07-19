@@ -24,6 +24,8 @@ import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.api.CloudSpeechHttp
+import app.marmalade.tts.engine.api.UrlCloudSpeechHttp
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
@@ -151,6 +153,14 @@ object AppModule {
         pocket.release()
         pocketDev.release()
     }
+
+    /**
+     * Synthesis POST seam for the Cloud API engine. Tests substitute a
+     * fake that serves a canned WAV stream.
+     */
+    @Provides
+    @Singleton
+    fun provideCloudSpeechHttp(): CloudSpeechHttp = UrlCloudSpeechHttp()
 
     /**
      * HTTP fetcher used by [EngineInstaller]. Production uses

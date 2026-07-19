@@ -90,6 +90,24 @@ class SettingsViewModel @Inject constructor(
         )
 
     /**
+     * Whether a Cloud API key is configured (the key itself never reaches
+     * the UI layer — only presence). Drives the Cloud API section's
+     * status line.
+     */
+    val cloudApiKeySet: StateFlow<Boolean> = settings.cloudApiKey
+        .map { it.isNotBlank() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = false,
+        )
+
+    /** Persist (or clear, when blank) the Cloud API key. */
+    fun setCloudApiKey(value: String) {
+        viewModelScope.launch { settings.setCloudApiKey(value) }
+    }
+
+    /**
      * Number of saved per-app voice mappings. Drives the subtitle text on
      * the Per-app voices row ("N apps configured"). Counted via .size on
      * the existing Flow — Room re-emits when rows change so this stays in

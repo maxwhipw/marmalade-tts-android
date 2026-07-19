@@ -1,6 +1,7 @@
 package app.marmalade.tts
 
 import android.app.Application
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
@@ -133,6 +134,7 @@ class MarmaladeTtsApplication : Application() {
                 dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
+                dao.upsertAll(CloudApiVoiceCatalog.voices)
                 // Built-in effects. REPLACE-on-conflict refreshes them on each
                 // bump; user-created effects (other ids) are untouched, and
                 // built-ins are read-only in the UI so this can't clobber user
@@ -225,7 +227,8 @@ class MarmaladeTtsApplication : Application() {
          *    no longer seeded. Their stale `voice_meta` rows are deleted by
          *    [app.marmalade.tts.data.db.MIGRATION_7_8] rather than left to
          *    linger (the engine that backed them is gone).
+         *  - v25: Cloud API engine (hosted Venice tts-kokoro) voices seeded.
          */
-        const val CATALOG_VERSION: Int = 24
+        const val CATALOG_VERSION: Int = 25
     }
 }

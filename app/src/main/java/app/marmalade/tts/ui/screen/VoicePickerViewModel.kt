@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceMeta
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -199,6 +201,11 @@ class VoicePickerViewModel @Inject constructor(
                 if (installer.verify(engine.name) is InstallState.Installed) {
                     installed += engine.name
                 }
+            }
+            // The Cloud API engine has no bundle — "installed" means an
+            // API key is configured (Settings → Cloud API engine).
+            if (settings.cloudApiKey.firstOrNull().orEmpty().isNotBlank()) {
+                installed += CloudApiVoiceCatalog.ENGINE
             }
             _installedEngines.value = installed
         }

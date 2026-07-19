@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.data.db.VoiceMeta
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.install.EngineCatalog
 
 // -----------------------------------------------------------------------------
@@ -347,6 +348,9 @@ private fun supportingText(voice: VoiceMeta): String {
  * instead of the raw engine id. Falls back to a title-cased id for any
  * engine not present in [EngineCatalog].
  */
-private fun displayNameForEngine(engineName: String): String =
-    EngineCatalog.byName(engineName)?.displayName
+private fun displayNameForEngine(engineName: String): String = when (engineName) {
+    // Not in EngineCatalog — hosted engine with no installable bundle.
+    CloudApiVoiceCatalog.ENGINE -> "Cloud API (Venice)"
+    else -> EngineCatalog.byName(engineName)?.displayName
         ?: engineName.replaceFirstChar { it.uppercase() }
+}
