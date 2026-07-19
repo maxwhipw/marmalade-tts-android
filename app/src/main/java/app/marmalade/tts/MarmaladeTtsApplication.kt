@@ -10,6 +10,7 @@ import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.service.KeepaliveCoordinator
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import javax.inject.Provider
@@ -93,6 +94,9 @@ class MarmaladeTtsApplication : Application() {
     @Inject
     lateinit var effectDao: Provider<EffectDao>
 
+    @Inject
+    lateinit var keepalive: Provider<KeepaliveCoordinator>
+
     /**
      * Application-lifetime scope. SupervisorJob so a seed failure doesn't
      * propagate out of this scope and tear down anything else launched on
@@ -106,6 +110,15 @@ class MarmaladeTtsApplication : Application() {
         // Hilt populates @Inject fields during super.onCreate() — must run
         // before any access to `voiceDao` / `settings`.
         super.onCreate()
+        // Re-arm keepalive on process start. The coordinator's KDoc always
+        // promised an app-startup trigger, but only the Settings toggle
+        // called it — so persistent mode never restarted its foreground
+        // service (or warmed the model) after a process death. When the
+        // process starts backgrounded (e.g. the system binding the TTS
+        // service), the FGS start is refused and logged inside refresh();
+        // the engine warm-up still proceeds, which is the part that kills
+        // first-utterance latency. No-op when keepalive is Off.
+        applicationScope.launch { keepalive.get().applyCurrentMode() }
         applicationScope.launch {
             val dao = voiceDao.get()
             val prefs = settings.get()

@@ -149,6 +149,8 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var effectResolver: EffectResolver
 
+    @Inject lateinit var engineWarmup: EngineWarmup
+
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
     // because ensureModelLoaded() reads ~44 MB off disk before handing to JNI.
@@ -291,26 +293,10 @@ class MarmaladeTtsService : TextToSpeechService() {
                 }
             }
         }
-        serviceScope.launch {
-            // Warm-up: try to load every installed engine so the first synth
-            // call after service start doesn't pay the model-mmap cost.
-            // ensureModelLoaded() throws EngineNotInstalledException for
-            // engines without a bundle on disk — that's fine, just skip.
-            val loaders: List<Pair<String, () -> Unit>> = listOf(
-                KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::ensureModelLoaded,
-                KittenDirectVoiceCatalog.ENGINE to kittenDirect::ensureModelLoaded,
-                KittenDirectMiniVoiceCatalog.ENGINE to kittenDirectMini::ensureModelLoaded,
-                PocketVoiceCatalog.ENGINE to pocket::ensureModelLoaded,
-            )
-            for ((name, load) in loaders) {
-                try {
-                    load()
-                    Log.d(TAG, "$name engine warm-up complete")
-                } catch (ex: Exception) {
-                    Log.w(TAG, "$name engine warm-up skipped/failed", ex)
-                }
-            }
-        }
+        // Model warm-up: load every installed engine in the background so
+        // the first onSynthesizeText doesn't pay the model-mmap cost.
+        // Shared with KeepaliveCoordinator via EngineWarmup.
+        engineWarmup.warmInstalledAsync()
     }
 
     override fun onGetLanguage(): Array<String> = arrayOf("eng", "USA", "")

@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 class KeepaliveCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
+    private val engineWarmup: EngineWarmup,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -52,6 +53,14 @@ class KeepaliveCoordinator @Inject constructor(
             try {
                 val mode = settings.keepaliveMode.first()
                 MarmaladeKeepaliveService.refresh(context, mode)
+                // Keepalive's whole point is a warm next request — holding
+                // the process alive with the model unloaded only saves the
+                // *re*-load. Actually load installed engines too, so the
+                // toggle-on / app-start / post-synth paths all leave the
+                // model resident. Idempotent; no-op when already loaded.
+                if (mode != KeepaliveMode.Off) {
+                    engineWarmup.warmInstalledAsync()
+                }
             } catch (t: Throwable) {
                 Log.w(TAG, "onSynthCompleted refresh failed: ${t.message}")
             }
