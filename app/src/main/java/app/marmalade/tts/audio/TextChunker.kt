@@ -70,6 +70,12 @@ object TextChunker {
      *   sentence boundary, but a 5-char "Yes." doesn't waste an entire
      *   ORT call as its own chunk. Ignored when [packSentences]=true
      *   (that path's maxChars already acts as the cap).
+     * @param minCharsExemptFirst When true (and [minChars] applies), the
+     *   very first sentence of the whole text is emitted as its own
+     *   chunk even below [minChars]. Streaming callers use this so a
+     *   short opening sentence starts playing immediately instead of
+     *   waiting for a merged ≥[minChars] chunk to synthesize —
+     *   first-chunk inference time is the time-to-first-audio.
      */
     fun chunk(
         text: String,
@@ -78,6 +84,7 @@ object TextChunker {
         sentenceOnly: Boolean = false,
         allowWordSplits: Boolean = true,
         minChars: Int = 0,
+        minCharsExemptFirst: Boolean = false,
     ): List<String> {
         require(maxChars > 0) { "maxChars must be positive (got $maxChars)" }
         val trimmed = text.trim()
@@ -89,7 +96,14 @@ object TextChunker {
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         if (paragraphs.size > 1) {
-            return paragraphs.flatMap { chunk(it, maxChars, packSentences, sentenceOnly, allowWordSplits, minChars) }
+            // Only the first paragraph's first sentence is the global first
+            // chunk — later paragraphs merge normally.
+            return paragraphs.flatMapIndexed { i, p ->
+                chunk(
+                    p, maxChars, packSentences, sentenceOnly, allowWordSplits,
+                    minChars, minCharsExemptFirst && i == 0,
+                )
+            }
         }
 
         // Step 3: sentence/clause splits.
@@ -110,7 +124,11 @@ object TextChunker {
                         else -> listOf(s)
                     }
                 }
-                if (minChars > 0) mergeUpToMin(perSentence, minChars) else perSentence
+                if (minChars > 0) {
+                    mergeUpToMin(perSentence, minChars, minCharsExemptFirst)
+                } else {
+                    perSentence
+                }
             }
         }
 
@@ -129,8 +147,20 @@ object TextChunker {
      * around the 50-token merge threshold, adapted to a character
      * count (50 phoneme tokens ≈ 50 source-text chars for English).
      */
-    private fun mergeUpToMin(chunks: List<String>, minChars: Int): List<String> {
+    private fun mergeUpToMin(
+        chunks: List<String>,
+        minChars: Int,
+        exemptFirst: Boolean = false,
+    ): List<String> {
         if (chunks.isEmpty()) return chunks
+        // The first sentence gates time-to-first-audio (inference time
+        // scales with chunk length), so fattening it to minChars trades
+        // exactly the latency the streaming path exists to avoid. Pass it
+        // through unmerged; merging resumes from the second sentence.
+        if (exemptFirst) {
+            return listOf(chunks.first()) +
+                mergeUpToMin(chunks.drop(1), minChars, exemptFirst = false)
+        }
         val out = ArrayList<String>()
         val cur = StringBuilder()
         for (c in chunks) {

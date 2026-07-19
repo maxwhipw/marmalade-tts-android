@@ -382,6 +382,9 @@ open class KittenDirectEngine @Inject constructor(
             sentenceOnly = true,
             allowWordSplits = false,
             minChars = MIN_CHARS_PER_CHUNK,
+            // TTFA: let a short opening sentence synthesize alone instead
+            // of waiting on a merged >=80-char chunk (AUDIT-2026-07-11).
+            minCharsExemptFirst = true,
         )
         if (chunks.isEmpty()) return@channelFlow
 

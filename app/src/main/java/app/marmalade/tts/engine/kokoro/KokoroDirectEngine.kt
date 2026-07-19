@@ -413,6 +413,9 @@ open class KokoroDirectEngine @Inject constructor(
             sentenceOnly = true,
             allowWordSplits = false,
             minChars = minCharsPerChunk,
+            // TTFA: let a short opening sentence synthesize alone instead
+            // of waiting on a merged >=80-char chunk (AUDIT-2026-07-11).
+            minCharsExemptFirst = true,
         )
         if (chunks.isEmpty()) return@channelFlow
 

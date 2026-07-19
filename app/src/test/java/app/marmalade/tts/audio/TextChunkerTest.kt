@@ -83,4 +83,76 @@ class TextChunkerTest {
     fun blankInputIsEmpty() {
         assertTrue(TextChunker.chunk("   ", maxChars = 255).isEmpty())
     }
+
+    // -- minChars merge + first-chunk exemption (TTFA) ------------------------
+
+    @Test
+    fun minCharsMergesTinySentences() {
+        val chunks = TextChunker.chunk(
+            text = "Yes. Sure thing. Absolutely, whenever you like it best.",
+            maxChars = 255,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 20,
+        )
+        assertEquals(
+            listOf("Yes. Sure thing. Absolutely, whenever you like it best."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun exemptFirstEmitsShortOpeningSentenceAlone() {
+        val chunks = TextChunker.chunk(
+            text = "Yes. Sure thing. Absolutely, whenever you like it best.",
+            maxChars = 255,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 20,
+            minCharsExemptFirst = true,
+        )
+        assertEquals(
+            listOf("Yes.", "Sure thing. Absolutely, whenever you like it best."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun exemptFirstAppliesOnlyToFirstParagraph() {
+        val chunks = TextChunker.chunk(
+            text = "Hi. Second sentence here padding along.\n\nOk. Later paragraph sentence padding.",
+            // Force past the single-chunk fast path so paragraphs split.
+            maxChars = 60,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 20,
+            minCharsExemptFirst = true,
+        )
+        assertEquals(
+            listOf(
+                "Hi.",
+                "Second sentence here padding along.",
+                "Ok. Later paragraph sentence padding.",
+            ),
+            chunks,
+        )
+    }
+
+    @Test
+    fun exemptFirstIsNoOpWhenFirstSentenceAlreadyLong() {
+        val long = "This opening sentence is comfortably longer than the merge floor."
+        val chunks = TextChunker.chunk(
+            text = "$long Short tail.",
+            maxChars = 255,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 20,
+            minCharsExemptFirst = true,
+        )
+        assertEquals(listOf(long, "Short tail."), chunks)
+    }
 }
