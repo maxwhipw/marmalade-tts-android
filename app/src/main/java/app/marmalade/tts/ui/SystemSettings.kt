@@ -46,6 +46,21 @@ fun openSystemTtsSettings(context: Context): Boolean {
 }
 
 /**
+ * Returns true if Marmalade is currently the system's default
+ * text-to-speech engine. Reads the `tts_default_synth` secure setting
+ * (readable without any permission); it holds the package name of the
+ * preferred engine. Composables can poll this via lifecycle events to
+ * refresh after the user returns from the system TTS settings page.
+ */
+fun isDefaultSystemTts(context: Context): Boolean {
+    val engine = Settings.Secure.getString(
+        context.contentResolver,
+        "tts_default_synth",
+    )
+    return engine == context.packageName
+}
+
+/**
  * Returns true if Android is currently allowing this app to run
  * unrestricted in the background (i.e. the user has exempted us from
  * battery optimisations). Composables can poll this via lifecycle

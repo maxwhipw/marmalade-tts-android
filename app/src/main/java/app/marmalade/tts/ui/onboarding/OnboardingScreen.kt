@@ -68,6 +68,8 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.ui.components.JarMascot
+import app.marmalade.tts.ui.components.JarMascotState
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -416,12 +418,12 @@ private fun InstallingStep(
             .padding(horizontal = 16.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        Image(
-            painter = painterResource(id = R.drawable.mascot_focused),
-            contentDescription = "Marmalade installing",
-            modifier = Modifier
-                .size(96.dp)
-                .align(Alignment.CenterHorizontally),
+        // Live mascot: listening pose (lid open, waves drifting in) while
+        // downloads are in flight, settling to idle once everything's done.
+        JarMascot(
+            state = if (allDone) JarMascotState.IDLE else JarMascotState.LISTENING,
+            size = 96.dp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -1050,6 +1052,11 @@ private fun NotificationPermissionStep(
  * system TTS engine. The app being installed isn't enough — until the
  * OS-level default is set to ours, no external app's TTS request
  * routes through us.
+ *
+ * Live-checks [isDefaultSystemTts] on every lifecycle resume so the
+ * screen self-updates after the user returns from the system TTS page.
+ * Once we're the default, the prompt flips to an "All done" confirmation
+ * and the only affordance becomes "Finish".
  */
 @Composable
 private fun SystemDefaultStep(
@@ -1057,6 +1064,23 @@ private fun SystemDefaultStep(
     onOpenSystemSettings: () -> Unit,
     onFinish: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var isDefault by remember {
+        mutableStateOf(app.marmalade.tts.ui.isDefaultSystemTts(context))
+    }
+    // Refresh the live state every time the user comes back from the
+    // system TTS settings page (Lifecycle.Event.ON_RESUME on this screen).
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                isDefault = app.marmalade.tts.ui.isDefaultSystemTts(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1072,44 +1096,57 @@ private fun SystemDefaultStep(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "One more step",
+            text = if (isDefault) "All done!" else "One more step",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "To let other apps speak through Marmalade, you have to pick it " +
-                "as your system text-to-speech engine. Android won't route TTS to " +
-                "us until you do.",
+            text = if (isDefault) {
+                "Marmalade is your system text-to-speech engine. Other apps' " +
+                    "TTS now routes through your voices."
+            } else {
+                "To let other apps speak through Marmalade, you have to pick it " +
+                    "as your system text-to-speech engine. Android won't route TTS to " +
+                    "us until you do."
+            },
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Tap the button below — most phones land directly on the right " +
-                "page. If yours doesn't, look for \"Text-to-speech\" under " +
-                "System → Languages, Accessibility → Audio, or Languages & input.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onOpenSystemSettings,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Open system TTS settings") }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onFinish,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Finish — I'll do this later") }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "You can re-open this from Settings → Set as system TTS engine.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        if (isDefault) {
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Finish") }
+        } else {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "Tap the button below — most phones land directly on the right " +
+                    "page. If yours doesn't, look for \"Text-to-speech\" under " +
+                    "System → Languages, Accessibility → Audio, or Languages & input.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onOpenSystemSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Open system TTS settings") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Finish — I'll do this later") }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "You can re-open this from Settings → Set as system TTS engine.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
