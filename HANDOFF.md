@@ -1,6 +1,35 @@
-# HANDOFF — audit fix session, 2026-07-11
+# HANDOFF — onboarding polish, 2026-07-18
 
-## State
+## This session (2026-07-18)
+
+Onboarding UX pass (commits `634f83a` + `eacabb8`, unpushed, on top of
+the 2026-07-11 state below):
+
+- **JarMascot port**: marmalade-android's live-drawn mascot animation
+  (from `~/coding/marmalade/marmalade-android-native/.../ui/voice/JarMascot.kt`)
+  now lives at `app/src/main/java/app/marmalade/tts/ui/components/JarMascot.kt`
+  with a local `JarMascotState` enum. Install-progress onboarding step
+  shows LISTENING (lid open, waves in) while downloads run, IDLE when done.
+- **SystemDefault step self-updates**: new `isDefaultSystemTts()` in
+  `ui/SystemSettings.kt` reads secure setting `tts_default_synth`;
+  `SystemDefaultStep` re-checks it on every ON_RESUME. Once Marmalade is
+  the system engine the screen shows "All done!" + a plain **Finish**
+  button instead of "Finish — I'll do this later".
+- Cleanup: 7 unreferenced static `mascot_*.xml` drawables deleted
+  (happy + speaking remain in use).
+- Verified: fdroid unit suite green, `assembleFdroidDebug` built and
+  installed on the Pixel 8a debug app. NOT yet eyeballed on-device
+  (onboarding only shows on fresh data — don't wipe the debug app's
+  engines just to look; Max will see it on his next fresh-install test).
+- Settings "ONNX threads" question answered: real, both flavors
+  (direct-ORT Kokoro/Kitten set ONNX Runtime intra-op threads). Label
+  left as-is.
+- Still uncommitted in the tree (from a prior 2026-07-12 session, NOT
+  mine): Momo Trust Display font + Type.kt/SpeakScreen.kt/LicenseCatalog/
+  NOTICE/LICENSES edits. Left untouched; needs that session's owner to
+  finish or commit.
+
+## State (2026-07-11 baseline)
 
 main is PUSHED to github (through the 2026-07-11 session). Recent
 atoms: AA (`dc9392a`, CHECK_TTS_DATA install state — unblocked the
