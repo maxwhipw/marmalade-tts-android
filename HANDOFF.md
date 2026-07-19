@@ -1,6 +1,35 @@
-# HANDOFF — onboarding polish, 2026-07-18
+# HANDOFF — first-utterance latency, 2026-07-19
 
-## This session (2026-07-18)
+## This session (2026-07-19) — TTFA fixes
+
+Max reported ~1 s between first sentence appearing in the marmalade
+client and TTS speech starting, even with "warm start" on. Traced both
+repos; shipped 2 commits here + 1 in marmalade-client-android
+(`fbfc718`, setupVoice() no longer re-runs per utterance). All pushed
+to Forgejo.
+
+- **`2bc9650` — keepalive now preloads models.** The keepalive service
+  only held the *process*; the model still cold-loaded on first synth
+  (~300–500 ms ORT session + espeak init). New
+  `service/EngineWarmup.kt` singleton runs `ensureModelLoaded()` over
+  installed engines; triggered from KeepaliveCoordinator (Smart/
+  Persistent), MarmaladeTtsService.onLoadLanguage (was inline there),
+  and a new `MarmaladeTtsApplication.onCreate` re-arm — the
+  coordinator's promised app-startup trigger existed only in KDoc, so
+  persistent mode never survived process death.
+- **`c50ad71` — first chunk exempt from the 80-char minChars merge**
+  (`TextChunker.minCharsExemptFirst`, on for Kitten + Kokoro streaming;
+  Pocket deliberately untouched — chunk boundaries break its prosody
+  seed). Closes the open TTFA item from AUDIT-2026-07-11. Tests added.
+- **On-device verify (Max):** first utterance after fresh process with
+  warm start on (expect `StreamPerf` `loadWait=0`); listen for
+  "short-utterance" pacing on Kitten when a reply opens with a short
+  sentence.
+- **Deferred fix 4 (client repo):** the voice feeder blocks on the
+  prompt.submit ACK (~1 RTT) before collecting speakable chunks —
+  `MarmaladeVoiceSession.kt:977`. Assess fixes 1–3 on-device first.
+
+## Previous session (2026-07-18)
 
 Onboarding UX pass (commits `634f83a` + `eacabb8`, unpushed, on top of
 the 2026-07-11 state below):
