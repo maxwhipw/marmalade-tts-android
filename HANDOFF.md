@@ -1,6 +1,42 @@
-# HANDOFF — first-utterance latency, 2026-07-19
+# HANDOFF — Cloud API engine, 2026-07-19 (later session)
 
-## This session (2026-07-19) — TTFA fixes
+## This session (2026-07-19, afternoon) — Cloud API engine
+
+Commit `d48b5ee`: new **Cloud API engine** — hosted Venice tts-kokoro
+over an OpenAI-compatible `/audio/speech` HTTP call. Ported from the
+CLI's `~/coding/marmalade-tts-cli/marmalade_tts/engines/api.py` (which
+was built + live-verified the same day; see that repo's HANDOFF.md).
+
+- **Engine**: `engine/api/CloudApiEngine.kt` — real `synthesizeStream`
+  (WAV header parsed from the response, PCM emitted as bytes arrive;
+  `"streaming": true` gives ~0.6 s first-byte on Venice). HTTP via a
+  `CloudSpeechHttp` seam (HttpURLConnection prod, fake in tests).
+- **Catalog**: `data/CloudApiVoiceCatalog.kt`, ENGINE
+  `cloud-api-v1`, 54 voices, CATALOG_VERSION 24→25. NOT in
+  EngineCatalog — "installed" = Venice API key configured
+  (`SettingsRepository.cloudApiKey`; Settings → "Cloud API engine"
+  section has the key dialog).
+- **Wiring**: Synthesizer + MarmaladeTtsService when-branches,
+  CheckVoiceDataActivity, VoicePicker/Alias VMs treat key-set as
+  installed; alias editor engine picker now uses `EngineOption`
+  (name+displayName) instead of EngineDescriptor.
+- **Tests**: 12 new in `app/src/test/.../engine/api/`; full
+  `testFdroidDebugUnitTest` suite green; `assembleFdroidDebug` builds.
+- **NOT yet verified on device.** Blocked on wireless-ADB port from
+  Max. On-device plan: install debug APK, paste the Venice key
+  (Settings → Cloud API engine), pick a `cloud-api-v1` voice, speak,
+  watch logcat for the synth path; then an alias + per-app route on the
+  cloud voice. Key on marmalade in `~/.config/marmalade-tts/config.yaml`
+  (`engines.api.api_key`, $2/day limit).
+- Deferred (deliberate): automatic local-engine fallback when the
+  network/API fails — today it errors like any engine failure. Also
+  model selection (pinned `tts-kokoro`) and base-URL override.
+- Untouched: the other session's uncommitted Momo-font/license files
+  (still in the tree, still uncommitted).
+
+# Previous HANDOFF — first-utterance latency, 2026-07-19
+
+## Earlier session (2026-07-19) — TTFA fixes
 
 Max reported ~1 s between first sentence appearing in the marmalade
 client and TTS speech starting, even with "warm start" on. Traced both
