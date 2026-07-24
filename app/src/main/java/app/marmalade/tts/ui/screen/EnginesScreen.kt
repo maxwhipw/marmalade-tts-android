@@ -27,6 +27,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,13 +86,17 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 @Composable
 fun EnginesScreen(
     onEngineSettings: (EngineDescriptor) -> Unit,
+    /** Opens the voice picker scoped to the Cloud API engine's voices. */
+    onShowCloudVoices: () -> Unit,
     viewModel: EnginesViewModel = hiltViewModel(),
 ) {
     val engines by viewModel.engines.collectAsStateWithLifecycle()
     val states by viewModel.installStates.collectAsStateWithLifecycle()
+    val cloudKeySet by viewModel.cloudApiKeySet.collectAsStateWithLifecycle()
 
     var pendingInstall by remember { mutableStateOf<EngineDescriptor?>(null) }
     var pendingUninstall by remember { mutableStateOf<EngineDescriptor?>(null) }
+    var showCloudKeyDialog by remember { mutableStateOf(false) }
 
     // Verify install state once when the screen is composed — covers the
     // case where the user installed engines in onboarding and is now
@@ -128,7 +133,26 @@ fun EnginesScreen(
                     onEngineSettings = { onEngineSettings(engine) },
                 )
             }
+
+            // The Cloud API engine has no bundle to install — a configured
+            // API key is what "installs" it — so it gets its own card with
+            // a Configure action where the local engines have Install.
+            item(key = "cloud-api") {
+                CloudApiCard(
+                    keySet = cloudKeySet,
+                    onConfigure = { showCloudKeyDialog = true },
+                    onShowVoices = onShowCloudVoices,
+                )
+            }
         }
+    }
+
+    if (showCloudKeyDialog) {
+        CloudKeyDialog(
+            keySet = cloudKeySet,
+            onSaveKey = { viewModel.setCloudApiKey(it) },
+            onDismiss = { showCloudKeyDialog = false },
+        )
     }
 
     pendingInstall?.let { engine ->
@@ -367,6 +391,143 @@ private fun ActionRow(
             }
         }
     }
+}
+
+/**
+ * Card for the Cloud API engine — visually a sibling of the local
+ * [EngineCard]s, but its lifecycle is "configure a key", not
+ * "download a bundle". Voices synthesize on the provider's servers
+ * (Venice.ai today), so the card is explicit that text leaves the
+ * device and that nothing is downloaded.
+ */
+@Composable
+private fun CloudApiCard(
+    keySet: Boolean,
+    onConfigure: () -> Unit,
+    onShowVoices: () -> Unit,
+) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Cloud voices",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            var expanded by remember { mutableStateOf(false) }
+            Text(
+                text = "Hosted voices over the network — nothing to download, " +
+                    "but each request sends your text to the provider " +
+                    "(Venice.ai) and needs an API key from venice.ai. " +
+                    "Fast to start speaking; quality of the hosted Kokoro lineup.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (expanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+            )
+            Text(
+                text = if (expanded) "Show less" else "Show more",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .clickable { expanded = !expanded },
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = if (keySet) {
+                    "Configured — cloud voices are available."
+                } else {
+                    "Not configured — add an API key to enable."
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (keySet) {
+                    OutlinedButton(onClick = onConfigure) { Text("Configure") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = onShowVoices) { Text("Voices") }
+                } else {
+                    Button(onClick = onConfigure) { Text("Configure") }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * API-key entry dialog for the Cloud API engine. The stored key is never
+ * displayed back; the field always starts empty ("Remove key" is the
+ * explicit way out).
+ */
+@Composable
+private fun CloudKeyDialog(
+    keySet: Boolean,
+    onSaveKey: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var draft by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Venice API key") },
+        text = {
+            Column {
+                Text(
+                    "Paste an API key from venice.ai. It is stored only " +
+                        "on this device and sent only to api.venice.ai.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    label = { Text(if (keySet) "New key (replaces current)" else "API key") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = draft.isNotBlank(),
+                onClick = {
+                    onSaveKey(draft)
+                    onDismiss()
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (keySet) {
+                    TextButton(
+                        onClick = {
+                            onSaveKey("")
+                            onDismiss()
+                        },
+                    ) { Text("Remove key") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 @Composable

@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -25,17 +24,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -129,8 +123,6 @@ fun SettingsScreen(
     val intraOpThreads by viewModel.intraOpThreads.collectAsStateWithLifecycle()
     val showDeveloperEngines by viewModel.showDeveloperEngines.collectAsStateWithLifecycle()
     val keepaliveMode by viewModel.keepaliveMode.collectAsStateWithLifecycle()
-    val cloudApiKeySet by viewModel.cloudApiKeySet.collectAsStateWithLifecycle()
-
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
@@ -165,13 +157,6 @@ fun SettingsScreen(
             AppMappingsSection(
                 mappingCount = mappingCount,
                 onClick = onNavigateToAppMappings,
-            )
-
-            HorizontalDivider()
-
-            CloudApiSection(
-                keySet = cloudApiKeySet,
-                onSaveKey = viewModel::setCloudApiKey,
             )
 
             HorizontalDivider()
@@ -294,92 +279,6 @@ private fun AppMappingsSection(
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
-}
-
-/**
- * Cloud API engine configuration. The engine synthesizes on Venice.ai's
- * hosted Kokoro over the network — no download, but it needs an API key
- * (venice.ai → Settings → API keys). Entering a key "installs" the
- * engine: its voices appear in the voice picker and alias editor.
- * The stored key is never displayed back; the dialog always starts empty.
- */
-@Composable
-private fun CloudApiSection(
-    keySet: Boolean,
-    onSaveKey: (String) -> Unit,
-) {
-    SectionHeader("Cloud API engine")
-
-    var showDialog by remember { mutableStateOf(false) }
-
-    ListItem(
-        modifier = Modifier.clickable(onClick = { showDialog = true }),
-        headlineContent = { Text("Venice API key") },
-        supportingContent = {
-            Text(
-                if (keySet) {
-                    "Key configured — Cloud API voices are available."
-                } else {
-                    "Not configured. Add a key to enable hosted Cloud API " +
-                        "voices (needs network; synthesis runs on venice.ai)."
-                },
-            )
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
-
-    if (showDialog) {
-        var draft by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Venice API key") },
-            text = {
-                Column {
-                    Text(
-                        "Paste an API key from venice.ai. It is stored only " +
-                            "on this device and sent only to api.venice.ai.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it },
-                        singleLine = true,
-                        label = { Text(if (keySet) "New key (replaces current)" else "API key") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = draft.isNotBlank(),
-                    onClick = {
-                        onSaveKey(draft)
-                        showDialog = false
-                    },
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                Row {
-                    if (keySet) {
-                        TextButton(
-                            onClick = {
-                                onSaveKey("")
-                                showDialog = false
-                            },
-                        ) { Text("Remove key") }
-                    }
-                    TextButton(onClick = { showDialog = false }) { Text("Cancel") }
-                }
-            },
-        )
-    }
 }
 
 @Composable

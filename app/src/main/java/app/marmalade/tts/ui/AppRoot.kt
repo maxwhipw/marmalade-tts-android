@@ -39,6 +39,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.pro.PaywallReason
 import app.marmalade.tts.pro.ProEntryPoint
 import app.marmalade.tts.pro.ProGateHost
@@ -305,6 +306,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 EnginesScreen(
                     onEngineSettings = { engine ->
                         navController.navigate(Routes.engineDetail(engine.name))
+                    },
+                    onShowCloudVoices = {
+                        navController.navigate(Routes.voicesFor(CloudApiVoiceCatalog.ENGINE))
                     },
                 )
             }

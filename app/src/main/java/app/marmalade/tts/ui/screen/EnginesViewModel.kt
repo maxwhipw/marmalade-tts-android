@@ -49,8 +49,26 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class EnginesViewModel @Inject constructor(
     private val installer: EngineInstaller,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
+
+    /**
+     * Whether a Cloud API key is configured — drives the cloud engine
+     * card's status + actions. Only presence reaches the UI; the key
+     * itself never does.
+     */
+    val cloudApiKeySet: StateFlow<Boolean> = settings.cloudApiKey
+        .map { it.isNotBlank() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    /** Persist (or clear, when blank) the Cloud API key. */
+    fun setCloudApiKey(value: String) {
+        viewModelScope.launch { settings.setCloudApiKey(value) }
+    }
 
     /**
      * Catalog engines to render, filtered by the "show developer engines"
