@@ -47,7 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
-import app.marmalade.tts.ui.screen.AppMappingsScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
 import app.marmalade.tts.ui.screen.EffectEditorScreen
 import app.marmalade.tts.ui.screen.EffectEditorViewModel
@@ -81,15 +80,17 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                                │                         (detail; reached from
 //                                │                          Settings → Engines or the
 //                                │                          Speak empty-state CTA)
-//                                ├── Routes.AppMappings  → AppMappingsScreen
-//                                │                         (detail; no nav bar)
 //                                └── engine/{name}        → EngineDetailScreen
 //                                                          (detail; no nav bar)
 //
 //   Bottom-nav tabs use popUpTo(startDestinationId) + saveState/restoreState
 //   so tab switching never grows the back stack — matches marmalade-android.
-//   Engines, AppMappings, and engine/{name} are detail screens (nav bar
-//   hidden), reached via navigate() and dismissed with popBackStack().
+//   Engines and engine/{name} are detail screens (nav bar hidden), reached
+//   via navigate() and dismissed with popBackStack().
+//
+//   Per-app voice routing used to be a Routes.AppMappings detail screen off
+//   Settings. It now lives on the Aliases tab, on the alias each route points
+//   at — see AliasScreen / AppRoutingViewModel.
 // -----------------------------------------------------------------------------
 
 /** Route identifiers for the top-level nav graph. */
@@ -121,12 +122,6 @@ object Routes {
     /** Duplicate any effect into a new one (the editor mints a fresh id on save). */
     fun effectEditorDuplicate(id: String): String =
         "$EffectEditor?dupeId=${Uri.encode(id)}"
-
-    /**
-     * Per-app voice routing — reached from Settings → "Per-app voices".
-     * Leaf detail screen; the bottom nav bar is hidden while this is open.
-     */
-    const val AppMappings = "app_mappings"
 
     /** Detail screen for one engine. Use [engineDetail] to build the concrete route. */
     const val EngineDetail = "engine"
@@ -204,14 +199,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
 
-    // Bottom bar hides on detail destinations: the per-app mappings
-    // screen and the per-engine detail page (whose route is
-    // "engine/<name>", so a startsWith check is the cheapest way to
-    // match the whole family). Aliases used to be a detail route too;
-    // promoted to a top-level tab in v0.1.18 so the nav bar stays
+    // Bottom bar hides on detail destinations, e.g. the per-engine detail
+    // page (whose route is "engine/<name>", so a startsWith check is the
+    // cheapest way to match the whole family). Aliases used to be a detail
+    // route too; promoted to a top-level tab in v0.1.18 so the nav bar stays
     // visible on that screen now.
-    val showBottomBar = currentRoute != Routes.AppMappings &&
-        currentRoute != Routes.Benchmark &&
+    val showBottomBar = currentRoute != Routes.Benchmark &&
         currentRoute != Routes.Engines &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
         currentRoute != Routes.Licenses &&
@@ -285,7 +278,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
             composable(Routes.Settings) {
                 SettingsScreen(
-                    onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
                     onNavigateToEngines = { navController.navigate(Routes.Engines) },
                     onNavigateToLicenses = { navController.navigate(Routes.Licenses) },
                     onNavigateToBenchmark = if (BuildConfig.DEBUG) {
@@ -338,9 +330,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 ),
             ) {
                 EffectEditorScreen(onBack = { navController.popBackStack() })
-            }
-            composable(Routes.AppMappings) {
-                AppMappingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.Benchmark) {
                 BenchmarkScreen(onBack = { navController.popBackStack() })

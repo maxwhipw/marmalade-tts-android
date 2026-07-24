@@ -167,8 +167,8 @@ When investigating **{concern}**, start at **{files}**:
 - `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
   Tabs: **Speak / Voices / Aliases / Engines / Settings** (Aliases was
   promoted from a detail route to a top-level tab in v0.1.18). Detail
-  routes: EngineDetail/{name}, AppMappings. Bottom bar hides on detail
-  routes (`showBottomBar` predicate at the top of AppRoot).
+  routes: EngineDetail/{name}. Bottom bar hides on detail routes
+  (`showBottomBar` predicate at the top of AppRoot).
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

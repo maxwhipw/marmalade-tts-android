@@ -18,6 +18,17 @@ This project follows [Semantic Versioning](https://semver.org/).
   the chip.
 
 ### Changed
+- **Per-app voice routing moved onto the Aliases tab.** It used to be a
+  separate screen buried in Settings → "Per-app voices"; now each alias
+  card shows which apps speak with it ("Used by 2 apps"), and tapping
+  that strip opens an app picker scoped to that alias. The primary
+  alias's card finally states the fallback rule out loud — "…and
+  everything you haven't routed". Ticking an app already routed
+  elsewhere shows its current alias, so re-routing is deliberate.
+  Existing routes are untouched (no schema change, no migration).
+- **Alias rows no longer carry edit and delete icons.** Tapping the card
+  opens the editor, which is now a bottom sheet, and Delete lives inside
+  it behind the same confirmation as before.
 - Brand typography per marmalade-design-scheme-v0: Manrope across the
   app, and the lowercase "marmalade tts" wordmark (Fredoka 600, orange
   in light / cream in dark) on the Speak screen top bar. Both fonts are

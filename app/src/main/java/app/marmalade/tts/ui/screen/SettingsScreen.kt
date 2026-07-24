@@ -66,10 +66,9 @@ import app.marmalade.tts.ui.theme.ThemePreset
 //   Settings entry was removed (duplication is worse than redundancy
 //   for a top-level concept).
 //
-//   Tap on "Per-app voices" row
-//     │
-//     ▼
-//   onNavigateToAppMappings()  ──► AppRoot routes to AppMappingsScreen
+//   Per-app voices used to be a chevron row here, routing to a dedicated
+//   AppMappingsScreen. It moved onto the Aliases tab — a route belongs to the
+//   alias it points at, so it's edited there (see AliasScreen's routing strip).
 //
 //   Text preprocessing lives in EngineDetailScreen, reachable from the
 //   Engines tab (Engines → tap card → "Engine settings"). It used to be a
@@ -85,9 +84,8 @@ import app.marmalade.tts.ui.theme.ThemePreset
  *
  * Sections (separated by HorizontalDivider):
  *  1. Appearance     — mode (system/light/dark) + color preset chips.
- *  2. Per-app voices — chevron row routing to the app-mapping editor.
- *  3. System default — opens Android's TTS engine picker.
- *  4. About          — version string from [BuildConfig].
+ *  2. System default — opens Android's TTS engine picker.
+ *  3. About          — version string from [BuildConfig].
  *
  * Text preprocessing toggles used to live here. They're per-engine settings
  * and now live on [EngineDetailScreen] — see Engines tab → tap a card →
@@ -103,7 +101,6 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateToAppMappings: () -> Unit,
     /** Nav callback for Settings → Engines (engines moved off the bottom nav). */
     onNavigateToEngines: () -> Unit,
     /** Nav callback for Settings → About → Open-source licenses. */
@@ -118,7 +115,6 @@ fun SettingsScreen(
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-    val mappingCount by viewModel.appMappingCount.collectAsStateWithLifecycle()
     val intraOpThreads by viewModel.intraOpThreads.collectAsStateWithLifecycle()
     val showDeveloperEngines by viewModel.showDeveloperEngines.collectAsStateWithLifecycle()
     val keepaliveMode by viewModel.keepaliveMode.collectAsStateWithLifecycle()
@@ -155,13 +151,6 @@ fun SettingsScreen(
             HorizontalDivider()
 
             EnginesSection(onClick = onNavigateToEngines)
-
-            HorizontalDivider()
-
-            AppMappingsSection(
-                mappingCount = mappingCount,
-                onClick = onNavigateToAppMappings,
-            )
 
             HorizontalDivider()
 
@@ -266,33 +255,6 @@ private fun EnginesSection(onClick: () -> Unit) {
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text("Manage engines") },
         supportingContent = { Text("Install, update, or remove TTS engines and their voices.") },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
-}
-
-@Composable
-private fun AppMappingsSection(
-    mappingCount: Int,
-    onClick: () -> Unit,
-) {
-    SectionHeader("Per-app voices")
-
-    val subtitle = when (mappingCount) {
-        0 -> "No per-app routes configured"
-        1 -> "1 app configured"
-        else -> "$mappingCount apps configured"
-    }
-
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Per-app voices") },
-        supportingContent = { Text(subtitle) },
         trailingContent = {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
