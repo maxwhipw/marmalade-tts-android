@@ -32,5 +32,5 @@ data class SynthAudio(val pcm: ShortArray, val sampleRate: Int) {
 class EngineNotInstalledException(engineName: String) :
     UnsupportedOperationException(
         "Engine '$engineName' is not installed. " +
-            "Open Settings → Engines to install it.",
+            "Open the Engines tab to install it.",
     )

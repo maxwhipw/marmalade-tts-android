@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -25,8 +23,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -54,7 +50,7 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   Bottom-nav "Engines" tab → EnginesScreen(onBack, onEngineSettings)
+//   Bottom-nav "Engines" tab → EnginesScreen(onEngineSettings)
 //     │
 //     ├── reads EngineCatalog.all + per-engine InstallState from
 //     │   EnginesViewModel.
@@ -71,9 +67,6 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 //     │     Failed       → "Retry" + reason text below
 //     │     Corrupt      → "Reinstall"
 //     │
-//     └── back arrow → onBack()   (only present when reached from a non-tab
-//                                 entry point; the bottom-nav copy of this
-//                                 screen pops via tab switch)
 //
 //   Cards are OutlinedCard for a quieter look that pairs with the orange
 //   primary used by the install / engine-settings buttons. ElevatedCard
@@ -82,7 +75,7 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 // -----------------------------------------------------------------------------
 
 /**
- * Settings → Engines screen.
+ * Engines tab.
  *
  * One card per engine in [app.marmalade.tts.install.EngineCatalog]. Each
  * card exposes its own install/uninstall lifecycle plus a route into
@@ -91,7 +84,6 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnginesScreen(
-    onBack: () -> Unit,
     onEngineSettings: (EngineDescriptor) -> Unit,
     viewModel: EnginesViewModel = hiltViewModel(),
 ) {
@@ -113,16 +105,9 @@ fun EnginesScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
+                // Top-level tab — no back arrow; the bottom bar is the way out.
                 title = { Text("Engines") },
                 windowInsets = WindowInsets(0),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
             )
         },
     ) { padding ->

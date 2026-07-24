@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.lifecycle.SavedStateHandle
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -75,6 +76,7 @@ class VoicePickerViewModelTest {
             settings = settings,
             synthesizer = player,
             installer = PickerFakeInstaller(),
+            savedStateHandle = SavedStateHandle(),
         )
     }
 }

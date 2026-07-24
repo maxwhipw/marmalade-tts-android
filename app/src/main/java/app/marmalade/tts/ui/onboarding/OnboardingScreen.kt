@@ -285,7 +285,7 @@ private fun EnginePickStep(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Engines run on-device. You can install more later from Settings → Engines.",
+            text = "Engines run on-device. You can install more later from the Engines tab.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -437,7 +437,7 @@ private fun InstallingStep(
         if (rowsToShow.isEmpty()) {
             // User picked zero engines. Show a friendly note.
             Text(
-                text = "No engines selected — you can install one any time from Settings → Engines.",
+                text = "No engines selected — you can install one any time from the Engines tab.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

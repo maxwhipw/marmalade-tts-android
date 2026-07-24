@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -94,6 +95,8 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 fun EngineDetailScreen(
     engineName: String,
     onBack: () -> Unit,
+    /** Opens the voice picker scoped to this engine's voices. */
+    onShowVoices: () -> Unit,
     viewModel: EngineDetailViewModel = hiltViewModel(),
 ) {
     // Resolve the catalog entry. We accept the route arg even if the engine
@@ -146,11 +149,19 @@ fun EngineDetailScreen(
 
             HorizontalDivider()
 
+            val isInstalled = installState is InstallState.Installed
+
+            VoicesSection(
+                enabled = isInstalled,
+                onShowVoices = onShowVoices,
+            )
+
+            HorizontalDivider()
+
             // Preprocessing toggles are valid even when the engine is not
             // installed — the rules are stored per-engine and applied
             // whenever the engine is later loaded. De-emphasise visually
             // so the user understands they're configuring a future state.
-            val isInstalled = installState is InstallState.Installed
             PreprocessingSection(
                 enabled = enabledRules,
                 deEmphasise = !isInstalled,
@@ -166,6 +177,53 @@ fun EngineDetailScreen(
             // gesture bar on devices with edge-to-edge handling.
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * Entry into the voice picker scoped to this engine. De-emphasised (and
+ * inert) until the engine is installed — the picker filters to installed
+ * engines, so opening it early would just show an empty list.
+ */
+@Composable
+private fun VoicesSection(
+    enabled: Boolean,
+    onShowVoices: () -> Unit,
+) {
+    DetailSectionHeader("Voices")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onShowVoices)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Browse voices",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            Text(
+                text = if (enabled) {
+                    "Preview this engine's voices and pick a default."
+                } else {
+                    "Install the engine to browse its voices."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

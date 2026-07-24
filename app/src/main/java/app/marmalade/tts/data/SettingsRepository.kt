@@ -89,7 +89,7 @@ open class SettingsRepository @Inject constructor(
      * decide whether to route to the onboarding wizard or straight to the
      * Speak screen. Flipped to `true` exactly once, on the last step of
      * onboarding (even if the user chose to install zero engines — they
-     * can install later from Settings → Engines).
+     * can install later from the Engines tab).
      */
     open val onboarded: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_ONBOARDED] ?: false

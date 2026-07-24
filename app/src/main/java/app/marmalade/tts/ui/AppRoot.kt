@@ -9,16 +9,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -74,13 +74,15 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 //                    └── else: Scaffold { bottomBar = NavigationBar(...) }
 //                              NavHost(startDestination = Routes.Speak)
 //                                ├── Routes.Speak        → SpeakScreen     (tab)
-//                                ├── Routes.Voices       → VoicePickerScreen (tab)
 //                                ├── Routes.Aliases      → AliasScreen     (tab, v0.1.18+)
+//                                ├── Routes.Effects      → EffectsScreen   (tab)
+//                                ├── Routes.Engines      → EnginesScreen   (tab again
+//                                │                          since v0.3.0-alpha.12)
 //                                ├── Routes.Settings     → SettingsScreen  (tab)
-//                                ├── Routes.Engines      → EnginesScreen
-//                                │                         (detail; reached from
-//                                │                          Settings → Engines or the
-//                                │                          Speak empty-state CTA)
+//                                ├── voices?engine={e}   → VoicePickerScreen
+//                                │                         (detail; from Speak, or
+//                                │                          engine-scoped from
+//                                │                          EngineDetailScreen)
 //                                ├── Routes.AppMappings  → AppMappingsScreen
 //                                │                         (detail; no nav bar)
 //                                └── engine/{name}        → EngineDetailScreen
@@ -95,7 +97,18 @@ import app.marmalade.tts.ui.screen.VoicePickerScreen
 /** Route identifiers for the top-level nav graph. */
 object Routes {
     const val Speak = "speak"
+
+    /**
+     * Voice picker — a detail route since v0.3.0-alpha.12 (it used to be a
+     * bottom-nav tab). Reached from the Speak screen for the full list, or
+     * from a specific engine via [voicesFor], which scopes the picker to
+     * that engine's voices with an optional query arg.
+     */
     const val Voices = "voices"
+
+    /** Build the voices route scoped to one engine's voices. */
+    fun voicesFor(engineName: String): String = "$Voices?engine=${Uri.encode(engineName)}"
+
     const val Engines = "engines"
     const val Settings = "settings"
     const val Aliases = "aliases"
@@ -163,11 +176,15 @@ private data class NavTab(
     val outlinedIcon: ImageVector,
 )
 
+// Voices left the bottom bar in v0.3.0-alpha.12 — it's a detail route now,
+// reached from the Speak screen (top-bar icon / voice chip) or per-engine
+// from EngineDetailScreen. Engines took its slot back (and its old Build
+// wrench, which Effects had borrowed while Engines lived under Settings).
 private val NAV_TABS = listOf(
     NavTab(Routes.Speak, "Speak", Icons.Filled.PlayArrow, Icons.Outlined.PlayArrow),
-    NavTab(Routes.Voices, "Voices", Icons.AutoMirrored.Filled.List, Icons.AutoMirrored.Outlined.List),
     NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Outlined.Person),
-    NavTab(Routes.Effects, "Effects", Icons.Filled.Build, Icons.Outlined.Build),
+    NavTab(Routes.Effects, "Effects", Icons.Filled.Star, Icons.Outlined.Star),
+    NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Outlined.Build),
     NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 
@@ -205,14 +222,16 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         ?.destination?.route
 
     // Bottom bar hides on detail destinations: the per-app mappings
-    // screen and the per-engine detail page (whose route is
-    // "engine/<name>", so a startsWith check is the cheapest way to
-    // match the whole family). Aliases used to be a detail route too;
-    // promoted to a top-level tab in v0.1.18 so the nav bar stays
-    // visible on that screen now.
+    // screen, the voice picker, and the per-engine detail page (whose
+    // route is "engine/<name>", so a startsWith check is the cheapest
+    // way to match the whole family). Aliases used to be a detail route
+    // too; promoted to a top-level tab in v0.1.18. Engines went the
+    // other way — detail in v0.3.0-alpha.11, back to a tab in alpha.12,
+    // swapping places with Voices.
     val showBottomBar = currentRoute != Routes.AppMappings &&
         currentRoute != Routes.Benchmark &&
-        currentRoute != Routes.Engines &&
+        // Matches both the bare route and the ?engine= scoped template.
+        currentRoute?.startsWith(Routes.Voices) != true &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
         currentRoute != Routes.Licenses &&
         currentRoute?.startsWith("${Routes.LicenseText}/") != true &&
@@ -260,24 +279,30 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         ) {
             composable(Routes.Speak) {
                 SpeakScreen(
-                    onNavigateToVoices = { navController.navigateToTab(Routes.Voices) },
-                    // Engines is a detail screen now (off the bottom nav), so
-                    // navigate() into it rather than tab-switching.
-                    onNavigateToEngines = { navController.navigate(Routes.Engines) },
+                    // Voices is a detail route (off the bottom nav), so
+                    // navigate() into it and let back pop to Speak.
+                    onNavigateToVoices = { navController.navigate(Routes.Voices) },
+                    onNavigateToEngines = { navController.navigateToTab(Routes.Engines) },
                     onNavigateToAliases = { navController.navigateToTab(Routes.Aliases) },
                 )
             }
-            composable(Routes.Voices) {
+            composable(
+                route = "${Routes.Voices}?engine={engine}",
+                arguments = listOf(
+                    navArgument("engine") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) {
                 VoicePickerScreen(
-                    onBack = { navController.navigateToTab(Routes.Speak) },
-                    onVoiceSelected = { navController.navigateToTab(Routes.Speak) },
+                    onBack = { navController.popBackStack() },
+                    onVoiceSelected = { navController.popBackStack() },
                 )
             }
             composable(Routes.Engines) {
                 EnginesScreen(
-                    // Reached from Settings (or the Speak empty-state CTA) as a
-                    // detail screen — pop back to wherever we came from.
-                    onBack = { navController.popBackStack() },
                     onEngineSettings = { engine ->
                         navController.navigate(Routes.engineDetail(engine.name))
                     },
@@ -286,7 +311,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToAppMappings = { navController.navigate(Routes.AppMappings) },
-                    onNavigateToEngines = { navController.navigate(Routes.Engines) },
                     onNavigateToLicenses = { navController.navigate(Routes.Licenses) },
                     onNavigateToBenchmark = if (BuildConfig.DEBUG) {
                         { navController.navigate(Routes.Benchmark) }
@@ -366,6 +390,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 EngineDetailScreen(
                     engineName = name,
                     onBack = { navController.popBackStack() },
+                    onShowVoices = { navController.navigate(Routes.voicesFor(name)) },
                 )
             }
         }

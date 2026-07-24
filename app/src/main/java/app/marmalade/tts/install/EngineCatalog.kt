@@ -116,7 +116,7 @@ data class EngineDescriptor(
  * Ships Kokoro Direct (recommended default), Kitten Direct + Kitten Direct
  * Mini, and Pocket TTS — all running on `onnxruntime-android` directly. The
  * list order is also the display order in the onboarding wizard and
- * Settings → Engines screen.
+ * Engines tab.
  */
 object EngineCatalog {
 

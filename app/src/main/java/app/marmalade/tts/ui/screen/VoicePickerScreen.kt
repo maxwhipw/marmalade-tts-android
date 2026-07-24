@@ -102,6 +102,11 @@ fun VoicePickerScreen(
         viewModel.refresh()
     }
 
+    // Engine-scoped mode (voices?engine=<name>, reached from the engine's
+    // detail page): title names the engine and the list drops the
+    // per-engine section headers — every row belongs to the same engine.
+    val engineFilter = viewModel.engineFilter
+
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
         // AppRoot's outer Scaffold owns status-bar insets; opt this inner
@@ -109,7 +114,9 @@ fun VoicePickerScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Voices") },
+                title = {
+                    Text(engineFilter?.let { "${displayNameForEngine(it)} voices" } ?: "Voices")
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -133,7 +140,7 @@ fun VoicePickerScreen(
                     ?.displayName
                     ?: "TTS"
                 Text(
-                    text = "$engineDisplay engine not installed yet — install it from Settings → Engines to enable previews.",
+                    text = "$engineDisplay engine not installed yet — install it from the Engines tab to enable previews.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
@@ -187,14 +194,18 @@ fun VoicePickerScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 orderedEngines.forEach { engineName ->
                     val engineVoices = groupedByEngine[engineName].orEmpty()
-                    val isExpanded = engineName in expandedEngines
-                    item(key = "header-$engineName") {
-                        EngineSectionHeader(
-                            name = displayNameForEngine(engineName),
-                            voiceCount = engineVoices.size,
-                            isExpanded = isExpanded,
-                            onClick = { viewModel.toggleEngineExpanded(engineName) },
-                        )
+                    // Scoped mode has a single engine whose name is already
+                    // in the top bar — skip the header + collapse machinery.
+                    val isExpanded = engineFilter != null || engineName in expandedEngines
+                    if (engineFilter == null) {
+                        item(key = "header-$engineName") {
+                            EngineSectionHeader(
+                                name = displayNameForEngine(engineName),
+                                voiceCount = engineVoices.size,
+                                isExpanded = isExpanded,
+                                onClick = { viewModel.toggleEngineExpanded(engineName) },
+                            )
+                        }
                     }
                     if (isExpanded) {
                         items(items = engineVoices, key = { it.id }) { voice ->

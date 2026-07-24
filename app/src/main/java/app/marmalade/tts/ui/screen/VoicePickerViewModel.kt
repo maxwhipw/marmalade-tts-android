@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.SpeechPlayer
@@ -100,7 +101,15 @@ class VoicePickerViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val synthesizer: SpeechPlayer,
     private val installer: EngineInstaller,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    /**
+     * Optional engine scope from the `voices?engine=` route arg (set when
+     * the picker is opened from an engine's detail page). Null = the full
+     * all-engines picker reached from the Speak screen.
+     */
+    val engineFilter: String? = savedStateHandle["engine"]
 
     /**
      * Engines whose on-disk layout currently passes [EngineInstaller.verify].
@@ -118,6 +127,7 @@ class VoicePickerViewModel @Inject constructor(
     ) { allVoices, installed, showDeveloper ->
         allVoices.filter { voice ->
             voice.engine in installed &&
+                (engineFilter == null || voice.engine == engineFilter) &&
                 (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames)
         }
     }

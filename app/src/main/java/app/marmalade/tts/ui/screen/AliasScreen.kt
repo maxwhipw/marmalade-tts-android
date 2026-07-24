@@ -104,7 +104,7 @@ fun AliasScreen(
 
     // Re-probe engine install state every time the screen becomes the active
     // destination. The VM's init does an initial probe; this catches the
-    // Aliases → Settings → Engines → install → back-to-Aliases flow so a
+    // Aliases → Engines → install → back-to-Aliases flow so a
     // freshly-installed engine appears in the editor's picker without a restart.
     LaunchedEffect(Unit) {
         viewModel.refresh()

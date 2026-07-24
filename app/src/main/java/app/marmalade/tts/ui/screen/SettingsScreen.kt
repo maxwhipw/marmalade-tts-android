@@ -113,8 +113,6 @@ import app.marmalade.tts.ui.theme.ThemePreset
 @Composable
 fun SettingsScreen(
     onNavigateToAppMappings: () -> Unit,
-    /** Nav callback for Settings → Engines (engines moved off the bottom nav). */
-    onNavigateToEngines: () -> Unit,
     /** Nav callback for Settings → About → Open-source licenses. */
     onNavigateToLicenses: () -> Unit,
     /**
@@ -161,10 +159,6 @@ fun SettingsScreen(
                 currentMode = themeMode,
                 onModeSelected = viewModel::setThemeMode,
             )
-
-            HorizontalDivider()
-
-            EnginesSection(onClick = onNavigateToEngines)
 
             HorizontalDivider()
 
@@ -273,24 +267,6 @@ private fun AppearanceSection(
             )
         }
     }
-}
-
-@Composable
-private fun EnginesSection(onClick: () -> Unit) {
-    SectionHeader("Engines")
-
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Manage engines") },
-        supportingContent = { Text("Install, update, or remove TTS engines and their voices.") },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
 }
 
 @Composable
