@@ -1,6 +1,65 @@
-# HANDOFF — first-utterance latency, 2026-07-19
+# HANDOFF — alias-screen routing redesign, 2026-07-24
 
-## This session (2026-07-19) — TTFA fixes
+## This session (2026-07-24) — per-app routing moves onto the alias cards
+
+Branch: **main**. One commit: **`ff15c57`** — not pushed (github is the
+authoritative remote and public; needs Max's explicit all-clear).
+
+Design came from a blind Fable-5-vs-Opus-5 design-lab bake-off; Max
+picked Opus's "routing strip on the alias card" direction and added two
+refinements. Labs + write-ups are at
+`~/coding/scratch/design-lab-alias-routing/` (proposal-a = Opus, served
+on `http://100.99.77.61:8600/`).
+
+What shipped:
+
+- **`AliasScreen.kt`** — alias rows became cards. Each carries a routing
+  strip ("Used by 2 apps" + up to 4 app icons) that opens a picker sheet
+  scoped to that alias. Non-primary aliases with no routes get a dashed
+  "Route apps to X" invitation instead. The **primary** card states the
+  fallback rule for the first time anywhere: "…and everything you haven't
+  routed".
+- **No persistent edit/trash icons** (Max's call). Tapping the card opens
+  the editor, now a `ModalBottomSheet`, with **Delete inside it** behind
+  the pre-existing confirm dialog.
+- **`AppMappingsScreen` → `AppRoutingSheet`**, **`AppMappingsViewModel` →
+  `AppRoutingViewModel`** (git-tracked renames). The VM inverts the
+  app-first table into the alias-first view: `saveRouting()` diffs the
+  sheet's tick set against that alias's saved rows — upsert additions
+  (PK-replace = the "steal"), delete removals, never touch another
+  alias's rows.
+- **Deleted**: Settings → "Per-app voices" row, `Routes.AppMappings`,
+  `SettingsViewModel.appMappingCount`.
+- **`InstalledAppsProvider`** seam (impl `PackageManagerAppsProvider`,
+  bound in `AppModule`) so the routing diff is unit-testable without a
+  PackageManager.
+
+Data + money paths are untouched: no schema change, no migration,
+`app_alias_mapping`/DAO/`TtsRouter` unchanged. The Pro gate moved with
+the feature and kept its rule — **ticking is gated, un-ticking is free**
+so a refunded user can still clean up (`AppRoutingViewModel.toggle`,
+with a defense-in-depth re-check in `saveRouting`).
+
+- **Verified**: `:app:testFdroidDebugUnitTest` + `:app:testPlayDebugUnitTest`
+  green (308 tests, 9 new in `AppRoutingViewModelTest`);
+  `:app:assembleFdroidDebug` builds.
+- **NOT verified on device** — no Android device was attached this
+  session (`adb devices` empty). Nothing here has been eyeballed
+  running. That is the top next task.
+- Docs synced: CHANGELOG (Unreleased), REPO-MAP, CLAUDE.md, and
+  PAYWALL-PLAN (trip-wire section + manual test matrix).
+
+> ⚠️ **Stashed work — read before switching branches.** This session
+> started on `api-engine`, which had uncommitted font/licence work in the
+> tree (Momo Trust Display + Type.kt / SpeakScreen / KittenDirectEngine /
+> LicenseCatalog / NOTICE / LICENSES). To work on main cleanly it was
+> parked, not discarded:
+> `stash@{0}` — "WIP font bundling (Momo Trust Display) + licenses —
+> parked by Claude 2026-07-24". Restore with
+> `git checkout api-engine && git stash pop`. It is the same in-flight
+> work the 2026-07-18 entry below flagged as "not mine".
+
+## Previous session (2026-07-19) — TTFA fixes
 
 Max reported ~1 s between first sentence appearing in the marmalade
 client and TTS speech starting, even with "warm start" on. Traced both
