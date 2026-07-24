@@ -352,24 +352,49 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
-     * API key for the Cloud API engine (Venice.ai). Blank = engine
+     * Per-provider API keys for the Cloud API engine, keyed by
+     * [app.marmalade.tts.data.cloud.CloudProvider.id]. Empty map = engine
      * unconfigured, which the app treats as "not installed"
      * ([app.marmalade.tts.engine.api.CloudApiEngine.isInstalled]).
      *
+     * The single-provider era stored one key under `cloud_api_key`; it is
+     * read here as Venice's key until a per-provider write replaces it.
+     *
      * Plain DataStore is acceptable here: the file is app-private and
      * `android:allowBackup="false"` keeps it out of device backups.
-     * Never log this value.
+     * Never log these values.
      */
-    open val cloudApiKey: Flow<String> = dataStore.data.map { prefs ->
-        prefs[KEY_CLOUD_API_KEY] ?: ""
+    open val cloudApiKeys: Flow<Map<String, String>> = dataStore.data.map { prefs ->
+        val keys = mutableMapOf<String, String>()
+        for ((key, value) in prefs.asMap()) {
+            val providerId = key.name.removePrefix(CLOUD_API_KEY_PREFIX)
+            if (providerId != key.name && value is String && value.isNotBlank()) {
+                keys[providerId] = value
+            }
+        }
+        val legacy = prefs[KEY_CLOUD_API_KEY]
+        if (!legacy.isNullOrBlank() && LEGACY_CLOUD_PROVIDER !in keys) {
+            keys[LEGACY_CLOUD_PROVIDER] = legacy
+        }
+        keys
     }
 
-    /** Persist the Cloud API key; blank removes it. */
-    open suspend fun setCloudApiKey(value: String) {
+    /** One provider's Cloud API key; blank when unconfigured. */
+    open fun cloudApiKeyFor(providerId: String): Flow<String> =
+        cloudApiKeys.map { it[providerId] ?: "" }
+
+    /** True when at least one cloud provider has a key. */
+    open val anyCloudApiKeySet: Flow<Boolean> = cloudApiKeys.map { it.isNotEmpty() }
+
+    /** Persist [providerId]'s Cloud API key; blank removes it. */
+    open suspend fun setCloudApiKey(providerId: String, value: String) {
         dataStore.edit { prefs ->
             val trimmed = value.trim()
-            if (trimmed.isEmpty()) prefs.remove(KEY_CLOUD_API_KEY)
-            else prefs[KEY_CLOUD_API_KEY] = trimmed
+            val key = stringPreferencesKey("$CLOUD_API_KEY_PREFIX$providerId")
+            if (trimmed.isEmpty()) prefs.remove(key) else prefs[key] = trimmed
+            // Any per-provider write for Venice supersedes the
+            // single-provider era's key — drop it so remove actually removes.
+            if (providerId == LEGACY_CLOUD_PROVIDER) prefs.remove(KEY_CLOUD_API_KEY)
         }
     }
 
@@ -421,8 +446,14 @@ open class SettingsRepository @Inject constructor(
         // BuildConfig.DEBUG (shown in debug, hidden in release). v0.3.0-alpha.10.Z.
         private val KEY_SHOW_DEVELOPER_ENGINES = booleanPreferencesKey("show_developer_engines")
 
-        // Cloud API engine key (Venice.ai). Absent => engine unconfigured.
+        // Cloud API engine keys, one pref per provider:
+        // "cloud_api_key_<providerId>". No provider keyed => unconfigured.
+        private const val CLOUD_API_KEY_PREFIX = "cloud_api_key_"
+
+        // Single-provider era key (v0.3.0-alpha.11 dev builds); read as
+        // Venice's key until a per-provider write supersedes it.
         private val KEY_CLOUD_API_KEY = stringPreferencesKey("cloud_api_key")
+        private const val LEGACY_CLOUD_PROVIDER = "venice"
 
         // P-K — keepalive mode, stored as KeepaliveMode.name string.
         // Absent ⇒ Smart (default). Stable key; semver-protected.

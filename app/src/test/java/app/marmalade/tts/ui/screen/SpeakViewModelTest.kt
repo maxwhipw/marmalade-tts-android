@@ -416,5 +416,8 @@ class SpeakViewModelTest {
             val ids = rows.map { it.id }.toSet()
             voices.value = voices.value.filterNot { it.id in ids } + rows
         }
+        override suspend fun deleteByEngine(engine: String) {
+            voices.value = voices.value.filterNot { it.engine == engine }
+        }
     }
 }

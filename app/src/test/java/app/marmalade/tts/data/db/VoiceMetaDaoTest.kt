@@ -165,4 +165,32 @@ class VoiceMetaDaoTest {
             afterUpdate[0].isInstalled,
         )
     }
+
+    @Test
+    fun `replaceEngine swaps one engine's rows and leaves others alone`() = runTest {
+        val kitten = KittenDirectVoiceCatalog.voices.first()
+        dao.upsert(kitten)
+        dao.upsertAll(
+            listOf(
+                VoiceMeta("cloud-api-v1:venice:tts-kokoro:af_heart", "cloud-api-v1", "af_heart", "en-US", 24000, "female"),
+                VoiceMeta("cloud-api-v1:venice:tts-kokoro:af_sky", "cloud-api-v1", "af_sky", "en-US", 24000, "female"),
+            ),
+        )
+
+        dao.replaceEngine(
+            "cloud-api-v1",
+            listOf(
+                VoiceMeta("cloud-api-v1:openai:tts-1:alloy", "cloud-api-v1", "alloy", "en-US", 24000, null),
+            ),
+        )
+
+        val cloud = dao.getByEngine("cloud-api-v1").first()
+        assertEquals(listOf("cloud-api-v1:openai:tts-1:alloy"), cloud.map { it.id })
+        // The other engine's row is untouched.
+        assertNotNull(dao.findById(kitten.id))
+
+        // Replacing with an empty list clears the engine entirely.
+        dao.replaceEngine("cloud-api-v1", emptyList())
+        assertTrue(dao.getByEngine("cloud-api-v1").first().isEmpty())
+    }
 }

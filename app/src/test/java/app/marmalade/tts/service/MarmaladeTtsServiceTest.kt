@@ -707,6 +707,10 @@ internal class FakeVoiceMetaDao(seed: List<VoiceMeta>) : VoiceMetaDao {
     override suspend fun upsertAll(voices: List<VoiceMeta>) {
         for (v in voices) rows[v.id] = v
     }
+
+    override suspend fun deleteByEngine(engine: String) {
+        rows.values.removeAll { it.engine == engine }
+    }
 }
 
 // ---------------------------------------------------------------------------

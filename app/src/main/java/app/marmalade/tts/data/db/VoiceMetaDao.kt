@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -38,4 +39,19 @@ interface VoiceMetaDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(voices: List<VoiceMeta>)
+
+    @Query("DELETE FROM voice_meta WHERE engine = :engine")
+    suspend fun deleteByEngine(engine: String)
+
+    /**
+     * Atomically swap an engine's rows for [voices]. Used by the Cloud
+     * API engine, whose voice list is dynamic (provider descriptors +
+     * live discovery) rather than seeded from a static catalog — the
+     * delete drops voices the provider no longer serves.
+     */
+    @Transaction
+    suspend fun replaceEngine(engine: String, voices: List<VoiceMeta>) {
+        deleteByEngine(engine)
+        if (voices.isNotEmpty()) upsertAll(voices)
+    }
 }

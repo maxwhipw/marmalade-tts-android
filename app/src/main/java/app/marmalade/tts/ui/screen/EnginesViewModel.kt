@@ -53,22 +53,16 @@ class EnginesViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * Whether a Cloud API key is configured — drives the cloud engine
-     * card's status + actions. Only presence reaches the UI; the key
-     * itself never does.
+     * Whether any cloud provider has an API key configured — drives the
+     * cloud engine card's status + actions. Only presence reaches the UI;
+     * keys themselves never do. Key management lives on [CloudApiScreen].
      */
-    val cloudApiKeySet: StateFlow<Boolean> = settings.cloudApiKey
-        .map { it.isNotBlank() }
+    val cloudApiKeySet: StateFlow<Boolean> = settings.anyCloudApiKeySet
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = false,
         )
-
-    /** Persist (or clear, when blank) the Cloud API key. */
-    fun setCloudApiKey(value: String) {
-        viewModelScope.launch { settings.setCloudApiKey(value) }
-    }
 
     /**
      * Catalog engines to render, filtered by the "show developer engines"

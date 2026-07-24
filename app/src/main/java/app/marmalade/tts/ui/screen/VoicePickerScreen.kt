@@ -349,8 +349,12 @@ private fun supportingText(voice: VoiceMeta): String {
     val gender = voice.gender ?: "—"
     // Engine is omitted here — each voice already sits under its engine
     // section header, so repeating it (and the raw engine id) on every row
-    // is redundant clutter.
-    return "$gender · ${voice.languageCode}"
+    // is redundant clutter. Cloud rows are the exception: one section can
+    // hold several providers × models, so name them per row.
+    val provenance = CloudApiVoiceCatalog.parseVoiceId(voice.id)
+        ?.let { " · ${it.providerId} ${it.modelId}" }
+        .orEmpty()
+    return "$gender · ${voice.languageCode}$provenance"
 }
 
 /**
@@ -361,7 +365,7 @@ private fun supportingText(voice: VoiceMeta): String {
  */
 private fun displayNameForEngine(engineName: String): String = when (engineName) {
     // Not in EngineCatalog — hosted engine with no installable bundle.
-    CloudApiVoiceCatalog.ENGINE -> "Cloud API (Venice)"
+    CloudApiVoiceCatalog.ENGINE -> CloudApiVoiceCatalog.DISPLAY_NAME
     else -> EngineCatalog.byName(engineName)?.displayName
         ?: engineName.replaceFirstChar { it.uppercase() }
 }

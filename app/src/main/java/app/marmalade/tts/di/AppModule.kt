@@ -24,6 +24,10 @@ import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.data.cloud.CloudJsonHttp
+import app.marmalade.tts.data.cloud.CloudProviderDirectory
+import app.marmalade.tts.data.cloud.CloudProviderStore
+import app.marmalade.tts.data.cloud.UrlCloudJsonHttp
 import app.marmalade.tts.engine.api.CloudSpeechHttp
 import app.marmalade.tts.engine.api.UrlCloudSpeechHttp
 import app.marmalade.tts.install.EngineFilesDir
@@ -161,6 +165,19 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCloudSpeechHttp(): CloudSpeechHttp = UrlCloudSpeechHttp()
+
+    /**
+     * GET seam for [app.marmalade.tts.data.cloud.CloudProviderStore]
+     * (provider-list refresh + voice discovery). Tests serve canned JSON.
+     */
+    @Provides
+    @Singleton
+    fun provideCloudJsonHttp(): CloudJsonHttp = UrlCloudJsonHttp()
+
+    /** The engine's narrow view of the provider store (base-URL lookup). */
+    @Provides
+    @Singleton
+    fun provideCloudProviderDirectory(store: CloudProviderStore): CloudProviderDirectory = store
 
     /**
      * HTTP fetcher used by [EngineInstaller]. Production uses

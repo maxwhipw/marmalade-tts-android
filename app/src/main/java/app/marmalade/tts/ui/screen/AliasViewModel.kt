@@ -201,7 +201,7 @@ class AliasViewModel @Inject constructor(
         // Cloud API engine lives outside EngineCatalog (no bundle);
         // offer it when its key is configured, after the local engines.
         if (CloudApiVoiceCatalog.ENGINE in installed) {
-            options + EngineOption(CloudApiVoiceCatalog.ENGINE, "Cloud API (Venice)")
+            options + EngineOption(CloudApiVoiceCatalog.ENGINE, CloudApiVoiceCatalog.DISPLAY_NAME)
         } else {
             options
         }
@@ -255,8 +255,8 @@ class AliasViewModel @Inject constructor(
                     installed += engine.name
                 }
             }
-            // Cloud API engine: configured key == installed (no bundle).
-            if (settings.cloudApiKey.firstOrNull().orEmpty().isNotBlank()) {
+            // Cloud API engine: any configured provider key == installed (no bundle).
+            if (settings.anyCloudApiKeySet.firstOrNull() == true) {
                 installed += CloudApiVoiceCatalog.ENGINE
             }
             _installedEngines.value = installed

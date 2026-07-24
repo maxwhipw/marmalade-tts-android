@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
+import app.marmalade.tts.ui.screen.CloudApiScreen
 import app.marmalade.tts.ui.screen.AppMappingsScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
 import app.marmalade.tts.ui.screen.EffectEditorScreen
@@ -111,6 +112,14 @@ object Routes {
     fun voicesFor(engineName: String): String = "$Voices?engine=${Uri.encode(engineName)}"
 
     const val Engines = "engines"
+
+    /**
+     * Cloud API engine configuration (per-provider keys + voice
+     * discovery) — reached from the Cloud voices card on the Engines
+     * tab. Leaf detail screen; the bottom nav bar hides while open.
+     */
+    const val CloudApi = "cloud_api"
+
     const val Settings = "settings"
     const val Aliases = "aliases"
     const val Effects = "effects"
@@ -231,6 +240,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     // swapping places with Voices.
     val showBottomBar = currentRoute != Routes.AppMappings &&
         currentRoute != Routes.Benchmark &&
+        currentRoute != Routes.CloudApi &&
         // Matches both the bare route and the ?engine= scoped template.
         currentRoute?.startsWith(Routes.Voices) != true &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
@@ -307,10 +317,14 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                     onEngineSettings = { engine ->
                         navController.navigate(Routes.engineDetail(engine.name))
                     },
+                    onConfigureCloud = { navController.navigate(Routes.CloudApi) },
                     onShowCloudVoices = {
                         navController.navigate(Routes.voicesFor(CloudApiVoiceCatalog.ENGINE))
                     },
                 )
+            }
+            composable(Routes.CloudApi) {
+                CloudApiScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.Settings) {
                 SettingsScreen(

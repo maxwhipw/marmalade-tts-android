@@ -1,7 +1,7 @@
 package app.marmalade.tts
 
 import android.app.Application
-import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
@@ -98,6 +98,9 @@ class MarmaladeTtsApplication : Application() {
     @Inject
     lateinit var keepalive: Provider<KeepaliveCoordinator>
 
+    @Inject
+    lateinit var cloudProviders: Provider<CloudProviderStore>
+
     /**
      * Application-lifetime scope. SupervisorJob so a seed failure doesn't
      * propagate out of this scope and tear down anything else launched on
@@ -134,7 +137,6 @@ class MarmaladeTtsApplication : Application() {
                 dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
-                dao.upsertAll(CloudApiVoiceCatalog.voices)
                 // Built-in effects. REPLACE-on-conflict refreshes them on each
                 // bump; user-created effects (other ids) are untouched, and
                 // built-ins are read-only in the UI so this can't clobber user
@@ -145,6 +147,12 @@ class MarmaladeTtsApplication : Application() {
                 effectDao.get().pruneBuiltinsNotIn(BuiltinEffects.seedIds)
                 prefs.setCatalogVersion(CATALOG_VERSION)
             }
+            // Cloud API voices are not seeded from a static catalog — the
+            // provider store owns those rows (descriptors + live discovery)
+            // and rebuilds them from its local caches on every start. This
+            // also purges the CATALOG_VERSION-25 static seed's stale
+            // 2-part-id rows on upgrade.
+            cloudProviders.get().sync()
         }
     }
 
@@ -228,6 +236,10 @@ class MarmaladeTtsApplication : Application() {
          *    [app.marmalade.tts.data.db.MIGRATION_7_8] rather than left to
          *    linger (the engine that backed them is gone).
          *  - v25: Cloud API engine (hosted Venice tts-kokoro) voices seeded.
+         *  - v26 (no bump needed): Cloud API voices left the static seed —
+         *    [app.marmalade.tts.data.cloud.CloudProviderStore.sync] owns
+         *    those rows now and runs unconditionally on every start, so no
+         *    version gate applies to them.
          */
         const val CATALOG_VERSION: Int = 25
     }

@@ -97,6 +97,23 @@ When investigating **{concern}**, start at **{files}**:
   language code from the upstream voice-key prefix (a=en-US, b=en-GB,
   e=es-ES, f=fr-FR, h=hi-IN, i=it-IT, j=ja-JP, p=pt-BR, z=zh-CN).
 
+### Cloud API engine (hosted voices)
+- `engine/api/CloudApiEngine.kt` — OpenAI-compatible `/audio/speech`
+  synthesis with true streaming (WAV header parse + chunked PCM emit).
+  One engine for all providers; the voice id carries provider + model:
+  `cloud-api-v1:<provider>:<model>:<voice>`.
+- `data/cloud/CloudProviders.kt` — provider descriptors as data
+  (parse of `cloud-providers.json` + of live `/models?type=tts`).
+- `data/cloud/CloudProviderStore.kt` — merges bundled asset, remotely
+  fetched descriptor overrides (engines repo), and per-provider live
+  voice discovery; owns the engine's `voice_meta` rows via
+  `VoiceMetaDao.replaceEngine` (no static catalog / CATALOG_VERSION
+  involvement). Caches under `filesDir/cloud/`.
+- "Installed" = any provider key in `SettingsRepository.cloudApiKeys`
+  (`cloud_api_key_<provider>` prefs; legacy `cloud_api_key` reads as
+  Venice). Configure UI: Engines tab → Cloud voices card →
+  `ui/screen/CloudApiScreen.kt`.
+
 ### Install / download
 - `install/EngineCatalog.kt` — descriptors for installable engines
   (URL, sha256, archiveRoot, label, isRecommended). Single tarball
@@ -165,10 +182,13 @@ When investigating **{concern}**, start at **{files}**:
 
 ### Navigation
 - `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
-  Tabs: **Speak / Voices / Aliases / Engines / Settings** (Aliases was
-  promoted from a detail route to a top-level tab in v0.1.18). Detail
-  routes: EngineDetail/{name}, AppMappings. Bottom bar hides on detail
-  routes (`showBottomBar` predicate at the top of AppRoot).
+  Tabs: **Speak / Aliases / Effects / Engines / Settings** (Aliases
+  promoted to a tab in v0.1.18; Voices left the bottom bar and Engines
+  rejoined it in v0.3.0-alpha.12 — Voices is now a detail route
+  `voices?engine={e}`, reached from Speak or engine-scoped from
+  EngineDetailScreen). Other detail routes: EngineDetail/{name},
+  CloudApi, AppMappings, Licenses, EffectEditor. Bottom bar hides on
+  detail routes (`showBottomBar` predicate at the top of AppRoot).
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

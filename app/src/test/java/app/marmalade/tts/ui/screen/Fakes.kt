@@ -172,6 +172,9 @@ internal class FakeDao(private val voices: List<VoiceMeta>) : VoiceMetaDao {
     override suspend fun upsertAll(voices: List<VoiceMeta>) {
         throw UnsupportedOperationException("read-only fake")
     }
+    override suspend fun deleteByEngine(engine: String) {
+        throw UnsupportedOperationException("read-only fake")
+    }
 }
 
 /**

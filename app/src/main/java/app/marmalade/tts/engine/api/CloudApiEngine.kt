@@ -2,6 +2,7 @@ package app.marmalade.tts.engine.api
 
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.cloud.CloudProviderDirectory
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
@@ -22,11 +23,12 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * Cloud API engine — synthesis over an OpenAI-compatible `/audio/speech`
- * endpoint. Nothing runs on-device: the request carries text + voice +
- * speed, the response is a WAV byte stream. Venice.ai's `tts-kokoro`
- * model is the (currently fixed) target; the request shape is the same
- * one OpenAI/Groq/DeepInfra serve, so pointing [BASE_URL] elsewhere is
- * the only change a future provider needs.
+ * endpoint. Nothing runs on-device: the request carries text + model +
+ * voice + speed, the response is a WAV byte stream. One engine covers
+ * every provider that speaks this shape (Venice, OpenAI, …): the voice id
+ * names the provider + model (`cloud-api-v1:<provider>:<model>:<voice>`)
+ * and [CloudProviderDirectory] supplies the provider's base URL, so adding a
+ * provider is data, not code.
  *
  * Latency: with `"streaming": true` Venice sends the first audio bytes in
  * ~0.6 s while synthesis continues server-side, so [synthesizeStream]
@@ -34,16 +36,19 @@ import kotlinx.coroutines.runBlocking
  * round trip, independent of utterance length. (Port of the CLI's
  * `marmalade_tts/engines/api.py`, which carries the provider findings:
  * streaming flag behaviour, and that some Venice models ignore
- * `response_format` — this engine pins `tts-kokoro`, which honours wav.)
+ * `response_format` and return MP3 — those are excluded via the provider
+ * descriptor's modelExclude list, and the WAV header check below fails
+ * loudly if one slips through.)
  *
  * "Installed" means "an API key is configured"
- * ([SettingsRepository.cloudApiKey]) — there is no bundle on disk and no
+ * ([SettingsRepository.cloudApiKeys]) — there is no bundle on disk and no
  * [app.marmalade.tts.install.EngineCatalog] entry. The key never leaves
  * the request's Authorization header and is never logged.
  */
 @Singleton
 class CloudApiEngine @Inject constructor(
     private val settings: SettingsRepository,
+    private val providers: CloudProviderDirectory,
     private val http: CloudSpeechHttp,
 ) : TtsEngine {
 
@@ -61,7 +66,7 @@ class CloudApiEngine @Inject constructor(
         // Sync-by-contract; a DataStore snapshot read is a few ms and the
         // one main-thread caller (CheckVoiceDataActivity) already
         // runBlocks a Room read in the same spot.
-        runBlocking { settings.cloudApiKey.first() }.isNotBlank()
+        runBlocking { settings.cloudApiKeys.first() }.isNotEmpty()
 
     override fun ensureModelLoaded() {
         if (!isInstalled()) throw EngineNotInstalledException(engineName)
@@ -96,12 +101,15 @@ class CloudApiEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
     ): Flow<SynthAudio> = flow {
-        val key = settings.cloudApiKey.first()
+        val ref = CloudApiVoiceCatalog.parseVoiceId(voiceId)
+            ?: throw IOException("Not a cloud voice id: $voiceId")
+        val key = settings.cloudApiKeyFor(ref.providerId).first()
         if (key.isBlank()) throw EngineNotInstalledException(engineName)
+        val baseUrl = providers.providerById(ref.providerId)?.baseUrl
+            ?: throw IOException("Unknown cloud provider '${ref.providerId}' for $voiceId")
 
-        val voice = voiceId.substringAfter(':', voiceId)
-        val body = requestJson(text, voice, speed)
-        http.post("$BASE_URL/audio/speech", key, body).use { stream ->
+        val body = requestJson(text, ref.modelId, ref.voice, speed)
+        http.post("$baseUrl/audio/speech", key, body).use { stream ->
             val header = WavStreamHeader.parse(stream)
             // The service's callback.start() already committed to the
             // catalog rate; a mismatch would play at the wrong pitch, so
@@ -140,19 +148,16 @@ class CloudApiEngine @Inject constructor(
 
     /**
      * Hand-built JSON — org.json is a throwing stub in JVM unit tests
-     * (see EffectBlockJson), and this payload is five fields.
+     * (see EffectBlockJson), and this payload is six fields.
      */
-    private fun requestJson(text: String, voice: String, speed: Float): String {
+    private fun requestJson(text: String, model: String, voice: String, speed: Float): String {
         val clamped = speed.coerceIn(0.25f, 4.0f)
-        return """{"model":"$MODEL","input":"${escapeJson(text)}",""" +
+        return """{"model":"${escapeJson(model)}","input":"${escapeJson(text)}",""" +
             """"voice":"${escapeJson(voice)}","response_format":"wav",""" +
             """"speed":$clamped,"streaming":true}"""
     }
 
     companion object {
-        const val BASE_URL = "https://api.venice.ai/api/v1"
-        const val MODEL = "tts-kokoro"
-
         /** ~0.68 s of 24 kHz mono PCM16 per emitted chunk. */
         private const val CHUNK_BYTES = 32 * 1024
 

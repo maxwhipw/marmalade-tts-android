@@ -5,6 +5,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.cloud.CloudModel
+import app.marmalade.tts.data.cloud.CloudProvider
+import app.marmalade.tts.data.cloud.CloudProviderDirectory
 import app.marmalade.tts.engine.EngineNotInstalledException
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -13,9 +16,11 @@ import java.io.InputStream
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -32,12 +37,32 @@ private object NoOpDataStore : DataStore<Preferences> {
     ): Preferences = emptyPreferences()
 }
 
-private class FakeKeySettings(key: String) : SettingsRepository(NoOpDataStore) {
-    val keyState = MutableStateFlow(key)
-    override val cloudApiKey: Flow<String> = keyState
-    override suspend fun setCloudApiKey(value: String) {
-        keyState.value = value.trim()
+private class FakeKeySettings(vararg keys: Pair<String, String>) :
+    SettingsRepository(NoOpDataStore) {
+    val keyState = MutableStateFlow(keys.toMap().filterValues { it.isNotBlank() })
+    override val cloudApiKeys: Flow<Map<String, String>> = keyState
+    override fun cloudApiKeyFor(providerId: String): Flow<String> =
+        keyState.map { it[providerId] ?: "" }
+    override val anyCloudApiKeySet: Flow<Boolean> = keyState.map { it.isNotEmpty() }
+    override suspend fun setCloudApiKey(providerId: String, value: String) {
+        keyState.value =
+            if (value.isBlank()) keyState.value - providerId
+            else keyState.value + (providerId to value.trim())
     }
+}
+
+private val VENICE = CloudProvider(
+    id = "venice",
+    displayName = "Venice",
+    baseUrl = "https://api.venice.ai/api/v1",
+    keyHint = "venice.ai",
+    discoverVoices = true,
+    modelExclude = emptyList(),
+    models = listOf(CloudModel("tts-kokoro", "Kokoro", listOf("af_heart"))),
+)
+
+private val FAKE_DIRECTORY = CloudProviderDirectory { id ->
+    VENICE.takeIf { id == "venice" }
 }
 
 /** Serves a canned response and records the request. */
@@ -79,7 +104,7 @@ private fun wavBytes(
 private fun engine(
     key: String = "test-key",
     http: CloudSpeechHttp = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(10))) },
-) = CloudApiEngine(FakeKeySettings(key), http)
+) = CloudApiEngine(FakeKeySettings("venice" to key), FAKE_DIRECTORY, http)
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -87,7 +112,7 @@ private fun engine(
 
 class CloudApiEngineTest {
 
-    private val voiceId = CloudApiVoiceCatalog.voiceId("af_heart")
+    private val voiceId = CloudApiVoiceCatalog.voiceId("venice", "tts-kokoro", "af_heart")
 
     @Test
     fun `synthesize returns decoded PCM and sends expected request`() = runTest {
@@ -97,15 +122,41 @@ class CloudApiEngineTest {
 
         assertEquals(24000, audio.sampleRate)
         assertTrue(audio.pcm.contentEquals(samples))
-        assertEquals("${CloudApiEngine.BASE_URL}/audio/speech", http.lastUrl)
+        assertEquals("${VENICE.baseUrl}/audio/speech", http.lastUrl)
         assertEquals("test-key", http.lastKey)
         val json = http.lastJson!!
-        assertTrue(json.contains("\"model\":\"${CloudApiEngine.MODEL}\""))
+        assertTrue(json.contains("\"model\":\"tts-kokoro\""))
         assertTrue(json.contains("\"input\":\"hello there\""))
         assertTrue(json.contains("\"voice\":\"af_heart\""))
         assertTrue(json.contains("\"speed\":1.5"))
         assertTrue(json.contains("\"streaming\":true"))
         assertTrue(json.contains("\"response_format\":\"wav\""))
+    }
+
+    @Test
+    fun `legacy 2-part voice id still resolves to venice kokoro`() = runTest {
+        val http = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(4))) }
+        engine(http = http).synthesize("x", "cloud-api-v1:af_sky", 1.0f)
+        assertEquals("${VENICE.baseUrl}/audio/speech", http.lastUrl)
+        assertTrue(http.lastJson!!.contains("\"model\":\"tts-kokoro\""))
+        assertTrue(http.lastJson!!.contains("\"voice\":\"af_sky\""))
+    }
+
+    @Test
+    fun `unknown provider fails loudly without a request`() = runTest {
+        val http = FakeHttp { fail("no request expected"); throw AssertionError() }
+        val eng = CloudApiEngine(
+            FakeKeySettings("venice" to "k", "nope" to "k2"),
+            FAKE_DIRECTORY,
+            http,
+        )
+        try {
+            eng.synthesize("x", CloudApiVoiceCatalog.voiceId("nope", "m", "v"), 1.0f)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            assertTrue(e.message!!.contains("nope"))
+        }
+        assertNull(http.lastUrl)
     }
 
     @Test
@@ -141,14 +192,14 @@ class CloudApiEngineTest {
     }
 
     @Test
-    fun `blank key throws EngineNotInstalled before any request`() = runTest {
+    fun `missing provider key throws EngineNotInstalled before any request`() = runTest {
         val http = FakeHttp { fail("no request expected"); throw AssertionError() }
         try {
             engine(key = "", http = http).synthesize("x", voiceId, 1.0f)
             fail("expected EngineNotInstalledException")
         } catch (_: EngineNotInstalledException) {
         }
-        assertEquals(null, http.lastUrl)
+        assertNull(http.lastUrl)
     }
 
     @Test
@@ -174,7 +225,7 @@ class CloudApiEngineTest {
     }
 
     @Test
-    fun `isInstalled reflects key presence`() {
+    fun `isInstalled reflects any key presence`() {
         assertTrue(engine(key = "k").isInstalled())
         assertTrue(!engine(key = "").isInstalled())
     }
@@ -193,26 +244,39 @@ class CloudApiEngineTest {
 class CloudApiVoiceCatalogTest {
 
     @Test
-    fun `voices are well formed`() {
-        assertTrue(CloudApiVoiceCatalog.voices.size >= 50)
-        for (v in CloudApiVoiceCatalog.voices) {
-            assertEquals(CloudApiVoiceCatalog.ENGINE, v.engine)
-            assertTrue(v.id.startsWith("${CloudApiVoiceCatalog.ENGINE}:"))
-            assertEquals(CloudApiVoiceCatalog.SAMPLE_RATE, v.sampleRate)
-            assertTrue(v.languageCode.isNotBlank())
-            assertTrue(v.gender == "female" || v.gender == "male")
-        }
-        // No duplicate ids.
-        assertEquals(
-            CloudApiVoiceCatalog.voices.size,
-            CloudApiVoiceCatalog.voices.map { it.id }.toSet().size,
-        )
+    fun `voice id round-trips through parse`() {
+        val id = CloudApiVoiceCatalog.voiceId("openai", "tts-1", "alloy")
+        val ref = CloudApiVoiceCatalog.parseVoiceId(id)!!
+        assertEquals("openai", ref.providerId)
+        assertEquals("tts-1", ref.modelId)
+        assertEquals("alloy", ref.voice)
     }
 
     @Test
-    fun `default voice is in the catalog`() {
-        assertTrue(
-            CloudApiVoiceCatalog.voices.any { it.id == CloudApiVoiceCatalog.DEFAULT_VOICE_ID },
-        )
+    fun `legacy 2-part id parses to venice kokoro`() {
+        val ref = CloudApiVoiceCatalog.parseVoiceId("cloud-api-v1:af_heart")!!
+        assertEquals("venice", ref.providerId)
+        assertEquals("tts-kokoro", ref.modelId)
+        assertEquals("af_heart", ref.voice)
+    }
+
+    @Test
+    fun `other engines' ids parse to null`() {
+        assertNull(CloudApiVoiceCatalog.parseVoiceId("kokoro-direct-v1_0:af_heart"))
+        assertNull(CloudApiVoiceCatalog.parseVoiceId("cloud-api-v1:a:b:c:d"))
+    }
+
+    @Test
+    fun `voiceMeta derives language and gender for kokoro-style keys only`() {
+        val model = VENICE.models.single()
+        val kokoro = CloudApiVoiceCatalog.voiceMeta(VENICE, model, "jf_alpha")
+        assertEquals("ja-JP", kokoro.languageCode)
+        assertEquals("female", kokoro.gender)
+
+        // OpenAI-style names must not hit the prefix heuristics —
+        // "ballad" would read as en-GB and "echo" as es-ES.
+        val ballad = CloudApiVoiceCatalog.voiceMeta(VENICE, model, "ballad")
+        assertEquals("en-US", ballad.languageCode)
+        assertNull(ballad.gender)
     }
 }

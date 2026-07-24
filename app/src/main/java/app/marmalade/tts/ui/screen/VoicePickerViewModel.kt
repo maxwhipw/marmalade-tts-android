@@ -213,8 +213,8 @@ class VoicePickerViewModel @Inject constructor(
                 }
             }
             // The Cloud API engine has no bundle — "installed" means an
-            // API key is configured (Settings → Cloud API engine).
-            if (settings.cloudApiKey.firstOrNull().orEmpty().isNotBlank()) {
+            // API key is configured (Engines tab → Cloud voices → Configure).
+            if (settings.anyCloudApiKeySet.firstOrNull() == true) {
                 installed += CloudApiVoiceCatalog.ENGINE
             }
             _installedEngines.value = installed

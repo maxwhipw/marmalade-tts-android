@@ -5,6 +5,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Cloud voices (hosted TTS)**: a new bundle-less engine that
+  synthesizes over any OpenAI-compatible `/audio/speech` provider with
+  true streaming (first audio ≈ one network round trip). Providers are
+  described as *data* (`cloud-providers.json`, bundled + remotely
+  updatable from the engines repo) and Venice's model/voice lineup is
+  discovered live from its `/models?type=tts` endpoint — so new
+  providers, models, or voices arrive without an app update. Configure
+  per-provider API keys from the Engines tab's "Cloud voices" card
+  (Configure where local engines have Install); voices appear in the
+  picker/aliases only once a key is set. Ships with Venice (Kokoro) and
+  OpenAI (GPT-4o mini TTS, TTS-1) descriptors.
+- Per-engine voice browsing: each engine's detail page has a "Browse
+  voices" entry opening the picker scoped to that engine.
+
 ### Fixed
 - **Primary alias routing**: TTS clients auto-fill the request's voice
   from the engine's advertised default, and that echo outranked the
@@ -18,6 +33,11 @@ This project follows [Semantic Versioning](https://semver.org/).
   the chip.
 
 ### Changed
+- Bottom navigation is now **Speak / Aliases / Effects / Engines /
+  Settings**: Engines is a tab again (with its old wrench icon back;
+  Effects moved to a star), and Voices left the bottom bar — it's a
+  detail screen reached from Speak or from an engine's detail page.
+  Settings lost its "Manage engines" row accordingly.
 - Brand typography per marmalade-design-scheme-v0: Manrope across the
   app, and the lowercase "marmalade tts" wordmark (Fredoka 600, orange
   in light / cream in dark) on the Speak screen top bar. Both fonts are

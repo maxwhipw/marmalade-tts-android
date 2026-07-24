@@ -27,7 +27,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,6 +85,8 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 @Composable
 fun EnginesScreen(
     onEngineSettings: (EngineDescriptor) -> Unit,
+    /** Opens the Cloud API engine's configure surface (provider keys). */
+    onConfigureCloud: () -> Unit,
     /** Opens the voice picker scoped to the Cloud API engine's voices. */
     onShowCloudVoices: () -> Unit,
     viewModel: EnginesViewModel = hiltViewModel(),
@@ -96,7 +97,6 @@ fun EnginesScreen(
 
     var pendingInstall by remember { mutableStateOf<EngineDescriptor?>(null) }
     var pendingUninstall by remember { mutableStateOf<EngineDescriptor?>(null) }
-    var showCloudKeyDialog by remember { mutableStateOf(false) }
 
     // Verify install state once when the screen is composed — covers the
     // case where the user installed engines in onboarding and is now
@@ -140,19 +140,11 @@ fun EnginesScreen(
             item(key = "cloud-api") {
                 CloudApiCard(
                     keySet = cloudKeySet,
-                    onConfigure = { showCloudKeyDialog = true },
+                    onConfigure = onConfigureCloud,
                     onShowVoices = onShowCloudVoices,
                 )
             }
         }
-    }
-
-    if (showCloudKeyDialog) {
-        CloudKeyDialog(
-            keySet = cloudKeySet,
-            onSaveKey = { viewModel.setCloudApiKey(it) },
-            onDismiss = { showCloudKeyDialog = false },
-        )
     }
 
     pendingInstall?.let { engine ->
@@ -422,9 +414,10 @@ private fun CloudApiCard(
             var expanded by remember { mutableStateOf(false) }
             Text(
                 text = "Hosted voices over the network — nothing to download, " +
-                    "but each request sends your text to the provider " +
-                    "(Venice.ai) and needs an API key from venice.ai. " +
-                    "Fast to start speaking; quality of the hosted Kokoro lineup.",
+                    "but each request sends your text to the provider you " +
+                    "configure (Venice, OpenAI, …) and needs that provider's " +
+                    "API key. Fast to start speaking; the provider's full " +
+                    "voice lineup at your fingertips.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
@@ -448,7 +441,7 @@ private fun CloudApiCard(
                 text = if (keySet) {
                     "Configured — cloud voices are available."
                 } else {
-                    "Not configured — add an API key to enable."
+                    "Not configured — add a provider API key to enable."
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -471,63 +464,6 @@ private fun CloudApiCard(
             }
         }
     }
-}
-
-/**
- * API-key entry dialog for the Cloud API engine. The stored key is never
- * displayed back; the field always starts empty ("Remove key" is the
- * explicit way out).
- */
-@Composable
-private fun CloudKeyDialog(
-    keySet: Boolean,
-    onSaveKey: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var draft by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Venice API key") },
-        text = {
-            Column {
-                Text(
-                    "Paste an API key from venice.ai. It is stored only " +
-                        "on this device and sent only to api.venice.ai.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    singleLine = true,
-                    label = { Text(if (keySet) "New key (replaces current)" else "API key") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = draft.isNotBlank(),
-                onClick = {
-                    onSaveKey(draft)
-                    onDismiss()
-                },
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            Row {
-                if (keySet) {
-                    TextButton(
-                        onClick = {
-                            onSaveKey("")
-                            onDismiss()
-                        },
-                    ) { Text("Remove key") }
-                }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        },
-    )
 }
 
 @Composable
