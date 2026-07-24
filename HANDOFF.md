@@ -1,4 +1,67 @@
-# HANDOFF — Cloud API engine, 2026-07-19 (later session)
+# HANDOFF — Cloud providers + nav restructure, 2026-07-24 (branch api-engine)
+
+## Branch state
+
+**All cloud-API work now lives on branch `api-engine`** (Max's call,
+2026-07-24: keep it off main until the design is proven). `main` was
+reset to `eec6d34` (pre-API) and force-aligned on Forgejo; github main
+never had the API commits. Merge `api-engine` → main only when Max says
+the feature is done and makes sense.
+
+## This session (2026-07-24) — three lettered features, all committed
+
+- **A `2170dc8` nav restructure**: tabs are now Speak / Aliases /
+  Effects / Engines / Settings. Voices left the bottom bar → detail
+  route `voices?engine={e}` (from Speak, or engine-scoped from
+  EngineDetailScreen's new "Browse voices" row). Engines is a tab again
+  (Build wrench back; Effects → Star). Settings lost "Manage engines".
+- **B `08230bd` cloud engine card**: the Venice key UI moved from
+  Settings to a "Cloud voices" card on the Engines tab — Configure
+  where local engines have Install; Voices button appears when
+  configured.
+- **C `ce5e317` providers as data + live discovery**:
+  - `app/src/main/assets/cloud-providers.json` (+ same file committed
+    to `~/coding/marmalade-tts-android-engines`, commit `551c6a2`,
+    **NOT pushed** — needs Max's all-clear; until it's pushed the
+    remote refresh 404s harmlessly and the bundled asset rules).
+  - `data/cloud/CloudProviders.kt` (parsing), `CloudProviderStore.kt`
+    (asset/remote/discovery merge, filesDir/cloud/ caches, owns the
+    engine's Room rows via `VoiceMetaDao.replaceEngine`).
+  - Voice ids: `cloud-api-v1:<provider>:<model>:<voice>`; legacy
+    2-part ids resolve to venice/tts-kokoro. Keys per provider
+    (`cloud_api_key_<id>`, legacy key reads as Venice).
+  - `CloudApiScreen` (Engines tab → card → Configure): per-provider
+    key dialogs + "Refresh voices"; provider list refreshes from the
+    engines repo on open.
+  - Venice `/models?type=tts` is public and carries per-model voice
+    lists; qwen3 models excluded via modelExclude (return MP3).
+  - Ships Venice (Kokoro 54) + OpenAI (gpt-4o-mini-tts, tts-1)
+    descriptors. OpenAI voice list is from training knowledge —
+    verify before relying on it (it's remotely fixable data).
+
+Verified: `assembleFdroidDebug` + full `testFdroidDebugUnitTest` green
+(21 cloud-related tests across CloudApiEngineTest,
+CloudApiVoiceCatalogTest, CloudProvidersTest, VoiceMetaDaoTest).
+
+## NOT yet done
+
+- **On-device verify** of everything above (blocked on wireless-ADB
+  port from Max). Plan: install debug APK from `api-engine`, check the
+  new nav, configure the Venice key via the card (legacy key from the
+  earlier dev build should carry over as venice), confirm voices
+  appear/refresh, speak, alias + per-app route on a cloud voice.
+  Venice key lives on marmalade in
+  `~/.config/marmalade-tts-cli` config (`engines.api.api_key`).
+- Push `cloud-providers.json` in the engines repo to github (Max's
+  all-clear required).
+- Deferred (deliberate): local-engine fallback on network failure;
+  per-model sample-rate handling (everything pinned 24 kHz, loud
+  error otherwise); MP3 decode via MediaCodec for wav-ignoring models.
+- Untouched: the other session's uncommitted Momo-font/license files
+  (LICENSES/fonts.md, NOTICE.md, LicenseCatalog.kt,
+  KittenDirectEngine.kt, SpeakScreen.kt, Type.kt + momo_trust font).
+
+# Previous HANDOFF — Cloud API engine, 2026-07-19
 
 ## This session (2026-07-19, afternoon) — Cloud API engine
 
