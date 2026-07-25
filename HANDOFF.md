@@ -1,3 +1,130 @@
+# HANDOFF — Venice capability audit, 2026-07-24 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch: **`verify/routing-on-api-engine`**, merge commit **`5674aa4`**
+(merges `main`'s alias-routing redesign into the `api-engine` work so one
+build carries both). `api-engine` and `main` are untouched; `stash@{0}` is
+still parked. 328 unit tests green on both flavors; fdroid debug APK built
+and installed on the Pixel 8a.
+
+**Not pushed.** github is the authoritative public remote and needs Max's
+explicit all-clear each time.
+
+## Reported bug: "Cloud API response is not a WAV stream"
+
+Max picked voice `InspirationalGirl` on the Speak screen and got that error.
+Root cause is NOT a bad request — Venice returned **HTTP 200 with a valid
+MP3**. `WavStreamHeader.parse` sniffed for RIFF, didn't find it, threw.
+
+`cloud-providers.json` carries `modelExclude: ["tts-qwen3"]` and
+`discoverVoices: true`. Venice now serves **11 TTS models / 186 voices**;
+`CloudProviders.kt:108` blocklists by substring, so every model Venice adds
+appears in the picker and is *presumed* WAV/24 kHz/streaming until it
+fails. Discovery fails open — that is the structural bug.
+
+## Measured capability matrix (live against api.venice.ai, 2026-07-24)
+
+Request was always `response_format:"wav", streaming:true`.
+
+| Model | Body | Rate | Warm TTFB | Streams | Works today |
+|---|---|---|---|---|---|
+| `tts-kokoro` | WAV | 24k | 0.9–1.5s | yes | **yes** |
+| `tts-xai-v1` | WAV | 24k | 2.9s | no | **yes** |
+| `tts-gradium-v1` | WAV | 48k | 0.4–1.4s | yes | no — rate |
+| `tts-inworld-1-5-max` | WAV | 48k | 4.5s | no | no — rate |
+| `tts-gemini-3-1-flash` | MP3 | 24k | ~7s | no | no — codec |
+| `tts-minimax-speech-02-hd` | MP3 | 32k | 3.4–4.5s | no | no — codec+rate |
+| `tts-elevenlabs-turbo-v2-5` | MP3 | 44.1k | 1.8s | no | no — codec+rate |
+| `tts-orpheus` | WAV | — | 7.2s | no | no — 60s timeout when cold |
+| `tts-chatterbox-hd` | WAV | — | 15.1s | no | no — 60s timeout when cold |
+| `tts-qwen3-0-6b` / `-1-7b` | MP3 | — | — | no | no — already excluded |
+
+Only **Kokoro and xAI** work end-to-end. Hard facts behind the table:
+
+- **`response_format` is ignored** by the MP3 models. Asking for `pcm`,
+  `flac` or `wav` returns byte-identical ID3v2.4 MP3. There is no server-side
+  flag that fixes this; client-side decode is the only route.
+- **`content-type` is unreliable in both directions** — three models send
+  `audio/mpeg` with a RIFF body. Only magic-byte sniffing works, which the
+  engine already does (`CloudApiEngine.kt:207`).
+- **Sample rate is the real blocker**, not MP3. `CloudApiEngine.kt:116`
+  hard-fails anything that isn't 24 kHz mono, because
+  `MarmaladeTtsService` commits the rate via `callback.start()` *before*
+  synthesis. Gradium and Inworld are fast, streaming, native-WAV — and
+  broken purely on rate.
+- **Cold start dominates the outliers.** Orpheus measured 214s → 110s →
+  7.2s over three runs; Chatterbox 80s → 91s → 15.1s; Inworld 24.9s → 4.4s.
+  Never rank these models on a single cold sample.
+- Only **Kokoro and Gradium genuinely stream** (TTFB ≪ total). Everything
+  else buffers server-side, so TTFB ≈ total.
+
+## Plan (post-Fable review, in this order)
+
+1. **Data-only, ships immediately:** narrow `modelExclude` to leave only
+   `tts-kokoro` + `tts-xai-v1`. Fixes the reported bug with a JSON edit.
+   The descriptor is already remotely updatable via
+   `CloudProviderStore.refreshProviders()`.
+2. **Structural:** per-model capability metadata (format, sampleRate,
+   streams, latency class) in the descriptor; discovery *intersects*
+   known-good models instead of substring-blocklisting bad ones.
+3. **Resampling** — unlocks Gradium + Inworld. Higher value than MP3
+   decode: those two are the fast streaming models.
+4. **MP3 decode** via MediaCodec behind an **injectable seam** — MediaCodec
+   doesn't exist on plain JVM and would break the unit tests the same way
+   `org.json` did. Buffer-and-emit-once is the right shape (these models
+   don't stream anyway); no streaming decoder needed. A pure-Java decoder
+   (JLayer etc.) is LGPL — stop and ask Max, don't default to it.
+5. **Classify the sniff failure** ("this model returned MP3") rather than
+   surfacing an error body. Non-2xx JSON errors are *already* surfaced
+   verbatim at `CloudApiEngine.kt:296-300`.
+6. **Voice picker grouped by model** — currently 186 voices flattened
+   alphabetically, so there are two "Alice" (ElevenLabs + Gradium) and a
+   stray "Alex" (Kokoro + Inworld), and no way to tell `InspirationalGirl`
+   is MiniMax. Show the latency class here too.
+
+### Open, untested
+- Do the MP3 models honour `speed`? They ignore `response_format`, so they
+  may no-op the speed slider — which would violate the project's
+  speed-handling convention. One curl each settles it.
+- `CloudApiVoiceCatalog.kt:72-73` stamps every discovered voice
+  `languageCode = "en-US"`, including multilingual MiniMax/Gemini sets.
+  Grouping the picker by model is cosmetic while this metadata is wrong.
+- Pre-existing fragilities Fable flagged in `WavStreamHeader.parse`:
+  rejects WAVE_FORMAT_EXTENSIBLE wrapping PCM (line 225); no RIFF odd-size
+  pad handling; a 0xFFFFFFFF chunk size goes negative through `leInt` and
+  desyncs the parser; `ByteArray(size)` trusts an unvalidated 32-bit size.
+- `isInstalled()` (line 69) is true if *any* provider has a key, so a user
+  with only an OpenAI key tapping a Venice voice gets "engine not
+  installed" while the engine visibly works elsewhere.
+- **Stale comment** `CloudApiEngine.kt:38-41` claims MP3 models "are
+  excluded via the provider descriptor's modelExclude list". Five are live.
+  Update it with whatever fix lands.
+
+## Wordmark font — resolved, not yet implemented
+
+The app bundles **Fredoka** only. `Type.kt:14` justifies this with a claim
+that is **factually wrong**: it says Momo Trust Display "isn't freely
+distributable". It is a Google Font under **OFL-1.1**, `Copyright 2024 The
+MoMo Trust Display Project Authors`, by Type Associates.
+
+The authoritative reference is `marmalade-agent/build.sh:284`, which bakes
+`fontDisplay: '"Momo Trust Display", "Fredoka", sans-serif'` and requests
+`family=Momo+Trust+Display` **with no `:wght@` suffix** — because the family
+ships **Regular 400 only**. `wght@600` returns HTTP 400 from Google Fonts.
+
+So: the marmalade-design SKILL.md's "Momo Trust Display | 600" is wrong and
+should read 400. `stash@{0}` already holds WIP Momo bundling — pop that
+rather than redo it, and add the OFL entry to `LICENSES/fonts.md` plus the
+in-app licenses screen.
+
+## Still unverified on device
+
+The alias-routing redesign has **never been eyeballed running**. The APK is
+installed; the five checks are listed in the section below. Max was on a
+call when the walk was attempted, so it was abandoned rather than fight him
+for the screen.
+
 # HANDOFF — Cloud providers + nav restructure, 2026-07-24 (branch api-engine)
 
 ## Branch state
