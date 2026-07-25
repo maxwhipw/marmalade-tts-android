@@ -78,9 +78,17 @@ class CloudProviderStore @Inject constructor(
             val cache = voicesCacheFile(provider.id)
             if (!cache.exists()) return@map provider
             val discovered = runCatching {
-                CloudProviders.parseDiscoveredModels(cache.readText(), provider.modelExclude)
+                CloudProviders.parseDiscoveredModels(cache.readText())
             }.getOrElse { emptyList() }
-            if (discovered.isEmpty()) provider else provider.copy(models = discovered)
+            if (discovered.isEmpty()) {
+                provider
+            } else {
+                // Join, never replace. The descriptor's model list is the
+                // allowlist and the only source of capability data; a
+                // wholesale copy(models = discovered) would silently drop
+                // every sampleRate and re-open the fail-open hole.
+                provider.copy(models = CloudProviders.mergeDiscovered(provider.models, discovered))
+            }
         }
         cached = merged
         return merged
@@ -127,11 +135,15 @@ class CloudProviderStore @Inject constructor(
             } catch (e: IOException) {
                 return@withContext Result.failure(e)
             }
-            val models = try {
-                CloudProviders.parseDiscoveredModels(body, provider.modelExclude)
+            val discovered = try {
+                CloudProviders.parseDiscoveredModels(body)
             } catch (e: JSONException) {
                 return@withContext Result.failure(e)
             }
+            // Report what the user will actually be able to speak with, not
+            // everything the provider advertises — Venice lists 11 TTS models
+            // and only the allowlisted ones reach the picker.
+            val models = CloudProviders.mergeDiscovered(provider.models, discovered)
             if (models.isEmpty()) {
                 return@withContext Result.failure(
                     IOException("${provider.displayName} listed no usable TTS models"),
@@ -164,16 +176,40 @@ class CloudProviderStore @Inject constructor(
         voiceDao.replaceEngine(CloudApiVoiceCatalog.ENGINE, rows)
     }
 
+    /**
+     * The bundled asset, or the cached remote copy when it is at least as
+     * new by schema [CloudProvidersDocument.version].
+     *
+     * The version comparison is load-bearing, not defensive. The cache used
+     * to win unconditionally, which meant a device that had ever refreshed
+     * pinned that copy forever: shipping a corrected descriptor in an app
+     * update did nothing, and a new build's capability fields would be read
+     * from an old schema that never had them. Ties go to the cache so a
+     * same-version remote can still deliver new models between releases.
+     */
     private fun loadBaseProviders(): List<CloudProvider> {
-        providersCacheFile.takeIf { it.exists() }?.let { file ->
-            runCatching { return CloudProviders.parse(file.readText()) }
-                .onFailure { Log.w(TAG, "cached provider list unreadable; using bundled", it) }
-        }
         val bundled = context.assets.open(BUNDLED_ASSET).use {
             it.readBytes().toString(Charsets.UTF_8)
         }
         // A malformed bundled asset is a build error — let it throw.
-        return CloudProviders.parse(bundled)
+        val bundledDoc = CloudProviders.parseDocument(bundled)
+
+        val cachedDoc = providersCacheFile.takeIf { it.exists() }?.let { file ->
+            runCatching { CloudProviders.parseDocument(file.readText()) }
+                .onFailure { Log.w(TAG, "cached provider list unreadable; using bundled", it) }
+                .getOrNull()
+        } ?: return bundledDoc.providers
+
+        return if (cachedDoc.version >= bundledDoc.version) {
+            cachedDoc.providers
+        } else {
+            Log.i(
+                TAG,
+                "cached provider list is schema v${cachedDoc.version}, " +
+                    "bundled is v${bundledDoc.version}; using bundled",
+            )
+            bundledDoc.providers
+        }
     }
 
     companion object {

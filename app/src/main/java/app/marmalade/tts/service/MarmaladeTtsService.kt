@@ -171,8 +171,16 @@ class MarmaladeTtsService : TextToSpeechService() {
     // (e.g. a freshly-installed engine seeds new rows), so correctness is
     // preserved even on a cache miss.
     //
-    // voiceId → engine name, populated from voiceDao.getAll() in onCreate.
-    private val voiceEngineCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
+    // voiceId → (engine name, sample rate), populated from voiceDao.getAll()
+    // in onCreate. The rate rides along because onSynthesizeText must commit
+    // to one in callback.start() *before* any audio exists, and cloud voices
+    // are no longer all 24 kHz (Venice serves 24/32/44.1/48 kHz across its
+    // catalog). Reading it here keeps the synth worker off a Room hit on the
+    // hot path — the same reason the engine name is cached.
+    private val voiceEngineCache: ConcurrentHashMap<String, VoiceRouting> = ConcurrentHashMap()
+
+    /** What the hot path needs to know about a voice before synthesizing. */
+    private data class VoiceRouting(val engine: String, val sampleRate: Int)
 
     // engineName → enabled preprocessing rules. Populated lazily from
     // onLoadLanguage (the framework's documented warm-up hook). Reads in
@@ -203,7 +211,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                 // honest if a future revision deletes voices.
                 voiceEngineCache.clear()
                 for (v in voices) {
-                    voiceEngineCache[v.id] = v.engine
+                    voiceEngineCache[v.id] = VoiceRouting(v.engine, v.sampleRate)
                 }
             }
         }
@@ -287,6 +295,12 @@ class MarmaladeTtsService : TextToSpeechService() {
                 KittenDirectVoiceCatalog.ENGINE,
                 KittenDirectMiniVoiceCatalog.ENGINE,
                 PocketVoiceCatalog.ENGINE,
+                // Cloud belongs here too even though it has no model to
+                // warm: without it the rules cache never gets a cloud
+                // entry, so every cloud utterance paid a blocking DataStore
+                // read on the synth worker — on top of network latency,
+                // the case most likely to trip the ~10 s watchdog.
+                CloudApiVoiceCatalog.ENGINE,
             )
             for (engineName in knownEngines) {
                 serviceScope.launch {
@@ -315,9 +329,9 @@ class MarmaladeTtsService : TextToSpeechService() {
         // voiceEngineCache by the onCreate collector. Defensive runBlocking
         // fallback covers the race where the framework asks about a voice
         // that arrived since the service started.
-        val cached = voiceEngineCache[voiceName]
+        val cached = voiceEngineCache[voiceName]?.engine
         val engineName = cached ?: runBlocking { voiceDao.findById(voiceName) }
-            ?.also { voiceEngineCache[it.id] = it.engine }
+            ?.also { voiceEngineCache[it.id] = VoiceRouting(it.engine, it.sampleRate) }
             ?.engine
         return if (engineName != null && isKnownEngine(engineName)) {
             TextToSpeech.SUCCESS
@@ -365,7 +379,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         val params = resolveSynthParams(request)
         val voiceId = params.voiceId
         val engineName = engineNameFor(voiceId)
-        val activeSampleRate = sampleRateFor(engineName)
+        val activeSampleRate = sampleRateFor(voiceId, engineName)
 
         if (rawText.isBlank()) {
             // Open + close so the system isn't left waiting on us.
@@ -613,7 +627,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                         requested != KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
                 )
             if (requested != null && deliberate) {
-                val cachedEngine = voiceEngineCache[requested]
+                val cachedEngine = voiceEngineCache[requested]?.engine
                 if (cachedEngine != null && isKnownEngine(cachedEngine)) {
                     return@runBlocking SynthParams(
                         voiceId = requested,
@@ -623,7 +637,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                 }
                 val hit = voiceDao.findById(requested)
                 if (hit != null && isKnownEngine(hit.engine)) {
-                    voiceEngineCache[hit.id] = hit.engine
+                    voiceEngineCache[hit.id] = VoiceRouting(hit.engine, hit.sampleRate)
                     return@runBlocking SynthParams(
                         voiceId = hit.id,
                         speed = 1.0f,
@@ -720,8 +734,26 @@ class MarmaladeTtsService : TextToSpeechService() {
         return if (isKnownEngine(name)) name else KokoroDirectVoiceCatalog.ENGINE
     }
 
-    /** Per-engine sample rate. All engines ship 24 kHz today. */
-    private fun sampleRateFor(engineName: String): Int = when (engineName) {
+    /**
+     * The rate to commit to in `callback.start()` for [voiceId].
+     *
+     * Per-voice, not per-engine: the on-device engines each ship one fixed
+     * rate, but the cloud engine fronts models that emit 24, 32, 44.1 and
+     * 48 kHz. Getting this wrong is uniquely nasty — [streamPcm] writes raw
+     * PCM and honours whatever was committed here, ignoring the chunk's own
+     * rate, so a mismatch is not an error but a silent pitch/tempo shift.
+     * (The in-app Speak path builds its AudioTrack from the chunk rate and
+     * is therefore self-correcting, which means a bug here is invisible
+     * there and only audible through system TTS.)
+     *
+     * The per-engine constant remains the fallback for a voice that isn't
+     * in the cache yet.
+     */
+    private fun sampleRateFor(voiceId: String, engineName: String): Int =
+        voiceEngineCache[voiceId]?.sampleRate ?: engineDefaultSampleRate(engineName)
+
+    /** Per-engine default rate, used when the voice row isn't cached. */
+    private fun engineDefaultSampleRate(engineName: String): Int = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.sampleRate
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.sampleRate

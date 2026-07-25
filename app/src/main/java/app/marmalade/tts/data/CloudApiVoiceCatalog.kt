@@ -24,10 +24,33 @@ import app.marmalade.tts.data.db.VoiceMeta
 object CloudApiVoiceCatalog {
 
     const val ENGINE = "cloud-api-v1"
-    const val SAMPLE_RATE = 24000
 
-    /** User-facing engine label (shown as the picker section header etc.). */
-    const val DISPLAY_NAME = "Cloud voices"
+    /**
+     * Fallback rate for cloud voices whose model carries no declared rate.
+     *
+     * NOT the engine's rate — cloud models emit whatever they emit (Venice
+     * serves 24 kHz, 32 kHz, 44.1 kHz and 48 kHz across its catalog), so the
+     * real rate travels per-voice in [VoiceMeta.sampleRate], sourced from
+     * [CloudModel.sampleRate]. This constant only covers a descriptor entry
+     * that omits the field.
+     */
+    const val SAMPLE_RATE = CloudModel.DEFAULT_SAMPLE_RATE
+
+    /**
+     * User-facing engine label (picker section header, alias editor).
+     *
+     * The qualifier earns its keep: this engine speaks the OpenAI
+     * `/audio/speech` shape over plain HTTP, which caps it at one request
+     * per chunk and rules out barge-in. A direct vendor integration
+     * (WebSocket, incremental synthesis) would be a *different* engine
+     * living beside this one, and "Cloud voices" alone gives the user no
+     * way to tell them apart.
+     *
+     * [ENGINE] is the persisted key and must never change — it is baked
+     * into every voice id, alias, per-app route and system-TTS voice token.
+     * This constant is display-only and free to reword.
+     */
+    const val DISPLAY_NAME = "Cloud voices (OpenAI-compatible)"
 
     /** A cloud voice id, decomposed. */
     data class CloudVoiceRef(
@@ -71,7 +94,7 @@ object CloudApiVoiceCatalog {
             displayName = voice,
             languageCode = (if (kokoroStyle) KokoroDirectVoiceCatalog.languageFor(voice) else null)
                 ?: "en-US",
-            sampleRate = SAMPLE_RATE,
+            sampleRate = model.sampleRate,
             gender = if (kokoroStyle) KokoroDirectVoiceCatalog.genderFor(voice) else null,
             isInstalled = false,
         )

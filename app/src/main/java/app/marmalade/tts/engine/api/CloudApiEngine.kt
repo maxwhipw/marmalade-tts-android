@@ -33,12 +33,24 @@ import kotlinx.coroutines.runBlocking
  * Latency: with `"streaming": true` Venice sends the first audio bytes in
  * ~0.6 s while synthesis continues server-side, so [synthesizeStream]
  * emits PCM chunks as they arrive — time-to-first-audio is one network
- * round trip, independent of utterance length. (Port of the CLI's
- * `marmalade_tts/engines/api.py`, which carries the provider findings:
- * streaming flag behaviour, and that some Venice models ignore
- * `response_format` and return MP3 — those are excluded via the provider
- * descriptor's modelExclude list, and the WAV header check below fails
- * loudly if one slips through.)
+ * round trip, independent of utterance length. Only some models actually
+ * stream: measured 2026-07-24, Venice's Kokoro and Gradium send first
+ * bytes well before synthesis completes, while every other model buffers
+ * the whole utterance server-side (TTFB ≈ total).
+ *
+ * Port of the CLI's `marmalade_tts/engines/api.py`. Provider findings
+ * that cost real debugging time and are easy to re-break:
+ *  - `response_format` is **advisory**. Five of Venice's eleven TTS models
+ *    ignore it entirely and return MP3 whether you ask for wav, pcm or
+ *    flac. There is no request flag that changes this.
+ *  - `content-type` is **wrong in both directions** — three models send
+ *    `audio/mpeg` with a RIFF body. Only the magic-byte sniff in
+ *    [WavStreamHeader.parse] is trustworthy.
+ *  - Sample rates vary across models (24/32/44.1/48 kHz), which is why the
+ *    rate travels per-voice rather than per-engine.
+ * Models that break the wire contract are kept out by the descriptor's
+ * model allowlist (see CloudProviders); the WAV header check below is the
+ * backstop if one slips through.
  *
  * "Installed" means "an API key is configured"
  * ([SettingsRepository.cloudApiKeys]) — there is no bundle on disk and no
@@ -53,6 +65,13 @@ class CloudApiEngine @Inject constructor(
 ) : TtsEngine {
 
     override val engineName: String = CloudApiVoiceCatalog.ENGINE
+    /**
+     * Nominal only. Unlike the on-device engines this one has no single
+     * rate — each allowlisted model declares its own in the provider
+     * descriptor (Venice: 24 kHz Kokoro/xAI, 48 kHz Gradium/Inworld).
+     * Callers that need the real rate must read the voice row; this value
+     * is the fallback for a model with no declared rate.
+     */
     override val sampleRate: Int = CloudApiVoiceCatalog.SAMPLE_RATE
 
     /**
@@ -105,20 +124,29 @@ class CloudApiEngine @Inject constructor(
             ?: throw IOException("Not a cloud voice id: $voiceId")
         val key = settings.cloudApiKeyFor(ref.providerId).first()
         if (key.isBlank()) throw EngineNotInstalledException(engineName)
-        val baseUrl = providers.providerById(ref.providerId)?.baseUrl
+        val provider = providers.providerById(ref.providerId)
             ?: throw IOException("Unknown cloud provider '${ref.providerId}' for $voiceId")
+        val baseUrl = provider.baseUrl
+        // The rate this model is *declared* to emit. The service already
+        // committed to exactly this value in callback.start() (it reads the
+        // same number out of the voice row), so this is what the response
+        // must match — not the engine-wide constant, which stopped being
+        // true once 48 kHz models joined the allowlist.
+        val expectedRate = provider.models.firstOrNull { it.id == ref.modelId }?.sampleRate
+            ?: sampleRate
 
         val body = requestJson(text, ref.modelId, ref.voice, speed)
         http.post("$baseUrl/audio/speech", key, body).use { stream ->
             val header = WavStreamHeader.parse(stream)
-            // The service's callback.start() already committed to the
-            // catalog rate; a mismatch would play at the wrong pitch, so
-            // fail loudly rather than degrade quietly.
-            if (header.sampleRate != sampleRate || header.channels != 1) {
+            // A mismatch means the descriptor's declared rate is wrong (the
+            // model changed, or someone guessed the field). Fail loudly: the
+            // committed rate can't be revised now, so degrading quietly would
+            // play the whole utterance at the wrong pitch.
+            if (header.sampleRate != expectedRate || header.channels != 1) {
                 throw IOException(
                     "Cloud API returned unexpected format: " +
                         "${header.sampleRate} Hz, ${header.channels} ch " +
-                        "(expected $sampleRate Hz mono)",
+                        "(expected $expectedRate Hz mono for ${ref.modelId})",
                 )
             }
             val buf = ByteArray(CHUNK_BYTES)

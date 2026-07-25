@@ -57,8 +57,12 @@ private val VENICE = CloudProvider(
     baseUrl = "https://api.venice.ai/api/v1",
     keyHint = "venice.ai",
     discoverVoices = true,
-    modelExclude = emptyList(),
-    models = listOf(CloudModel("tts-kokoro", "Kokoro", listOf("af_heart"))),
+    models = listOf(
+        CloudModel("tts-kokoro", "Kokoro", listOf("af_heart"), sampleRate = 24_000),
+        // A 48 kHz model, so the tests can prove the engine checks against
+        // the model's declared rate rather than an engine-wide constant.
+        CloudModel("tts-gradium-v1", "Gradium", listOf("Alice"), sampleRate = 48_000),
+    ),
 )
 
 private val FAKE_DIRECTORY = CloudProviderDirectory { id ->
@@ -214,6 +218,32 @@ class CloudApiEngineTest {
     }
 
     @Test
+    fun `a 48 kHz model accepts 48 kHz audio`() = runTest {
+        // Regression guard for the bug this replaced: the engine used to
+        // compare against a hardcoded 24000, so Gradium — fast, streaming,
+        // native WAV — was rejected purely for being 48 kHz.
+        val gradium = CloudApiVoiceCatalog.voiceId("venice", "tts-gradium-v1", "Alice")
+        val http = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(8), sampleRate = 48000)) }
+        val audio = engine(http = http).synthesize("x", gradium, 1.0f)
+        assertEquals(48000, audio.sampleRate)
+    }
+
+    @Test
+    fun `the rate check is per model not per engine`() = runTest {
+        // 24 kHz is correct for Kokoro but wrong for Gradium. If the check
+        // ever regresses to an engine-wide constant this passes silently and
+        // system TTS plays the utterance at half speed.
+        val gradium = CloudApiVoiceCatalog.voiceId("venice", "tts-gradium-v1", "Alice")
+        val http = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(8), sampleRate = 24000)) }
+        try {
+            engine(http = http).synthesize("x", gradium, 1.0f)
+            fail("expected IOException — 24 kHz is not Gradium's declared rate")
+        } catch (e: IOException) {
+            assertTrue(e.message!!.contains("48000"))
+        }
+    }
+
+    @Test
     fun `non-wav response fails loudly`() = runTest {
         val http = FakeHttp { ByteArrayInputStream("{\"error\":\"nope\"}".toByteArray()) }
         try {
@@ -268,7 +298,7 @@ class CloudApiVoiceCatalogTest {
 
     @Test
     fun `voiceMeta derives language and gender for kokoro-style keys only`() {
-        val model = VENICE.models.single()
+        val model = VENICE.models.first { it.id == "tts-kokoro" }
         val kokoro = CloudApiVoiceCatalog.voiceMeta(VENICE, model, "jf_alpha")
         assertEquals("ja-JP", kokoro.languageCode)
         assertEquals("female", kokoro.gender)
@@ -278,5 +308,17 @@ class CloudApiVoiceCatalogTest {
         val ballad = CloudApiVoiceCatalog.voiceMeta(VENICE, model, "ballad")
         assertEquals("en-US", ballad.languageCode)
         assertNull(ballad.gender)
+    }
+
+    @Test
+    fun `voiceMeta carries the model's sample rate into the row`() {
+        // The row is what MarmaladeTtsService reads to decide what rate to
+        // commit in callback.start(), so a model's rate has to survive the
+        // trip into Room rather than being flattened to the engine default.
+        val gradium = VENICE.models.first { it.id == "tts-gradium-v1" }
+        assertEquals(48_000, CloudApiVoiceCatalog.voiceMeta(VENICE, gradium, "Alice").sampleRate)
+
+        val kokoro = VENICE.models.first { it.id == "tts-kokoro" }
+        assertEquals(24_000, CloudApiVoiceCatalog.voiceMeta(VENICE, kokoro, "af_heart").sampleRate)
     }
 }
