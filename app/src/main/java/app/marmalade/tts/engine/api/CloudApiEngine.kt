@@ -62,6 +62,7 @@ class CloudApiEngine @Inject constructor(
     private val settings: SettingsRepository,
     private val providers: CloudProviderDirectory,
     private val http: CloudSpeechHttp,
+    private val decoder: CompressedAudioDecoder,
 ) : TtsEngine {
 
     override val engineName: String = CloudApiVoiceCatalog.ENGINE
@@ -136,7 +137,33 @@ class CloudApiEngine @Inject constructor(
             ?: sampleRate
 
         val body = requestJson(text, ref.modelId, ref.voice, speed)
-        http.post("$baseUrl/audio/speech", key, body).use { stream ->
+        http.post("$baseUrl/audio/speech", key, body).use { rawStream ->
+            // Sniff the body, never the content-type header. Three Venice
+            // models send `audio/mpeg` with a RIFF body and others send
+            // `audio/wav` with MP3 — the header is wrong in both directions,
+            // so the first four bytes are the only trustworthy signal.
+            val stream = java.io.BufferedInputStream(rawStream, SNIFF_BYTES * 2)
+            stream.mark(SNIFF_BYTES)
+            val magic = ByteArray(SNIFF_BYTES)
+            val read = stream.readNBytesCompat(magic)
+            stream.reset()
+
+            if (read >= SNIFF_BYTES && !isRiff(magic)) {
+                // Compressed payload (MP3). These models never stream, so
+                // the whole body is already waiting — buffer, decode, emit
+                // once. See CompressedAudioDecoder for why this is a seam.
+                val decoded = decoder.decode(stream.readBytes())
+                if (decoded.sampleRate != expectedRate) {
+                    throw IOException(
+                        "Cloud API decoded to unexpected rate: " +
+                            "${decoded.sampleRate} Hz " +
+                            "(expected $expectedRate Hz for ${ref.modelId})",
+                    )
+                }
+                emit(SynthAudio(decoded.pcm, decoded.sampleRate))
+                return@use
+            }
+
             val header = WavStreamHeader.parse(stream)
             // A mismatch means the descriptor's declared rate is wrong (the
             // model changed, or someone guessed the field). Fail loudly: the
@@ -188,6 +215,27 @@ class CloudApiEngine @Inject constructor(
     companion object {
         /** ~0.68 s of 24 kHz mono PCM16 per emitted chunk. */
         private const val CHUNK_BYTES = 32 * 1024
+
+        /** Enough to tell RIFF from anything else. */
+        private const val SNIFF_BYTES = 4
+
+        private fun isRiff(b: ByteArray): Boolean =
+            b.size >= 4 && b[0] == 'R'.code.toByte() && b[1] == 'I'.code.toByte() &&
+                b[2] == 'F'.code.toByte() && b[3] == 'F'.code.toByte()
+
+        /**
+         * Fill [into] from the stream, looping over short reads.
+         * `InputStream.readNBytes` needs API 33; minSdk here is 28.
+         */
+        private fun java.io.InputStream.readNBytesCompat(into: ByteArray): Int {
+            var filled = 0
+            while (filled < into.size) {
+                val n = read(into, filled, into.size - filled)
+                if (n < 0) break
+                filled += n
+            }
+            return filled
+        }
 
         internal fun escapeJson(s: String): String = buildString(s.length + 8) {
             for (c in s) when {

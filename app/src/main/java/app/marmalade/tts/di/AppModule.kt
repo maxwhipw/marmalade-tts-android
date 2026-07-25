@@ -29,6 +29,8 @@ import app.marmalade.tts.data.cloud.CloudProviderDirectory
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.cloud.UrlCloudJsonHttp
 import app.marmalade.tts.engine.api.CloudSpeechHttp
+import app.marmalade.tts.engine.api.CompressedAudioDecoder
+import app.marmalade.tts.engine.api.MediaCodecAudioDecoder
 import app.marmalade.tts.engine.api.UrlCloudSpeechHttp
 import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.HttpFetcher
@@ -176,6 +178,17 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCloudSpeechHttp(): CloudSpeechHttp = UrlCloudSpeechHttp()
+
+    /**
+     * MP3→PCM decode seam for the cloud engine. Real impl is MediaCodec;
+     * unit tests inject a fake because MediaCodec has no plain-JVM
+     * implementation (and Robolectric's shadow doesn't actually decode).
+     */
+    @Provides
+    @Singleton
+    fun provideCompressedAudioDecoder(
+        @ApplicationContext context: Context,
+    ): CompressedAudioDecoder = MediaCodecAudioDecoder(context.cacheDir)
 
     /**
      * GET seam for [app.marmalade.tts.data.cloud.CloudProviderStore]

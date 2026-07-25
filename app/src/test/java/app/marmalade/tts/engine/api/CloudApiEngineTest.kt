@@ -62,6 +62,11 @@ private val VENICE = CloudProvider(
         // A 48 kHz model, so the tests can prove the engine checks against
         // the model's declared rate rather than an engine-wide constant.
         CloudModel("tts-gradium-v1", "Gradium", listOf("Alice"), sampleRate = 48_000),
+        // An MP3-returning model at a third rate, for the decode path.
+        CloudModel(
+            "tts-minimax-speech-02-hd", "MiniMax Speech-02 HD",
+            listOf("InspirationalGirl"), sampleRate = 32_000,
+        ),
     ),
 )
 
@@ -105,10 +110,35 @@ private fun wavBytes(
     return out.toByteArray()
 }
 
+/**
+ * Stand-in for MediaCodec, which has no plain-JVM implementation. Records
+ * what it was handed so tests can prove the engine sniffed and dispatched
+ * correctly; the decode itself is verified on-device.
+ */
+private class FakeDecoder(
+    private val result: () -> DecodedAudio = { DecodedAudio(ShortArray(4), 24_000) },
+) : CompressedAudioDecoder {
+    var received: ByteArray? = null
+    override fun decode(bytes: ByteArray): DecodedAudio {
+        received = bytes
+        return result()
+    }
+}
+
+/** What Venice's MP3-returning models actually put on the wire. */
+private val ID3_HEADER = byteArrayOf(0x49, 0x44, 0x33, 0x04, 0x00, 0x00)
+
+/** Fails the test if the engine tries to decode — WAV must never route here. */
+private val REJECTING_DECODER = CompressedAudioDecoder {
+    fail("WAV response must not go through the decoder")
+    throw AssertionError()
+}
+
 private fun engine(
     key: String = "test-key",
     http: CloudSpeechHttp = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(10))) },
-) = CloudApiEngine(FakeKeySettings("venice" to key), FAKE_DIRECTORY, http)
+    decoder: CompressedAudioDecoder = REJECTING_DECODER,
+) = CloudApiEngine(FakeKeySettings("venice" to key), FAKE_DIRECTORY, http, decoder)
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -153,6 +183,7 @@ class CloudApiEngineTest {
             FakeKeySettings("venice" to "k", "nope" to "k2"),
             FAKE_DIRECTORY,
             http,
+            REJECTING_DECODER,
         )
         try {
             eng.synthesize("x", CloudApiVoiceCatalog.voiceId("nope", "m", "v"), 1.0f)
@@ -244,13 +275,59 @@ class CloudApiEngineTest {
     }
 
     @Test
-    fun `non-wav response fails loudly`() = runTest {
+    fun `undecodable response fails loudly`() = runTest {
+        // A non-RIFF body now goes to the decoder, which is what real
+        // MediaCodec does with a JSON error body: no audio track, throw.
         val http = FakeHttp { ByteArrayInputStream("{\"error\":\"nope\"}".toByteArray()) }
+        val decoder = CompressedAudioDecoder { throw IOException("no audio track") }
         try {
-            engine(http = http).synthesize("x", voiceId, 1.0f)
+            engine(http = http, decoder = decoder).synthesize("x", voiceId, 1.0f)
             fail("expected IOException")
         } catch (e: IOException) {
-            assertTrue(e.message!!.contains("not a WAV"))
+            assertEquals("no audio track", e.message)
+        }
+    }
+
+    @Test
+    fun `mp3 response is decoded rather than rejected`() = runTest {
+        // The reported bug: InspirationalGirl (tts-minimax-speech-02-hd)
+        // returns MP3 with an ID3v2.4 header no matter what response_format
+        // asks for, and the engine used to throw "not a WAV stream".
+        val minimax = CloudApiVoiceCatalog.voiceId(
+            "venice", "tts-minimax-speech-02-hd", "InspirationalGirl",
+        )
+        val body = ID3_HEADER + ByteArray(64)
+        val pcm = ShortArray(800) { (it * 7).toShort() }
+        val decoder = FakeDecoder { DecodedAudio(pcm, 32_000) }
+
+        val audio = engine(http = FakeHttp { ByteArrayInputStream(body) }, decoder = decoder)
+            .synthesize("x", minimax, 1.0f)
+
+        assertEquals(32_000, audio.sampleRate)
+        assertEquals(pcm.size, audio.pcm.size)
+        // The decoder must receive the whole body including the ID3 header —
+        // the sniff peeks, it must not consume.
+        assertEquals(body.size, decoder.received!!.size)
+    }
+
+    @Test
+    fun `a decoded rate that contradicts the descriptor fails loudly`() = runTest {
+        // Same invariant as the WAV path: the service already committed to
+        // the declared rate in callback.start(), so a surprise here would be
+        // an inaudible pitch shift rather than an error.
+        val minimax = CloudApiVoiceCatalog.voiceId(
+            "venice", "tts-minimax-speech-02-hd", "InspirationalGirl",
+        )
+        val decoder = CompressedAudioDecoder { DecodedAudio(ShortArray(8), 44_100) }
+        try {
+            engine(
+                http = FakeHttp { ByteArrayInputStream(ID3_HEADER + ByteArray(16)) },
+                decoder = decoder,
+            ).synthesize("x", minimax, 1.0f)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            assertTrue(e.message!!.contains("44100"))
+            assertTrue(e.message!!.contains("32000"))
         }
     }
 

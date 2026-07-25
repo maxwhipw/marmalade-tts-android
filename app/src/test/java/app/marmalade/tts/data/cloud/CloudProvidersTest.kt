@@ -100,12 +100,17 @@ class CloudProvidersTest {
         assertEquals(24_000, rates["tts-xai-v1"])
         assertEquals(48_000, rates["tts-gradium-v1"])
         assertEquals(48_000, rates["tts-inworld-1-5-max"])
-        // Models that ignore response_format and return MP3 must stay out.
-        for (bad in listOf(
-            "tts-qwen3-0-6b", "tts-gemini-3-1-flash",
-            "tts-minimax-speech-02-hd", "tts-elevenlabs-turbo-v2-5",
-        )) {
-            assertFalse("$bad returns MP3 and must not be allowlisted", bad in rates)
+        // The MP3-returning models are allowlisted too — the engine decodes
+        // them (see CompressedAudioDecoder). Their rates are the *decoded*
+        // rates, which is what the decoder reports and the service commits.
+        assertEquals(24_000, rates["tts-gemini-3-1-flash"])
+        assertEquals(32_000, rates["tts-minimax-speech-02-hd"])
+        assertEquals(44_100, rates["tts-elevenlabs-turbo-v2-5"])
+        // Orpheus and Chatterbox stay out: warm they are 7 s and 15 s, but
+        // cold they measured 110 s and 85 s against a 60 s read timeout, so
+        // a user picking one fresh would just watch it time out.
+        for (bad in listOf("tts-orpheus", "tts-chatterbox-hd", "tts-qwen3-0-6b")) {
+            assertFalse("$bad is not verified usable and must stay out", bad in rates)
         }
     }
 
