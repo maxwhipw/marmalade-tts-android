@@ -124,7 +124,7 @@ and one applicationId:
 `ProEntitlement.isPro` is the single source of truth —
 `FdroidProEntitlement` returns `MutableStateFlow(true)`;
 `PlayProEntitlement` wraps `BillingClient`. UI trip-wires
-(`AppMappingsScreen`, `EffectsScreen`) open the paywall sheet only
+(`AppRoutingViewModel`, `EffectsScreen`) open the paywall sheet only
 when `!isPro`, so the paywall code path does not exist in the F-Droid
 APK.
 

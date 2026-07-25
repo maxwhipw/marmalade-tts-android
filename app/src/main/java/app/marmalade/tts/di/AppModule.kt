@@ -114,6 +114,17 @@ object AppModule {
     fun provideSpeechPlayer(impl: Synthesizer): SpeechPlayer = impl
 
     /**
+     * The launchable-app roster behind the alias screen's routing sheet.
+     * An interface so [app.marmalade.tts.ui.screen.AppRoutingViewModel] can be
+     * unit-tested without a PackageManager.
+     */
+    @Provides
+    @Singleton
+    fun provideInstalledAppsProvider(
+        impl: app.marmalade.tts.ui.screen.PackageManagerAppsProvider,
+    ): app.marmalade.tts.ui.screen.InstalledAppsProvider = impl
+
+    /**
      * Resolves an alias's `effectId` to the playable [EffectBlock] chain.
      * Wraps [EffectDao] + JSON decode behind the [EffectResolver] seam so the
      * synth-path callers don't depend on Room/org.json directly. Custom

@@ -13,8 +13,8 @@ F-Droid build fully unlocked. Authored 2026-06-14.
 >   (`FdroidProEntitlement` always true, `PlayProEntitlement` wraps
 >   BillingClient 7.1.1 with DataStore-cached entitlement).
 > - `ProGate` + `ProGateHost` paywall sheet, wrapped around AppRoot.
-> - `AppMappingsViewModel.requestEditOrAdd()` gates FAB + row tap;
->   delete remains free.
+> - `AppRoutingViewModel.toggle()` gates routing an app to an alias;
+>   un-routing remains free.
 > - `EffectsScreen.onCreate` + `onDuplicate` gated at the AppRoot
 >   navigation level (built-in presets stay free).
 > - Settings → About: "More from Marmalade" (both flavors), "Support
@@ -138,11 +138,12 @@ binds the interface, neither flavor imports the other's class.
 
 Two trip-wire points:
 
-- `AppMappingsScreen` — the FAB ("+ Add per-app voice") and tap on a
-  row open the paywall sheet instead of the editor when
-  `!proEntitlement.isPro`. The list of existing mappings remains
-  visible so users see what the feature does. Existing mappings keep
-  working (no retro-paywall of user data); they just can't add/edit.
+- `AppRoutingSheet` (the routing sheet on the Aliases tab) — ticking an
+  app opens the paywall sheet instead of selecting it when
+  `!proEntitlement.isPro`. The sheet itself, and each alias's "Used by N
+  apps" strip, stay visible so users see what the feature does. Existing
+  mappings keep working (no retro-paywall of user data) and can still be
+  un-ticked; only adding a route is gated.
 - `EffectsScreen` — the "Create effect" FAB opens the paywall. The
   built-in effect chips/presets remain selectable and editable
   (presets are pre-shipped data, not user-created). Alias-level
@@ -305,11 +306,11 @@ update cycle.
 | Path                                                  | Expected (Play)              | Expected (F-Droid)         |
 |-------------------------------------------------------|------------------------------|----------------------------|
 | Speak any text with built-in effect                   | works                        | works                      |
-| Tap + on Per-app voices                               | paywall sheet                | editor opens               |
+| Tick an app in an alias's routing sheet               | paywall sheet                | app is ticked              |
 | Tap + on Effects                                      | paywall sheet                | editor opens               |
 | Edit a built-in effect's name (not allowed today)     | unchanged                    | unchanged                  |
-| Purchase Pro → tap + on Per-app voices                | editor opens                 | n/a                        |
-| Refund Pro → tap + on Per-app voices                  | paywall sheet                | n/a                        |
+| Purchase Pro → tick an app in a routing sheet         | app is ticked                | n/a                        |
+| Refund Pro → un-tick an existing routed app           | un-ticks (cleanup is free)   | n/a                        |
 | Airplane mode launch after Pro purchase               | Pro stays unlocked (cache)   | always unlocked            |
 | TalkBack reads alongside Marmalade as default TTS     | works (no paywall)           | works                      |
 

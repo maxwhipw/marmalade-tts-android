@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   AppMappingsScreen / AppMappingsViewModel
+//   AliasScreen routing strip / AppRoutingSheet — AppRoutingViewModel
 //     │
 //     ├── reads:  AppAliasMappingDao.getAll() ──► Flow<List<AppAliasMapping>>
 //     │             ▲
@@ -16,7 +16,8 @@ import androidx.room.PrimaryKey
 //     └── writes: AppAliasMappingDao.upsert(mapping) / delete(packageName)
 //                   ▲
 //                   │
-//                 AppMappingsViewModel.save(...) — after picking app + alias.
+//                 AppRoutingViewModel.saveRouting() — diffs one alias's tick
+//                 set against its saved rows: upsert additions, delete removals.
 //
 //   TtsRouter.resolveAlias(callerPackage)
 //     │

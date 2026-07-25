@@ -187,8 +187,8 @@ When investigating **{concern}**, start at **{files}**:
   rejoined it in v0.3.0-alpha.12 — Voices is now a detail route
   `voices?engine={e}`, reached from Speak or engine-scoped from
   EngineDetailScreen). Other detail routes: EngineDetail/{name},
-  CloudApi, AppMappings, Licenses, EffectEditor. Bottom bar hides on
-  detail routes (`showBottomBar` predicate at the top of AppRoot).
+  CloudApi, Licenses, EffectEditor. Bottom bar hides on detail routes
+  (`showBottomBar` predicate at the top of AppRoot).
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

@@ -6,6 +6,8 @@ import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.AppAliasMapping
+import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceAlias
@@ -13,6 +15,10 @@ import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.preprocessing.EngineProfiles
+import app.marmalade.tts.pro.PaywallReason
+import app.marmalade.tts.pro.ProEntitlement
+import app.marmalade.tts.pro.ProGate
+import app.marmalade.tts.pro.PurchaseResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -242,6 +248,59 @@ internal class FakeEffectDao(
     }
     override suspend fun pruneBuiltinsNotIn(keepIds: Collection<String>) {
         state.value = state.value.filterNot { it.isBuiltin && it.id !in keepIds }
+    }
+}
+
+/**
+ * In-memory [AppAliasMappingDao]. Same shape as [FakeAliasDao]: a
+ * MutableStateFlow standing in for Room's Flow, plus append-only call
+ * records so a test can assert what the ViewModel actually wrote.
+ */
+internal class FakeAppAliasMappingDao(
+    initial: List<AppAliasMapping> = emptyList(),
+) : AppAliasMappingDao {
+    private val state = MutableStateFlow(initial)
+    val upserted = mutableListOf<AppAliasMapping>()
+    val deleted = mutableListOf<String>()
+
+    override fun getAll() = state
+    override suspend fun findByPackage(packageName: String): AppAliasMapping? =
+        state.value.firstOrNull { it.packageName == packageName }
+
+    override suspend fun upsert(mapping: AppAliasMapping) {
+        upserted += mapping
+        // REPLACE semantics: packageName is the PK, so an app that moves to
+        // another alias replaces its old row rather than adding a second.
+        state.value = state.value.filterNot { it.packageName == mapping.packageName } + mapping
+    }
+
+    override suspend fun delete(packageName: String) {
+        deleted += packageName
+        state.value = state.value.filterNot { it.packageName == packageName }
+    }
+}
+
+/** Roster stub — returns whatever the test seeds, with no PackageManager. */
+internal class FakeInstalledAppsProvider(
+    private val apps: List<InstalledApp> = emptyList(),
+) : InstalledAppsProvider {
+    override suspend fun load(): List<InstalledApp> = apps
+}
+
+/** Pro entitlement pinned to a fixed answer (F-Droid behaves as `true`). */
+internal class FakeProEntitlement(isPro: Boolean = true) : ProEntitlement {
+    override val isPro = MutableStateFlow(isPro)
+    override suspend fun launchPurchase(activity: android.app.Activity): PurchaseResult =
+        PurchaseResult.NotApplicable
+
+    override suspend fun restorePurchases() = Unit
+}
+
+/** Records paywall invocations so tests can assert the gate fired. */
+internal class FakeProGate : ProGate {
+    val shown = mutableListOf<PaywallReason>()
+    override fun show(reason: PaywallReason) {
+        shown += reason
     }
 }
 
