@@ -12,6 +12,7 @@
           "id": "tts-kokoro",
           "displayName": "Kokoro",
           "sampleRate": 24000,
+          "latency": "instant",
           "voices": [
             "af_alloy",
             "af_aoede",
@@ -73,6 +74,7 @@
           "id": "tts-xai-v1",
           "displayName": "xAI TTS v1",
           "sampleRate": 24000,
+          "latency": "quick",
           "voices": [
             "ara",
             "eve",
@@ -104,6 +106,7 @@
           "id": "tts-inworld-1-5-max",
           "displayName": "Inworld TTS-1.5 Max",
           "sampleRate": 48000,
+          "latency": "slow",
           "voices": [
             "Alex",
             "Ashley",
@@ -125,6 +128,7 @@
           "id": "tts-gemini-3-1-flash",
           "displayName": "Gemini 3.1 Flash TTS",
           "sampleRate": 24000,
+          "latency": "slow",
           "voices": [
             "Achernar",
             "Achird",
@@ -162,6 +166,7 @@
           "id": "tts-minimax-speech-02-hd",
           "displayName": "MiniMax Speech-02 HD",
           "sampleRate": 32000,
+          "latency": "quick",
           "voices": [
             "CalmWoman",
             "CasualGuy",
@@ -184,6 +189,7 @@
           "id": "tts-elevenlabs-turbo-v2-5",
           "displayName": "ElevenLabs Turbo v2.5",
           "sampleRate": 44100,
+          "latency": "quick",
           "voices": [
             "Alice",
             "Aria",

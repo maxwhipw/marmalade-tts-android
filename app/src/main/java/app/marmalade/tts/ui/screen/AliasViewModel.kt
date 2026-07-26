@@ -3,6 +3,8 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.LatencyBucket
+import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.SettingsRepository
@@ -136,8 +138,22 @@ class AliasViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val installer: EngineInstaller,
     private val voicePaths: VoicePathResolver,
+    latencySource: VoiceLatencySource,
     effectDao: EffectDao,
 ) : ViewModel() {
+
+    /**
+     * How long each model makes you wait, keyed by
+     * [app.marmalade.tts.data.latencyKeyFor]. Feeds the picker's speed
+     * badge; a model with no seed and too few measurements is simply
+     * absent, and the picker shows nothing rather than a guess.
+     */
+    val voiceLatency: StateFlow<Map<String, LatencyBucket>> = latencySource.buckets()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyMap(),
+        )
 
     /**
      * Where [alias]'s voice sits in the source › model › voice hierarchy.

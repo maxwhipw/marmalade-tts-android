@@ -1,6 +1,8 @@
 package app.marmalade.tts.data.cloud
 
+import app.marmalade.tts.data.LatencyBucket
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -170,4 +172,54 @@ class CloudProvidersTest {
         assertEquals(listOf("Alice"), merged[1].voices)
         assertEquals(48_000, merged[1].sampleRate)
     }
+
+    @Test
+    fun `latency seeds parse, and an absent or unknown one is null`() {
+        val doc = CloudProviders.parseDocument(
+            """
+            {
+              "version": 2,
+              "providers": [{
+                "id": "venice",
+                "displayName": "Venice",
+                "baseUrl": "https://example.invalid",
+                "models": [
+                  {"id": "fast", "voices": ["a"], "latency": "instant"},
+                  {"id": "shouty", "voices": ["a"], "latency": "SLOW"},
+                  {"id": "unknown", "voices": ["a"], "latency": "eventually"},
+                  {"id": "quiet", "voices": ["a"]}
+                ]
+              }]
+            }
+            """.trimIndent(),
+        )
+        val models = doc.providers.single().models.associateBy { it.id }
+        assertEquals(LatencyBucket.INSTANT, models.getValue("fast").latency)
+        assertEquals(LatencyBucket.SLOW, models.getValue("shouty").latency)
+        // An unparseable seed degrades to "no badge", never to a wrong one.
+        assertNull(models.getValue("unknown").latency)
+        assertNull(models.getValue("quiet").latency)
+    }
+
+    @Test
+    fun `bundled asset's latency seeds all parse`() {
+        // A typo here would silently drop the badge for that model rather
+        // than fail anywhere, so the shipped values are asserted.
+        val providers = CloudProviders.parse(bundledAssetJson())
+        val venice = providers.first { it.id == "venice" }
+        fun seed(id: String) = venice.models.first { it.id == id }.latency
+        assertEquals(LatencyBucket.INSTANT, seed("tts-kokoro"))
+        assertEquals(LatencyBucket.QUICK, seed("tts-elevenlabs-turbo-v2-5"))
+        assertEquals(LatencyBucket.QUICK, seed("tts-minimax-speech-02-hd"))
+        assertEquals(LatencyBucket.QUICK, seed("tts-xai-v1"))
+        assertEquals(LatencyBucket.SLOW, seed("tts-inworld-1-5-max"))
+        assertEquals(LatencyBucket.SLOW, seed("tts-gemini-3-1-flash"))
+    }
+
+    /** Robolectric merges src/main/assets onto the test classpath. */
+    private fun bundledAssetJson(): String =
+        javaClass.classLoader!!
+            .getResourceAsStream("assets/cloud-providers.json")
+            ?.use { it.readBytes().toString(Charsets.UTF_8) }
+            ?: java.io.File("src/main/assets/cloud-providers.json").readText()
 }

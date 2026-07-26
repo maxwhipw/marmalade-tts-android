@@ -127,6 +127,7 @@ fun AliasScreen(
     val effects by viewModel.effects.collectAsStateWithLifecycle()
     val voiceTree by viewModel.voiceTree.collectAsStateWithLifecycle()
     val pickerState by viewModel.pickerState.collectAsStateWithLifecycle()
+    val voiceLatency by viewModel.voiceLatency.collectAsStateWithLifecycle()
 
     val mappings by routingViewModel.mappings.collectAsStateWithLifecycle()
     val installedApps by routingViewModel.installedApps.collectAsStateWithLifecycle()
@@ -250,6 +251,7 @@ fun AliasScreen(
             state = pickerState,
             tree = voiceTree,
             selectedVoiceId = editorState.voiceId,
+            latency = voiceLatency,
             onQueryChange = viewModel::onPickerQueryChange,
             onSelectSource = viewModel::selectPickerSource,
             onSelectModel = viewModel::selectPickerModel,

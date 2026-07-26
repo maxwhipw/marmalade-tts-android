@@ -398,6 +398,39 @@ open class SettingsRepository @Inject constructor(
         }
     }
 
+    /**
+     * Measured time-to-first-audio samples, keyed by
+     * [app.marmalade.tts.data.latencyKeyFor]. Values are the raw
+     * milliseconds of the last few runs, newest last.
+     *
+     * Stored as one comma-separated string per key rather than a structured
+     * blob: Preferences has no list type, the window is ~10 small integers,
+     * and a malformed entry should degrade to "no data" rather than take the
+     * settings file down — hence the lenient parse.
+     */
+    open val latencySamples: Flow<Map<String, List<Int>>> = dataStore.data.map { prefs ->
+        val out = mutableMapOf<String, List<Int>>()
+        for ((key, value) in prefs.asMap()) {
+            val name = key.name.removePrefix(LATENCY_PREFIX)
+            if (name == key.name || value !is String) continue
+            val samples = value.split(',').mapNotNull { it.trim().toIntOrNull() }
+            if (samples.isNotEmpty()) out[name] = samples
+        }
+        out
+    }
+
+    /** Append one sample for [key], keeping at most [keep] most-recent. */
+    open suspend fun recordLatencySample(key: String, millis: Int, keep: Int) {
+        dataStore.edit { prefs ->
+            val prefKey = stringPreferencesKey("$LATENCY_PREFIX$key")
+            val existing = prefs[prefKey]
+                ?.split(',')
+                ?.mapNotNull { it.trim().toIntOrNull() }
+                .orEmpty()
+            prefs[prefKey] = (existing + millis).takeLast(keep).joinToString(",")
+        }
+    }
+
     /** Persist the show-developer-engines toggle. */
     open suspend fun setShowDeveloperEngines(value: Boolean) {
         dataStore.edit { prefs ->
@@ -449,6 +482,10 @@ open class SettingsRepository @Inject constructor(
         // Cloud API engine keys, one pref per provider:
         // "cloud_api_key_<providerId>". No provider keyed => unconfigured.
         private const val CLOUD_API_KEY_PREFIX = "cloud_api_key_"
+
+        // Measured latency window, one key per model. Purely derived data —
+        // safe to drop, and it repopulates itself from use.
+        private const val LATENCY_PREFIX = "voice_latency_"
 
         // Single-provider era key (v0.3.0-alpha.11 dev builds); read as
         // Venice's key until a per-provider write supersedes it.

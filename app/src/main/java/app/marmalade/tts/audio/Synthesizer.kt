@@ -3,11 +3,13 @@ package app.marmalade.tts.audio
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.SystemClock
 import android.util.Log
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.PocketEngine
@@ -26,14 +28,18 @@ import app.marmalade.tts.preprocessing.ProsodyApplier
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -53,10 +59,11 @@ import kotlinx.coroutines.withContext
 //     │     (HTML decode, currency, numbers-to-words, etc. per user's
 //     │      Settings → Text preprocessing toggles)
 //     │
-//     ├── synthesizeForEngine(engineName, ...)
-//     │     ├── "kokoro" → KokoroEngine.synthesize(...) ──► SynthAudio
-//     │     └── "kitten" → KittenEngine.synthesize(...) ──► SynthAudio
+//     ├── streamForEngine(engineName, ...)        ──► Flow<SynthAudio>
+//     │     ├── "kokoro" → KokoroEngine.synthesizeStream(...)
+//     │     └── "kitten" → KittenEngine.synthesizeStream(...)
 //     │     (both CPU-bound; engines hop onto Dispatchers.Default)
+//     │     └── times the first chunk into VoiceLatencyTracker
 //     │
 //     ├── EffectChain.applyChain(pcm, sampleRate, effectBlocks)
 //     │     (pure-Kotlin DSP; an empty chain returns the input unchanged)
@@ -175,7 +182,15 @@ class Synthesizer @Inject constructor(
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
     private val keepaliveCoordinator: app.marmalade.tts.service.KeepaliveCoordinator,
+    private val latency: VoiceLatencyTracker,
 ) : SpeechPlayer {
+
+    /**
+     * Outlives any one utterance so a latency write can't be cancelled by
+     * the user stopping playback — and, being separate from [currentJob],
+     * can't hold one up either.
+     */
+    private val latencyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     private var currentTrack: AudioTrack? = null
@@ -479,32 +494,14 @@ class Synthesizer @Inject constructor(
         else -> kokoroDirect
     }
 
-    /** Route synthesis to the right engine handle. */
-    private suspend fun synthesizeForEngine(
-        engineName: String,
-        text: String,
-        voiceId: String,
-        speed: Float,
-        phonemizationLanguage: String? = null,
-    ): SynthAudio = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
-        // Defensive: engineNameFor already narrows to known values, but
-        // the exhaustive `when` keeps the compiler honest. Fall back to the
-        // recommended engine.
-        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-    }
-
     /**
-     * Streaming dispatch counterpart to [synthesizeForEngine]. Returns
-     * a Flow that emits one or more SynthAudio chunks. Pocket overrides
-     * the default to produce multiple chunks (time-to-first-audio win);
-     * the Kokoro/Kitten direct engines inherit the default single-element
-     * flow.
+     * Route synthesis to the right engine handle. Returns a Flow that emits
+     * one or more SynthAudio chunks; Pocket and the cloud engine produce
+     * several (time-to-first-audio win), the Kokoro/Kitten direct engines
+     * inherit the default single-element flow.
+     *
+     * Every path through this class goes through here, which is what makes
+     * it the one place worth measuring latency from.
      */
     private fun streamForEngine(
         engineName: String,
@@ -512,14 +509,41 @@ class Synthesizer @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
-    ): Flow<SynthAudio> = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+    ): Flow<SynthAudio> {
+        val stream = when (engineName) {
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        }
+        // Time to the FIRST chunk, not to completion: it's what the user
+        // waits through, and it's the number that separates a model that
+        // streams from one that buffers the whole utterance first.
+        var startedAt = 0L
+        var recorded = false
+        return stream
+            .onStart { startedAt = SystemClock.elapsedRealtime() }
+            .onEach {
+                if (!recorded) {
+                    recorded = true
+                    recordLatency(engineName, voiceId, text, SystemClock.elapsedRealtime() - startedAt)
+                }
+            }
+    }
+
+    /**
+     * File one time-to-first-audio sample. Never fails a synthesis: the
+     * write is a fire-and-forget DataStore edit on a scope of its own, so a
+     * slow or broken settings file can't stall playback that has already
+     * started.
+     */
+    private fun recordLatency(engineName: String, voiceId: String, text: String, millis: Long) {
+        latencyScope.launch {
+            runCatching { latency.record(voiceId, engineName, millis, text.length) }
+        }
     }
 
     /**

@@ -2,11 +2,13 @@ package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.util.MainDispatcherRule
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -596,6 +598,7 @@ class AliasViewModelTest {
             // No cloud providers configured — on-device voices resolve
             // entirely from EngineCatalog, which is what these tests use.
             voicePaths = VoicePathResolver { null },
+            latencySource = VoiceLatencySource { flowOf(emptyMap()) },
             effectDao = FakeEffectDao(),
         )
     }

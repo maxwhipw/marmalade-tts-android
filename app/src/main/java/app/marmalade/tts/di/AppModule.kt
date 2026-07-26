@@ -26,6 +26,8 @@ import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.cloud.CloudJsonHttp
+import app.marmalade.tts.data.VoiceLatencySource
+import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.data.cloud.CloudProviderDirectory
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.cloud.UrlCloudJsonHttp
@@ -203,6 +205,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCloudProviderDirectory(store: CloudProviderStore): CloudProviderDirectory = store
+
+    /** The UI's read-only view of measured + seeded voice latency. */
+    @Provides
+    @Singleton
+    fun provideVoiceLatencySource(tracker: VoiceLatencyTracker): VoiceLatencySource = tracker
 
     /**
      * HTTP fetcher used by [EngineInstaller]. Production uses

@@ -1,5 +1,6 @@
 package app.marmalade.tts.data.cloud
 
+import app.marmalade.tts.data.LatencyBucket
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -86,12 +87,21 @@ data class CloudProvider(
  *   Measured for Venice 2026-07-24: Kokoro and xAI 24 kHz, Gradium and
  *   Inworld 48 kHz. Do not guess this field — synthesize one clip and read
  *   the header.
+ *
+ * @property latency A *seed* for the picker's speed badge: `instant`,
+ *   `quick` or `slow`, absent when nobody has checked. Unlike [sampleRate]
+ *   this one is safe to be roughly wrong — it is a hint, not a contract, and
+ *   the device replaces it with its own median once the model has been used
+ *   a few times (see [app.marmalade.tts.data.VoiceLatencyTracker]). It lives
+ *   here rather than in Kotlin precisely so a provider that gets faster can
+ *   be corrected by publishing a descriptor, without an app release.
  */
 data class CloudModel(
     val id: String,
     val displayName: String,
     val voices: List<String>,
     val sampleRate: Int = DEFAULT_SAMPLE_RATE,
+    val latency: LatencyBucket? = null,
 ) {
     companion object {
         /** Kokoro's rate; the historical assumption for every cloud model. */
@@ -207,6 +217,7 @@ object CloudProviders {
                 displayName = m.optString("displayName").ifBlank { m.getString("id") },
                 voices = m.optJSONArray("voices").toStringList(),
                 sampleRate = m.optInt("sampleRate", CloudModel.DEFAULT_SAMPLE_RATE),
+                latency = LatencyBucket.parse(m.optString("latency").ifBlank { null }),
             )
         }
     }
