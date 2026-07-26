@@ -2,8 +2,8 @@
 
 ## Branch state
 
-Working branch **`verify/routing-on-api-engine`**, head **`502db25`**.
-341 unit tests green on both flavors; fdroid debug APK built and installed
+Working branch **`verify/routing-on-api-engine`**, head **`51dd005`**.
+348 unit tests green on both flavors; fdroid debug APK built and installed
 on the Pixel 8a. **Nothing pushed** — github is the authoritative public
 remote and needs Max's explicit all-clear each time.
 
@@ -48,9 +48,40 @@ text in `~/coding/marmalade/design-lab/labs.json`. Shipped over `58376bd`,
   foreground ourselves and let the tile's own corners do the shaping —
   every icon is full-bleed and centred. `AppIconTile` is the single
   implementation; `AppRoutingRow` no longer duplicates it.
-- Alias editor: Save is a full-width filled pill, "Make primary" and
-  Delete share the row under it. No Cancel. Alias names are no longer
-  quoted in the editor title or the delete confirmation.
+- Alias editor: back to the original text-button row (Max reverted the
+  pills), Cancel stays removed. Alias names are no longer quoted in the
+  editor title or the delete confirmation. Effect is a `PickerField` —
+  the whole field taps, matching the Voice row; a read-only
+  `OutlinedTextField` only answered taps on its trailing icon.
+- The PRIMARY pill sits hard right. The name had `weight(1f, fill =
+  false)` followed by a weighted Spacer, and two weighted siblings split
+  the leftover evenly — landing the pill mid-card.
+- Settings: "More from Marmalade" → "More Marmalade".
+
+**Voice-picker speed badge** (`51dd005`)
+- "Instant" / "Quick" / "Slow" on the picker's source and model rows, and
+  on search hits. Tracked per MODEL (`latencyKeyFor`), never per voice.
+- Seeded by a `latency` field in `cloud-providers.json` — remotely
+  fetchable and version-gated, so correcting a provider that got faster
+  is a JSON publish, not a release. Seeds from Max's Pixel 8a ranking:
+  Venice Kokoro instant; ElevenLabs / MiniMax / xAI quick; Inworld and
+  Gemini 3.1 Flash slow. **Gradium and both OpenAI models unseeded** —
+  nobody has timed them.
+- Overridden per-device by the median of the last 10 measured
+  time-to-first-audio samples once a model has 3. Timed in
+  `Synthesizer.streamForEngine`; samples only taken for 10–120-char
+  utterances. Cut points live in `LatencyBucket` (600 ms / 1800 ms) and
+  are calibrated against Max's ranking, not measured — worth revisiting
+  once real numbers land.
+- **Only `Synthesizer` is instrumented.** `MarmaladeTtsService` and
+  `MarmaladeSynthService` have their own private engine dispatch, so
+  system-TTS traffic contributes no samples. In-app Speak and the
+  picker's preview button do.
+- `VoicePickerScreen` (the standalone browse screen off Speak) has no
+  badge — only `VoicePickerSheet` does.
+- Removed `Synthesizer.synthesizeForEngine`, dead since the streaming
+  path landed. It rode along in `51dd005` rather than getting its own
+  commit.
 
 ## Known limits, deliberate
 
