@@ -3,6 +3,8 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.VoicePath
+import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
@@ -128,8 +130,18 @@ class AliasViewModel @Inject constructor(
     private val voiceDao: VoiceMetaDao,
     private val settings: SettingsRepository,
     private val installer: EngineInstaller,
+    private val voicePaths: VoicePathResolver,
     effectDao: EffectDao,
 ) : ViewModel() {
+
+    /**
+     * Where [alias]'s voice sits in the source › model › voice hierarchy.
+     *
+     * Resolved on demand rather than cached: it reads the in-memory provider
+     * descriptor, and an alias list is a handful of rows.
+     */
+    fun voicePathFor(alias: VoiceAlias): VoicePath =
+        voicePaths.resolve(alias.voiceId, alias.engine)
 
     /**
      * All effects (built-in + custom), for the editor's effect picker. The

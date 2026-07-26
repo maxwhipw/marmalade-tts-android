@@ -28,6 +28,18 @@ val MarmaladeLightColors = lightColorScheme(
     onSurface = Color(0xFF1C1917),           // Stone 900
     surfaceVariant = Color(0xFFFFEDD5),      // Orange 100
     onSurfaceVariant = Color(0xFF57534E),    // Stone 600
+    // The surfaceContainer family MUST be set explicitly. Material 3 fills
+    // any role left unspecified from its *baseline* palette, which is
+    // purple-tinted — and Card reads surfaceContainerLow, NavigationBar
+    // reads surfaceContainer, ModalBottomSheet reads surfaceContainerLow.
+    // Omitting these is why alias cards and the bottom bar rendered lavender
+    // on a cream page for several releases. Ladder runs cream → toast as
+    // elevation rises, so a card lifts off the page without a shadow.
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFFF1E0),
+    surfaceContainer = Color(0xFFFFEDD5),    // Orange 100 — cards, nav bar
+    surfaceContainerHigh = Color(0xFFFFE4C4),
+    surfaceContainerHighest = Color(0xFFFED7AA), // Orange 200
     background = Color(0xFFFFF7ED),          // Orange 50
     onBackground = Color(0xFF1C1917),        // Stone 900
     error = Color(0xFFDC2626),               // Red 600
@@ -59,6 +71,15 @@ val MarmaladeDarkColors = darkColorScheme(
     onSurface = Color(0xFFFAFAF9),           // Stone 50
     surfaceVariant = Color(0xFF3D3D3D),
     onSurfaceVariant = Color(0xFFD6D3D1),    // Stone 300
+    // Same reason as the light scheme — see the note there. Warm-neutral
+    // stone ladder rather than Material's baseline, which reads violet in
+    // dark mode too. Per the brand scheme, dark mode gets no orange
+    // surfaces: the warmth comes from the cream text on stone.
+    surfaceContainerLowest = Color(0xFF141210),
+    surfaceContainerLow = Color(0xFF1F1D1B),
+    surfaceContainer = Color(0xFF292524),    // Stone 800 — cards, nav bar
+    surfaceContainerHigh = Color(0xFF332F2C),
+    surfaceContainerHighest = Color(0xFF3D3835),
     background = Color(0xFF1A1A1A),
     onBackground = Color(0xFFFAFAF9),        // Stone 50
     error = Color(0xFFEF4444),

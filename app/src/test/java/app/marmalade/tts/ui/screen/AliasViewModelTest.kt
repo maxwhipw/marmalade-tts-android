@@ -2,6 +2,7 @@ package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -592,6 +593,9 @@ class AliasViewModelTest {
             voiceDao = voiceDao,
             settings = settings,
             installer = AliasFakeInstaller(),
+            // No cloud providers configured — on-device voices resolve
+            // entirely from EngineCatalog, which is what these tests use.
+            voicePaths = VoicePathResolver { null },
             effectDao = FakeEffectDao(),
         )
     }

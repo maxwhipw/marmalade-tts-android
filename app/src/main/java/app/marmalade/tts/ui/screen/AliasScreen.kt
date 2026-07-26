@@ -68,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 
@@ -186,6 +187,7 @@ fun AliasScreen(
                             isPrimary = alias.name == primaryAliasName,
                             effectName = effects.firstOrNull { it.id == alias.effectId }?.name
                                 ?: "No effect",
+                            voicePath = viewModel.voicePathFor(alias),
                             routedApps = mappings.filter { it.aliasName == alias.name },
                             onOpenEditor = { viewModel.openEditor(alias) },
                             onSetPrimary = { viewModel.setPrimary(alias.name) },
@@ -305,6 +307,7 @@ private fun AliasCard(
     alias: VoiceAlias,
     isPrimary: Boolean,
     effectName: String,
+    voicePath: VoicePath,
     routedApps: List<AppAliasMapping>,
     onOpenEditor: () -> Unit,
     onSetPrimary: () -> Unit,
@@ -316,65 +319,70 @@ private fun AliasCard(
             .clickable(onClick = onOpenEditor),
     ) {
         Column(modifier = Modifier.padding(vertical = 12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onSetPrimary) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = if (isPrimary) {
-                            "Primary alias"
-                        } else {
-                            "Set ${alias.name} as primary"
-                        },
-                        tint = if (isPrimary) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                        },
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = alias.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        if (isPrimary) {
-                            AssistChip(
-                                onClick = onOpenEditor,
-                                label = { Text("Primary") },
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
-                        }
-                    }
-                    // Friendly engine label (matches the picker) + just the
-                    // voice name — the stored voiceId is "<engine>:<name>", so
-                    // we strip the redundant engine prefix rather than print
-                    // the raw id twice.
-                    val engineLabel =
-                        EngineCatalog.byName(alias.engine)?.displayName ?: alias.engine
-                    val voiceLabel = alias.voiceId.substringAfter(':', alias.voiceId)
+            // The star used to sit in its own leading column, which left a
+            // 48dp empty gutter down the left of every card and made the
+            // whole row read lopsided. Inline with the name it reads as what
+            // it is — a property of the alias, not a separate control column.
+            Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "$engineLabel · $voiceLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = alias.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AssistChip(
-                            onClick = onOpenEditor,
-                            label = { Text("%.2f×".format(alias.speed)) },
+                    IconButton(
+                        onClick = onSetPrimary,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = if (isPrimary) {
+                                "Primary alias"
+                            } else {
+                                "Set ${alias.name} as primary"
+                            },
+                            tint = if (isPrimary) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            },
+                            modifier = Modifier.size(18.dp),
                         )
+                    }
+                    if (isPrimary) {
                         AssistChip(
                             onClick = onOpenEditor,
-                            label = { Text(effectName) },
+                            label = { Text("Primary") },
+                            modifier = Modifier.padding(start = 2.dp),
                         )
                     }
                 }
-                Spacer(Modifier.size(12.dp))
+                // "ElevenLabs Turbo v2.5 · Aria" — resolved through
+                // VoicePath so a 3-level cloud id reads like a 2-level
+                // on-device one instead of dumping the raw voiceId.
+                Text(
+                    text = voicePath.summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Whether an alias needs the network is the single most
+                    // consequential thing about it — it decides whether the
+                    // alias can fail. It leads the chip row for that reason.
+                    AssistChip(
+                        onClick = onOpenEditor,
+                        label = { Text(if (voicePath.isCloud) "Cloud" else "On device") },
+                    )
+                    AssistChip(
+                        onClick = onOpenEditor,
+                        label = { Text("%.2f×".format(alias.speed)) },
+                    )
+                    AssistChip(
+                        onClick = onOpenEditor,
+                        label = { Text(effectName) },
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
             RoutingStrip(
