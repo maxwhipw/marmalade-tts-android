@@ -2,7 +2,7 @@
 
 ## Branch state
 
-Working branch **`verify/routing-on-api-engine`**, head **`d37ded1`**.
+Working branch **`verify/routing-on-api-engine`**, head **`502db25`**.
 341 unit tests green on both flavors; fdroid debug APK built and installed
 on the Pixel 8a. **Nothing pushed** — github is the authoritative public
 remote and needs Max's explicit all-clear each time.
@@ -41,6 +41,16 @@ text in `~/coding/marmalade/design-lab/labs.json`. Shipped over `58376bd`,
 - Card polish: PRIMARY pill top-right in accent orange, compact MetaChips,
   no star (promote lives in the editor as "Make primary"), rounded-square
   app icons, synthetic "all apps" tile for the primary, terser copy.
+
+**Alias screen polish from device review** (`aff7f41`, `502db25`)
+- App icons: `AdaptiveIconDrawable.draw()` applies the *device* mask (a
+  circle), so the tile held a floating disc. We now paint background +
+  foreground ourselves and let the tile's own corners do the shaping —
+  every icon is full-bleed and centred. `AppIconTile` is the single
+  implementation; `AppRoutingRow` no longer duplicates it.
+- Alias editor: Save is a full-width filled pill, "Make primary" and
+  Delete share the row under it. No Cancel. Alias names are no longer
+  quoted in the editor title or the delete confirmation.
 
 ## Known limits, deliberate
 
