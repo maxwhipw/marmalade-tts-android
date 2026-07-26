@@ -77,6 +77,15 @@ class EffectBlockJsonTest {
         assertEquals(EffectChain.CYBORG_BLOCKS, blocksOf(BuiltinEffects.CYBORG_ID))
         assertEquals(EffectChain.EIGHT_BIT_BLOCKS, blocksOf(BuiltinEffects.EIGHT_BIT_ID))
         assertEquals(EffectChain.GLITCH_BLOCKS, blocksOf(BuiltinEffects.GLITCH_ID))
+        // Trial batch — awaiting Max's verdict, but they still have to survive
+        // the encode/decode round-trip like any other seeded row.
+        assertEquals(EffectChain.CASSETTE_BLOCKS, blocksOf(BuiltinEffects.CASSETTE_ID))
+        assertEquals(EffectChain.CROONER_BLOCKS, blocksOf(BuiltinEffects.CROONER_ID))
+        assertEquals(EffectChain.DEADPAN_BLOCKS, blocksOf(BuiltinEffects.DEADPAN_ID))
+        assertEquals(EffectChain.FINE_PRINT_BLOCKS, blocksOf(BuiltinEffects.FINE_PRINT_ID))
+        assertEquals(EffectChain.NEXT_ROOM_BLOCKS, blocksOf(BuiltinEffects.NEXT_ROOM_ID))
+        assertEquals(EffectChain.BEDTIME_BLOCKS, blocksOf(BuiltinEffects.BEDTIME_ID))
+        assertEquals(EffectChain.TILES_BLOCKS, blocksOf(BuiltinEffects.TILES_ID))
     }
 
     @Test

@@ -2,12 +2,14 @@ package app.marmalade.tts.audio
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.round
+import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -567,190 +569,313 @@ private class BitcrushProcessor(bits: Float, downsample: Float) : BlockProcessor
     }
 }
 
-// ── Monotone — YIN pitch detect + dynamic pitch shift toward a target ─────────
-// Two coupled stages, all state persistent across chunks (chunk-invariance is
-// pinned by StreamingEffectChainTest):
+// ── Monotone — TD-PSOLA pitch flattener ──────────────────────────────────────
+// Re-emits the input's own pitch periods on a fixed output grid at targetHz.
+// Flatness is exact by construction: there is no "how many cents of correction"
+// control loop to lag behind the input, because the output period is a constant
+// and the detector only decides WHICH grain to place, not where.
 //
-//  1. Analyser. Collect non-overlapping 2048-sample windows. RMS-gate to skip
-//     near-silent windows so the detector doesn't re-lock on decaying tails.
-//     On voiced windows run YIN (cumulative-mean normalized difference over
-//     τ in [sr/400, sr/80]); take the median over the last 3 detections;
-//     octave-error guard against ~2×/~0.5× outliers. Convert to a target
-//     cents = 1200·log2(targetHz / pitch) clamped to ±900 cents.
+// That framing is the whole fix. The previous implementation chased the input's
+// F0 with a glide-smoothed cents offset driven into a delay-line shifter, which
+// failed three ways at once: the loop (85 ms hop, median-of-3, 30-cent
+// hysteresis, 200 ms glide) was an order of magnitude slower than speech F0, so
+// most of the original intonation survived and the corrections that did land
+// arrived as portamento swoops; near zero shift the two read taps froze at an
+// arbitrary phase, leaving a static comb filter — and targetHz near the voice's
+// median, the normal case, is exactly where that happens; and the resampling
+// dragged formants with the pitch. PSOLA has none of those: it's formant
+// preserving, transient safe, and has no shift-rate state to freeze.
 //
-//  2. Shifter. Same grain-buffer + Hann-crossfade architecture as the static
-//     PitchProcessor, but `inc` is recomputed every sample from a glide-
-//     smoothed `currentCents` (~120 ms time constant — the whole point of
-//     monotone is that the correction shouldn't track micro-pitch wobble).
-//     On the *first* valid detection we snap currentCents directly to the
-//     target instead of gliding from 0 — that's what kills the audible
-//     start-of-utterance warble.
+// (A phase vocoder was tried and rejected once already — catalog v19/v20. This
+// is not that: time-domain, no spectral phase, no transient smearing.)
 //
-// Cost-wise the YIN inner loop is still the hot path (~240 × 1750 ≈ 420 K
-// multiplications every 2048 samples ≈ 5 M ops/s at 24 kHz).
+// Three stages, all state keyed on ABSOLUTE sample positions so the result is
+// independent of how the input is chunked (pinned by StreamingEffectChainTest):
+//
+//  1. Detection. Sliding YIN — 1024-sample window, 256-sample hop (10.7 ms), so
+//     the pitch track actually resolves speech. RMS gate + the YIN threshold
+//     give the voiced/unvoiced decision; median-of-5 and an octave-collapse
+//     guard clean up the track. One entry per hop, indexed by hop number.
+//
+//  2. Analysis marks. Inside voiced runs, marks land one detected period apart,
+//     each snapped to the nearest local waveform peak so grains are cut at
+//     consistent points in the glottal cycle. Unvoiced runs get fixed 5 ms
+//     marks.
+//
+//  3. Synthesis. Walk an output cursor forward by sr/targetHz while voiced (the
+//     flattening) or by the local analysis spacing while unvoiced (so
+//     fricatives and silence pass through untouched), and overlap-add the
+//     nearest analysis mark's two-period Hann grain at each step. Duration is
+//     preserved — one grain slot per output mark over the same time base.
+//
+// Grains are widened to the synthesis spacing when targetHz is more than an
+// octave below the input, which is the only case where period-length grains
+// would leave gaps between output marks.
 private class MonotoneProcessor(targetHz: Float, private val sr: Int) : BlockProcessor {
-    // -- Detector state ------------------------------------------------------
-    private val analysisWindow = 2048
-    private val analysisBuf = FloatArray(analysisWindow)
-    private var analysisFill = 0
-    private val minTau = (sr / 400f).toInt().coerceAtLeast(2) // 400 Hz max
-    private val maxTau = (sr / 80f).toInt().coerceAtMost(analysisWindow / 2 - 1) // 80 Hz min
-    private val yinThreshold = 0.15f
     private val target = targetHz.coerceIn(50f, 800f)
-    private val rmsGate = 200f      // skip ~< -40 dBFS — silence/tail
-    private val maxAbsCents = 900f  // ±7.5 semitones — clip extreme corrections
-    private val hysteresisCents = 30f // hold target if change < ¼ semitone
-    private val recentHz = FloatArray(3) { -1f }
-    private var recentIdx = 0
-    private var hasLocked = false   // first valid detection snaps; later glides
+    private val outPeriod = sr / target.toDouble()   // synthesis grid spacing
 
-    // -- Smoothed correction state ------------------------------------------
-    private var targetCents = 0f
-    private var currentCents = 0f
-    // ~200 ms glide. Even slower than before — the time-domain crossfade
-    // shifter renders fast cents changes as audible "turntable wow," so we
-    // want targetCents to settle for a long time between updates.
-    private val glideCoeff = kotlin.math.exp(-1.0 / (0.200 * sr)).toFloat()
+    // -- Detection -----------------------------------------------------------
+    private val win = 1024
+    private val hop = 256
+    private val minTau = (sr / 400f).toInt().coerceAtLeast(2)          // 400 Hz ceiling
+    private val maxTau = (sr / 80f).toInt().coerceAtMost(win / 2 - 1)  // 80 Hz floor
+    private val yinThreshold = 0.15f
+    private val rmsGate = 200f          // ~-44 dBFS at int16 scale — silence/tail
+    private val unvoicedPeriod = (sr * 0.005).toInt().coerceAtLeast(2) // 5 ms marks
 
-    // -- Shifter state (grain-buffer crossfade, same idiom as PitchProcessor) -
-    private val n = (sr * 0.05).toInt().coerceAtLeast(2)
-    private val grainBuf = FloatArray(n)
-    private var writeIdx = 0
-    private var phase = 0.0
+    /** Ring of per-hop smoothed F0 (Hz), or -1 for unvoiced. Indexed by hop number. */
+    private val hopF0 = FloatArray(HOP_HISTORY) { -1f }
+    private var nextHop = 0             // next hop number to analyse
+    private val rawRing = FloatArray(5) { -1f }
+    private var rawIdx = 0
+
+    // -- Input, addressed absolutely -----------------------------------------
+    private var inBuf = FloatArray(win * 4)
+    private var inLen = 0
+    private var inBase = 0L             // absolute index of inBuf[0]
+    private var ended = false
+
+    // -- Analysis marks ------------------------------------------------------
+    private class Mark(val pos: Long, val half: Int, val voiced: Boolean, val spacing: Int)
+
+    private val marks = ArrayDeque<Mark>()
+    private var nextMarkPos = 0L
+    /** Widest grain any future mark can carry — the finalization horizon. */
+    private val maxHalf = maxOf(maxTau, ceil(outPeriod).toInt())
+
+    // -- Synthesis / overlap-add ---------------------------------------------
+    private var outPos = 0.0            // absolute output position
+    private var acc = FloatArray(win * 4)
+    private var accW = FloatArray(win * 4)
+    private var accBase = 0L            // absolute output index of acc[0]
+    private var accLen = 0              // high-water mark written into acc
 
     override fun process(input: FloatArray): FloatArray {
-        val out = FloatArray(input.size)
-        for (i in input.indices) {
-            // 1. Feed the analyser. When a window fills, run the detection
-            //    pipeline (RMS gate → YIN → median → octave guard).
-            analysisBuf[analysisFill++] = input[i]
-            if (analysisFill >= analysisWindow) {
-                detectAndUpdate()
-                analysisFill = 0
-            }
-
-            // 2. Glide currentCents toward targetCents (clamped).
-            currentCents = currentCents * glideCoeff + targetCents * (1f - glideCoeff)
-            if (currentCents > maxAbsCents) currentCents = maxAbsCents
-            else if (currentCents < -maxAbsCents) currentCents = -maxAbsCents
-
-            // 3. Dynamic pitch shift (same crossfade engine as PitchProcessor).
-            grainBuf[writeIdx] = input[i]
-            val inc = 1.0 - 2.0.pow(currentCents.toDouble() / 1200.0)
-            var p2 = phase + n / 2.0
-            if (p2 >= n) p2 -= n
-            val w1 = 0.5 * (1 - kotlin.math.cos(2.0 * PI * phase / n))
-            val w2 = 0.5 * (1 - kotlin.math.cos(2.0 * PI * p2 / n))
-            out[i] = (w1 * grainRead(phase) + w2 * grainRead(p2)).toFloat()
-            writeIdx++; if (writeIdx >= n) writeIdx = 0
-            phase += inc
-            if (phase >= n) phase -= n
-            if (phase < 0) phase += n
-        }
-        return out
+        append(input)
+        return advance()
     }
 
-    // Runs once per filled analysis window. Updates targetCents only when we
-    // have a confident detection — silence and tail decay HOLD the previous
-    // value, which is what prevents the end-of-utterance hard shift.
-    private fun detectAndUpdate() {
-        // RMS gate — skip near-silent windows so the detector doesn't run on
-        // utterance tails / inter-word gaps.
-        var sumSq = 0.0
-        for (s in analysisBuf) sumSq += s * s
-        val rms = kotlin.math.sqrt(sumSq / analysisBuf.size).toFloat()
-        if (rms < rmsGate) return
-
-        val detected = yin()
-        if (detected <= 0f) return
-
-        // Push into the recent-detection ring + compute median for stability.
-        recentHz[recentIdx] = detected
-        recentIdx = (recentIdx + 1) % recentHz.size
-        val median = medianOfValid(recentHz)
-        if (median <= 0f) return
-
-        // Octave-error guard: YIN occasionally drops/doubles an octave on
-        // transients. If `detected` is ~2× or ~0.5× the median, collapse it
-        // back to the median's octave before computing the correction.
-        val corrected = octaveCorrect(detected, median)
-
-        val ratio = target / corrected
-        if (ratio <= 0f) return
-        val newTargetCents = (1200.0 * (ln(ratio.toDouble()) / LN2)).toFloat()
-            .coerceIn(-maxAbsCents, maxAbsCents)
-
-        if (!hasLocked) {
-            // First lock — snap so the start of speech doesn't audibly glide
-            // from "no shift" (cents=0) up to the correction.
-            targetCents = newTargetCents
-            currentCents = newTargetCents
-            hasLocked = true
-        } else if (kotlin.math.abs(newTargetCents - targetCents) >= hysteresisCents) {
-            // Hysteresis: only update if the new estimate moves more than
-            // ¼ semitone. Smaller drifts (vibrato, vowel pitch sweep) hold —
-            // that's what kills the residual turntable wobble within voiced
-            // segments without blocking real pitch changes between phrases.
-            targetCents = newTargetCents
-        }
-    }
-
-    private fun medianOfValid(buf: FloatArray): Float {
-        // Tiny ring (3 elements) — sort in place via three comparisons.
-        var a = -1f; var b = -1f; var c = -1f
-        for (v in buf) {
-            if (v <= 0f) continue
-            when {
-                a < 0f -> a = v
-                b < 0f -> b = v
-                else -> c = v
-            }
-        }
-        return when {
-            a < 0f -> -1f
-            b < 0f -> a
-            c < 0f -> (a + b) / 2f
-            else -> {
-                // median of three
-                val hi = maxOf(a, b, c)
-                val lo = minOf(a, b, c)
-                a + b + c - hi - lo
-            }
-        }
-    }
-
-    private fun octaveCorrect(detected: Float, median: Float): Float {
-        if (median <= 0f) return detected
-        val ratio = detected / median
-        return when {
-            ratio in 1.7f..2.3f -> detected / 2f
-            ratio in 0.43f..0.58f -> detected * 2f
-            else -> detected
-        }
-    }
-
-    // Read `delay` samples behind the write head, fractional, wrapping mod n.
-    private fun grainRead(delay: Double): Double {
-        var pos = writeIdx - delay
-        while (pos < 0) pos += n
-        val lo = pos.toInt()
-        val hi = if (lo + 1 >= n) 0 else lo + 1
-        val frac = pos - lo
-        return grainBuf[lo] * (1 - frac) + grainBuf[hi] * frac
+    override fun flush(): FloatArray {
+        // No more input is coming: place marks and grains against whatever is
+        // buffered (reads past the end return 0), then drain the accumulator.
+        ended = true
+        val body = advance()
+        val tail = normalize(accLen)
+        accLen = 0
+        accBase += 0
+        return if (body.isEmpty()) tail else body + tail
     }
 
     /**
-     * YIN pitch detector. Returns Hz, or -1 if no clear pitch was found
-     * (silence, noise, octave ambiguity). Operates on [analysisBuf].
+     * Run detection → marks → synthesis as far as the buffered input allows,
+     * looping because the three are interleaved: detection is capped to stay
+     * inside the pitch-track ring, so placing marks is what lets it advance
+     * further. Without the loop, a whole-buffer call would stall after one ring
+     * window.
      */
-    private fun yin(): Float {
-        val n = analysisWindow
+    private fun advance(): FloatArray {
+        val emitted = ArrayList<Float>()
+        while (true) {
+            val hopBefore = nextHop
+            val markBefore = nextMarkPos
+            runDetection()
+            runMarks()
+            runSynthesis(emitted)
+            if (nextHop == hopBefore && nextMarkPos == markBefore) break
+        }
+        trimInput()
+        return emitted.toFloatArray()
+    }
+
+    // ── 1. Detection ────────────────────────────────────────────────────────
+
+    private fun runDetection() {
+        while (true) {
+            val start = nextHop.toLong() * hop
+            // Strictly buffered — unlike grain reads, an analysis window may
+            // not run off the end of the input, or flush() would never stop.
+            if (inBase + inLen < start + win) return
+            // Never outrun the pitch-track ring: the next mark still has to
+            // read the hop covering its own position, and a wrapped ring would
+            // hand it some other hop's period — which also made the result
+            // depend on how far ahead detection had got, i.e. on chunking.
+            if (nextHop >= hopIndexFor(nextMarkPos) + HOP_HISTORY) return
+            val raw = yinAt(start)
+            rawRing[rawIdx] = raw
+            rawIdx = (rawIdx + 1) % rawRing.size
+            hopF0[nextHop % HOP_HISTORY] =
+                if (raw <= 0f) -1f else octaveCorrect(raw, medianOfValid(rawRing))
+            nextHop++
+        }
+    }
+
+    /**
+     * Smoothed F0 at absolute position [pos] — the hop whose window contains it.
+     * Deterministic given [pos] alone, which is what keeps mark placement
+     * independent of how far detection happens to have run.
+     */
+    private fun f0At(pos: Long): Float =
+        hopF0[hopIndexFor(pos).coerceAtMost(nextHop - 1) % HOP_HISTORY]
+
+    /** Hop number whose analysis window covers absolute [pos]. */
+    private fun hopIndexFor(pos: Long): Int =
+        ((pos - win / 2) / hop).coerceAtLeast(0).toInt()
+
+    /** Position of the last sample the hop covering [pos] needs. */
+    private fun hopEndFor(pos: Long): Long = (hopIndexFor(pos) + 1).toLong() * hop + win
+
+    // ── 2. Analysis marks ───────────────────────────────────────────────────
+
+    private fun runMarks() {
+        while (true) {
+            // The mark's period comes from the hop covering it, so that hop
+            // must have been analysed first.
+            if (!ended && inBase + inLen < hopEndFor(nextMarkPos)) return
+            if (nextHop == 0) return
+            // Once the input has ended, `have` stops gating — so stop here, or
+            // marks would march past the end of the buffer forever.
+            if (ended && nextMarkPos >= inBase + inLen) return
+            val f0 = f0At(nextMarkPos)
+            val voiced = f0 > 0f
+            val period = if (voiced) (sr / f0).toInt().coerceIn(minTau, maxTau) else unvoicedPeriod
+            val search = if (voiced) period / 4 else 0
+            val half = if (voiced) maxOf(period, ceil(outPeriod).toInt()) else period
+            if (!have(nextMarkPos - half - search, half * 2 + search * 2 + 1)) return
+
+            // Snap voiced marks to the nearest waveform peak so every grain is
+            // cut at the same point in the glottal cycle. Signed max, not |max|
+            // — consistent polarity, or the overlap-add cancels itself.
+            var pos = nextMarkPos
+            if (search > 0) {
+                var best = Float.NEGATIVE_INFINITY
+                for (c in (nextMarkPos - search)..(nextMarkPos + search)) {
+                    val v = sampleAt(c)
+                    if (v > best) { best = v; pos = c }
+                }
+            }
+            marks.addLast(Mark(pos, half, voiced, period))
+            nextMarkPos = pos + period
+        }
+    }
+
+    // ── 3. Synthesis ────────────────────────────────────────────────────────
+
+    private fun runSynthesis(emitted: ArrayList<Float>) {
+        while (marks.isNotEmpty()) {
+            // Drop marks the cursor has moved past — the head is then the
+            // nearest one, which needs its successor present to be sure.
+            while (marks.size >= 2 && abs(marks.elementAt(1).pos - outPos) <= abs(marks.first().pos - outPos)) {
+                marks.removeFirst()
+            }
+            if (marks.size < 2 && !ended) return
+            val mark = marks.first()
+            if (!started) { outPos = mark.pos.toDouble(); started = true }
+            if (ended && marks.size == 1 && outPos > mark.pos + mark.half) break
+
+            placeGrain(mark)
+            outPos += if (mark.voiced) outPeriod else mark.spacing.toDouble()
+
+            // Every future grain starts at or after (outPos - maxHalf), so
+            // output below that is finalized. Emit and left-shift.
+            val finalized = (outPos.toLong() - maxHalf - accBase).toInt()
+            if (finalized > 0) {
+                for (s in normalize(finalized)) emitted.add(s)
+                shiftAcc(finalized)
+            }
+        }
+    }
+
+    private var started = false
+
+    private fun placeGrain(mark: Mark) {
+        val centre = outPos.roundToLong()
+        val half = mark.half
+        val span = 2 * half
+        val need = (centre + half - accBase).toInt() + 1
+        if (need > acc.size) {
+            val cap = need.coerceAtLeast(acc.size * 2)
+            acc = acc.copyOf(cap); accW = accW.copyOf(cap)
+        }
+        for (k in -half..half) {
+            val idx = (centre + k - accBase).toInt()
+            if (idx < 0) continue
+            val w = (0.5 * (1 - cos(2.0 * PI * (k + half) / span))).toFloat()
+            acc[idx] += w * sampleAt(mark.pos + k)
+            accW[idx] += w
+            if (idx + 1 > accLen) accLen = idx + 1
+        }
+    }
+
+    private fun normalize(to: Int): FloatArray {
+        val n = to.coerceAtMost(accLen).coerceAtLeast(0)
+        return FloatArray(n) { if (accW[it] < 1e-4f) 0f else acc[it] / accW[it] }
+    }
+
+    private fun shiftAcc(by: Int) {
+        System.arraycopy(acc, by, acc, 0, acc.size - by)
+        System.arraycopy(accW, by, accW, 0, accW.size - by)
+        for (j in (acc.size - by) until acc.size) { acc[j] = 0f; accW[j] = 0f }
+        accBase += by
+        accLen = (accLen - by).coerceAtLeast(0)
+    }
+
+    // ── Input buffer ────────────────────────────────────────────────────────
+
+    private fun append(input: FloatArray) {
+        if (inLen + input.size > inBuf.size) {
+            inBuf = inBuf.copyOf((inLen + input.size).coerceAtLeast(inBuf.size * 2))
+        }
+        System.arraycopy(input, 0, inBuf, inLen, input.size)
+        inLen += input.size
+    }
+
+    /** True once [len] samples from absolute [from] are buffered (or input ended). */
+    private fun have(from: Long, len: Int): Boolean = ended || inBase + inLen >= from + len
+
+    private fun sampleAt(pos: Long): Float {
+        val i = (pos - inBase).toInt()
+        return if (i < 0 || i >= inLen) 0f else inBuf[i]
+    }
+
+    /**
+     * Drop input below what detection and the next mark still need to read.
+     * The maxTau slack covers marks left queued for the next call — synthesis
+     * drains the queue to its last two entries, so they sit within a couple of
+     * periods of [nextMarkPos].
+     */
+    private fun trimInput() {
+        val keepFrom = minOf(nextHop.toLong() * hop, nextMarkPos - maxHalf - 4 * maxTau)
+        val drop = (keepFrom - inBase).toInt()
+        if (drop <= 0) return
+        System.arraycopy(inBuf, drop, inBuf, 0, inLen - drop)
+        inLen -= drop
+        inBase += drop
+    }
+
+    // ── YIN ─────────────────────────────────────────────────────────────────
+
+    /**
+     * YIN over the window starting at absolute [start]. Returns Hz, or -1 for
+     * silence / no clear pitch (which is also the voiced/unvoiced decision).
+     */
+    private fun yinAt(start: Long): Float {
+        val base = (start - inBase).toInt()
+        var sumSq = 0.0
+        for (i in 0 until win) {
+            val s = sampleAt(start + i)
+            sumSq += s.toDouble() * s
+        }
+        if (sqrt(sumSq / win) < rmsGate) return -1f
+
+        val limit = win - maxTau
         val d = FloatArray(maxTau + 1)
         for (tau in minTau..maxTau) {
             var sum = 0f
-            val limit = n - maxTau
             for (i in 0 until limit) {
-                val diff = analysisBuf[i] - analysisBuf[i + tau]
+                val a = if (base + i in 0 until inLen) inBuf[base + i] else 0f
+                val b = if (base + i + tau in 0 until inLen) inBuf[base + i + tau] else 0f
+                val diff = a - b
                 sum += diff * diff
             }
             d[tau] = sum
@@ -783,12 +908,30 @@ private class MonotoneProcessor(targetHz: Float, private val sr: Int) : BlockPro
 
     private fun parabolicInterp(a: Float, b: Float, c: Float, x: Float): Float {
         val denom = a - 2f * b + c
-        if (kotlin.math.abs(denom) < 1e-9f) return x
+        if (abs(denom) < 1e-9f) return x
         return x + 0.5f * (a - c) / denom
     }
 
-    companion object {
-        private val LN2 = ln(2.0)
+    private fun medianOfValid(buf: FloatArray): Float {
+        val valid = buf.filter { it > 0f }.sorted()
+        if (valid.isEmpty()) return -1f
+        return valid[valid.size / 2]
+    }
+
+    /** YIN drops or doubles an octave on transients; collapse those back. */
+    private fun octaveCorrect(detected: Float, median: Float): Float {
+        if (median <= 0f) return detected
+        val ratio = detected / median
+        return when {
+            ratio in 1.7f..2.3f -> detected / 2f
+            ratio in 0.43f..0.58f -> detected * 2f
+            else -> detected
+        }
+    }
+
+    private companion object {
+        /** Hops of pitch track kept — marks lag detection by far less than this. */
+        const val HOP_HISTORY = 64
     }
 }
 // ── Ring modulator — multiply by a carrier sine, dry/wet blend ────────────────

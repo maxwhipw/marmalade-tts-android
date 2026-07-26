@@ -250,7 +250,13 @@ class MarmaladeTtsApplication : Application() {
          *    1.3/1.1/1.2; 8-bit is low-pass-first at 3446 Hz + 7-bit/8× crush
          *    with no makeup; Walkie-talkie gains hard drive + 11-bit crush;
          *    Dragon rebuilt reverb-first with Pitch(−649) + Tempo(0.85).
+         *  - v28: 1.0.0-beta.1 — Dragon's no-op Bass(0) dropped, and seven
+         *    trial presets seeded for audition under "<name> - test" names
+         *    (Cassette / Crooner / Deadpan / Fine print / Next room / Bedtime /
+         *    Tiles). Those are provisional: approving one means renaming it and
+         *    mirroring it into the CLI, rejecting one means deleting the row and
+         *    letting the prune drop it.
          */
-        const val CATALOG_VERSION: Int = 27
+        const val CATALOG_VERSION: Int = 28
     }
 }

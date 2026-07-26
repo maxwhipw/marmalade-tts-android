@@ -150,12 +150,14 @@ sealed interface EffectBlock {
     data class RingMod(val freqHz: Float, val mix: Float) : EffectBlock
 
     /**
-     * Pitch flattener — detect the input's pitch (YIN, ~1024-sample windows)
-     * and dynamically shift it toward [targetHz]. Gives the deadpan-monotone
-     * "auto-tune flat" / GLaDOS phrasing that a static [Pitch] block can't,
-     * because Pitch blindly adds an offset whereas Monotone follows the input
-     * and corrects it. Android-only — no sox equivalent. Detector has ~43 ms
-     * of warmup latency before the first lock; output glides smoothly.
+     * Pitch flattener — re-emits the input's own pitch periods on a fixed grid
+     * at [targetHz] (TD-PSOLA), giving the deadpan-monotone "auto-tune flat" /
+     * GLaDOS phrasing that a static [Pitch] block can't: Pitch blindly adds an
+     * offset, while this replaces the intonation outright. Formant preserving,
+     * so it flattens without the chipmunk/Darth colouration a resampler adds,
+     * and unvoiced sounds pass through untouched. Duration is unchanged.
+     * Android-only — no sox equivalent. ~40 ms of detector warm-up plus ~25 ms
+     * of lookahead latency; see MonotoneProcessor in StreamingEffectChain.kt.
      */
     data class Monotone(val targetHz: Float) : EffectBlock
 }
@@ -302,7 +304,6 @@ object EffectChain {
     val DRAGON_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Reverb(reverberance = 45f),
         EffectBlock.Pitch(cents = -649f),
-        EffectBlock.Bass(db = 0f),
         EffectBlock.Mid(freqHz = 1058f, gainDb = -2f),
         EffectBlock.Overdrive(gainDb = 7f),
         EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f),
@@ -331,6 +332,81 @@ object EffectChain {
         EffectBlock.RingMod(freqHz = 120f, mix = 0.4f),
         EffectBlock.Bandpass(lowHz = 400f, highHz = 3000f),
         EffectBlock.Vol(factor = 1.35f),
+    )
+
+    // -- Trial presets — awaiting Max's verdict ---------------------------------
+    // Seeded under "<name> - test" names so they're obvious in the list. Approve
+    // → rename, drop the marker, and mirror into the CLI's BUILTIN_PRESETS.
+    // Reject → delete the block list, the row, and prune. Deliberately NOT in
+    // the CLI or the README yet: no point churning the public docs twice.
+
+    // Home tape recording: warm, dull, faintly wavering. Drive first so the
+    // soft-clip harmonics get smoothed by the head roll-off rather than
+    // sitting on top of it as fizz.
+    val CASSETTE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Overdrive(gainDb = 6f),
+        EffectBlock.Lowpass(freqHz = 5500f),
+        EffectBlock.Chorus(speedHz = 0.5f, depthMs = 1.5f),
+        EffectBlock.Compressor(thresholdDb = -22f, ratio = 2.5f),
+        EffectBlock.Vol(factor = 1.15f),
+    )
+    // 1950s stage mic. The one distinct ~120 ms slapback repeat is the whole
+    // period cue — Cave and Stadium bury their echoes in reverb, this keeps it
+    // dry and audible, with only a whisper of room behind it.
+    val CROONER_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 120f),
+        EffectBlock.Overdrive(gainDb = 4f),
+        EffectBlock.Compressor(thresholdDb = -20f, ratio = 4f),
+        EffectBlock.Mid(freqHz = 3000f, gainDb = 2f),
+        EffectBlock.Echo(gainIn = 0.85f, gainOut = 0.55f, delayMs = 120f, decay = 0.45f),
+        EffectBlock.Reverb(reverberance = 12f),
+    )
+    // Flat-affect facility AI: the sentence's melody ironed out, every word
+    // still clear. [EffectBlock.Monotone] runs first so its detector sees the
+    // clean voice; the tight chorus says "not human" without smearing it.
+    val DEADPAN_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Monotone(targetHz = 160f),
+        EffectBlock.Chorus(speedHz = 0.3f, depthMs = 1f),
+        EffectBlock.Mid(freqHz = 2800f, gainDb = 2f),
+        EffectBlock.Reverb(reverberance = 10f),
+    )
+    // End-of-advert disclaimer. Tempo runs early and pitch is untouched, so it
+    // reads as a fast talker rather than a chipmunk; the deep squash then
+    // supplies the breathless no-gaps density and the presence bell keeps
+    // consonants cutting through at speed.
+    val FINE_PRINT_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 100f),
+        EffectBlock.Tempo(factor = 1.35f),
+        EffectBlock.Compressor(thresholdDb = -24f, ratio = 4f),
+        EffectBlock.Mid(freqHz = 3000f, gainDb = 3f),
+        EffectBlock.Vol(factor = 1.25f),
+    )
+    // A voice through a closed door. Order is the whole trick: the reverb
+    // happens in the *other* room, so the low-pass after it muffles the tail
+    // along with the voice — reverb last would be a dark voice in a bright
+    // room, which breaks the image.
+    val NEXT_ROOM_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Reverb(reverberance = 60f),
+        EffectBlock.Lowpass(freqHz = 600f),
+        EffectBlock.Vol(factor = 1.8f),
+    )
+    // Hushed wind-down narrator. The high shelf tames sibilance more gracefully
+    // than a low-pass would, and deliberately no reverb and no presence boost —
+    // that restraint is what separates it from Audiobook.
+    val BEDTIME_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Tempo(factor = 0.93f),
+        EffectBlock.Treble(db = -4f),
+        EffectBlock.Bass(db = 3f),
+        EffectBlock.Compressor(thresholdDb = -26f, ratio = 2f),
+    )
+    // Small tiled room. Bright and short where Cave is dark and huge: thin the
+    // low end so it doesn't boom, then a close 45 ms slap under a modest
+    // reverb, with air on top.
+    val TILES_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Highpass(freqHz = 180f),
+        EffectBlock.Treble(db = 3f),
+        EffectBlock.Echo(gainIn = 0.8f, gainOut = 0.5f, delayMs = 45f, decay = 0.25f),
+        EffectBlock.Reverb(reverberance = 40f),
     )
 
     /**

@@ -175,14 +175,84 @@ class StreamingEffectChainTest {
 
     @Test
     fun `monotone chunked equals whole`() {
-        // Carries multiple coupled states across seams: the 1024-sample
-        // analysis-buffer fill index, the smoothed-correction cents, and the
-        // grain-buffer + phase of the dynamic pitch shifter. A reset of any
-        // one of them would change downstream samples — bit-identical
-        // chunked == whole pins all three.
-        val pcm = signal(20_000)
+        // Every stage of the PSOLA flattener carries state across seams: the
+        // sliding-YIN hop counter and its pitch-track ring, the analysis-mark
+        // queue and peak-search cursor, and the overlap-add accumulator plus
+        // its output cursor. All of it is keyed on absolute sample positions
+        // precisely so this holds — a single decision made from "how much
+        // input arrived this call" would break it.
+        val pcm = glide(20_000, 180.0, 260.0)
         val chain = listOf(EffectBlock.Monotone(160f))
         assertArrayEquals(streamWhole(chain, pcm), streamChunked(chain, pcm, 333))
+    }
+
+    @Test
+    fun `monotone flattens a pitch glide onto its target`() {
+        // The contract nothing used to check: input F0 sweeps 180 → 260 Hz,
+        // output must sit at the 160 Hz target throughout. The old
+        // correction-chasing implementation passed everything faster than
+        // ~200 ms straight through, so it would fail this by hundreds of
+        // cents while still looking fine to the chunked==whole test.
+        val pcm = glide(48_000, 180.0, 260.0)
+        val out = streamWhole(listOf(EffectBlock.Monotone(160f)), pcm)
+
+        // Skip the detector warm-up, then check across the whole sweep.
+        val skip = sr / 4
+        var checked = 0
+        for (start in skip until out.size - 2048 step 4096) {
+            val hz = detectHz(out, start) ?: continue
+            val cents = 1200.0 * kotlin.math.ln(hz / 160.0) / kotlin.math.ln(2.0)
+            assertTrue(
+                "output should sit on 160 Hz, got %.1f Hz (%.0f cents off) at %d".format(hz, cents, start),
+                kotlin.math.abs(cents) < 60.0,
+            )
+            checked++
+        }
+        assertTrue("expected several voiced measurements, got $checked", checked >= 5)
+    }
+
+    /** Sawtooth-ish harmonic tone whose F0 sweeps [fromHz] → [toHz]. */
+    private fun glide(n: Int, fromHz: Double, toHz: Double): ShortArray {
+        var phase = 0.0
+        return ShortArray(n) { i ->
+            val f = fromHz + (toHz - fromHz) * i / n
+            phase += 2.0 * PI * f / sr
+            var v = 0.0
+            for (h in 1..6) v += sin(h * phase) / h
+            (3000.0 * v).toInt().toShort()
+        }
+    }
+
+    /**
+     * Normalized-autocorrelation pitch detector, for asserting on output only.
+     * Takes the FIRST lag to clear the threshold rather than the strongest —
+     * raw autocorrelation peaks just as hard at 2× the period, and picking the
+     * max reports an octave down.
+     */
+    private fun detectHz(pcm: ShortArray, start: Int): Double? {
+        val n = 2048
+        val minTau = sr / 400
+        val maxTau = sr / 80
+        val len = n - maxTau
+        var e0 = 0.0
+        for (i in 0 until len) e0 += pcm[start + i].toDouble() * pcm[start + i]
+        if (e0 / len < 200.0 * 200.0) return null
+        var bestTau = -1
+        var bestR = 0.0
+        for (tau in minTau..maxTau) {
+            var sum = 0.0
+            var eT = 0.0
+            for (i in 0 until len) {
+                val a = pcm[start + i].toDouble()
+                val b = pcm[start + i + tau].toDouble()
+                sum += a * b
+                eT += b * b
+            }
+            val r = if (eT > 0) sum / kotlin.math.sqrt(e0 * eT) else 0.0
+            if (r > 0.85) return sr.toDouble() / tau
+            if (r > bestR) { bestR = r; bestTau = tau }
+        }
+        return if (bestTau > 0 && bestR > 0.5) sr.toDouble() / bestTau else null
     }
 
     @Test

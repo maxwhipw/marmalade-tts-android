@@ -82,7 +82,6 @@ class EffectChainTest {
             listOf(
                 EffectBlock.Reverb(45f),
                 EffectBlock.Pitch(-649f),
-                EffectBlock.Bass(0f),
                 EffectBlock.Mid(1058f, -2f),
                 EffectBlock.Overdrive(7f),
                 EffectBlock.Chorus(0.25f, 2f),
