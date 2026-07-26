@@ -1,3 +1,65 @@
+# HANDOFF — effects preset retune, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`82dd713`**.
+**367 unit tests green** (`:app:testFdroidDebugUnitTest`). **Nothing pushed** —
+github is the authoritative public remote and needs Max's explicit all-clear
+each time.
+
+The matching CLI change is `bb2ed8d` in `~/coding/marmalade-tts-cli`
+(also unpushed). **These two must land together** — `BuiltinEffects`/
+`EffectChain` are documented mirrors of the CLI's `BUILTIN_PRESETS`.
+
+## What shipped
+
+`82dd713` — a preset pass Max dictated from an on-device listening session,
+mirrored into the CLI in the same turn:
+
+| Preset | Now |
+|---|---|
+| Robot | **removed** — built-in row, `EffectPreset.ROBOT`, onboarding entry, `idForLegacyPreset("ROBOT")` |
+| Alien → **AI** | same chain (Pitch +150, Phaser, Flanger, Reverb 30), now on `builtin:ai`; `builtin:alien` is pruned |
+| old AI | **retired** — the Monotone-based deadpan chain. The `Monotone` block itself stays; it's in the editor palette |
+| Chipmunk | `Pitch(+900)` alone, no tempo drag |
+| Telephone / Megaphone / Intercom | Vol → 1.3 / 1.1 / 1.2 |
+| 8-bit | `Lowpass(3446)` **first**, then `Bitcrush(7, 8)`, no Vol makeup |
+| Walkie-talkie | HP 400, LP 5000, **Overdrive 25**, `Bitcrush(11, 1)`, Comp −32:6, Vol 1.5 |
+| Dragon | **reverb-first**: Reverb 45, Pitch −649, Bass 0, Mid 1058 −2, Overdrive 7, Chorus 0.25, Tempo 0.85 |
+| Trailer | **signed off as-is** — noted in place next to the recipe. Don't retune without asking |
+
+`CATALOG_VERSION` **26 → 27** so existing installs re-seed.
+
+## Traps this touched
+
+- The frozen `MIGRATION_6_7` still writes `builtin:robot`. That id is no longer
+  seeded, so `pruneBuiltinsNotIn` drops the row and an upgraded Robot alias
+  comes back **dry**. Deliberate, documented at the migration.
+- `EffectsViewModel.label()` renders `Bass 0` for any value in (−1, 0) — it
+  truncates with `toInt()` and only prefixes `+` when `db >= 0`. Dragon's
+  `Bass(0f)` will therefore chip as `Bass +0`, one character off Max's
+  screenshot. The block is a no-op either way; it's kept to match his chain.
+- Recipe pinning lives in `EffectChainTest.preset recipes match the CLI sox
+  presets` — it now covers Walkie-talkie / Intercom / Dragon / 8-bit too, so a
+  one-sided edit fails the build instead of drifting silently.
+
+## NOT verified on device
+
+**Nothing has been heard.** The chains render and the pinning tests pass, but
+no audio has been listened to since the change. Worth an ear on:
+
+- **Dragon** — reverb before pitch/tempo is unusual; the tail gets dropped a
+  fifth and slowed with the voice. That's the intent, but it's the recipe most
+  likely to sound wrong.
+- **Walkie-talkie** — Overdrive 25 into Comp −32:6 is a lot of gain staging.
+- **8-bit** — no makeup Vol any more; check it isn't quiet next to its
+  neighbours.
+- The Effects screen should now show **no Robot, no Alien, one AI**.
+
+Note the CLI and Android walkie-talkie will **not** sound identical: sox has no
+bit-depth quantizer, so the CLI approximates `bitcrush=11:1` as `overdrive 4`
+stacked on the existing `overdrive 25`.
+
 # HANDOFF — brand + effects + voice picker, 2026-07-26 (branch verify/routing-on-api-engine)
 
 ## Branch state
