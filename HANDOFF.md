@@ -1,3 +1,84 @@
+# HANDOFF — voice hierarchy + alias screen, 2026-07-25 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`d37ded1`**.
+341 unit tests green on both flavors; fdroid debug APK built and installed
+on the Pixel 8a. **Nothing pushed** — github is the authoritative public
+remote and needs Max's explicit all-clear each time.
+
+Room schema is now **v9**. The migration was verified on Max's real device:
+`user_version 9`, both aliases survived, 232 voice rows (151 cloud), zero
+app routes lost. `fallbackToDestructiveMigration()` is still armed at
+`AppModule.kt:80`, so any future hash drift wipes aliases + routes — write
+real migrations.
+
+## What shipped today
+
+**Cloud engine** (`33f960f`, `f09bd6c`)
+- Model **allowlist** replaces the substring blocklist; discovery joins onto
+  it by id instead of replacing it wholesale. Fails closed.
+- Descriptor is schema **v2** and the version is now read — a cached remote
+  copy only wins if `>=` the bundled one. Previously the cache won forever.
+- Per-voice **sample rate**; `CloudApiEngine` checks the response against
+  the model's declared rate.
+- **MP3 decode** via `MediaCodecAudioDecoder` behind the
+  `CompressedAudioDecoder` seam. 7 of Venice's 11 models now usable.
+
+**Design lab "tts-voice-hierarchy"** — signed off by Max 2026-07-25, decision
+text in `~/coding/marmalade/design-lab/labs.json`. Shipped over `58376bd`,
+`307491f`, `a5b8f6d`, `d37ded1`:
+- `VoicePath` / `VoicePathResolver` — one source › model › voice hierarchy,
+  middle level collapsed when it carries nothing.
+- **Drill-down voice picker** (`VoicePickerSheet`) replacing a 156-entry
+  dropdown; search cuts across levels; model step skipped for on-device.
+- Alias editor has **one Voice row**, no engine dropdown, no branching on
+  cloud vs on-device.
+- **Offline fallback** — `VoiceAlias.fallbackAliasName`, auto-armed with the
+  primary on-device alias when a cloud voice is chosen.
+- `surfaceContainer*` roles defined (the lavender was Material's baseline
+  palette leaking through `Card`/`NavigationBar`).
+- Card polish: PRIMARY pill top-right in accent orange, compact MetaChips,
+  no star (promote lives in the editor as "Make primary"), rounded-square
+  app icons, synthetic "all apps" tile for the primary, terser copy.
+
+## Known limits, deliberate
+
+- **Fallback can't rescue a rate mismatch.** The retry only fires when the
+  fallback's sample rate matches what `callback.start()` already committed;
+  the framework can't revise it mid-request, so a 48 kHz cloud voice
+  (Gradium, Inworld) logs and reports the original error instead of playing
+  at the wrong pitch. Lifting this needs deferred `start()`.
+- **Re-routing an app now takes two steps.** A row owned by another alias is
+  disabled rather than steal-able (Max's call, 2026-07-25). Un-route it
+  where it lives first.
+
+## Not verified on device
+
+Everything below builds, installs, migrates and runs, but has **not been
+eyeballed**:
+- the drill-down picker, the one-row editor, the fallback field
+- MP3 decode actually producing audio (MediaCodec is the one thing unit
+  tests can't cover — Robolectric's shadow doesn't decode)
+- **the 48 kHz path — and a wrong rate is INAUDIBLE on the Speak screen**,
+  which rebuilds its AudioTrack from the chunk rate. Verify a Gradium voice
+  through Settings → Text-to-speech → Play example, or a third-party app.
+
+## Still open
+
+- `MarmaladeSynthService` **cannot play cloud voices at all** (`:308-319`,
+  `:389-398`, `:536`, `:552`, `:561`) — they fall through to `DEFAULT_ENGINE`
+  and speak Kokoro. Breaks share-to-speak, the QS tile, `SpeakDispatcher`.
+  Pre-existing, untouched.
+- Wordmark font: pop `stash@{0}`, bundle Momo Trust Display **400** (OFL-1.1,
+  © 2026 The MoMo Trust Display Project Authors), add `LICENSES/fonts.md`,
+  and fix `Type.kt:14`'s false claim that it isn't freely distributable. The
+  design doc's "600" is wrong — that weight does not exist.
+- Do the MP3 models honour `speed`? They ignore `response_format`, so they
+  may no-op the speed slider.
+- `CloudApiVoiceCatalog.kt:72-73` stamps every discovered voice `en-US`,
+  including multilingual MiniMax/Gemini sets.
+
 # HANDOFF — Venice capability audit, 2026-07-24 (branch verify/routing-on-api-engine)
 
 ## Branch state
