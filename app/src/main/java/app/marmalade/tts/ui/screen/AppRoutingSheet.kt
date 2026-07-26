@@ -3,10 +3,10 @@ package app.marmalade.tts.ui.screen
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -42,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
@@ -210,22 +208,7 @@ private fun AppRoutingRow(
             .alpha(if (enabled) 1f else 0.45f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val painter = app.icon?.let { rememberDrawablePainter(it, sizePx = 96) }
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 2.dp,
-            modifier = Modifier.size(40.dp),
-        ) {
-            if (painter != null) {
-                Image(
-                    painter = painter,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(40.dp),
-                )
-            }
-        }
+        AppIconTile(drawable = app.icon, size = 40.dp)
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -253,7 +236,7 @@ private fun AppRoutingRow(
 
 /**
  * Look up [packageName]'s icon via PackageManager and render it at [size].
- * Falls back to a neutral circle when the lookup fails or the package isn't
+ * Falls back to an empty tile when the lookup fails or the package isn't
  * installed any more (e.g. a mapping left behind by an uninstalled app).
  */
 @Composable
@@ -266,16 +249,24 @@ fun AppIcon(packageName: String, size: Dp) {
             null
         }
     }
+    AppIconTile(drawable = drawable, size = size)
+}
+
+/**
+ * The one launcher-tile look every app icon in this feature wears: rounded
+ * square, soft shadow, icon bled to the edges.
+ *
+ * Icons arrive in two incompatible shapes. A legacy icon is a square bitmap
+ * with its own baked background; an `AdaptiveIconDrawable` paints itself
+ * through the *device's* mask, which on most launchers is a circle. Rendered
+ * side by side they read as two different systems, so we drop the platform
+ * mask ([toIconBitmap]) and give every icon the same container instead.
+ * ContentScale.Crop fills the tile so a non-square legacy bitmap doesn't
+ * letterbox.
+ */
+@Composable
+private fun AppIconTile(drawable: Drawable?, size: Dp) {
     val painter = drawable?.let { rememberDrawablePainter(it, sizePx = 96) }
-    // Rounded square with a soft shadow, matching the launcher-tile look.
-    //
-    // Previously this drew the raw drawable with no container, on the theory
-    // that AdaptiveIconDrawable.draw() applies the device mask itself. It
-    // does — but a *legacy* icon is just a square bitmap with its own baked
-    // background, and the two rendered side by side looked like two
-    // different systems (and the masked ones read as cropped). Normalising
-    // every icon into the same tile makes the row coherent; ContentScale.Crop
-    // fills the tile so a non-square legacy bitmap doesn't letterbox.
     Surface(
         shape = RoundedCornerShape(size / 4),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -306,11 +297,23 @@ fun AppIcon(packageName: String, size: Dp) {
 @Composable
 private fun rememberDrawablePainter(drawable: Drawable, sizePx: Int): Painter {
     return remember(drawable, sizePx) {
-        BitmapPainter(drawable.toBitmap(sizePx))
+        BitmapPainter(drawable.toIconBitmap(sizePx))
     }
 }
 
-private fun Drawable.toBitmap(sizePx: Int): Bitmap {
+/**
+ * Rasterise a launcher icon to a square [sizePx] bitmap that fills its frame.
+ *
+ * An adaptive icon's own `draw()` clips both layers to the device's icon mask,
+ * which would leave a circle floating inside our square tile — so we paint the
+ * two layers ourselves and skip the mask entirely. Setting bounds to the
+ * target square puts the 72-dp viewport there: the framework extends each
+ * child layer by `getExtraInsetFraction()` (1/4) of the bounds on every side,
+ * so the full 108-dp artwork lands 1.5x oversized and centred and the canvas
+ * crops the 18-dp bleed. The result is full-bleed and centred, ready for our
+ * corners. Legacy icons are just stretched to the square as before.
+ */
+private fun Drawable.toIconBitmap(sizePx: Int): Bitmap {
     if (this is BitmapDrawable && bitmap != null &&
         bitmap.width == sizePx && bitmap.height == sizePx
     ) {
@@ -319,7 +322,12 @@ private fun Drawable.toBitmap(sizePx: Int): Bitmap {
     val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     setBounds(0, 0, canvas.width, canvas.height)
-    draw(canvas)
+    if (this is AdaptiveIconDrawable) {
+        background?.draw(canvas)
+        foreground?.draw(canvas)
+    } else {
+        draw(canvas)
+    }
     return bmp
 }
 
