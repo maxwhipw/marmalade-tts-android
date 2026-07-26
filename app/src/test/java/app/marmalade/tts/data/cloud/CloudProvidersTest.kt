@@ -148,7 +148,7 @@ class CloudProvidersTest {
     @Test
     fun `merge keeps capabilities from the allowlist and voices from discovery`() {
         val allowed = listOf(
-            CloudModel("tts-kokoro", "Kokoro", listOf("stale"), sampleRate = 24_000),
+            CloudModel("tts-kokoro", "Kokoro", listOf("stale"), sampleRate = 24_000, latency = LatencyBucket.INSTANT),
             CloudModel("tts-gradium-v1", "Gradium", listOf("Alice"), sampleRate = 48_000),
         )
         val discovered = listOf(
@@ -165,8 +165,10 @@ class CloudProvidersTest {
         // Voices refreshed from discovery...
         assertEquals(listOf("af_heart", "bm_fable"), kokoro.voices)
         assertEquals("Kokoro TTS", kokoro.displayName)
-        // ...but the rate survives, because discovery never carries it.
+        // ...but the rate and the latency seed survive, because discovery
+        // carries neither.
         assertEquals(24_000, kokoro.sampleRate)
+        assertEquals(LatencyBucket.INSTANT, kokoro.latency)
         // A model absent from discovery keeps its static list rather than
         // vanishing, so an unreachable network degrades to the bundled catalog.
         assertEquals(listOf("Alice"), merged[1].voices)
@@ -209,6 +211,7 @@ class CloudProvidersTest {
         val venice = providers.first { it.id == "venice" }
         fun seed(id: String) = venice.models.first { it.id == id }.latency
         assertEquals(LatencyBucket.INSTANT, seed("tts-kokoro"))
+        assertEquals(LatencyBucket.INSTANT, seed("tts-gradium-v1"))
         assertEquals(LatencyBucket.QUICK, seed("tts-elevenlabs-turbo-v2-5"))
         assertEquals(LatencyBucket.QUICK, seed("tts-minimax-speech-02-hd"))
         assertEquals(LatencyBucket.QUICK, seed("tts-xai-v1"))

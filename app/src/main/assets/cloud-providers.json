@@ -87,6 +87,7 @@
           "id": "tts-gradium-v1",
           "displayName": "Gradium",
           "sampleRate": 48000,
+          "latency": "instant",
           "voices": [
             "Alice",
             "Davi",

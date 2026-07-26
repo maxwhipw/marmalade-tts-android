@@ -147,6 +147,30 @@ class VoiceLatencyTracker @Inject constructor(
         )
     }
 
+    /**
+     * [record], but at most [PER_WEEK] samples per model per week.
+     *
+     * For the system-TTS path, where synthesis happens because some other
+     * app asked for it. Everything measured is speech the user already
+     * triggered and already paid for — this never sends a request of its
+     * own — but a heavy reader would still churn the ten-sample window
+     * several times a day, so the badge would track this afternoon's
+     * signal rather than the model. Three a week stretches the window
+     * across roughly three weeks instead.
+     */
+    suspend fun recordMetered(voiceId: String, engineName: String, millis: Long, charCount: Int) {
+        val key = latencyKeyFor(voiceId, engineName)
+        if (!settings.claimLatencyQuota(key, week = now() / WEEK_MS, perWeek = PER_WEEK)) return
+        record(voiceId, engineName, millis, charCount)
+    }
+
+    /**
+     * Clock indirection for tests. Kept out of the `@Inject` constructor
+     * so Hilt doesn't need a binding for `() -> Long` — same shape as
+     * [app.marmalade.tts.ui.screen.AliasViewModel.now].
+     */
+    internal var now: () -> Long = { System.currentTimeMillis() }
+
     private fun median(values: List<Int>): Int {
         val sorted = values.sorted()
         return sorted[sorted.size / 2]
@@ -164,5 +188,10 @@ class VoiceLatencyTracker @Inject constructor(
 
         /** Longer than this and something hung — a timeout isn't a latency. */
         const val IMPLAUSIBLE_MS = 60_000
+
+        /** Metered sampling budget, per model per week. */
+        const val PER_WEEK = 3
+
+        const val WEEK_MS = 7L * 24 * 60 * 60 * 1_000
     }
 }

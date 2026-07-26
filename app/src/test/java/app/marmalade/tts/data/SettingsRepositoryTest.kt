@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -108,5 +109,36 @@ class SettingsRepositoryTest {
             produceFile = { dataStoreFile },
         )
         return SettingsRepository(ds)
+    }
+
+    // -- latency samples + weekly quota ---------------------------------------
+
+    @Test
+    fun latencySamples_rollOffOldestBeyondTheWindow() = runTest {
+        val repo = newRepo()
+        for (ms in 1..5) repo.recordLatencySample("venice:m", millis = ms * 100, keep = 3)
+        assertEquals(listOf(300, 400, 500), repo.latencySamples.first().getValue("venice:m"))
+    }
+
+    @Test
+    fun latencySamples_ignoreTheQuotaKeys() = runTest {
+        // The quota prefix deliberately doesn't nest under the sample
+        // prefix; if it ever did, this would surface it as a phantom model.
+        val repo = newRepo()
+        repo.claimLatencyQuota("venice:m", week = 1L, perWeek = 3)
+        assertEquals(emptyMap<String, List<Int>>(), repo.latencySamples.first())
+    }
+
+    @Test
+    fun latencyQuota_grantsExactlyPerWeekThenRefusesUntilTheWeekTurns() = runTest {
+        val repo = newRepo()
+        assertEquals(
+            listOf(true, true, true, false, false),
+            (1..5).map { repo.claimLatencyQuota("venice:m", week = 900L, perWeek = 3) },
+        )
+        // A new week starts a fresh budget...
+        assertTrue(repo.claimLatencyQuota("venice:m", week = 901L, perWeek = 3))
+        // ...and each model has its own.
+        assertTrue(repo.claimLatencyQuota("venice:other", week = 901L, perWeek = 3))
     }
 }

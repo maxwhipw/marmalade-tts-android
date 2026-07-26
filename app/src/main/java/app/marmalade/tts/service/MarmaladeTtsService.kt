@@ -1,5 +1,6 @@
 package app.marmalade.tts.service
 
+import android.os.SystemClock
 import android.media.AudioFormat
 import android.speech.tts.SynthesisCallback
 import android.speech.tts.SynthesisRequest
@@ -12,6 +13,7 @@ import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketEngine
@@ -39,6 +41,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -153,6 +157,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var effectResolver: EffectResolver
 
     @Inject lateinit var engineWarmup: EngineWarmup
+
+    @Inject lateinit var latency: VoiceLatencyTracker
 
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
@@ -849,13 +855,18 @@ class MarmaladeTtsService : TextToSpeechService() {
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
-    ): SynthAudio = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+    ): SynthAudio {
+        val startedAt = SystemClock.elapsedRealtime()
+        val audio = when (engineName) {
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
+            else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
+        }
+        recordLatency(engineName, voiceId, text, SystemClock.elapsedRealtime() - startedAt)
+        return audio
     }
 
     /**
@@ -868,13 +879,41 @@ class MarmaladeTtsService : TextToSpeechService() {
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
-    ): Flow<SynthAudio> = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+    ): Flow<SynthAudio> {
+        val stream = when (engineName) {
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        }
+        var startedAt = 0L
+        var recorded = false
+        return stream
+            .onStart { startedAt = SystemClock.elapsedRealtime() }
+            .onEach {
+                if (!recorded) {
+                    recorded = true
+                    recordLatency(engineName, voiceId, text, SystemClock.elapsedRealtime() - startedAt)
+                }
+            }
+    }
+
+    /**
+     * File a metered time-to-first-audio sample for speech another app
+     * asked us to speak.
+     *
+     * Passive by construction: it times work that was going to happen
+     * anyway and never issues a request of its own, so no provider is
+     * billed for a measurement. [VoiceLatencyTracker.recordMetered] then
+     * caps it at three samples per model per week, so a heavy reader's
+     * afternoon can't take over the badge.
+     */
+    private fun recordLatency(engineName: String, voiceId: String, text: String, millis: Long) {
+        serviceScope.launch {
+            runCatching { latency.recordMetered(voiceId, engineName, millis, text.length) }
+        }
     }
 
     /** True for any engine the catalog ships. */

@@ -431,6 +431,28 @@ open class SettingsRepository @Inject constructor(
         }
     }
 
+    /**
+     * Take one of [key]'s [perWeek] sampling slots for [week], returning
+     * false when the week's budget is already spent.
+     *
+     * Claim-and-check in a single `edit` so two concurrent utterances can't
+     * both read the same count and both spend the last slot; DataStore
+     * serialises the transform.
+     */
+    open suspend fun claimLatencyQuota(key: String, week: Long, perWeek: Int): Boolean {
+        var claimed = false
+        dataStore.edit { prefs ->
+            val prefKey = stringPreferencesKey("$LATENCY_QUOTA_PREFIX$key")
+            val parts = prefs[prefKey]?.split(':')
+            val storedWeek = parts?.getOrNull(0)?.toLongOrNull()
+            val used = if (storedWeek == week) parts?.getOrNull(1)?.toIntOrNull() ?: 0 else 0
+            if (used >= perWeek) return@edit
+            claimed = true
+            prefs[prefKey] = "$week:${used + 1}"
+        }
+        return claimed
+    }
+
     /** Persist the show-developer-engines toggle. */
     open suspend fun setShowDeveloperEngines(value: Boolean) {
         dataStore.edit { prefs ->
@@ -486,6 +508,12 @@ open class SettingsRepository @Inject constructor(
         // Measured latency window, one key per model. Purely derived data —
         // safe to drop, and it repopulates itself from use.
         private const val LATENCY_PREFIX = "voice_latency_"
+
+        // "<weekIndex>:<samplesTaken>" per model. A stale week is simply
+        // overwritten, so nothing needs sweeping. Deliberately NOT prefixed
+        // with LATENCY_PREFIX — [latencySamples] scans by prefix, and a
+        // quota key nested under it would be picked up as a sample list.
+        private const val LATENCY_QUOTA_PREFIX = "latency_quota_"
 
         // Single-provider era key (v0.3.0-alpha.11 dev builds); read as
         // Venice's key until a per-provider write supersedes it.
