@@ -42,7 +42,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -65,6 +64,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -361,13 +361,18 @@ private fun AliasCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // The name takes all the slack so the pill is pushed to
+                    // the edge. It used to be weight(fill = false) followed by
+                    // a weighted Spacer, which made two weighted siblings
+                    // split the leftover evenly — landing the pill mid-card.
                     Text(
                         text = alias.name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.weight(1f))
                     if (isPrimary) PrimaryPill()
                 }
                 Text(
@@ -670,41 +675,26 @@ private fun AliasEditorSheet(
                 )
             }
 
-            // Save is the unconditional action and gets the full-width pill;
-            // the two conditional ones share the row below it, equally
-            // weighted so "Make primary" can't crowd Delete off a narrow
-            // screen. There is no Cancel: the sheet already dismisses on
-            // swipe, scrim tap and back.
-            Button(
-                onClick = onSave,
-                shape = PillShape,
+            // No Cancel: the sheet already dismisses on swipe, scrim tap and
+            // back, so it was a fourth control earning nothing.
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Save") }
-
-            if (canSetPrimary || canDelete) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (canSetPrimary) {
-                        OutlinedButton(
-                            onClick = onSetPrimary,
-                            shape = PillShape,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Make primary") }
-                    }
-                    if (canDelete) {
-                        OutlinedButton(
-                            onClick = onDelete,
-                            shape = PillShape,
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error,
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Delete") }
-                    }
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (canDelete) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) { Text("Delete") }
                 }
+                Spacer(Modifier.weight(1f))
+                if (canSetPrimary) {
+                    TextButton(onClick = onSetPrimary) { Text("Make primary") }
+                }
+                Spacer(Modifier.size(8.dp))
+                Button(onClick = onSave) { Text("Save") }
             }
         }
     }
