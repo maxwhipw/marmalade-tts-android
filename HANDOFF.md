@@ -1,3 +1,94 @@
+# HANDOFF — Monotone PSOLA rewrite + trial presets, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`ce2b337`**.
+**368 unit tests green**; fdroid debug APK builds. **Nothing pushed.**
+
+Sister commits in `~/coding/marmalade-tts-cli` (also unpushed): `d4ca590`
+real bitcrush quantization, `bdab502` docs.
+
+## What shipped
+
+### `ce2b337` — Monotone is now a TD-PSOLA pitch flattener
+
+Max: "the monotone filter is pretty bad." Fable's diagnosis found the reason
+was structural, not tuning. The old block chased the input's F0 with a
+glide-smoothed cents offset driven into a delay-line shifter, and every part of
+that loop was an order of magnitude slower than speech (85 ms hop, median-of-3,
+30-cent hysteresis, 200 ms glide) — so everything faster than ~200 ms passed
+straight through and the output kept its own intonation with portamento swoops
+added. Plus two more: near zero shift the shifter's two read taps froze at an
+arbitrary phase leaving a **static comb filter** — and a target near the voice's
+median is exactly that case, i.e. the normal one — and the resampling dragged
+formants with the pitch.
+
+Now: sliding YIN (1024 window / 256 hop), analysis marks one detected period
+apart snapped to the nearest waveform peak, and overlap-add of the nearest
+mark's two-period Hann grain onto a fixed `sr/targetHz` output grid. Flatness is
+exact **by construction** — there's no correction left to lag, because the
+output period is a constant and the detector only picks which grain to place.
+Formant preserving; unvoiced runs keep their analysis spacing so fricatives pass
+through untouched; `flush()` drains the OLA tail instead of dropping it.
+
+Deliberately **not** a phase vocoder — one was built, A/B'd and rejected at
+catalog v19/v20.
+
+### `ce2b337` — 7 trial presets for audition
+
+Named `<name> - test` so they're obvious in the list: **Cassette, Crooner,
+Deadpan, Fine print, Next room, Bedtime, Tiles.** Fable designed six in an
+independent pass; Tiles is Opus's. Ids are `builtin:test_*`.
+
+**Provisional on purpose.** They are NOT in the CLI's `BUILTIN_PRESETS` and NOT
+in either README — no point churning public docs twice. Approve one → rename it,
+drop the `- test` marker, mirror it into the CLI, add the README row. Reject one
+→ delete the block list + the seed row and let `pruneBuiltinsNotIn` drop it.
+
+`CATALOG_VERSION` **27 → 28** (also drops Dragon's no-op `Bass(0)`).
+
+## Traps this hit — the same bug twice
+
+`flush()` sets an `ended` flag that makes the input-availability check
+unconditionally true (so grain reads past the end return 0 rather than
+blocking). That flag **hung the detection loop and the mark loop**, both of
+which used the same check as their termination condition. Detection now uses a
+strict buffered check and mark placement stops at the input end. If you add
+another loop to `MonotoneProcessor`, check what stops it when `ended`.
+
+Separately: in whole-buffer mode, detection ran **every** hop before any mark
+was placed, so the 64-entry pitch-track ring wrapped and marks read some other
+hop's period. That broke both the sound and chunk-invariance. Detection is now
+capped so it can't outrun the ring, and `advance()` loops
+detection → marks → synthesis. **Any per-hop history in this class needs the
+same cap** — a ring plus an unbounded producer is the trap.
+
+## Test coverage note
+
+The suite would previously have passed with Monotone as a **no-op** — nothing
+checked that it flattened anything, only that it was chunk-invariant. There is
+now `monotone flattens a pitch glide onto its target`: input F0 sweeps
+180 → 260 Hz, output must stay within 60 cents of the 160 Hz target. The old
+implementation missed by ~1000 cents. Keep that test honest if you touch the
+block.
+
+Note its helper `detectHz` uses **normalized** autocorrelation and takes the
+first lag over threshold, not the strongest — plain autocorrelation peaks just
+as hard at 2× the period and reports an octave down. That cost a false failure
+during implementation.
+
+## NOT verified on device
+
+**Nothing here has been heard.** That's the whole point of the trial batch.
+
+- Audition the 7 `- test` presets; Max approves, tweaks, or rejects each.
+- **Deadpan is the one that exercises the new Monotone** — it's the only preset
+  using the block. Listen for: does it actually sound flat and deadpan; are
+  consonants intact (unvoiced passthrough); any warble, comb/metallic tone, or
+  level pumping at voiced/unvoiced boundaries.
+- CPU cost of sliding YIN on the Pixel 8a is unmeasured (~16 M mult/s at 24 kHz
+  estimated). Watch `StreamPerf` RTF with Deadpan applied.
+
 # HANDOFF — effects preset retune, 2026-07-26 (branch verify/routing-on-api-engine)
 
 ## Branch state
