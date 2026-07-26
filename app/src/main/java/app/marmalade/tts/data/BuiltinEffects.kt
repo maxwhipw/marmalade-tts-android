@@ -18,7 +18,6 @@ import app.marmalade.tts.data.db.Effect
 object BuiltinEffects {
 
     const val CAVE_ID = "builtin:cave"
-    const val ROBOT_ID = "builtin:robot"
     const val TELEPHONE_ID = "builtin:telephone"
     const val CHIPMUNK_ID = "builtin:chipmunk"
     const val DEEP_ID = "builtin:deep"
@@ -34,7 +33,7 @@ object BuiltinEffects {
     const val VINTAGE_RADIO_ID = "builtin:vintage_radio"
     const val INTERCOM_ID = "builtin:intercom"
     const val UNDERWATER_ID = "builtin:underwater"
-    const val ALIEN_ID = "builtin:alien"
+    const val AI_ID = "builtin:ai"
     const val ETHEREAL_ID = "builtin:ethereal"
     const val DRAGON_ID = "builtin:dragon"
 
@@ -42,7 +41,6 @@ object BuiltinEffects {
     const val CYBORG_ID = "builtin:cyborg"
     const val EIGHT_BIT_ID = "builtin:eight_bit"
     const val GLITCH_ID = "builtin:glitch"
-    const val AI_ID = "builtin:ai"
 
     /**
      * The seeded CLI presets, in the CLI's listing order. Built-ins sort ahead
@@ -59,7 +57,6 @@ object BuiltinEffects {
         fun row(id: String, name: String, blocks: List<app.marmalade.tts.audio.EffectBlock>) =
             Effect(id, name, isBuiltin = true, blocksJson = EffectBlockJson.encode(blocks), createdAt = 0L)
         listOf(
-            row(ROBOT_ID, "Robot", EffectChain.ROBOT_BLOCKS),
             row(CAVE_ID, "Cave", EffectChain.CAVE_BLOCKS),
             row(CHIPMUNK_ID, "Chipmunk", EffectChain.CHIPMUNK_BLOCKS),
             row(DEEP_ID, "Deep", EffectChain.DEEP_BLOCKS),
@@ -75,14 +72,13 @@ object BuiltinEffects {
             row(VINTAGE_RADIO_ID, "Vintage radio", EffectChain.VINTAGE_RADIO_BLOCKS),
             row(INTERCOM_ID, "Intercom", EffectChain.INTERCOM_BLOCKS),
             row(UNDERWATER_ID, "Underwater", EffectChain.UNDERWATER_BLOCKS),
-            row(ALIEN_ID, "Alien", EffectChain.ALIEN_BLOCKS),
+            row(AI_ID, "AI", EffectChain.AI_BLOCKS),
             row(ETHEREAL_ID, "Ethereal", EffectChain.ETHEREAL_BLOCKS),
             row(DRAGON_ID, "Dragon", EffectChain.DRAGON_BLOCKS),
             // Android-only stackups (Bitcrush / RingMod — no sox equivalent).
             row(CYBORG_ID, "Cyborg", EffectChain.CYBORG_BLOCKS),
             row(EIGHT_BIT_ID, "8-bit", EffectChain.EIGHT_BIT_BLOCKS),
             row(GLITCH_ID, "Glitch", EffectChain.GLITCH_BLOCKS),
-            row(AI_ID, "AI", EffectChain.AI_BLOCKS),
         )
     }
 
@@ -93,11 +89,12 @@ object BuiltinEffects {
      * Map a legacy `EffectPreset` enum name (as stored in the old
      * `voice_alias.effectPreset` column) to the built-in effect id. NONE (and
      * anything unrecognized) maps to null = "no effect". Used by the alias
-     * migration in E-D.
+     * migration in E-D. `ROBOT` is deliberately unmapped — the preset was
+     * removed, so an old Robot alias comes back dry rather than pointing at a
+     * pruned row.
      */
     fun idForLegacyPreset(preset: String): String? = when (preset.trim().uppercase()) {
         "CAVE" -> CAVE_ID
-        "ROBOT" -> ROBOT_ID
         "TELEPHONE" -> TELEPHONE_ID
         else -> null
     }

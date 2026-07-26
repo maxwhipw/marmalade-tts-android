@@ -246,7 +246,7 @@ class AliasViewModelTest {
         vm.openEditor(existing) // edit mode for "narrator"
         vm.onEditorNameChange("storyteller")
         vm.onEditorVoiceChange("kitten-direct-v0_8:Luna")
-        vm.onEditorEffectChange(BuiltinEffects.ROBOT_ID)
+        vm.onEditorEffectChange(BuiltinEffects.TELEPHONE_ID)
         vm.onEditorSpeedChange(0.9f)
 
         val saved = vm.save()
@@ -263,7 +263,7 @@ class AliasViewModelTest {
             inserted,
         )
         assertEquals("kitten-direct-v0_8:Luna", inserted!!.voiceId)
-        assertEquals(BuiltinEffects.ROBOT_ID, inserted.effectId)
+        assertEquals(BuiltinEffects.TELEPHONE_ID, inserted.effectId)
         assertEquals("NONE", inserted.effectPreset)
         assertEquals(0.9f, inserted.speed, 0.0f)
     }

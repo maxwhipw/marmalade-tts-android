@@ -104,7 +104,7 @@ interface TtsEngine {
      * to use this path — it must be willing to consume audio
      * progressively (AudioTrack MODE_STREAM, or per-chunk callback).
      * Streaming is incompatible with stateful post-processing (CAVE
-     * reverb tail, ROBOT vibrato phase), so the consumer typically
+     * reverb tail, chorus/tremolo LFO phase), so the consumer typically
      * gates the streaming path on effect=NONE and emotion=neutral.
      *
      * The flow is cancellable — collectors that throw or cancel will

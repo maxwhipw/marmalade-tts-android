@@ -99,7 +99,6 @@ internal class RecordingPlayer(
 internal class FakeEffectResolver(
     private val mapping: Map<String, List<EffectBlock>> = mapOf(
         BuiltinEffects.CAVE_ID to EffectChain.CAVE_BLOCKS,
-        BuiltinEffects.ROBOT_ID to EffectChain.ROBOT_BLOCKS,
         BuiltinEffects.TELEPHONE_ID to EffectChain.TELEPHONE_BLOCKS,
     ),
 ) : EffectResolver {
@@ -240,7 +239,7 @@ internal class FakeAliasDao(
 internal class FakeEffectDao(
     initial: List<Effect> = listOf(
         Effect(BuiltinEffects.CAVE_ID, "Cave", isBuiltin = true, blocksJson = "[]", createdAt = 0L),
-        Effect(BuiltinEffects.ROBOT_ID, "Robot", isBuiltin = true, blocksJson = "[]", createdAt = 0L),
+        Effect(BuiltinEffects.TELEPHONE_ID, "Telephone", isBuiltin = true, blocksJson = "[]", createdAt = 0L),
     ),
 ) : EffectDao {
     private val state = MutableStateFlow(initial)

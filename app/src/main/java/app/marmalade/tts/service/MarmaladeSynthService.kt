@@ -75,7 +75,7 @@ import kotlinx.coroutines.withContext
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
 //     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
-//                                          ROBOT / TELEPHONE). Default NONE.
+//                                          TELEPHONE). Default NONE.
 //
 //   Transport actions (media button / lock-screen):
 //     ACTION_PAUSE / ACTION_RESUME / ACTION_STOP — wired via MediaSessionCompat.

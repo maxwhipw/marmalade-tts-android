@@ -37,7 +37,7 @@ package app.marmalade.tts.audio
 // -----------------------------------------------------------------------------
 
 /** Legacy preset selector — the alias-editor dropdown bridge, retired in E-G. */
-enum class EffectPreset { NONE, CAVE, ROBOT, TELEPHONE }
+enum class EffectPreset { NONE, CAVE, TELEPHONE }
 
 /**
  * A single composable DSP block. A user effect is an ordered list of these.
@@ -168,19 +168,12 @@ object EffectChain {
 
     // -- CLI preset recipes (marmalade_tts/effects.py BUILTIN_PRESETS) ---------
 
-    val ROBOT_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Overdrive(gainDb = 20f),
-        EffectBlock.Pitch(cents = -100f),
-        EffectBlock.Reverb(reverberance = 10f),
-        EffectBlock.Vol(factor = 0.7f),
-    )
     val CAVE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Reverb(reverberance = 80f),
         EffectBlock.Echo(gainIn = 0.6f, gainOut = 0.6f, delayMs = 120f, decay = 0.3f),
     )
     val CHIPMUNK_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Pitch(cents = 400f),
-        EffectBlock.Tempo(factor = 0.95f),
+        EffectBlock.Pitch(cents = 900f),
     )
     val DEEP_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Pitch(cents = -400f),
@@ -189,7 +182,7 @@ object EffectChain {
     val TELEPHONE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f),
         EffectBlock.Overdrive(gainDb = 5f),
-        EffectBlock.Vol(factor = 1.5f),
+        EffectBlock.Vol(factor = 1.3f),
     )
     val STADIUM_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Reverb(reverberance = 90f),
@@ -198,7 +191,7 @@ object EffectChain {
     val MEGAPHONE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Bandpass(lowHz = 500f, highHz = 4000f),
         EffectBlock.Overdrive(gainDb = 30f),
-        EffectBlock.Vol(factor = 1.5f),
+        EffectBlock.Vol(factor = 1.1f),
     )
 
     // -- Curated voice stackups (E-K) ------------------------------------------
@@ -224,7 +217,8 @@ object EffectChain {
         EffectBlock.Treble(db = 2f),
     )
     // Deep cinematic trailer voice: subtle pitch-down, squashed dynamics,
-    // controlled grandeur reverb.
+    // controlled grandeur reverb. Signed off on device 2026-07-26 — this recipe
+    // is where Max wants it; don't retune it without asking.
     val TRAILER_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Pitch(cents = -250f),
         EffectBlock.Bass(db = 5f),
@@ -239,13 +233,15 @@ object EffectChain {
         EffectBlock.Mid(freqHz = 2500f, gainDb = 2f),
         EffectBlock.Reverb(reverberance = 10f),
     )
-    // Handheld two-way radio: tight band, drive, hard squash.
+    // Handheld two-way radio: tight band, hard drive, digital-radio grit
+    // (1× crush = bit-depth quantize only), hard squash, makeup gain.
     val WALKIE_TALKIE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Highpass(freqHz = 400f),
         EffectBlock.Lowpass(freqHz = 5000f),
-        EffectBlock.Overdrive(gainDb = 8f),
-        EffectBlock.Compressor(thresholdDb = -24f, ratio = 6f),
-        EffectBlock.Vol(factor = 1.3f),
+        EffectBlock.Overdrive(gainDb = 25f),
+        EffectBlock.Bitcrush(bits = 11f, downsample = 1f),
+        EffectBlock.Compressor(thresholdDb = -32f, ratio = 6f),
+        EffectBlock.Vol(factor = 1.5f),
     )
     // Old AM radio — modelled on the canonical Audacity "AM Radio" preset
     // (HP ~400, LP ~4k, +12 dB at 1 kHz). The +12 dB mid peak at 1 kHz is the
@@ -270,7 +266,7 @@ object EffectChain {
         EffectBlock.Overdrive(gainDb = 18f),
         EffectBlock.Mid(freqHz = 1500f, gainDb = 4f),
         EffectBlock.Reverb(reverberance = 30f),
-        EffectBlock.Vol(factor = 1.5f),
+        EffectBlock.Vol(factor = 1.2f),
     )
     // Submerged: dark low-pass, chorus shimmer, slight pitch + wobble. The
     // low-pass + tremolo eat level, so a Vol makeup keeps it audible.
@@ -281,8 +277,10 @@ object EffectChain {
         EffectBlock.Tremolo(speedHz = 1.5f, depth = 0.2f),
         EffectBlock.Vol(factor = 1.35f),
     )
-    // Otherworldly: pitch up, phaser + flanger sweep, big space.
-    val ALIEN_BLOCKS: List<EffectBlock> = listOf(
+    // Synthetic and not-quite-human: pitch up, phaser + flanger sweep, big
+    // space. (Was "Alien" — same chain, renamed to AI, which is what it reads
+    // as. The old Monotone-based AI chain was retired in its favour.)
+    val AI_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Pitch(cents = 150f),
         EffectBlock.Phaser(speedHz = 0.4f, decay = 0.5f),
         EffectBlock.Flanger(speedHz = 0.3f, depthMs = 3f),
@@ -296,16 +294,19 @@ object EffectChain {
         EffectBlock.Tremolo(speedHz = 3f, depth = 0.25f),
         EffectBlock.Treble(db = 3f),
     )
-    // Dragon: deep chest, growl mid, controlled grit, doubled chorus for
-    // bulk, and a cavernous reverb tail.
+    // Dragon: a big cavern first, then the whole wet signal dropped most of an
+    // octave and dragged to 0.85× — reverb before the pitch/tempo is what makes
+    // the tail sound like a huge slow throat rather than a room the voice sits
+    // in. Mid scoop keeps the growl from honking; light grit and a slow chorus
+    // add bulk.
     val DRAGON_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Pitch(cents = -450f),
-        EffectBlock.Bass(db = 7f),
-        EffectBlock.Mid(freqHz = 700f, gainDb = 4f),
-        EffectBlock.Compressor(thresholdDb = -18f, ratio = 4f),
-        EffectBlock.Overdrive(gainDb = 14f),
+        EffectBlock.Reverb(reverberance = 45f),
+        EffectBlock.Pitch(cents = -649f),
+        EffectBlock.Bass(db = 0f),
+        EffectBlock.Mid(freqHz = 1058f, gainDb = -2f),
+        EffectBlock.Overdrive(gainDb = 7f),
         EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f),
-        EffectBlock.Reverb(reverberance = 25f),
+        EffectBlock.Tempo(factor = 0.85f),
     )
 
     // -- Stackups using the Android-only blocks (E-L) — no CLI equivalent -------
@@ -316,12 +317,12 @@ object EffectChain {
         EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f),
         EffectBlock.Overdrive(gainDb = 6f),
     )
-    // 8-bit retro game voice: 8-bit quantize + 8× sample-and-hold, low-pass to
-    // tame the aliasing, then a Vol makeup (the crush + low-pass drop the level).
+    // 8-bit retro game voice: band-limit first so the 8× sample-and-hold folds
+    // less garbage back down, then 7-bit quantize for the console grain. No Vol
+    // makeup — the crush's own gain compensation already lands it loud enough.
     val EIGHT_BIT_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Bitcrush(bits = 8f, downsample = 8f),
-        EffectBlock.Lowpass(freqHz = 3450f),
-        EffectBlock.Vol(factor = 1.35f),
+        EffectBlock.Lowpass(freqHz = 3446f),
+        EffectBlock.Bitcrush(bits = 7f, downsample = 8f),
     )
     // Glitchy lo-fi transmission: mild crush + ring shimmer through a radio band,
     // with a Vol makeup for the band-limiting loss.
@@ -332,33 +333,12 @@ object EffectChain {
         EffectBlock.Vol(factor = 1.35f),
     )
 
-    // Deadpan synthetic AI. [Monotone] is the load-bearing piece: it follows
-    // the input's pitch and flattens it toward 160 Hz so phrasing actually
-    // goes deadpan instead of just "doubled and shifted." The Pitch(+200) is
-    // applied AFTER Monotone so the flat character is preserved and shifted
-    // up two semitones (~180 Hz final) — putting it before Monotone would be
-    // wasted, since Monotone would correct it back.
-    val AI_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Highpass(freqHz = 150f),
-        EffectBlock.Lowpass(freqHz = 8000f),
-        EffectBlock.Mid(freqHz = 2500f, gainDb = 3f),
-        EffectBlock.Compressor(thresholdDb = -22f, ratio = 3f),
-        EffectBlock.Monotone(targetHz = 160f),
-        EffectBlock.Pitch(cents = 300f),
-        EffectBlock.Chorus(speedHz = 0.5f, depthMs = 5f),
-        EffectBlock.RingMod(freqHz = 40f, mix = 0.18f),
-        EffectBlock.Bitcrush(bits = 12f, downsample = 1f),
-        EffectBlock.Reverb(reverberance = 12f),
-        EffectBlock.Vol(factor = 1.15f),
-    )
-
     /**
      * Block list for a legacy [EffectPreset] (the dropdown bridge). NONE = dry.
      */
     fun blocksForPreset(preset: EffectPreset): List<EffectBlock> = when (preset) {
         EffectPreset.NONE -> emptyList()
         EffectPreset.CAVE -> CAVE_BLOCKS
-        EffectPreset.ROBOT -> ROBOT_BLOCKS
         EffectPreset.TELEPHONE -> TELEPHONE_BLOCKS
     }
 

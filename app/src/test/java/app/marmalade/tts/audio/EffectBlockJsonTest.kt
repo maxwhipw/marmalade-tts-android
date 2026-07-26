@@ -56,7 +56,6 @@ class EffectBlockJsonTest {
             EffectBlockJson.decode(BuiltinEffects.seedRows.first { it.id == id }.blocksJson)
 
         assertEquals(EffectChain.CAVE_BLOCKS, blocksOf(BuiltinEffects.CAVE_ID))
-        assertEquals(EffectChain.ROBOT_BLOCKS, blocksOf(BuiltinEffects.ROBOT_ID))
         assertEquals(EffectChain.TELEPHONE_BLOCKS, blocksOf(BuiltinEffects.TELEPHONE_ID))
         assertEquals(EffectChain.CHIPMUNK_BLOCKS, blocksOf(BuiltinEffects.CHIPMUNK_ID))
         assertEquals(EffectChain.DEEP_BLOCKS, blocksOf(BuiltinEffects.DEEP_ID))
@@ -71,14 +70,13 @@ class EffectBlockJsonTest {
         assertEquals(EffectChain.VINTAGE_RADIO_BLOCKS, blocksOf(BuiltinEffects.VINTAGE_RADIO_ID))
         assertEquals(EffectChain.INTERCOM_BLOCKS, blocksOf(BuiltinEffects.INTERCOM_ID))
         assertEquals(EffectChain.UNDERWATER_BLOCKS, blocksOf(BuiltinEffects.UNDERWATER_ID))
-        assertEquals(EffectChain.ALIEN_BLOCKS, blocksOf(BuiltinEffects.ALIEN_ID))
+        assertEquals(EffectChain.AI_BLOCKS, blocksOf(BuiltinEffects.AI_ID))
         assertEquals(EffectChain.ETHEREAL_BLOCKS, blocksOf(BuiltinEffects.ETHEREAL_ID))
         assertEquals(EffectChain.DRAGON_BLOCKS, blocksOf(BuiltinEffects.DRAGON_ID))
         // Android-only stackups (E-L).
         assertEquals(EffectChain.CYBORG_BLOCKS, blocksOf(BuiltinEffects.CYBORG_ID))
         assertEquals(EffectChain.EIGHT_BIT_BLOCKS, blocksOf(BuiltinEffects.EIGHT_BIT_ID))
         assertEquals(EffectChain.GLITCH_BLOCKS, blocksOf(BuiltinEffects.GLITCH_ID))
-        assertEquals(EffectChain.AI_BLOCKS, blocksOf(BuiltinEffects.AI_ID))
     }
 
     @Test

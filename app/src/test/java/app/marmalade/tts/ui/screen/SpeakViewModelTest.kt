@@ -110,9 +110,9 @@ class SpeakViewModelTest {
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Hugo",
             speed = 1.25f,
-            effectPreset = "ROBOT",
+            effectPreset = "TELEPHONE",
             createdAt = 0L,
-            effectId = BuiltinEffects.ROBOT_ID,
+            effectId = BuiltinEffects.TELEPHONE_ID,
         )
         val player = RecordingPlayer(behaviour = { Result.success(Unit) })
         val vm = newViewModel(player = player, aliases = listOf(alias))
@@ -129,7 +129,7 @@ class SpeakViewModelTest {
         val call = player.calls.single()
         assertEquals("kitten-direct-v0_8:Hugo", call.voiceId)
         assertEquals(1.25f, call.speed, 0.0f)
-        assertEquals(EffectChain.ROBOT_BLOCKS, call.effectBlocks)
+        assertEquals(EffectChain.TELEPHONE_BLOCKS, call.effectBlocks)
     }
 
     @Test
@@ -238,7 +238,7 @@ class SpeakViewModelTest {
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Hugo",
             speed = 2.0f,
-            effectPreset = "ROBOT",
+            effectPreset = "TELEPHONE",
             createdAt = 0L,
         )
         val aliasDao = FakeAliasDao(initial = listOf(active, other))

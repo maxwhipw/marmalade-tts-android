@@ -34,15 +34,6 @@ class EffectChainTest {
     fun `preset recipes match the CLI sox presets`() {
         assertEquals(
             listOf(
-                EffectBlock.Overdrive(20f),
-                EffectBlock.Pitch(-100f),
-                EffectBlock.Reverb(10f),
-                EffectBlock.Vol(0.7f),
-            ),
-            EffectChain.ROBOT_BLOCKS,
-        )
-        assertEquals(
-            listOf(
                 EffectBlock.Reverb(80f),
                 EffectBlock.Echo(0.6f, 0.6f, 120f, 0.3f),
             ),
@@ -52,19 +43,56 @@ class EffectChainTest {
             listOf(
                 EffectBlock.Bandpass(300f, 3400f),
                 EffectBlock.Overdrive(5f),
-                EffectBlock.Vol(1.5f),
+                EffectBlock.Vol(1.3f),
             ),
             EffectChain.TELEPHONE_BLOCKS,
         )
-        assertEquals(listOf(EffectBlock.Pitch(400f), EffectBlock.Tempo(0.95f)), EffectChain.CHIPMUNK_BLOCKS)
+        assertEquals(listOf(EffectBlock.Pitch(900f)), EffectChain.CHIPMUNK_BLOCKS)
         assertEquals(listOf(EffectBlock.Pitch(-400f), EffectBlock.Bass(6f)), EffectChain.DEEP_BLOCKS)
         assertEquals(
             listOf(EffectBlock.Reverb(90f), EffectBlock.Echo(0.8f, 0.7f, 80f, 0.25f)),
             EffectChain.STADIUM_BLOCKS,
         )
         assertEquals(
-            listOf(EffectBlock.Bandpass(500f, 4000f), EffectBlock.Overdrive(30f), EffectBlock.Vol(1.5f)),
+            listOf(EffectBlock.Bandpass(500f, 4000f), EffectBlock.Overdrive(30f), EffectBlock.Vol(1.1f)),
             EffectChain.MEGAPHONE_BLOCKS,
+        )
+        assertEquals(
+            listOf(
+                EffectBlock.Highpass(400f),
+                EffectBlock.Lowpass(5000f),
+                EffectBlock.Overdrive(25f),
+                EffectBlock.Bitcrush(11f, 1f),
+                EffectBlock.Compressor(-32f, 6f),
+                EffectBlock.Vol(1.5f),
+            ),
+            EffectChain.WALKIE_TALKIE_BLOCKS,
+        )
+        assertEquals(
+            listOf(
+                EffectBlock.Bandpass(450f, 2500f),
+                EffectBlock.Overdrive(18f),
+                EffectBlock.Mid(1500f, 4f),
+                EffectBlock.Reverb(30f),
+                EffectBlock.Vol(1.2f),
+            ),
+            EffectChain.INTERCOM_BLOCKS,
+        )
+        assertEquals(
+            listOf(
+                EffectBlock.Reverb(45f),
+                EffectBlock.Pitch(-649f),
+                EffectBlock.Bass(0f),
+                EffectBlock.Mid(1058f, -2f),
+                EffectBlock.Overdrive(7f),
+                EffectBlock.Chorus(0.25f, 2f),
+                EffectBlock.Tempo(0.85f),
+            ),
+            EffectChain.DRAGON_BLOCKS,
+        )
+        assertEquals(
+            listOf(EffectBlock.Lowpass(3446f), EffectBlock.Bitcrush(7f, 8f)),
+            EffectChain.EIGHT_BIT_BLOCKS,
         )
     }
 

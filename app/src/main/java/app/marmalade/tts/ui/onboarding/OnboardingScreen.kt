@@ -827,7 +827,6 @@ private fun OnboardingEffectDropdown(
 private fun effectDisplayName(preset: EffectPreset): String = when (preset) {
     EffectPreset.NONE -> "None"
     EffectPreset.CAVE -> "Cave"
-    EffectPreset.ROBOT -> "Robot"
     EffectPreset.TELEPHONE -> "Telephone"
 }
 

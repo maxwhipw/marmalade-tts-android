@@ -242,7 +242,15 @@ class MarmaladeTtsApplication : Application() {
          *    version gate applies to them.
          *  - v26: 8-bit recipe retuned — Bitcrush 6-bit/6× → 8-bit/8× and the
          *    anti-alias low-pass 4000 → 3450 Hz.
+         *  - v27: 1.0.0-beta.1 — device-tuned preset pass. Robot removed
+         *    (pruned, and the legacy `EffectPreset.ROBOT` bridge with it);
+         *    Alien renamed to AI, taking over `builtin:ai` (the Monotone-based
+         *    AI chain is retired and `builtin:alien` is pruned); Chipmunk is
+         *    Pitch(+900) alone; Telephone/Megaphone/Intercom Vol trimmed to
+         *    1.3/1.1/1.2; 8-bit is low-pass-first at 3446 Hz + 7-bit/8× crush
+         *    with no makeup; Walkie-talkie gains hard drive + 11-bit crush;
+         *    Dragon rebuilt reverb-first with Pitch(−649) + Tempo(0.85).
          */
-        const val CATALOG_VERSION: Int = 26
+        const val CATALOG_VERSION: Int = 27
     }
 }

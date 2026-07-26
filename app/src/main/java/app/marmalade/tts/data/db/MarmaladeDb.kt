@@ -141,8 +141,11 @@ val MIGRATION_5_6: Migration = object : Migration(5, 6) {
 /**
  * v6 → v7 non-destructive migration. Adds a nullable `effectId` column to
  * `voice_alias` and back-fills it from the legacy `effectPreset` string so
- * existing aliases keep their effect: CAVE/ROBOT/TELEPHONE map to the seeded
- * built-in ids; NONE (and anything else) stays null = "no effect". The
+ * existing aliases keep their effect: CAVE/ROBOT/TELEPHONE map to the built-in
+ * ids; NONE (and anything else) stays null = "no effect". The SQL is frozen
+ * history — `builtin:robot` is no longer seeded (the preset was removed in
+ * catalog v27), so a back-filled Robot alias lands on a pruned id and the
+ * resolver plays it dry. The
  * `effectPreset` column is left in place (read by nothing going forward) so
  * this migration has a stable source to back-fill from. Keep the built-in id
  * strings in sync with [app.marmalade.tts.data.BuiltinEffects].
