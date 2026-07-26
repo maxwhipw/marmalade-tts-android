@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -116,10 +117,10 @@ fun AliasScreen(
 ) {
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    val voices by viewModel.voicesForSelectedEngine.collectAsStateWithLifecycle()
     val primaryAliasName by viewModel.primaryAliasName.collectAsStateWithLifecycle()
-    val engines by viewModel.engines.collectAsStateWithLifecycle()
     val effects by viewModel.effects.collectAsStateWithLifecycle()
+    val voiceTree by viewModel.voiceTree.collectAsStateWithLifecycle()
+    val pickerState by viewModel.pickerState.collectAsStateWithLifecycle()
 
     val mappings by routingViewModel.mappings.collectAsStateWithLifecycle()
     val installedApps by routingViewModel.installedApps.collectAsStateWithLifecycle()
@@ -202,17 +203,18 @@ fun AliasScreen(
     if (editorState.isOpen) {
         AliasEditorSheet(
             state = editorState,
-            engines = engines,
-            voices = voices,
+            voicePath = editorState.voiceId.takeIf { it.isNotBlank() }
+                ?.let { viewModel.voicePathFor(it, editorState.engine) },
             effects = effects,
             // Cannot delete the last remaining alias — the app's data model
             // assumes at least one alias (with one designated primary) exists
             // once any have been created. AliasViewModel.delete also defends
             // this invariant; hiding the button is the primary UX cue.
             canDelete = !editorState.isNew && aliases.size > 1,
+            fallbackCandidates = viewModel.fallbackCandidates(),
             onNameChange = viewModel::onEditorNameChange,
-            onEngineChange = viewModel::onEditorEngineChange,
-            onVoiceChange = viewModel::onEditorVoiceChange,
+            onOpenVoicePicker = viewModel::openVoicePicker,
+            onFallbackChange = viewModel::onEditorFallbackChange,
             onSpeedChange = viewModel::onEditorSpeedChange,
             onEffectChange = viewModel::onEditorEffectChange,
             onPhonemizationLanguageChange = viewModel::onEditorPhonemizationLanguageChange,
@@ -221,6 +223,20 @@ fun AliasScreen(
             },
             onSave = { viewModel.save() },
             onDismiss = viewModel::dismissEditor,
+        )
+    }
+
+    if (pickerState.isOpen) {
+        VoicePickerSheet(
+            state = pickerState,
+            tree = voiceTree,
+            selectedVoiceId = editorState.voiceId,
+            onQueryChange = viewModel::onPickerQueryChange,
+            onSelectSource = viewModel::selectPickerSource,
+            onSelectModel = viewModel::selectPickerModel,
+            onPick = viewModel::pickVoice,
+            onBack = viewModel::pickerBack,
+            onDismiss = viewModel::dismissVoicePicker,
         )
     }
 
@@ -517,13 +533,13 @@ private const val MAX_STRIP_ICONS = 4
 @Composable
 private fun AliasEditorSheet(
     state: EditorState,
-    engines: List<EngineOption>,
-    voices: List<VoiceMeta>,
+    voicePath: VoicePath?,
     effects: List<Effect>,
     canDelete: Boolean,
+    fallbackCandidates: List<VoiceAlias>,
     onNameChange: (String) -> Unit,
-    onEngineChange: (String) -> Unit,
-    onVoiceChange: (String) -> Unit,
+    onOpenVoicePicker: () -> Unit,
+    onFallbackChange: (String?) -> Unit,
     onSpeedChange: (Float) -> Unit,
     onEffectChange: (String?) -> Unit,
     onPhonemizationLanguageChange: (String?) -> Unit,
@@ -568,18 +584,28 @@ private fun AliasEditorSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            EngineDropdown(
-                selected = state.engine,
-                engines = engines,
-                onPick = onEngineChange,
+            // One row for both kinds of voice. The engine and voice used to
+            // be separate dropdowns, which let them drift out of step and
+            // forced the user to know which engine owned a voice before
+            // they could pick it. Now the row opens the drill-down picker
+            // and the two move together — see AliasViewModel.pickVoice.
+            VoiceRowField(
+                path = voicePath,
+                isError = state.error is SaveError.MissingVoice,
+                onClick = onOpenVoicePicker,
             )
 
-            VoiceDropdown(
-                selected = state.voiceId,
-                voices = voices,
-                onPick = onVoiceChange,
-                isError = state.error is SaveError.MissingVoice,
-            )
+            // Only cloud voices can fail for want of a network, so the
+            // fallback only appears for them. Hidden entirely otherwise
+            // rather than shown disabled — a permanently-greyed control on
+            // every on-device alias would be noise.
+            if (voicePath?.isCloud == true) {
+                FallbackPicker(
+                    selected = state.fallbackAliasName,
+                    candidates = fallbackCandidates,
+                    onPick = onFallbackChange,
+                )
+            }
 
             Column {
                 Text(
@@ -628,100 +654,75 @@ private fun AliasEditorSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The alias editor's single voice field.
+ *
+ * Shows the voice name with its collapsed path underneath — "Kitten Mini"
+ * for an on-device voice, "Venice › ElevenLabs Turbo v2.5" for a cloud one.
+ * Identical for both kinds: the editor deliberately does not branch on
+ * whether a voice needs the network, which is what keeps one code path for
+ * a hierarchy that is two levels deep on device and three in the cloud.
+ */
 @Composable
-private fun EngineDropdown(
-    selected: String,
-    engines: List<EngineOption>,
-    onPick: (String) -> Unit,
+private fun VoiceRowField(
+    path: VoicePath?,
+    isError: Boolean,
+    onClick: () -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = engines.firstOrNull { it.name == selected }?.displayName ?: selected,
-            onValueChange = { /* read-only — picker writes via menu items */ },
-            readOnly = true,
-            label = { Text("Engine") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                .fillMaxWidth(),
+    val border = when {
+        isError -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
+    }
+    Column {
+        Text(
+            text = "Voice",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, border),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            for (engine in engines) {
-                DropdownMenuItem(
-                    text = { Text(engine.displayName) },
-                    onClick = {
-                        onPick(engine.name)
-                        expanded = false
-                    },
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = path?.voice ?: "Choose a voice",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (path == null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+                    if (path != null) {
+                        Text(
+                            text = path.collapsed,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun VoiceDropdown(
-    selected: String,
-    voices: List<VoiceMeta>,
-    onPick: (String) -> Unit,
-    isError: Boolean,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val installed = voices.filter { it.isInstalled }
-    // Fall back to the full list if no voice has flipped `isInstalled` yet
-    // (true on fresh installs before KittenEngine.ensureModelLoaded()
-    // succeeds). The CLI's behaviour is "let the user pick; the next speak
-    // call will fail loudly with a model-missing message" — match that
-    // rather than blocking the editor entirely.
-    val choices = installed.ifEmpty { voices }
-    val selectedLabel = choices.firstOrNull { it.id == selected }?.displayName
-        ?: if (selected.isBlank()) "Select a voice" else selected
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = selectedLabel,
-            onValueChange = { /* read-only */ },
-            readOnly = true,
-            isError = isError,
-            label = { Text("Voice") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                .fillMaxWidth(),
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            if (choices.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("No voices available — install an engine first.") },
-                    onClick = { expanded = false },
-                    enabled = false,
-                )
-            } else {
-                for (voice in choices) {
-                    DropdownMenuItem(
-                        text = { Text(voice.displayName) },
-                        onClick = {
-                            onPick(voice.id)
-                            expanded = false
-                        },
-                    )
-                }
-            }
+        if (isError) {
+            Text(
+                text = "Pick a voice for this alias",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+            )
         }
     }
 }
@@ -867,4 +868,66 @@ private fun errorTextFor(error: SaveError?): String? = when (error) {
     SaveError.NameTaken -> "That name is already in use."
     SaveError.MissingVoice -> "Pick a voice for this alias."
     null -> null
+}
+
+/**
+ * Picks the alias a cloud voice falls back to when the network is gone.
+ *
+ * Candidates are on-device aliases only — a cloud alias can't rescue
+ * another cloud alias from the same dead network. "Don't fall back" stays
+ * available for someone who would rather hear an error than an unexpected
+ * voice.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FallbackPicker(
+    selected: String?,
+    candidates: List<VoiceAlias>,
+    onPick: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        Text(
+            text = "When offline",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        if (candidates.isEmpty()) {
+            Text(
+                text = "No on-device alias to fall back to — create one and this " +
+                    "voice will use it when the network is unavailable.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+        ) {
+            OutlinedTextField(
+                value = selected?.let { "Speak with \"$it\"" } ?: "Don't fall back",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("If this voice can't be reached") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                for (alias in candidates) {
+                    DropdownMenuItem(
+                        text = { Text("Speak with \"${alias.name}\"") },
+                        onClick = { onPick(alias.name); expanded = false },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Don't fall back") },
+                    onClick = { onPick(null); expanded = false },
+                )
+            }
+        }
+    }
 }

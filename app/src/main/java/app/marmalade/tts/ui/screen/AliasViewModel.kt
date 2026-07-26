@@ -107,6 +107,11 @@ data class EditorState(
      * decide (KokoroDirect auto-derives from voice prefix; others ignore).
      */
     val phonemizationLanguage: String? = null,
+    /**
+     * Alias to speak with when a cloud voice can't be reached. Only
+     * surfaced in the editor for cloud voices; see [VoiceAlias.fallbackAliasName].
+     */
+    val fallbackAliasName: String? = null,
     val error: SaveError? = null,
 )
 
@@ -142,6 +147,10 @@ class AliasViewModel @Inject constructor(
      */
     fun voicePathFor(alias: VoiceAlias): VoicePath =
         voicePaths.resolve(alias.voiceId, alias.engine)
+
+    /** Same, for the editor's in-progress selection (not yet an alias). */
+    fun voicePathFor(voiceId: String, engine: String): VoicePath =
+        voicePaths.resolve(voiceId, engine)
 
     /**
      * All effects (built-in + custom), for the editor's effect picker. The
@@ -226,6 +235,159 @@ class AliasViewModel @Inject constructor(
 
     private val _editorState = MutableStateFlow(EditorState())
     val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
+
+    // -- Voice picker ---------------------------------------------------------
+    //
+    // The whole catalog as one source › model › voice tree. Built from Room
+    // rather than by asking the engines and the provider descriptor
+    // separately: cloud voices are already rows keyed
+    // `cloud-api-v1:<provider>:<model>:<voice>`, so resolving every row
+    // through VoicePathResolver and grouping by (source, model) yields the
+    // tree for both kinds with one code path — which is the point of the
+    // signed-off design.
+
+    /**
+     * Installed voices grouped into the drill-down tree.
+     *
+     * On-device engines produce exactly one model (themselves), so their
+     * middle level is degenerate; [VoicePickerState.needsModelStep] uses
+     * that to skip straight to the voice list rather than render a
+     * one-item list.
+     */
+    val voiceTree: StateFlow<List<VoiceSource>> = combine(
+        voiceDao.getAll(),
+        _installedEngines,
+    ) { voices, installed ->
+        voices
+            .filter { it.engine in installed }
+            .groupBy { voicePaths.resolve(it.id, it.engine) .let { p -> p.source to p.isCloud } }
+            .map { (key, rows) ->
+                val (source, isCloud) = key
+                VoiceSource(
+                    name = source,
+                    isCloud = isCloud,
+                    models = rows
+                        .groupBy { voicePaths.resolve(it.id, it.engine).model }
+                        .map { (model, modelRows) ->
+                            VoiceModel(
+                                name = model,
+                                voices = modelRows.sortedBy { it.displayName.lowercase() },
+                            )
+                        }
+                        .sortedBy { it.name.lowercase() },
+                )
+            }
+            // On-device sources first: they're the ones that always work,
+            // and the ones a user reaches for most.
+            .sortedWith(compareBy({ it.isCloud }, { it.name.lowercase() }))
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
+
+    private val _pickerState = MutableStateFlow(VoicePickerState())
+    val pickerState: StateFlow<VoicePickerState> = _pickerState.asStateFlow()
+
+    /** Open the picker at the top level (or inside the current voice's source). */
+    fun openVoicePicker() {
+        val current = _editorState.value.voiceId
+        val path = current.takeIf { it.isNotBlank() }
+            ?.let { voicePaths.resolve(it, _editorState.value.engine) }
+        _pickerState.value = VoicePickerState(
+            isOpen = true,
+            // Land where the user already is rather than making them
+            // re-navigate to the voice they're about to change.
+            source = path?.source,
+            model = path?.model,
+        )
+    }
+
+    fun dismissVoicePicker() {
+        _pickerState.value = VoicePickerState()
+    }
+
+    fun onPickerQueryChange(query: String) {
+        _pickerState.value = _pickerState.value.copy(query = query)
+    }
+
+    fun selectPickerSource(source: String) {
+        val node = voiceTree.value.firstOrNull { it.name == source }
+        _pickerState.value = _pickerState.value.copy(
+            source = source,
+            // Skip the degenerate middle level for single-model sources.
+            model = node?.models?.singleOrNull()?.name,
+        )
+    }
+
+    fun selectPickerModel(model: String) {
+        _pickerState.value = _pickerState.value.copy(model = model)
+    }
+
+    /** Step back one level; at the top level, closes the picker. */
+    fun pickerBack() {
+        val state = _pickerState.value
+        val single = voiceTree.value.firstOrNull { it.name == state.source }
+            ?.models?.size == 1
+        _pickerState.value = when {
+            state.query.isNotBlank() -> state.copy(query = "")
+            // A skipped level must also be skipped on the way back out,
+            // or Back appears to do nothing.
+            state.model != null && !single -> state.copy(model = null)
+            state.source != null -> state.copy(source = null, model = null)
+            else -> VoicePickerState()
+        }
+    }
+
+    /**
+     * Commit a voice choice. Sets the editor's engine *and* voiceId together
+     * — they must move as a pair, which is exactly what the old two-dropdown
+     * editor couldn't guarantee.
+     */
+    fun pickVoice(voice: VoiceMeta) {
+        val state = _editorState.value
+        val isCloud = voicePaths.resolve(voice.id, voice.engine).isCloud
+        _editorState.value = state.copy(
+            engine = voice.engine,
+            voiceId = voice.id,
+            // Choosing a cloud voice arms the fallback automatically. The
+            // protection is worth nothing if it depends on the user knowing
+            // to configure it, and "speaks in a different voice" beats
+            // "says nothing" when the network drops mid-sentence.
+            fallbackAliasName = when {
+                !isCloud -> null
+                state.fallbackAliasName != null -> state.fallbackAliasName
+                else -> defaultFallbackAlias()
+            },
+            error = null,
+        )
+        _pickerState.value = VoicePickerState()
+    }
+
+    fun onEditorFallbackChange(aliasName: String?) {
+        _editorState.value = _editorState.value.copy(fallbackAliasName = aliasName)
+    }
+
+    /**
+     * Aliases eligible as a fallback: on-device only (a cloud alias can't
+     * rescue another cloud alias from a dead network) and never the alias
+     * being edited.
+     */
+    fun fallbackCandidates(): List<VoiceAlias> {
+        val editing = _editorState.value.originalName
+        return aliases.value.filter {
+            it.name != editing && !voicePaths.resolve(it.voiceId, it.engine).isCloud
+        }
+    }
+
+    /** Primary on-device alias if there is one, else any on-device alias. */
+    private fun defaultFallbackAlias(): String? {
+        val candidates = fallbackCandidates()
+        val primary = primaryAliasName.value
+        return candidates.firstOrNull { it.name == primary }?.name
+            ?: candidates.firstOrNull()?.name
+    }
 
     /**
      * Installed voices for the engine currently selected in the editor.
@@ -400,6 +562,11 @@ class AliasViewModel @Inject constructor(
             createdAt = createdAt,
             phonemizationLanguage = state.phonemizationLanguage,
             effectId = state.effectId,
+            // Only cloud voices can fail for lack of a network, so only they
+            // carry a fallback. Persisting one on an on-device alias would be
+            // dead data that later reads have to remember to ignore.
+            fallbackAliasName = state.fallbackAliasName
+                ?.takeIf { voicePaths.resolve(state.voiceId, state.engine).isCloud },
         )
 
         viewModelScope.launch {
@@ -492,3 +659,37 @@ class AliasViewModel @Inject constructor(
  * API engine) can be offered alongside catalog engines.
  */
 data class EngineOption(val name: String, val displayName: String)
+
+/**
+ * One level-1 node of the voice picker: everything a single provider or
+ * on-device engine can speak with.
+ */
+data class VoiceSource(
+    val name: String,
+    val isCloud: Boolean,
+    val models: List<VoiceModel>,
+) {
+    /** Total voices under this source — shown as the row's subtitle. */
+    val voiceCount: Int get() = models.sumOf { it.voices.size }
+}
+
+/** One level-2 node: a model and the voices it serves. */
+data class VoiceModel(val name: String, val voices: List<VoiceMeta>)
+
+/**
+ * Where the drill-down currently is.
+ *
+ * Null [source] = the source list. Non-null [source] with null [model] =
+ * the model list. Both non-null = the voice list. A non-blank [query]
+ * overrides all of it with a flat cross-level search, because when you
+ * know the voice's name you shouldn't have to remember which model it
+ * belongs to.
+ */
+data class VoicePickerState(
+    val isOpen: Boolean = false,
+    val source: String? = null,
+    val model: String? = null,
+    val query: String = "",
+) {
+    val searching: Boolean get() = query.isNotBlank()
+}

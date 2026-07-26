@@ -87,6 +87,24 @@ data class VoiceAlias(
      * Added in db v6→v7 (E-D).
      */
     val effectId: String? = null,
+    /**
+     * Name of another alias to speak with when this one's voice can't be
+     * reached. Null means "no fallback — fail".
+     *
+     * Only meaningful for cloud voices, which are the one thing in the app
+     * that can simply stop working: a dead network used to mean an error
+     * and silence, which for an engine backing a screen reader is the worst
+     * possible outcome. The editor offers this only for cloud voices and
+     * defaults it to the primary on-device alias, so the protection exists
+     * without the user configuring anything.
+     *
+     * Not a foreign key, matching [AppAliasMapping.aliasName]: if the
+     * referenced alias is deleted the reference lingers harmlessly and the
+     * router falls through to its normal resolution.
+     *
+     * Added in db v8→v9.
+     */
+    val fallbackAliasName: String? = null,
 ) {
     companion object {
         /**

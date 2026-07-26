@@ -115,4 +115,13 @@ class TtsRouter @Inject constructor(
         val mapping = mappingDao.findByPackage(callerPackage) ?: return null
         return aliasDao.findByName(mapping.aliasName)
     }
+    /**
+     * The voice an alias falls back to when its own voice can't be reached,
+     * or null when it has none (or the referenced alias has since been
+     * deleted — [VoiceAlias.fallbackAliasName] is deliberately not a foreign
+     * key, so a dangling reference is expected rather than exceptional).
+     */
+    suspend fun fallbackVoiceIdFor(alias: VoiceAlias): String? =
+        alias.fallbackAliasName?.let { aliasDao.findByName(it) }?.voiceId
+
 }

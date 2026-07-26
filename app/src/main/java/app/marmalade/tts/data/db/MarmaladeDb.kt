@@ -41,7 +41,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class, Effect::class],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
@@ -174,5 +174,20 @@ val MIGRATION_7_8: Migration = object : Migration(7, 8) {
             "DELETE FROM `voice_meta` WHERE `engine` IN " +
                 "('kokoro-v1_0', 'kokoro-v1_1', 'kitten-nano-v0_8', 'kitten-mini-v0_8')"
         )
+    }
+}
+
+/**
+ * v9: adds [VoiceAlias.fallbackAliasName] — the alias to speak with when a
+ * cloud voice can't be reached.
+ *
+ * Additive nullable column, so existing rows need no back-fill: null means
+ * "no fallback", which is exactly the pre-v9 behaviour. Written explicitly
+ * rather than leaning on `fallbackToDestructiveMigration()`, which is armed
+ * in AppModule and would wipe every alias and per-app route on a hash drift.
+ */
+val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `voice_alias` ADD COLUMN `fallbackAliasName` TEXT")
     }
 }

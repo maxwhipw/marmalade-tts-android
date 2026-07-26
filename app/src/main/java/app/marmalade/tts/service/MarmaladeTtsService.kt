@@ -456,8 +456,72 @@ class MarmaladeTtsService : TextToSpeechService() {
             // missing / corrupt / JNI failure) and any other synthesis
             // exception. The system retries or falls back to its default
             // engine — never produces fake audio.
+            //
+            // Before giving up, try the alias's offline fallback. This is
+            // what makes a cloud voice safe to set as the system engine: a
+            // dead network otherwise means silence, which for a screen
+            // reader is the worst outcome available.
+            if (speakFallback(callback, rawText, params, activeSampleRate, enabled, e)) return
             Log.e(TAG, "Synthesis failed", e)
             callback.error()
+        }
+    }
+
+    /**
+     * Retry [params]'s utterance with its fallback voice. Returns true when
+     * the fallback spoke and the callback is closed.
+     *
+     * **Only retries when the fallback's rate matches what was already
+     * committed** in `callback.start()`. The framework gives no way to
+     * revise that rate mid-request, so speaking 24 kHz audio into a stream
+     * declared at 48 kHz would play the whole utterance at the wrong pitch —
+     * strictly worse than the error we'd otherwise report. In practice the
+     * rates match, because on-device engines are all 24 kHz and so are most
+     * cloud voices; a 48 kHz cloud voice (Gradium, Inworld) simply can't be
+     * rescued on this path today. Lifting that needs deferred `start()`,
+     * which is a bigger change to the streaming sequencing.
+     */
+    private fun speakFallback(
+        callback: SynthesisCallback,
+        rawText: String,
+        params: SynthParams,
+        activeSampleRate: Int,
+        enabled: Set<String>,
+        cause: Exception,
+    ): Boolean {
+        val fallbackVoiceId = params.fallbackVoiceId ?: return false
+        val fallbackEngine = engineNameFor(fallbackVoiceId)
+        val fallbackRate = sampleRateFor(fallbackVoiceId, fallbackEngine)
+        if (fallbackRate != activeSampleRate) {
+            Log.w(
+                TAG,
+                "fallback $fallbackVoiceId is ${fallbackRate}Hz but the stream is " +
+                    "${activeSampleRate}Hz — cannot retry without a pitch shift",
+            )
+            return false
+        }
+        Log.w(TAG, "synthesis failed (${cause.message}); falling back to $fallbackVoiceId")
+        return try {
+            runBlocking {
+                synthJob = coroutineContext[Job]
+                try {
+                    streamingSynthesis(
+                        callback,
+                        rawText,
+                        fallbackEngine,
+                        params.copy(voiceId = fallbackVoiceId, fallbackVoiceId = null),
+                        enabled,
+                    )
+                } finally {
+                    synthJob = null
+                }
+            }
+            true
+        } catch (fallbackError: Exception) {
+            // Both voices failed — report the original cause, which is the
+            // one the user can act on.
+            Log.e(TAG, "fallback voice also failed", fallbackError)
+            false
         }
     }
 
@@ -559,6 +623,13 @@ class MarmaladeTtsService : TextToSpeechService() {
         val effectBlocks: List<EffectBlock>,
         /** See [app.marmalade.tts.data.db.VoiceAlias.phonemizationLanguage]. Null = engine default. */
         val phonemizationLanguage: String? = null,
+        /**
+         * Voice to retry with if [voiceId] fails — resolved from the alias's
+         * [app.marmalade.tts.data.db.VoiceAlias.fallbackAliasName]. Null when
+         * the alias has no fallback, or when the request didn't come from an
+         * alias at all.
+         */
+        val fallbackVoiceId: String? = null,
     )
 
     /**
@@ -653,6 +724,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     speed = primary.speed,
                     effectBlocks = effectResolver.blocksFor(primary.effectId),
                     phonemizationLanguage = primary.phonemizationLanguage,
+                    fallbackVoiceId = router.fallbackVoiceIdFor(primary),
                 )
             } else {
                 null
