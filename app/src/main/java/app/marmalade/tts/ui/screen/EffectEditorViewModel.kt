@@ -32,6 +32,9 @@ import kotlinx.coroutines.launch
 //   the in-progress chain through the same SpeechPlayer the Speak screen uses.
 // -----------------------------------------------------------------------------
 
+/** Sample line every effect preview speaks — editor and catalog alike. */
+internal const val EFFECT_PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog."
+
 /** Coarse state for the editor's Preview button. */
 sealed interface EffectPreviewState {
     object Idle : EffectPreviewState
@@ -174,7 +177,8 @@ class EffectEditorViewModel @Inject constructor(
                 )
                 return@launch
             }
-            val result = synthesizer.speak(PREVIEW_TEXT, voiceId, 1.0f, _state.value.blocks, null)
+            val result =
+                synthesizer.speak(EFFECT_PREVIEW_TEXT, voiceId, 1.0f, _state.value.blocks, null)
             if (generation != previewGeneration) return@launch // superseded
             _state.value = _state.value.copy(
                 preview = result.fold(
@@ -230,6 +234,5 @@ class EffectEditorViewModel @Inject constructor(
     companion object {
         const val ARG_EDIT_ID = "editId"
         const val ARG_DUPE_ID = "dupeId"
-        private const val PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog."
     }
 }

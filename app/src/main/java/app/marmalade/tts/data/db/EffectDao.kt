@@ -7,14 +7,16 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Room DAO for [Effect] rows. Built-ins sort first (isBuiltin DESC), then by
- * creation time. [deleteCustom] refuses to delete built-ins (the WHERE guard),
- * so a stray call can't wipe a seeded preset.
+ * Room DAO for [Effect] rows. The user's own effects sort first (isBuiltin ASC)
+ * — a handful of them shouldn't sit below ~20 seeded presets — then by creation
+ * time. Both the Effects catalog and the alias editor's effect picker read this
+ * one query, so they agree on order. [deleteCustom] refuses to delete built-ins
+ * (the WHERE guard), so a stray call can't wipe a seeded preset.
  */
 @Dao
 interface EffectDao {
 
-    @Query("SELECT * FROM effect ORDER BY isBuiltin DESC, createdAt ASC, name ASC")
+    @Query("SELECT * FROM effect ORDER BY isBuiltin ASC, createdAt ASC, name ASC")
     fun getAll(): Flow<List<Effect>>
 
     @Query("SELECT * FROM effect WHERE id = :id LIMIT 1")

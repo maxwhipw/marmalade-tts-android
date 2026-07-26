@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -58,12 +59,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 //     │
 //     └── actions
 //          ├── FAB → onCreate()              — open the editor blank (E-F)
+//          ├── card Play            → viewModel.preview(card) / stopPreview()
 //          ├── card Edit (custom)   → onEdit(id)        — edit in place
 //          ├── card Edit (built-in) → onDuplicate(id)   — fork to a custom copy
 //          └── card Delete (custom) → confirm → viewModel.delete(id)
 //
 //   Hosted by AppRoot as a bottom-nav tab; the back arrow returns to Speak.
-//   Built-ins are read-only (re-seeded on catalog bumps), so their "Edit"
+//   The user's own effects list above the built-ins (EffectDao.getAll orders
+//   them). Built-ins are read-only (re-seeded on catalog bumps), so their "Edit"
 //   forks the preset into a new custom effect rather than mutating it.
 //   Effects are assigned to voices via an alias (Aliases tab → Effect picker).
 // -----------------------------------------------------------------------------
@@ -83,6 +86,7 @@ fun EffectsScreen(
     viewModel: EffectsViewModel = hiltViewModel(),
 ) {
     val effects by viewModel.effects.collectAsStateWithLifecycle()
+    val preview by viewModel.preview.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<EffectCard?>(null) }
 
     Scaffold(
@@ -94,7 +98,11 @@ fun EffectsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreate) {
+            FloatingActionButton(
+                onClick = onCreate,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Create effect")
             }
         },
@@ -118,6 +126,10 @@ fun EffectsScreen(
             items(items = effects, key = { it.id }) { card ->
                 EffectCardItem(
                     card = card,
+                    isPlaying = preview.playingId == card.id,
+                    error = preview.errorMessage.takeIf { preview.errorId == card.id },
+                    onPlay = { viewModel.preview(card) },
+                    onStop = viewModel::stopPreview,
                     onEdit = { onEdit(card.id) },
                     onDuplicate = { onDuplicate(card.id) },
                     onDelete = { pendingDelete = card },
@@ -159,6 +171,10 @@ fun EffectsScreen(
 @Composable
 private fun EffectCardItem(
     card: EffectCard,
+    isPlaying: Boolean,
+    error: String?,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
@@ -188,7 +204,8 @@ private fun EffectCardItem(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // Pencil = edit-in-place (custom only); copy = duplicate (all cards);
+            // Play = hear the chain on the default voice (all cards, leftmost);
+            // pencil = edit-in-place (custom only); copy = duplicate (all cards);
             // trash = delete (custom only). Built-ins are read-only (re-seeded on
             // catalog bumps), so they get no pencil — duplicate to fork an
             // editable copy.
@@ -197,6 +214,16 @@ private fun EffectCardItem(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(onClick = if (isPlaying) onStop else onPlay) {
+                    Icon(
+                        imageVector = if (isPlaying) StopIcon else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) {
+                            "Stop ${card.name}"
+                        } else {
+                            "Preview ${card.name}"
+                        },
+                    )
+                }
                 if (!card.isBuiltin) {
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit ${card.name}")
@@ -215,6 +242,13 @@ private fun EffectCardItem(
                     }
                 }
             }
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }
@@ -224,6 +258,26 @@ private fun EffectCardItem(
 // read as the card's primary content — distinct from the muted, gray "Built-in"
 // AssistChip tag. `primary` is theme-aware, so the chips track the user's chosen
 // accent (orange by default, blue under Midnight, etc.).
+/**
+ * Material "stop" glyph — a filled square. Hand-built for the same reason as
+ * [ContentCopyIcon]: core has no stop icon and the extended set is multi-MB.
+ */
+private val StopIcon: ImageVector = ImageVector.Builder(
+    name = "Stop",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(6f, 6f)
+        horizontalLineToRelative(12f)
+        verticalLineToRelative(12f)
+        horizontalLineTo(6f)
+        close()
+    }
+}.build()
+
 /**
  * Material "content copy" glyph, hand-built so we don't pull in the multi-MB
  * `material-icons-extended` dependency for a single icon (core has no copy
