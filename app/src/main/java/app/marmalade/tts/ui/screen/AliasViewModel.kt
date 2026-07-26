@@ -254,48 +254,15 @@ class AliasViewModel @Inject constructor(
 
     // -- Voice picker ---------------------------------------------------------
     //
-    // The whole catalog as one source › model › voice tree. Built from Room
-    // rather than by asking the engines and the provider descriptor
-    // separately: cloud voices are already rows keyed
-    // `cloud-api-v1:<provider>:<model>:<voice>`, so resolving every row
-    // through VoicePathResolver and grouping by (source, model) yields the
-    // tree for both kinds with one code path — which is the point of the
-    // signed-off design.
+    // The tree, the level-skipping and the search live in VoiceTree.kt, shared
+    // with the full-screen picker so the two surfaces browse identically.
 
-    /**
-     * Installed voices grouped into the drill-down tree.
-     *
-     * On-device engines produce exactly one model (themselves), so their
-     * middle level is degenerate; [VoicePickerState.needsModelStep] uses
-     * that to skip straight to the voice list rather than render a
-     * one-item list.
-     */
+    /** Installed voices grouped into the drill-down tree. */
     val voiceTree: StateFlow<List<VoiceSource>> = combine(
         voiceDao.getAll(),
         _installedEngines,
     ) { voices, installed ->
-        voices
-            .filter { it.engine in installed }
-            .groupBy { voicePaths.resolve(it.id, it.engine) .let { p -> p.source to p.isCloud } }
-            .map { (key, rows) ->
-                val (source, isCloud) = key
-                VoiceSource(
-                    name = source,
-                    isCloud = isCloud,
-                    models = rows
-                        .groupBy { voicePaths.resolve(it.id, it.engine).model }
-                        .map { (model, modelRows) ->
-                            VoiceModel(
-                                name = model,
-                                voices = modelRows.sortedBy { it.displayName.lowercase() },
-                            )
-                        }
-                        .sortedBy { it.name.lowercase() },
-                )
-            }
-            // On-device sources first: they're the ones that always work,
-            // and the ones a user reaches for most.
-            .sortedWith(compareBy({ it.isCloud }, { it.name.lowercase() }))
+        buildVoiceTree(voices.filter { it.engine in installed }, voicePaths)
     }
         .stateIn(
             scope = viewModelScope,
@@ -329,12 +296,7 @@ class AliasViewModel @Inject constructor(
     }
 
     fun selectPickerSource(source: String) {
-        val node = voiceTree.value.firstOrNull { it.name == source }
-        _pickerState.value = _pickerState.value.copy(
-            source = source,
-            // Skip the degenerate middle level for single-model sources.
-            model = node?.models?.singleOrNull()?.name,
-        )
+        _pickerState.value = _pickerState.value.selectSourceIn(voiceTree.value, source)
     }
 
     fun selectPickerModel(model: String) {
@@ -343,17 +305,7 @@ class AliasViewModel @Inject constructor(
 
     /** Step back one level; at the top level, closes the picker. */
     fun pickerBack() {
-        val state = _pickerState.value
-        val single = voiceTree.value.firstOrNull { it.name == state.source }
-            ?.models?.size == 1
-        _pickerState.value = when {
-            state.query.isNotBlank() -> state.copy(query = "")
-            // A skipped level must also be skipped on the way back out,
-            // or Back appears to do nothing.
-            state.model != null && !single -> state.copy(model = null)
-            state.source != null -> state.copy(source = null, model = null)
-            else -> VoicePickerState()
-        }
+        _pickerState.value = _pickerState.value.back(voiceTree.value)
     }
 
     /**
@@ -676,36 +628,3 @@ class AliasViewModel @Inject constructor(
  */
 data class EngineOption(val name: String, val displayName: String)
 
-/**
- * One level-1 node of the voice picker: everything a single provider or
- * on-device engine can speak with.
- */
-data class VoiceSource(
-    val name: String,
-    val isCloud: Boolean,
-    val models: List<VoiceModel>,
-) {
-    /** Total voices under this source — shown as the row's subtitle. */
-    val voiceCount: Int get() = models.sumOf { it.voices.size }
-}
-
-/** One level-2 node: a model and the voices it serves. */
-data class VoiceModel(val name: String, val voices: List<VoiceMeta>)
-
-/**
- * Where the drill-down currently is.
- *
- * Null [source] = the source list. Non-null [source] with null [model] =
- * the model list. Both non-null = the voice list. A non-blank [query]
- * overrides all of it with a flat cross-level search, because when you
- * know the voice's name you shouldn't have to remember which model it
- * belongs to.
- */
-data class VoicePickerState(
-    val isOpen: Boolean = false,
-    val source: String? = null,
-    val model: String? = null,
-    val query: String = "",
-) {
-    val searching: Boolean get() = query.isNotBlank()
-}

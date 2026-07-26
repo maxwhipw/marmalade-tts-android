@@ -7,7 +7,10 @@ import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoiceLatencySource
+import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -101,6 +105,8 @@ class VoicePickerViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val synthesizer: SpeechPlayer,
     private val installer: EngineInstaller,
+    private val voicePaths: VoicePathResolver,
+    latencySource: VoiceLatencySource,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -148,54 +154,76 @@ class VoicePickerViewModel @Inject constructor(
     val previewState: StateFlow<PreviewState> = _previewState.asStateFlow()
 
     /**
-     * Per-engine collapsed/expanded state for the engine section headers
-     * on the voices list. Persists across navigation within a single VM
-     * lifecycle (not across process death — that's the right scope for a
-     * UI hint, no DataStore needed).
-     *
-     * Default policy: the engine that owns the currently-selected voice
-     * opens expanded; everything else starts collapsed (so the user
-     * doesn't have to scroll past 50+ Kokoro voices to find Kitten).
-     * Computed lazily inside [setInitialExpansion] the first time
-     * [voices] + [selectedId] have both emitted.
+     * The same source › model › voice tree the alias editor's sheet browses
+     * (see VoiceTree.kt). Before this, the full-screen picker was a flat list
+     * grouped only by engine — which put all ~186 Venice voices under a single
+     * "Cloud voices" header with nothing between them.
      */
-    private val _expandedEngines = MutableStateFlow<Set<String>>(emptySet())
-    val expandedEngines: StateFlow<Set<String>> = _expandedEngines.asStateFlow()
+    val voiceTree: StateFlow<List<VoiceSource>> = voices
+        .map { buildVoiceTree(it, voicePaths) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
-    private var initialExpansionSet: Boolean = false
+    val voiceLatency: StateFlow<Map<String, LatencyBucket>> = latencySource.buckets()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyMap(),
+        )
+
+    private val _pickerState = MutableStateFlow(VoicePickerState())
+    val pickerState: StateFlow<VoicePickerState> = _pickerState.asStateFlow()
+
+    private var initialDrillSet: Boolean = false
 
     init {
         refresh()
     }
 
     /**
-     * Toggle expand/collapse for an engine section. Idempotent — calling
-     * with the same name twice round-trips the state.
+     * Land inside the currently-selected voice's source rather than making
+     * the user re-navigate to the voice they're about to change. The screen
+     * calls this from a LaunchedEffect once [voiceTree] and [selectedId] have
+     * both resolved — driven from the outside rather than by a collector in
+     * `init`, which would keep a coroutine alive for the VM's whole life to
+     * do a job that happens exactly once.
+     *
+     * Idempotent: later emissions (a newly installed engine, say) leave the
+     * user's own navigation alone.
      */
-    fun toggleEngineExpanded(engineName: String) {
-        val current = _expandedEngines.value
-        _expandedEngines.value = if (engineName in current) {
-            current - engineName
-        } else {
-            current + engineName
-        }
+    fun setInitialDrill(tree: List<VoiceSource>, selected: String) {
+        if (initialDrillSet || tree.isEmpty()) return
+        initialDrillSet = true
+        val path = tree.firstNotNullOfOrNull { source ->
+            source.models.firstOrNull { model -> model.voices.any { it.id == selected } }
+                ?.let { source.name to it.name }
+        } ?: return
+        _pickerState.value = VoicePickerState(source = path.first, model = path.second)
+    }
+
+    fun onQueryChange(query: String) {
+        _pickerState.value = _pickerState.value.copy(query = query)
+    }
+
+    fun selectSource(source: String) {
+        _pickerState.value = _pickerState.value.selectSourceIn(voiceTree.value, source)
+    }
+
+    fun selectModel(model: String) {
+        _pickerState.value = _pickerState.value.copy(model = model)
     }
 
     /**
-     * Seed [_expandedEngines] with "expand the engine that owns the
-     * currently-selected voice" the first time both StateFlows have a
-     * non-empty value. Idempotent — subsequent calls (e.g. on user
-     * navigation refresh) leave the user's manual toggles intact.
+     * Step back one level. Returns false at the top level, where the screen
+     * should pop its own back stack instead.
      */
-    fun setInitialExpansion(voicesByEngine: Map<String, List<VoiceMeta>>, selected: String) {
-        if (initialExpansionSet || voicesByEngine.isEmpty()) return
-        val ownerEngine = voicesByEngine.entries.firstOrNull { (_, voices) ->
-            voices.any { it.id == selected }
-        }?.key
-        if (ownerEngine != null) {
-            _expandedEngines.value = setOf(ownerEngine)
-            initialExpansionSet = true
-        }
+    fun drillBack(): Boolean {
+        if (_pickerState.value.atTopLevel()) return false
+        _pickerState.value = _pickerState.value.back(voiceTree.value)
+        return true
     }
 
     /**

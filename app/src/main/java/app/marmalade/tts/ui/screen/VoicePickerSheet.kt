@@ -1,6 +1,5 @@
 package app.marmalade.tts.ui.screen
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,27 +13,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.marmalade.tts.data.LatencyBucket
@@ -58,6 +52,9 @@ import app.marmalade.tts.data.db.VoiceMeta
 // you shouldn't have to remember which model owns it. Search results carry
 // their full path as a subtitle, which is what disambiguates the two Alices.
 // -----------------------------------------------------------------------------
+
+/** The sheet's horizontal gutter, wider than the full screen's. */
+private val SheetGutter = 24.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,8 +128,8 @@ fun VoicePickerSheet(
                 state.searching -> SearchResults(tree, state.query, selectedVoiceId, latency, onPick)
                 tree.isEmpty() -> Empty("No voices installed yet")
                 model != null -> VoiceList(model.voices, selectedVoiceId, onPick)
-                source != null -> ModelList(source, latency, onSelectModel)
-                else -> SourceList(tree, latency, onSelectSource)
+                source != null -> VoiceModelList(source, latency, SheetGutter, onSelectModel)
+                else -> VoiceSourceList(tree, latency, SheetGutter, onSelectSource)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -148,63 +145,6 @@ private fun Empty(text: String) {
         modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
     )
 }
-
-@Composable
-private fun SourceList(
-    tree: List<VoiceSource>,
-    latency: Map<String, LatencyBucket>,
-    onSelect: (String) -> Unit,
-) {
-    LazyColumn {
-        items(items = tree, key = { it.name }) { source ->
-            DrillRow(
-                title = source.name,
-                subtitle = buildString {
-                    append(if (source.isCloud) "Cloud" else "On device")
-                    append(" · ${source.voiceCount} voice")
-                    if (source.voiceCount != 1) append("s")
-                    // Only worth naming the model count when there's a
-                    // choice to make at the next level.
-                    if (source.models.size > 1) append(" in ${source.models.size} models")
-                },
-                badge = source.latencyBucket(latency),
-                onClick = { onSelect(source.name) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ModelList(
-    source: VoiceSource,
-    latency: Map<String, LatencyBucket>,
-    onSelect: (String) -> Unit,
-) {
-    LazyColumn {
-        items(items = source.models, key = { it.name }) { model ->
-            DrillRow(
-                title = model.name,
-                subtitle = "${model.voices.size} voices",
-                badge = model.latencyBucket(latency),
-                onClick = { onSelect(model.name) },
-            )
-        }
-    }
-}
-
-/**
- * Latency is a property of the model, so a model row always has one and a
- * *source* row only has one when every model beneath it agrees — Venice
- * fronts an instant Kokoro and a painfully slow Gemini, and averaging those
- * into a single badge on the Venice row would be worse than saying nothing.
- */
-private fun VoiceModel.latencyBucket(latency: Map<String, LatencyBucket>): LatencyBucket? {
-    val voice = voices.firstOrNull() ?: return null
-    return latency[latencyKeyFor(voice.id, voice.engine)]
-}
-
-private fun VoiceSource.latencyBucket(latency: Map<String, LatencyBucket>): LatencyBucket? =
-    models.map { it.latencyBucket(latency) }.distinct().singleOrNull()
 
 @Composable
 private fun VoiceList(
@@ -235,26 +175,13 @@ private fun SearchResults(
     latency: Map<String, LatencyBucket>,
     onPick: (VoiceMeta) -> Unit,
 ) {
-    val hits = remember(tree, query) {
-        val q = query.trim().lowercase()
-        tree.flatMap { source ->
-            source.models.flatMap { model ->
-                model.voices
-                    .filter {
-                        it.displayName.lowercase().contains(q) ||
-                            model.name.lowercase().contains(q) ||
-                            source.name.lowercase().contains(q)
-                    }
-                    .map { it to "${source.name} › ${model.name}" }
-            }
-        }
-    }
+    val hits = remember(tree, query) { searchVoiceTree(tree, query) }
     if (hits.isEmpty()) {
         Empty("No voices match \"$query\"")
         return
     }
     LazyColumn {
-        items(items = hits, key = { it.first.id }) { (voice, path) ->
+        items(items = hits, key = { it.voice.id }) { (voice, path) ->
             VoiceRow(
                 voice = voice,
                 selected = voice.id == selectedVoiceId,
@@ -266,37 +193,6 @@ private fun SearchResults(
                 onPick = onPick,
             )
         }
-    }
-}
-
-@Composable
-private fun DrillRow(
-    title: String,
-    subtitle: String,
-    badge: LatencyBucket?,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        LatencyChip(badge)
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -326,7 +222,7 @@ private fun VoiceRow(
                 )
             }
         }
-        LatencyChip(badge)
+        VoiceLatencyChip(badge)
         if (selected) {
             Icon(
                 imageVector = Icons.Filled.Check,
@@ -334,46 +230,5 @@ private fun VoiceRow(
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
-    }
-}
-
-/**
- * How long this thing makes you wait. Renders nothing for a null [bucket] —
- * a model nobody has measured and the descriptor doesn't describe gets no
- * badge, because an empty space is honest and a guess isn't.
- *
- * Only "Instant" is filled. The point of the badge is to make the fast
- * choice findable in a list where everything else costs a network round
- * trip; giving "Slow" the same visual weight would just make the list
- * noisier without making the decision easier.
- */
-@Composable
-private fun LatencyChip(bucket: LatencyBucket?) {
-    bucket ?: return
-    val filled = bucket == LatencyBucket.INSTANT
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = if (filled) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            Color.Transparent
-        },
-        border = if (filled) {
-            null
-        } else {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-        },
-        modifier = Modifier.padding(end = 8.dp),
-    ) {
-        Text(
-            text = bucket.label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (filled) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
-        )
     }
 }

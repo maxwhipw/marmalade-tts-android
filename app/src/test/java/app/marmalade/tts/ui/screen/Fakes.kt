@@ -141,6 +141,16 @@ internal class FakeSettings(
         primaryAlias.value = value
     }
 
+    // Backed by NoOpPreferencesDataStore, the real implementations of these
+    // two never emit — and any flow that `combine`s one of them then never
+    // emits either, which is a hang rather than a failure. Override with
+    // real state so consumers like VoicePickerViewModel.voices are testable.
+    private val developerEngines = MutableStateFlow(false)
+    override val showDeveloperEngines: Flow<Boolean> = developerEngines
+
+    private val cloudKeySet = MutableStateFlow(false)
+    override val anyCloudApiKeySet: Flow<Boolean> = cloudKeySet
+
     // Per-engine preprocessing-rule sets. Defaults to "nothing stored"
     // — `enabledRules(engine)` falls back to EngineProfiles.defaultsFor.
     // Tests that want to start from a stored set can call

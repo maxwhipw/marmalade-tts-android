@@ -4,11 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoiceLatencySource
+import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -76,8 +79,67 @@ class VoicePickerViewModelTest {
             settings = settings,
             synthesizer = player,
             installer = PickerFakeInstaller(),
+            // No cloud providers configured — on-device voices resolve
+            // entirely from EngineCatalog, which is what these tests use.
+            voicePaths = VoicePathResolver { null },
+            latencySource = VoiceLatencySource { flowOf(emptyMap()) },
             savedStateHandle = SavedStateHandle(),
         )
+    }
+
+    @Test
+    fun `tree groups the installed voices under their engine`() = runTest {
+        val vm = newViewModel(settings = FakeSettings(initialId = "kitten-direct-v0_8:Kiki"))
+
+        val tree = vm.voiceTree.first { it.isNotEmpty() }
+
+        // One on-device engine → one source, and its single model level is
+        // the degenerate one the drill-down skips.
+        assertEquals(1, tree.size)
+        assertTrue(tree.single().models.size == 1)
+        assertEquals(KittenDirectVoiceCatalog.voices.size, tree.single().voiceCount)
+    }
+
+    @Test
+    fun `drilling into a single-model source lands straight on its voices`() = runTest {
+        val vm = newViewModel(settings = FakeSettings(initialId = "kitten-direct-v0_8:Kiki"))
+        val source = vm.voiceTree.first { it.isNotEmpty() }.single()
+
+        vm.selectSource(source.name)
+
+        // Model auto-selected, so the screen renders the voice list rather
+        // than a one-item model list.
+        assertEquals(source.name, vm.pickerState.value.source)
+        assertEquals(source.models.single().name, vm.pickerState.value.model)
+    }
+
+    @Test
+    fun `back unwinds a skipped model level in one step`() = runTest {
+        val vm = newViewModel(settings = FakeSettings(initialId = "kitten-direct-v0_8:Kiki"))
+        val source = vm.voiceTree.first { it.isNotEmpty() }.single()
+        vm.selectSource(source.name)
+
+        assertTrue(vm.drillBack())
+
+        // Both levels cleared — stopping at "source set, model null" would
+        // show a one-item list the user never chose from.
+        assertEquals(null, vm.pickerState.value.source)
+        assertEquals(null, vm.pickerState.value.model)
+        // At the top level Back belongs to the screen, not the drill-down.
+        assertTrue(!vm.drillBack())
+    }
+
+    @Test
+    fun `search clears before the hierarchy unwinds`() = runTest {
+        val vm = newViewModel(settings = FakeSettings(initialId = "kitten-direct-v0_8:Kiki"))
+        val source = vm.voiceTree.first { it.isNotEmpty() }.single()
+        vm.selectSource(source.name)
+        vm.onQueryChange("bel")
+
+        assertTrue(vm.drillBack())
+
+        assertEquals("", vm.pickerState.value.query)
+        assertEquals(source.name, vm.pickerState.value.source)
     }
 }
 
