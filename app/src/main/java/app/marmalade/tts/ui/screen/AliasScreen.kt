@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -100,6 +101,9 @@ import app.marmalade.tts.install.EngineCatalog
 //   property of that alias, so they show on the alias card and are edited in a
 //   sheet scoped to it. Two ViewModels back one screen — see AppRoutingViewModel.
 // -----------------------------------------------------------------------------
+
+/** Fully-rounded shape shared by this screen's chips, badges and action buttons. */
+private val PillShape = RoundedCornerShape(999.dp)
 
 /**
  * Voice aliases / personas — the user-saved bundle screen, and the home of
@@ -271,7 +275,7 @@ fun AliasScreen(
     pendingDelete?.let { alias ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete \"${alias.name}\"?") },
+            title = { Text("Delete ${alias.name}?") },
             text = { Text("This removes the alias. The underlying voice stays installed.") },
             confirmButton = {
                 Button(
@@ -584,7 +588,7 @@ private fun AliasEditorSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = if (state.isNew) "Create alias" else "Edit \"${state.originalName}\"",
+                text = if (state.isNew) "Create alias" else "Edit ${state.originalName}",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -666,25 +670,41 @@ private fun AliasEditorSheet(
                 )
             }
 
-            Row(
+            // Save is the unconditional action and gets the full-width pill;
+            // the two conditional ones share the row below it, equally
+            // weighted so "Make primary" can't crowd Delete off a narrow
+            // screen. There is no Cancel: the sheet already dismisses on
+            // swipe, scrim tap and back.
+            Button(
+                onClick = onSave,
+                shape = PillShape,
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (canDelete) {
-                    TextButton(
-                        onClick = onDelete,
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    ) { Text("Delete") }
+            ) { Text("Save") }
+
+            if (canSetPrimary || canDelete) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (canSetPrimary) {
+                        OutlinedButton(
+                            onClick = onSetPrimary,
+                            shape = PillShape,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Make primary") }
+                    }
+                    if (canDelete) {
+                        OutlinedButton(
+                            onClick = onDelete,
+                            shape = PillShape,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Delete") }
+                    }
                 }
-                Spacer(Modifier.weight(1f))
-                if (canSetPrimary) {
-                    TextButton(onClick = onSetPrimary) { Text("Make primary") }
-                }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-                Spacer(Modifier.size(8.dp))
-                Button(onClick = onSave) { Text("Save") }
             }
         }
     }
@@ -969,7 +989,7 @@ private fun FallbackPicker(
 @Composable
 private fun PrimaryPill() {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = PillShape,
         color = MaterialTheme.colorScheme.primary,
     ) {
         Text(
@@ -993,7 +1013,7 @@ private fun PrimaryPill() {
 @Composable
 private fun MetaChip(text: String, filled: Boolean = false) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = PillShape,
         color = if (filled) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
