@@ -1,3 +1,84 @@
+# HANDOFF — brand + effects + voice picker, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`e8272e5`**, 6 commits
+past `21aebf3`. **367 unit tests green** (`:app:testFdroidDebugUnitTest`);
+fdroid debug APK builds. **Nothing pushed** — github is the authoritative
+public remote and needs Max's explicit all-clear each time.
+
+Wireless ADB rotates its port every session; ask Max for the current one and
+`adb connect 100.114.195.29:<port>`.
+
+## What shipped today
+
+- `0f3e9fa` **Wordmark = Momo Trust Display.** The font was sitting unused in
+  `stash@{0}` behind a comment claiming it "isn't freely distributable" — it is
+  (OFL-1.1, Google Fonts, © 2024 The Momo Trust Project Authors, read verbatim
+  from the TTF name table). Momo ships a *single Regular master* (no `fvar`,
+  `usWeightClass 400`), so the 600 at the call site is synthesized — the
+  marmalade-design skill has been corrected to say so. `LICENSES/fonts.md`,
+  `NOTICE.md` and the in-app `LicenseCatalog` all updated.
+- `cadb464` **8-bit preset retuned** — Bitcrush 6/6 → 8/8, LP 4000 → 3450.
+  `CATALOG_VERSION` 25 → 26 so existing installs re-seed the built-in row.
+- `23cb703` **Alias cards ordered** primary → routed → unrouted (stable sort,
+  creation order preserved inside each group).
+- `ab677ae` Desktop-CLI reference dropped from the effect editor's chain blurb.
+- `f1fbebb` **Effects: per-card play/stop**, user effects sorted above built-ins
+  (in `EffectDao.getAll`, so the alias editor's effect picker agrees), and the
+  FAB takes the same explicit primary/onPrimary colors the Aliases FAB had.
+- `e8272e5` **Full-screen voice picker now drills down** like the alias sheet.
+  It was one flat list grouped by engine — with Venice configured, ~186 voices
+  under a single header. Shared logic extracted to `ui/screen/VoiceTree.kt`
+  (tree build, level-skipping nav, cross-level search) and
+  `ui/screen/VoiceDrillDown.kt` (source/model lists, latency chip).
+
+## Verified on device (Pixel 8a)
+
+Via `uiautomator dump` + pulling the Room DB with `run-as … cat databases/…`:
+
+- `builtin:eight_bit` re-seeded to `bitcrush 8/8` + `lowpass 3450`.
+- Alias order: Maximilian (PRIMARY) → default (2 apps) → Venice (unrouted).
+- Effects screen: user effects (`8-bit-v2`, `test`) above the built-ins;
+  `Preview <name>` is the leftmost action on every card.
+
+## NOT verified on device
+
+Wireless ADB dropped before the last install. Unseen:
+
+- The Momo wordmark actually rendering (only the resource is confirmed present).
+- Effects FAB colour; the editor's reworded chain line.
+- **The whole voice-picker drill-down rewrite** — biggest untested surface.
+  Worth walking: Speak → voice name → drill Venice → a model → a voice;
+  the search box; system Back unwinding one level at a time; and the
+  engine-scoped entry (`voices?engine=…`) from an engine's detail page.
+
+## Traps worth knowing
+
+- `FakeSettings` extends the real `SettingsRepository` over a
+  `NoOpPreferencesDataStore` that **never emits**. Any member it doesn't
+  override never emits, and a `combine()` including one never emits at all —
+  the test HANGS for 60s and reports `UncompletedCoroutinesError` pointing at
+  the test body, not the missing override. It now overrides
+  `showDeveloperEngines` + `anyCloudApiKeySet` for exactly this reason.
+- `stash@{0}` still holds ~71 lines of unrelated `KittenDirectEngine.kt` WIP
+  plus a stale copy of the font work. Only the `.ttf` was taken from it.
+- `fallbackToDestructiveMigration()` is still armed at `AppModule.kt:80` —
+  any schema hash drift wipes aliases + routes. Write real migrations.
+
+## Still open (carried forward)
+
+- `MarmaladeSynthService` **cannot play cloud voices at all** (`:308-319`,
+  `:389-398`, `:536`, `:552`, `:561`) — they fall through to `DEFAULT_ENGINE`
+  and speak Kokoro. Breaks share-to-speak, the QS tile, `SpeakDispatcher`.
+  Pre-existing, untouched.
+- Do the MP3 models honour `speed`? They ignore `response_format`, so they
+  may no-op the speed slider.
+- `CloudApiVoiceCatalog.kt:72-73` stamps every discovered voice `en-US`,
+  including multilingual MiniMax/Gemini sets.
+
+---
+
 # HANDOFF — voice hierarchy + alias screen, 2026-07-25 (branch verify/routing-on-api-engine)
 
 ## Branch state
