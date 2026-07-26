@@ -62,7 +62,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -129,6 +131,15 @@ fun AliasScreen(
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
+    // Dismissing the voice picker returns focus to whatever held it before
+    // the sheet opened — the Name field — which pops the keyboard and drops
+    // a cursor in it as if you'd asked to rename the alias. You didn't; you
+    // picked a voice. Drop focus instead so the editor is just sitting there.
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(pickerState.isOpen) {
+        if (!pickerState.isOpen) focusManager.clearFocus(force = true)
+    }
+
     // Re-probe engine install state every time the screen becomes the active
     // destination. The VM's init does an initial probe; this catches the
     // Aliases → Engines → install → back-to-Aliases flow so a
@@ -149,7 +160,11 @@ fun AliasScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.openEditor(null) }) {
+            FloatingActionButton(
+                onClick = { viewModel.openEditor(null) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Create alias")
             }
         },
@@ -334,20 +349,22 @@ private fun AliasCard(
             // whole row read lopsided. Inline with the name it reads as what
             // it is — a property of the alias, not a separate control column.
             Column(modifier = Modifier.padding(horizontal = 14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Pill sits hard right rather than trailing the name:
+                // it's a status badge, not part of the title, and a fixed
+                // corner keeps it in the same place regardless of how long
+                // the alias name is.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         text = alias.name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
-                    // No star. It was a second way to say what the Primary
-                    // pill already says, and the only control on the card
-                    // that wasn't "open the editor" — promoting an alias
-                    // now lives in the editor with the rest of its settings.
-                    if (isPrimary) {
-                        Spacer(Modifier.size(8.dp))
-                        PrimaryPill()
-                    }
+                    Spacer(Modifier.weight(1f))
+                    if (isPrimary) PrimaryPill()
                 }
                 Text(
                     text = voicePath.summary,
@@ -449,14 +466,22 @@ private fun RoutingStrip(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // The primary gets a synthetic "every app" tile in the same
+            // slot real app icons occupy. It reads as a member of the same
+            // family instead of a bare line of text, and says "all apps"
+            // more directly than a chevron did.
+            if (routedApps.isEmpty() && isPrimary) {
+                AllAppsIcon(size = 30.dp)
+                Spacer(Modifier.size(10.dp))
+            }
             // Cap the icon stack — past four the count carries the meaning and
             // more icons just crowd the label out of the row.
             for (mapping in routedApps.take(MAX_STRIP_ICONS)) {
-                AppIcon(packageName = mapping.packageName, size = 28.dp)
-                Spacer(Modifier.size(4.dp))
+                AppIcon(packageName = mapping.packageName, size = 30.dp)
+                Spacer(Modifier.size(5.dp))
             }
             if (routedApps.isNotEmpty()) {
-                Spacer(Modifier.size(4.dp))
+                Spacer(Modifier.size(5.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -476,16 +501,47 @@ private fun RoutingStrip(
                     )
                 }
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Choose apps for $aliasName",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // No chevron on the primary's "all unrouted" state: there the
+            // strip is stating a fact about how routing works, not offering
+            // a list to drill into. Where routes exist, the chevron is a
+            // real affordance.
+            if (routedApps.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Choose apps for $aliasName",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
 
 private const val MAX_STRIP_ICONS = 4
+
+/**
+ * Stand-in tile for "every app" on the primary alias's routing strip.
+ *
+ * Deliberately the same size and shape as a real launcher icon so it reads
+ * as one more entry in the icon row rather than decoration.
+ */
+@Composable
+private fun AllAppsIcon(size: Dp) {
+    Surface(
+        shape = RoundedCornerShape(size / 4),
+        color = MaterialTheme.colorScheme.primary,
+        shadowElevation = 2.dp,
+        modifier = Modifier.size(size),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(size * 0.6f),
+            )
+        }
+    }
+}
 
 /**
  * Create/edit an alias.
@@ -598,10 +654,17 @@ private fun AliasEditorSheet(
                 onPick = onEffectChange,
             )
 
-            PhonemizationLanguageDropdown(
-                selected = state.phonemizationLanguage,
-                onPick = onPhonemizationLanguageChange,
-            )
+            // Phonemization is an on-device concept: the text is turned
+            // into phonemes locally by espeak before inference. A cloud
+            // provider does its own text processing server-side and the
+            // engine never sends this field, so offering it would be a
+            // control that silently does nothing.
+            if (voicePath?.isCloud != true) {
+                PhonemizationLanguageDropdown(
+                    selected = state.phonemizationLanguage,
+                    onPick = onPhonemizationLanguageChange,
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -860,12 +923,6 @@ private fun FallbackPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Column {
-        Text(
-            text = "Offline fallback",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
         if (candidates.isEmpty()) {
             Text(
                 text = "No on-device alias to fall back to.",
@@ -882,7 +939,7 @@ private fun FallbackPicker(
                 value = selected ?: "None",
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("If unreachable") },
+                label = { Text("Offline fallback") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -913,13 +970,13 @@ private fun FallbackPicker(
 private fun PrimaryPill() {
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = MaterialTheme.colorScheme.primary,
     ) {
         Text(
             text = "PRIMARY",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
         )
     }

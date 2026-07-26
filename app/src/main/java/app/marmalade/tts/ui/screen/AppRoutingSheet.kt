@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -30,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -39,9 +41,11 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -56,10 +60,11 @@ import app.marmalade.tts.data.db.AppAliasMapping
 // the old app-centric AppMappingsScreen that hung off Settings: the same
 // app_alias_mapping rows, read from the alias end instead of the app end.
 //
-// The list is scoped to ONE alias. Ticked = routed here. A row already routed
-// to a different alias shows "Currently → <other>", so re-routing it reads as
-// a deliberate move rather than a silent overwrite (one app resolves to
-// exactly one alias — packageName is the PK).
+// The list is scoped to ONE alias. Ticked = routed here. An app resolves to
+// exactly one alias (packageName is the PK), so a row owned by a different
+// alias is shown disabled and names its owner rather than being tickable:
+// ticking used to silently steal the row, which meant the same app looked
+// selectable from two aliases and whichever sheet saved last won.
 // -----------------------------------------------------------------------------
 
 /**
@@ -156,10 +161,18 @@ fun AppRoutingSheet(
             } else {
                 LazyColumn {
                     items(items = visible, key = { it.packageName }) { app ->
+                        val owner = otherOwners[app.packageName]
                         AppRoutingRow(
                             app = app,
                             checked = app.packageName in state.selected,
-                            currentOwner = otherOwners[app.packageName],
+                            currentOwner = owner,
+                            // An app resolves to exactly one alias, so a row
+                            // owned by another one is not tickable here.
+                            // Ticking used to silently steal it, which meant
+                            // the same app could appear "selectable" from two
+                            // aliases and the last save won. Un-route it there
+                            // first — the row names where to go.
+                            enabled = owner == null,
                             onToggle = { onToggle(app.packageName) },
                         )
                     }
@@ -186,25 +199,32 @@ private fun AppRoutingRow(
     app: InstalledApp,
     checked: Boolean,
     currentOwner: String?,
+    enabled: Boolean,
     onToggle: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .padding(horizontal = 24.dp, vertical = 10.dp),
+            .clickable(enabled = enabled, onClick = onToggle)
+            .padding(horizontal = 24.dp, vertical = 10.dp)
+            .alpha(if (enabled) 1f else 0.45f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val painter = app.icon?.let { rememberDrawablePainter(it, sizePx = 96) }
-        if (painter != null) {
-            Image(painter = painter, contentDescription = null, modifier = Modifier.size(40.dp))
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shadowElevation = 2.dp,
+            modifier = Modifier.size(40.dp),
+        ) {
+            if (painter != null) {
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(40.dp),
+                )
+            }
         }
         Column(
             modifier = Modifier
@@ -215,14 +235,19 @@ private fun AppRoutingRow(
             Text(
                 // The owning alias is the more useful subtitle when there is
                 // one — it's what makes ticking this row an informed steal.
-                text = currentOwner?.let { "Currently → $it" } ?: app.packageName,
+                text = currentOwner?.let { "Routed to $it — un-route it there first" }
+                    ?: app.packageName,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         // The whole row is the tap target; the Checkbox is an indicator that
         // forwards its own taps to the same handler.
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
+        Checkbox(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = { onToggle() },
+        )
     }
 }
 
@@ -242,21 +267,29 @@ fun AppIcon(packageName: String, size: Dp) {
         }
     }
     val painter = drawable?.let { rememberDrawablePainter(it, sizePx = 96) }
-    if (painter != null) {
-        // No Compose-side clip — AdaptiveIconDrawable.draw() already applies
-        // the device's icon mask (a circle on Pixel/AOSP, a squircle on some
-        // OEMs), and clipping a second time in Compose either crops legacy
-        // square BitmapDrawables (Bible Study, etc.) or doesn't perfectly
-        // overlay the bitmap's own circle and makes adaptive icons look
-        // off-centre.
-        Image(painter = painter, contentDescription = null, modifier = Modifier.size(size))
-    } else {
-        Box(
-            modifier = Modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
+    // Rounded square with a soft shadow, matching the launcher-tile look.
+    //
+    // Previously this drew the raw drawable with no container, on the theory
+    // that AdaptiveIconDrawable.draw() applies the device mask itself. It
+    // does — but a *legacy* icon is just a square bitmap with its own baked
+    // background, and the two rendered side by side looked like two
+    // different systems (and the masked ones read as cropped). Normalising
+    // every icon into the same tile makes the row coherent; ContentScale.Crop
+    // fills the tile so a non-square legacy bitmap doesn't letterbox.
+    Surface(
+        shape = RoundedCornerShape(size / 4),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 2.dp,
+        modifier = Modifier.size(size),
+    ) {
+        if (painter != null) {
+            Image(
+                painter = painter,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(size),
+            )
+        }
     }
 }
 

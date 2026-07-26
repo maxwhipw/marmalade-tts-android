@@ -236,12 +236,12 @@ class AppRoutingViewModel @Inject constructor(
     /**
      * Persist the sheet's tick set for its alias, then close.
      *
-     * Newly ticked apps are upserted to this alias — including apps routed to a
-     * *different* alias, whose row the packageName PK replaces. That is the
-     * intended "steal": an app resolves to exactly one alias, and the sheet
-     * labels those rows with their current owner so the move is deliberate
-     * rather than silent. Unticked apps that belonged to this alias are
-     * deleted; rows owned by other aliases are never touched.
+     * Newly ticked apps are upserted to this alias; unticked apps that
+     * belonged to it are deleted. Rows owned by other aliases are never
+     * touched — the sheet disables those rows rather than letting a tick
+     * steal them, so an app is only ever selectable from the one alias that
+     * owns it (packageName is the PK). The upsert is still a PK-replace, so
+     * the invariant holds even if a route is added by some other path.
      */
     fun saveRouting() {
         val state = _sheetState.value
