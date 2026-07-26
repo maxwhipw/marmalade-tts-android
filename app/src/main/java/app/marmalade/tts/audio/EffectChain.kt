@@ -316,11 +316,11 @@ object EffectChain {
         EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f),
         EffectBlock.Overdrive(gainDb = 6f),
     )
-    // 8-bit retro game voice: heavy crush + downsample, tame the aliasing, then
-    // a Vol makeup (the crush + low-pass drop the level).
+    // 8-bit retro game voice: 8-bit quantize + 8× sample-and-hold, low-pass to
+    // tame the aliasing, then a Vol makeup (the crush + low-pass drop the level).
     val EIGHT_BIT_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Bitcrush(bits = 6f, downsample = 6f),
-        EffectBlock.Lowpass(freqHz = 4000f),
+        EffectBlock.Bitcrush(bits = 8f, downsample = 8f),
+        EffectBlock.Lowpass(freqHz = 3450f),
         EffectBlock.Vol(factor = 1.35f),
     )
     // Glitchy lo-fi transmission: mild crush + ring shimmer through a radio band,

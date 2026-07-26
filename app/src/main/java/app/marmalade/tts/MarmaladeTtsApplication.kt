@@ -236,11 +236,13 @@ class MarmaladeTtsApplication : Application() {
          *    [app.marmalade.tts.data.db.MIGRATION_7_8] rather than left to
          *    linger (the engine that backed them is gone).
          *  - v25: Cloud API engine (hosted Venice tts-kokoro) voices seeded.
-         *  - v26 (no bump needed): Cloud API voices left the static seed —
+         *  - (no bump): Cloud API voices left the static seed —
          *    [app.marmalade.tts.data.cloud.CloudProviderStore.sync] owns
          *    those rows now and runs unconditionally on every start, so no
          *    version gate applies to them.
+         *  - v26: 8-bit recipe retuned — Bitcrush 6-bit/6× → 8-bit/8× and the
+         *    anti-alias low-pass 4000 → 3450 Hz.
          */
-        const val CATALOG_VERSION: Int = 25
+        const val CATALOG_VERSION: Int = 26
     }
 }
