@@ -159,8 +159,8 @@ fun SpeakScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 // Brand wordmark per marmalade-design-scheme-v0: always
-                // lowercase, Fredoka 600, orange in light / cream in dark
-                // (LocalWordmarkColor carries the mode-aware swap).
+                // lowercase, Momo Trust Display 600, orange in light / cream in
+                // dark (LocalWordmarkColor carries the mode-aware swap).
                 title = {
                     Text(
                         text = "marmalade tts",

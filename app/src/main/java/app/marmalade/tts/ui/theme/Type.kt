@@ -11,11 +11,13 @@ import androidx.compose.ui.unit.sp
 import app.marmalade.tts.R
 
 // =============================================================================
-// Marmalade typography — Manrope (body/headings), Fredoka (wordmark fallback
-// for Momo Trust Display, which isn't freely distributable). Weights are
-// derived from the variable fonts' `wght` axis. Tokens locked in
-// marmalade-design-scheme-v0 (2026-06-21); mirrors marmalade-android's
-// Type.kt minus Space Mono (this app has no code/mono surfaces).
+// Marmalade typography — Manrope (body/headings), Momo Trust Display (the
+// "marmalade" wordmark; Fredoka is its fallback). Manrope + Fredoka are
+// variable (weights derived from the `wght` axis); Momo Trust Display ships a
+// single Regular master, so its wordmark weight is synthesized — same as the
+// web UI. All three are OFL-1.1 and bundled in the APK. Tokens locked in
+// marmalade-design-scheme-v0 (2026-06-21); mirrors marmalade-android's Type.kt
+// minus Space Mono (this app has no code/mono surfaces).
 // =============================================================================
 
 private fun manrope(weight: FontWeight) = Font(
@@ -32,14 +34,16 @@ val Manrope = FontFamily(
     manrope(FontWeight.Bold),     // 700
 )
 
-/** Wordmark "marmalade" — Fredoka 600 (Momo Trust Display fallback). Always
- *  rendered lowercase, tracking 0. */
+/** Wordmark "marmalade" — Momo Trust Display, the brand display face (matches
+ *  the marmalade-agent web UI); Fredoka is the fallback, reached only if the
+ *  Momo resource is ever missing. Both sit in the Normal (400) slot — Momo
+ *  ships a single Regular master, so the 600 requested at the call site is
+ *  synthesized, exactly as the browser faux-bolds it on the web. Momo is first
+ *  in the list, so it always wins over the bundled Fredoka. Always rendered
+ *  lowercase, tracking 0. */
 val Wordmark = FontFamily(
-    Font(
-        R.font.fredoka_variable,
-        weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(600)),
-    ),
+    Font(R.font.momo_trust_display, weight = FontWeight.Normal),
+    Font(R.font.fredoka_variable, weight = FontWeight.Normal),
 )
 
 /**

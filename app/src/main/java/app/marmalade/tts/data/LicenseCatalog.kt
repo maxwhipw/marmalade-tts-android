@@ -298,8 +298,18 @@ object LicenseCatalog {
             ),
         ),
         Component(
+            key = "momo-trust-display",
+            name = "Momo Trust Display", role = "Brand font (wordmark)",
+            shipsIn = "APK",
+            licenseId = "OFL-1.1",
+            copyright = listOf(
+                "Copyright 2024 The Momo Trust Project Authors " +
+                    "(https://github.com/typeassociates/MomoTrustDisplay)",
+            ),
+        ),
+        Component(
             key = "fredoka",
-            name = "Fredoka", role = "Brand font (wordmark)",
+            name = "Fredoka", role = "Brand font (wordmark fallback)",
             shipsIn = "APK",
             licenseId = "OFL-1.1",
             copyright = listOf(
