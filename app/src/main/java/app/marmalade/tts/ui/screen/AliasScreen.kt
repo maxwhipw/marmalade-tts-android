@@ -725,13 +725,39 @@ private fun VoiceRowField(
     isError: Boolean,
     onClick: () -> Unit,
 ) {
-    val border = when {
-        isError -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.outline
-    }
+    PickerField(
+        label = "Voice",
+        value = path?.voice ?: "Choose a voice",
+        supporting = path?.collapsed,
+        isPlaceholder = path == null,
+        isError = isError,
+        errorText = "Pick a voice for this alias",
+        onClick = onClick,
+    )
+}
+
+/**
+ * A field that only looks like one: label, current value, chevron, and the
+ * whole surface as the tap target.
+ *
+ * Every choice in the editor that opens its own picker uses this instead of a
+ * read-only [OutlinedTextField]. A read-only text field still takes focus and
+ * pops the keyboard, and only its trailing icon answers a tap — so the field
+ * you obviously meant to press does nothing.
+ */
+@Composable
+private fun PickerField(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    supporting: String? = null,
+    isPlaceholder: Boolean = false,
+    isError: Boolean = false,
+    errorText: String? = null,
+) {
     Column {
         Text(
-            text = "Voice",
+            text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
@@ -740,7 +766,14 @@ private fun VoiceRowField(
             onClick = onClick,
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, border),
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (isError) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
+            ),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -749,17 +782,17 @@ private fun VoiceRowField(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = path?.voice ?: "Choose a voice",
+                        text = value,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (path == null) {
+                        color = if (isPlaceholder) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
                             MaterialTheme.colorScheme.onSurface
                         },
                     )
-                    if (path != null) {
+                    if (supporting != null) {
                         Text(
-                            text = path.collapsed,
+                            text = supporting,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -772,9 +805,9 @@ private fun VoiceRowField(
                 )
             }
         }
-        if (isError) {
+        if (isError && errorText != null) {
             Text(
-                text = "Pick a voice for this alias",
+                text = errorText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -800,17 +833,11 @@ private fun EffectPicker(
     // scrollable content surface handles arbitrary list length reliably.
     var showPicker by remember { mutableStateOf(false) }
     val selectedLabel = effects.firstOrNull { it.id == selectedId }?.name ?: "No effect"
-    OutlinedTextField(
+    PickerField(
+        label = "Effect",
         value = selectedLabel,
-        onValueChange = { /* read-only */ },
-        readOnly = true,
-        label = { Text("Effect") },
-        trailingIcon = {
-            IconButton(onClick = { showPicker = true }) {
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pick effect")
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
+        isPlaceholder = selectedId == null,
+        onClick = { showPicker = true },
     )
     if (showPicker) {
         AlertDialog(

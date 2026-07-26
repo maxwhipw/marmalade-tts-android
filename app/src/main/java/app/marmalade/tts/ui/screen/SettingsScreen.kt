@@ -481,7 +481,7 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     )
 
     AboutLinkRow(
-        label = "More from Marmalade",
+        label = "More Marmalade",
         supporting = "Other Marmalade apps on GitHub.",
         url = "https://github.com/maxwhipw",
     )

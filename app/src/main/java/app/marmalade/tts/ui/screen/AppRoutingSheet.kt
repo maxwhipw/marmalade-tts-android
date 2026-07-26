@@ -42,10 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -266,7 +267,12 @@ fun AppIcon(packageName: String, size: Dp) {
  */
 @Composable
 private fun AppIconTile(drawable: Drawable?, size: Dp) {
-    val painter = drawable?.let { rememberDrawablePainter(it, sizePx = 96) }
+    // Rasterise at the tile's real pixel size: the bitmap then lands 1:1 in
+    // the Image and needs no rescaling, which is both sharper and the only
+    // way the two sizes we draw (30 dp on the card, 40 dp in the sheet) can
+    // share one cache-free path.
+    val sizePx = with(LocalDensity.current) { size.roundToPx() }
+    val painter = drawable?.let { rememberDrawablePainter(it, sizePx) }
     Surface(
         shape = RoundedCornerShape(size / 4),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -287,17 +293,14 @@ private fun AppIconTile(drawable: Drawable?, size: Dp) {
 /**
  * Minimal `Drawable → Painter` adapter. We avoid pulling in
  * accompanist-drawablepainter (one more dependency for a single use case)
- * by rasterising the Drawable to a Bitmap once and wrapping it.
- *
- * [sizePx] caps both dimensions so an `AdaptiveIconDrawable`'s 108-dp canvas
- * (which can rasterise at thousands of pixels on hidpi devices) doesn't waste
- * memory for a 40-dp Image. The drawable is rendered SQUARE at [sizePx] ×
- * [sizePx], matching the launcher icon contract.
+ * by rasterising the Drawable to a square [sizePx] Bitmap once and wrapping
+ * it — an `AdaptiveIconDrawable` has no useful intrinsic size to defer to,
+ * so the caller names the size it wants.
  */
 @Composable
 private fun rememberDrawablePainter(drawable: Drawable, sizePx: Int): Painter {
     return remember(drawable, sizePx) {
-        BitmapPainter(drawable.toIconBitmap(sizePx))
+        BitmapPainter(drawable.toIconBitmap(sizePx).asImageBitmap())
     }
 }
 
@@ -329,21 +332,4 @@ private fun Drawable.toIconBitmap(sizePx: Int): Bitmap {
         draw(canvas)
     }
     return bmp
-}
-
-/**
- * Trivial Painter that renders a [Bitmap] at its natural size. Equivalent to
- * androidx.compose.ui.graphics.painter.BitmapPainter but spelled out locally
- * so this file doesn't pull in another import.
- */
-private class BitmapPainter(private val bitmap: Bitmap) : Painter() {
-    override val intrinsicSize: androidx.compose.ui.geometry.Size =
-        androidx.compose.ui.geometry.Size(
-            bitmap.width.toFloat(),
-            bitmap.height.toFloat(),
-        )
-
-    override fun DrawScope.onDraw() {
-        drawImage(bitmap.asImageBitmap())
-    }
 }
