@@ -136,6 +136,20 @@ fun AliasScreen(
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
+    // Card order: primary first, then aliases that route at least one app, then
+    // the unrouted ones. The DAO's createdAt ASC order breaks ties inside each
+    // group (sortedWith is stable), so promoting or routing an alias moves it
+    // without reshuffling its neighbours.
+    val orderedAliases = remember(aliases, mappings, primaryAliasName) {
+        val routedNames = mappings.mapTo(mutableSetOf()) { it.aliasName }
+        aliases.sortedWith(
+            compareBy(
+                { it.name != primaryAliasName },
+                { it.name !in routedNames },
+            ),
+        )
+    }
+
     // Dismissing the voice picker returns focus to whatever held it before
     // the sheet opened — the Name field — which pops the keyboard and drops
     // a cursor in it as if you'd asked to rename the alias. You didn't; you
@@ -194,7 +208,7 @@ fun AliasScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(items = aliases, key = { it.name }) { alias ->
+                    items(items = orderedAliases, key = { it.name }) { alias ->
                         AliasCard(
                             alias = alias,
                             isPrimary = alias.name == primaryAliasName,
