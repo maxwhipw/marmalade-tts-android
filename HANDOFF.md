@@ -2,9 +2,10 @@
 
 ## Branch state
 
-Working branch **`verify/routing-on-api-engine`**, head **`51dd005`**.
-348 unit tests green on both flavors; fdroid debug APK built and installed
-on the Pixel 8a. **Nothing pushed** — github is the authoritative public
+Working branch **`verify/routing-on-api-engine`**, head **`21aebf3`**.
+351 unit tests green on both flavors; fdroid debug APK **built but NOT
+installed** — wireless ADB dropped mid-session and the port rotates, so
+re-pair and `./gradlew :app:installFdroidDebug` before eyeballing anything. **Nothing pushed** — github is the authoritative public
 remote and needs Max's explicit all-clear each time.
 
 Room schema is now **v9**. The migration was verified on Max's real device:
@@ -65,18 +66,23 @@ text in `~/coding/marmalade/design-lab/labs.json`. Shipped over `58376bd`,
   fetchable and version-gated, so correcting a provider that got faster
   is a JSON publish, not a release. Seeds from Max's Pixel 8a ranking:
   Venice Kokoro instant; ElevenLabs / MiniMax / xAI quick; Inworld and
-  Gemini 3.1 Flash slow. **Gradium and both OpenAI models unseeded** —
-  nobody has timed them.
+  Gemini 3.1 Flash slow; Gradium instant. **Both OpenAI models unseeded**
+  — nobody has timed them.
 - Overridden per-device by the median of the last 10 measured
   time-to-first-audio samples once a model has 3. Timed in
   `Synthesizer.streamForEngine`; samples only taken for 10–120-char
   utterances. Cut points live in `LatencyBucket` (600 ms / 1800 ms) and
   are calibrated against Max's ranking, not measured — worth revisiting
   once real numbers land.
-- **Only `Synthesizer` is instrumented.** `MarmaladeTtsService` and
-  `MarmaladeSynthService` have their own private engine dispatch, so
-  system-TTS traffic contributes no samples. In-app Speak and the
-  picker's preview button do.
+- `MarmaladeTtsService` is instrumented too, but **metered**: three
+  samples per model per week (`recordMetered` → `claimLatencyQuota`).
+  Passive only — it times synthesis another app already asked for and
+  never issues a request of its own, so no provider is billed for a
+  measurement. In-app Speak and the picker preview stay unmetered.
+- **`MarmaladeSynthService` is deliberately NOT instrumented.** It can't
+  route cloud voices yet and falls through to `DEFAULT_ENGINE`, so a
+  sample there would file Kokoro's speed against whichever cloud model
+  the user picked. Instrument it when that bug is fixed, not before.
 - `VoicePickerScreen` (the standalone browse screen off Speak) has no
   badge — only `VoicePickerSheet` does.
 - Removed `Synthesizer.synthesizeForEngine`, dead since the streaming
