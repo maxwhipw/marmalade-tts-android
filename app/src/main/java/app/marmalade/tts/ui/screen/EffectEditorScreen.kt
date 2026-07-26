@@ -126,7 +126,8 @@ fun EffectEditorScreen(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Blocks run top → bottom, like the desktop CLI's sox chain.",
+                text = "Blocks run top → bottom: each one processes the audio the " +
+                    "block above it produced.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
