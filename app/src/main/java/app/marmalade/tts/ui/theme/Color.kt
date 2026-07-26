@@ -35,11 +35,17 @@ val MarmaladeLightColors = lightColorScheme(
     // Omitting these is why alias cards and the bottom bar rendered lavender
     // on a cream page for several releases. Ladder runs cream → toast as
     // elevation rises, so a card lifts off the page without a shadow.
+    // Cream is the whole ladder. Material's filled Card reads
+    // surfaceContainerHighest and NavigationBar reads surfaceContainer, so
+    // making the top of the ladder Orange 200 (toast) turned every card into
+    // a saturated slab that fought the page instead of sitting on it. Toast
+    // is a *chip* colour, not a surface — see the brand scheme's "orange is
+    // precious" rule.
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFFF1E0),
-    surfaceContainer = Color(0xFFFFEDD5),    // Orange 100 — cards, nav bar
-    surfaceContainerHigh = Color(0xFFFFE4C4),
-    surfaceContainerHighest = Color(0xFFFED7AA), // Orange 200
+    surfaceContainerLow = Color(0xFFFFFBF6),
+    surfaceContainer = Color(0xFFFFEDD5),        // Orange 100 — nav bar
+    surfaceContainerHigh = Color(0xFFFFEDD5),
+    surfaceContainerHighest = Color(0xFFFFEDD5), // Orange 100 — cards
     background = Color(0xFFFFF7ED),          // Orange 50
     onBackground = Color(0xFF1C1917),        // Stone 900
     error = Color(0xFFDC2626),               // Red 600

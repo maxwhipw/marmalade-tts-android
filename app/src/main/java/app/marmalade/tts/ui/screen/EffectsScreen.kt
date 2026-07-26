@@ -91,11 +91,6 @@ fun EffectsScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Effects") },
                 windowInsets = WindowInsets(0),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
             )
         },
         floatingActionButton = {

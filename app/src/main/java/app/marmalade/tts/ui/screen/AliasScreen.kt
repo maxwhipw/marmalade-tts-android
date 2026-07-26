@@ -88,7 +88,7 @@ import app.marmalade.tts.install.EngineCatalog
 //          ├── FAB → openEditor(null)             — create
 //          ├── card tap → openEditor(alias)       — edit; delete lives inside
 //          │                                        the editor sheet
-//          ├── star tap → setPrimary(name)
+//          ├── editor → setPrimary(name) / delete
 //          └── routing strip → routing.openSheet(name)
 //
 //   Hosted by AppRoot: navigates back to SpeakScreen via the back arrow.
@@ -146,14 +146,6 @@ fun AliasScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Voice aliases") },
                 windowInsets = WindowInsets(0),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
             )
         },
         floatingActionButton = {
@@ -191,7 +183,6 @@ fun AliasScreen(
                             voicePath = viewModel.voicePathFor(alias),
                             routedApps = mappings.filter { it.aliasName == alias.name },
                             onOpenEditor = { viewModel.openEditor(alias) },
-                            onSetPrimary = { viewModel.setPrimary(alias.name) },
                             onOpenRouting = { routingViewModel.openSheet(alias.name) },
                         )
                     }
@@ -211,7 +202,16 @@ fun AliasScreen(
             // once any have been created. AliasViewModel.delete also defends
             // this invariant; hiding the button is the primary UX cue.
             canDelete = !editorState.isNew && aliases.size > 1,
+            // Promoting is only meaningful for a saved alias that isn't
+            // already primary. The star that used to do this on the card was
+            // the only control there that wasn't "open the editor".
+            canSetPrimary = !editorState.isNew &&
+                editorState.originalName != null &&
+                editorState.originalName != primaryAliasName,
             fallbackCandidates = viewModel.fallbackCandidates(),
+            onSetPrimary = {
+                editorState.originalName?.let { viewModel.setPrimary(it) }
+            },
             onNameChange = viewModel::onEditorNameChange,
             onOpenVoicePicker = viewModel::openVoicePicker,
             onFallbackChange = viewModel::onEditorFallbackChange,
@@ -306,17 +306,12 @@ private fun EmptyState() {
 /**
  * One alias on the list.
  *
- * UX choice for the primary indicator: a filled star, tinted on the primary
- * card and dimmed elsewhere. It's a single tap target with no menu — tapping
- * it on a non-primary card promotes that alias immediately. Picked over an
- * overflow menu because the action is binary (set/unset is implicit — there
- * is always exactly one primary). material-icons-core has no outlined Star,
- * so the dimmed alpha is the "not primary" affordance.
- *
- * Everything else on the card opens the editor. There is deliberately no edit
- * pencil and no trash icon: a card that is entirely tappable doesn't need a
- * pencil, and a destructive action parked permanently beside a tap target on
- * every row invites accidents — delete lives in the editor sheet instead.
+ * The card is entirely a tap target that opens the editor — no edit pencil,
+ * no trash icon, and no primary star. The star was a second way of saying
+ * what the PRIMARY pill already says, and it was the only control on the
+ * card that did something other than open the editor; promoting an alias
+ * now lives in the editor alongside Delete, next to the rest of its
+ * settings.
  */
 @Composable
 private fun AliasCard(
@@ -326,7 +321,6 @@ private fun AliasCard(
     voicePath: VoicePath,
     routedApps: List<AppAliasMapping>,
     onOpenEditor: () -> Unit,
-    onSetPrimary: () -> Unit,
     onOpenRouting: () -> Unit,
 ) {
     Card(
@@ -339,65 +333,39 @@ private fun AliasCard(
             // 48dp empty gutter down the left of every card and made the
             // whole row read lopsided. Inline with the name it reads as what
             // it is — a property of the alias, not a separate control column.
-            Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = alias.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                     )
-                    IconButton(
-                        onClick = onSetPrimary,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = if (isPrimary) {
-                                "Primary alias"
-                            } else {
-                                "Set ${alias.name} as primary"
-                            },
-                            tint = if (isPrimary) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                            },
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                    // No star. It was a second way to say what the Primary
+                    // pill already says, and the only control on the card
+                    // that wasn't "open the editor" — promoting an alias
+                    // now lives in the editor with the rest of its settings.
                     if (isPrimary) {
-                        AssistChip(
-                            onClick = onOpenEditor,
-                            label = { Text("Primary") },
-                            modifier = Modifier.padding(start = 2.dp),
-                        )
+                        Spacer(Modifier.size(8.dp))
+                        PrimaryPill()
                     }
                 }
-                // "ElevenLabs Turbo v2.5 · Aria" — resolved through
-                // VoicePath so a 3-level cloud id reads like a 2-level
-                // on-device one instead of dumping the raw voiceId.
                 Text(
                     text = voicePath.summary,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Whether an alias needs the network is the single most
-                    // consequential thing about it — it decides whether the
-                    // alias can fail. It leads the chip row for that reason.
-                    AssistChip(
-                        onClick = onOpenEditor,
-                        label = { Text(if (voicePath.isCloud) "Cloud" else "On device") },
+                    // Whether an alias needs the network decides whether it
+                    // can fail, so it leads — and it's the only filled chip,
+                    // which is what makes it readable at a glance in a row
+                    // of otherwise identical outlines.
+                    MetaChip(
+                        text = if (voicePath.isCloud) "Cloud" else "On device",
+                        filled = true,
                     )
-                    AssistChip(
-                        onClick = onOpenEditor,
-                        label = { Text("%.2f×".format(alias.speed)) },
-                    )
-                    AssistChip(
-                        onClick = onOpenEditor,
-                        label = { Text(effectName) },
-                    )
+                    MetaChip(text = "%.2f×".format(alias.speed))
+                    MetaChip(text = effectName)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -493,16 +461,16 @@ private fun RoutingStrip(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when {
-                        routedApps.isEmpty() -> "Used by every app you haven't routed"
-                        routedApps.size == 1 -> "Used by 1 app"
-                        else -> "Used by ${routedApps.size} apps"
+                        routedApps.isEmpty() -> "All unrouted apps"
+                        routedApps.size == 1 -> "1 app"
+                        else -> "${routedApps.size} apps"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 if (isPrimary && routedApps.isNotEmpty()) {
                     Text(
-                        text = "…and everything you haven't routed",
+                        text = "+ all unrouted",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -536,7 +504,9 @@ private fun AliasEditorSheet(
     voicePath: VoicePath?,
     effects: List<Effect>,
     canDelete: Boolean,
+    canSetPrimary: Boolean,
     fallbackCandidates: List<VoiceAlias>,
+    onSetPrimary: () -> Unit,
     onNameChange: (String) -> Unit,
     onOpenVoicePicker: () -> Unit,
     onFallbackChange: (String?) -> Unit,
@@ -646,6 +616,9 @@ private fun AliasEditorSheet(
                     ) { Text("Delete") }
                 }
                 Spacer(Modifier.weight(1f))
+                if (canSetPrimary) {
+                    TextButton(onClick = onSetPrimary) { Text("Make primary") }
+                }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.size(8.dp))
                 Button(onClick = onSave) { Text("Save") }
@@ -888,15 +861,14 @@ private fun FallbackPicker(
     var expanded by remember { mutableStateOf(false) }
     Column {
         Text(
-            text = "When offline",
+            text = "Offline fallback",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
         )
         if (candidates.isEmpty()) {
             Text(
-                text = "No on-device alias to fall back to — create one and this " +
-                    "voice will use it when the network is unavailable.",
+                text = "No on-device alias to fall back to.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -907,10 +879,10 @@ private fun FallbackPicker(
             onExpandedChange = { expanded = it },
         ) {
             OutlinedTextField(
-                value = selected?.let { "Speak with \"$it\"" } ?: "Don't fall back",
+                value = selected ?: "None",
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("If this voice can't be reached") },
+                label = { Text("If unreachable") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -919,15 +891,73 @@ private fun FallbackPicker(
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 for (alias in candidates) {
                     DropdownMenuItem(
-                        text = { Text("Speak with \"${alias.name}\"") },
+                        text = { Text(alias.name) },
                         onClick = { onPick(alias.name); expanded = false },
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Don't fall back") },
+                    text = { Text("None") },
                     onClick = { onPick(null); expanded = false },
                 )
             }
         }
+    }
+}
+
+/**
+ * The "PRIMARY" badge. A small caps pill rather than an [AssistChip] —
+ * AssistChip is a 32dp-tall interactive control, and using one for a
+ * non-interactive label made it compete with the alias name it sits next to.
+ */
+@Composable
+private fun PrimaryPill() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+    ) {
+        Text(
+            text = "PRIMARY",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
+        )
+    }
+}
+
+/**
+ * A compact metadata chip for the alias card.
+ *
+ * Hand-rolled rather than [AssistChip] for the same reason as [PrimaryPill]:
+ * these are labels, not buttons (the whole card is the tap target), and the
+ * Material chip's minimum height made three of them dominate the card.
+ * [filled] marks the one chip that carries real information.
+ */
+@Composable
+private fun MetaChip(text: String, filled: Boolean = false) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = if (filled) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0f)
+        },
+        border = if (filled) {
+            null
+        } else {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+        },
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (filled) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+        )
     }
 }
