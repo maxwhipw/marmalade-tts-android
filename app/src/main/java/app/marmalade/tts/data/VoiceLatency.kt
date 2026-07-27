@@ -50,15 +50,20 @@ enum class LatencyBucket(val label: String) {
          * "painfully slow". So the interesting line is not cloud-vs-device
          * — it runs between the merely-networked and the genuinely slow.
          *
-         * The Instant cut moved 600 → 1000 ms on 2026-07-26: Gradium reads as
-         * instant to Max but his device kept measuring it into Quick, and 600
-         * was anchored on on-device Kokoro's ~50 ms, which no networked model
-         * can meet. A second is the long-standing boundary for a response
-         * still feeling immediate, and it lets a fast streaming cloud model
-         * qualify without reaching the models Max actually calls slow.
+         * The Slow cut moved 1800 → 1200 ms on 2026-07-26, per Max: "anything
+         * over 1 second shouldn't be called quick — honestly everything over
+         * 1200 ms is slow". Quick was doing too much work, covering a model
+         * that answers in two thirds of a second and one that takes nearly two
+         * seconds; only the first of those is quick in any useful sense.
+         *
+         * The Instant cut stays at 600. It was briefly widened to 1000 the
+         * same day on the theory that Gradium's measured median was pushing it
+         * into Quick — it wasn't. That device measures Gradium at 549 ms, on
+         * the Instant side of the original line, so the badge Max saw had
+         * already aged out of the ten-sample window.
          */
-        private const val INSTANT_BELOW_MS = 1_000
-        private const val QUICK_BELOW_MS = 1_800
+        private const val INSTANT_BELOW_MS = 600
+        private const val QUICK_BELOW_MS = 1_200
 
         fun ofMillis(millis: Int): LatencyBucket = when {
             millis < INSTANT_BELOW_MS -> INSTANT
