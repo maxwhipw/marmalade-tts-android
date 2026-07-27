@@ -87,20 +87,29 @@ labels cloud voices as such wherever they appear.
 ## Other network activity
 
 When you tap "Install" on an on-device engine (during onboarding or in
-Engines), the app downloads that engine's model and phonemizer files over
-HTTPS from:
+Engines), the app downloads that engine's voice-model files and its
+espeak-ng pronunciation dictionaries over HTTPS from:
 
 > **github.com/maxwhipw/marmalade-tts-android-engines** (GitHub Releases)
+
+**No executable code is ever downloaded.** The espeak-ng phonemizer
+itself is compiled into the app when it is built; what a download adds
+is voice models and pronunciation data, nothing that runs.
 
 These are ordinary file downloads. Each file is verified against a
 pinned SHA-256 hash before being saved. No information about you is sent
 beyond what a normal HTTPS file download requires. Once your chosen
 on-device engines are installed, they work fully offline.
 
+The app also fetches a small list of available cloud providers from the
+same repository, so a new provider can be offered without a full app
+update. That request carries no information about you, and happens
+whether or not you use cloud voices.
+
 GitHub's handling of that request (e.g. server logs) is governed by
 [GitHub's Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 
-Apart from the engine downloads above and any cloud provider you
+Apart from the two GitHub requests above and any cloud provider you
 explicitly configure, the app contacts no other server. Marmalade has no
 server of its own.
 
