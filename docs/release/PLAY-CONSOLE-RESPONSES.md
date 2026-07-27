@@ -105,7 +105,7 @@ reading the full Console page. Unanimous except where marked.
 |---|---|---|
 | Data type | App activity → **Other user-generated content** | Personal info → **User IDs** |
 | Collected | **Yes** | **Yes** |
-| Shared | **No** — exempt | **No** — exempt |
+| Shared | **Yes** | **Yes** |
 | Processed ephemerally | **No** | **No** |
 | Purpose | **App functionality** | **App functionality** |
 | Required or optional | **Optional** | **Optional** |
@@ -154,36 +154,68 @@ identifiable person" asks.
 > over-declaring is not a violation. If a reviewer ever objects to the
 > User IDs row, the fallback is to remove it, not to defend it.
 
-### Sharing: do not tick it — but know that this is a choice
+### Sharing: tick it — Max's call, 2026-07-27
 
-All three reviewers agreed the transfer is exempt from the *sharing*
-declaration:
+**Source, with anchors** —
+[#sharing](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en#sharing)
+holds the definition and all four exemptions;
+[#collection](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en#collection)
+holds the collect definition. The exemption's second limb points at the
+[User Data policy](https://support.google.com/googleplay/android-developer/answer/10144311)
+for what a "prominent disclosure" must look like.
+
+This **is** sharing. Verbatim:
+
+> "Sharing" refers to transferring user data collected from your app to a
+> third party.
+
+> "Third party" means any organization other than the first party or its
+> service providers.
+
+**Venice/OpenAI are not service providers**, and the exemption text says
+why twice over:
+
+> **Service providers.** Transferring user data to a "service provider"
+> that processes it **on behalf of the developer**.
+> "Service provider" means an entity that processes user data **on behalf
+> of the developer and based on the developer's instructions**.
+
+They process on behalf of the **user** — the user's account, the user's
+contract, the user's money, no instructions from us. Declaring them as
+service providers would be a false statement.
+
+That leaves one bullet standing between "this is sharing" and "you need
+not say so":
 
 > **User-initiated action or prominent disclosure and user consent.**
 > Transferring user data to a third party based on a specific
-> user-initiated action, where the user reasonably expects the data to
-> be shared, or based on a prominent in-app disclosure and consent…
+> user-initiated action, where the user reasonably expects the data to be
+> shared, or based on a prominent in-app disclosure and consent that meets
+> the requirements described in our User Data policy.
 
-The user obtains a key from a named provider, pastes it into a dialog
-naming that provider, and picks a voice whose id names that provider.
-The consent gate (2026-07-27) satisfies the second limb independently.
+**We are not relying on it.** Note what it is: relief from *declaring* a
+transfer that is still sharing — not a finding that no sharing occurs.
+Nothing prevents declaring anyway, and three things argue for it:
 
-Venice/OpenAI are **third parties, not service providers** — a service
-provider processes *"on behalf of the developer and based on the
-developer's instructions"*, and these process on behalf of the **user**,
-under the user's own account and contract. Never declare them as service
-providers; that would be false.
+1. The exemption hinges on *"where the user reasonably expects"*. With a
+   cloud voice as the system primary, text from **other apps** reaches
+   the provider with no action inside Marmalade — that user formed no
+   expectation at all. The exemption is weakest exactly where the data
+   flow is largest.
+2. The same page instructs that the form "describes the **sum** of your
+   app's data collection and sharing across all its versions currently
+   distributed on Google Play" — written to be over- rather than
+   under-inclusive.
+3. It is true. Relying on a soft exemption to avoid stating a true thing
+   is the wrong trade for an app whose pitch is privacy.
 
-The exemption covers **sharing only**. There is no user-initiated
-exemption from *collection*, which is why both rows above are still
-declared as collected. That asymmetry is the whole shape of this form.
+> **This reverses the review panel**, which recommended leaving Shared
+> unticked on the strength of the user-initiated limb. The panel was not
+> wrong about the exemption being available; Max decided not to use it.
+> Do not "correct" this back without re-reading the reasoning above.
 
-**The residual soft spot** is the system-TTS path: with a cloud voice as
-the primary alias, text from *other* apps reaches the provider with no
-action inside Marmalade, and "the user reasonably expects" is weakest
-there. Ticking "Shared" anyway would buy that argument away for the cost
-of one listing line. That is a defensible over-declaration, not a
-requirement — decide it deliberately rather than drifting into it.
+Cost: one line on the listing — *Data shared with third parties: Other
+user-generated content, User IDs*. It matches PRIVACY.md exactly.
 
 ### Ephemeral: answer No
 
