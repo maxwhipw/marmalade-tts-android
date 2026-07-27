@@ -20,8 +20,12 @@
 //   njd_set_unvoiced_vowel → njd_set_long_vowel → walk NJD nodes
 //
 // Per-node we hand Kotlin: string, read, pron, acc, mora_size, chain_flag, pos.
-// CutletJaG2P.kt (Kotlin) maps the katakana `pron` + `acc` to Kokoro's IPA +
-// pitch markers.
+// CutletJaG2P.kt (Kotlin) maps the katakana `pron` to Kokoro's IPA.
+//
+// `acc` is handed over but NOT used, and that is deliberate: Kokoro v1.0 has
+// no tokens for pitch markers, so the Kotlin side is segmental-only like
+// misaki's cutlet path. Audited 2026-07-27 — this comment previously said
+// "IPA + pitch markers", which was never true of the shipped path.
 //
 // Threading: Open JTalk's Mecab/NJD state is per-instance but we keep a single
 // global instance (one dictionary load is expensive). The Kotlin side

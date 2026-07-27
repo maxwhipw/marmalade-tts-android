@@ -14,8 +14,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 //
 // This produces the NJD features — kanji→kana reading, mora segmentation,
 // pitch accent — that [app.marmalade.tts.phonemizer.CutletJaG2P] turns into
-// Kokoro's IPA + pitch-marker token string. It's the exact frontend
-// pyopenjtalk wraps, which is what hexgrad trained Kokoro's Japanese voices on.
+// Kokoro's IPA token string. It's the exact frontend pyopenjtalk wraps,
+// which is what hexgrad trained Kokoro's Japanese voices on.
+//
+// NOTE (audit 2026-07-27): the accent data is carried this far and then
+// deliberately DROPPED — the output is segmental only, no pitch markers.
+// That is correct, not an oversight. misaki's ja.JAG2P defaults to
+// version='cutlet', which is segmental, and Kokoro v1.0's tokens.txt has
+// no ids for the `_` / `-` / `^` accent markers the pyopenjtalk branch
+// emits, so the model cannot consume them. Earlier revisions of this
+// comment claimed a "pitch-marker token string" was produced. It never
+// was. See docs/LANGUAGE-AUDIT-2026-07.md.
 //
 // One global Open JTalk instance lives on the native side (dictionary load is
 // expensive). Calls serialise through [lock]; the native side also guards with
