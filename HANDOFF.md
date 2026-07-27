@@ -2,8 +2,9 @@
 
 ## Branch state
 
-Working branch **`verify/routing-on-api-engine`**, head **`b95d034`**.
-**370 unit tests green**; fdroid debug APK builds. **Nothing pushed.**
+Working branch **`verify/routing-on-api-engine`**, head **`45e953c`**.
+**370 unit tests green**; fdroid debug APK **built and installed on the Pixel
+8a** (debug app only). **Nothing pushed.**
 
 Sister commit in `~/coding/marmalade-tts-cli`: `39d21e2` (also unpushed).
 
@@ -61,28 +62,45 @@ Also: Megaphone Vol 1.1 → 0.8, Intercom 1.2 → 0.9. **Trailer untouched.**
   drills past the one-item source list.
 - `5ed87dc` — the **primary alias's routing strip is no longer tappable**.
   Routing an app to the primary is a no-op; it is already the fallback.
-- `b95d034` — `INSTANT_BELOW_MS` 600 → 1000 so Gradium reads Instant. Note the
-  descriptor seed already said `instant`; measurement overrides it once three
-  samples exist, so the cut point was the thing to move.
+- `b95d034` then `45e953c` — latency bands. The first widened Instant to
+  1000 ms on a **wrong diagnosis**; the second reverts that and moves the Slow
+  cut 1800 → **1200 ms** per Max ("anything over 1 second shouldn't be called
+  quick"). Bands are now Instant < 600, Quick < 1200, Slow above.
+
+## What the device confirms
+
+Wireless ADB port rotates; the current one was found by scanning rather than
+asking (`nc -z` sweep of 30000-65000 against 100.114.195.29 — mDNS discovery
+returned nothing).
+
+- **Catalog v29 seeded and pruned correctly.** `builtin:deadpan` is
+  `[{"type":"monotone","targetHz":160}]`, `builtin:next_room` is present, all
+  seven `builtin:test_*` rows are gone, Megaphone vol is 0.8 and Intercom 0.9.
+- **Read the WAL.** `databases/marmalade_db` alone is stale — pull
+  `marmalade_db-wal` and `-shm` alongside it or you will read a pre-seed
+  snapshot and wrongly conclude the catalog bump did not fire.
+- **Latency data.** Only two models have samples: Gradium (n=10, median 549 ms)
+  and ElevenLabs (n=1, 3981 ms). xAI has none. Below `MIN_SAMPLES = 3` a model
+  keeps its descriptor seed, so ElevenLabs still badges `quick` off its seed
+  despite its one very slow sample — worth a second look if it recurs.
+- **The device's cached provider descriptor is stale but harmless** —
+  `files/cloud/providers.json` is schema v1 with 3 models; the bundled asset is
+  v2 with 9, and `loadBaseProviders` takes the higher version, so bundled wins.
+  Checked because it looked like a bug; it is not one.
 
 ## NOT verified on device
 
-**ADB dropped mid-turn** (port 42965 refused connection) and never came back,
-so nothing since the first install has been heard or seen on the phone.
-
-- **Deadpan needs a re-listen.** Max heard the *old* Deadpan (Monotone + chorus
-  + mid + reverb) through the *streaming* path, which was unaffected by the
+- **Deadpan needs a listen.** Max heard the *old* Deadpan (Monotone + chorus +
+  mid + reverb) through the *streaming* path, which was unaffected by the
   passthrough bug. What ships now is the bare block. Also worth confirming his
   "does it stop working at the end?" — measurement says no: after the fix every
   quarter of a 13.6 s clip sits on 160.0 Hz and the final second is the
   cleanest region of all (sd 12.7 cents, 100% within 50 cents).
 - **StreamPerf RTF with Deadpan applied** — sliding-YIN cost on the 8a is still
   unmeasured.
-- **The Gradium badge.** 1000 ms was picked on principle, not from this
-  device's stored medians — they could not be read. It may also lift xAI into
-  Instant. Check with:
-  `adb exec-out run-as app.marmalade.tts.debug cat files/datastore/<prefs>`
-- The two UI changes are unseen.
+- **Next room**, and the Megaphone/Intercom trims, unheard.
+- The two UI changes are unseen (picker opening level, primary routing strip).
+- The latency badges under the new 600/1200 bands are unseen.
 
 # HANDOFF — Monotone PSOLA rewrite + trial presets, 2026-07-26 (branch verify/routing-on-api-engine)
 
