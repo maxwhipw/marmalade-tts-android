@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -127,6 +128,24 @@ class SettingsRepositoryTest {
         val repo = newRepo()
         repo.claimLatencyQuota("venice:m", week = 1L, perWeek = 3)
         assertEquals(emptyMap<String, List<Int>>(), repo.latencySamples.first())
+    }
+
+    @Test
+    fun cloudDisclaimer_defaultsToUnacceptedAndIsOneWay() = runTest {
+        val repo = newRepo()
+        // The gate fails open if this ever defaults true — a fresh install
+        // would reach the key field having been told nothing.
+        assertFalse(repo.cloudDisclaimerAccepted.first())
+
+        repo.acceptCloudDisclaimer()
+        assertTrue(repo.cloudDisclaimerAccepted.first())
+
+        // Removing every key must not re-arm the gate. Acceptance records
+        // "was told", not "is using"; re-prompting a user who already read
+        // it is how people learn to dismiss disclaimers unread.
+        repo.setCloudApiKey("venice", "sk-test")
+        repo.setCloudApiKey("venice", "")
+        assertTrue(repo.cloudDisclaimerAccepted.first())
     }
 
     @Test

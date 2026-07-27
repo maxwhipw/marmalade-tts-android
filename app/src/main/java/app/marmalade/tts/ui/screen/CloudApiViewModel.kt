@@ -68,6 +68,20 @@ class CloudApiViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    /**
+     * Whether the cloud disclaimer has been accepted, or **null** while the
+     * first DataStore read is still in flight. The screen gates on this, so
+     * a `false` initial value would flash the disclaimer for one frame at
+     * every visit after the first — null renders nothing instead.
+     */
+    val disclaimerAccepted: StateFlow<Boolean?> = settings.cloudDisclaimerAccepted
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Records acceptance, unlocking the configure surface. */
+    fun acceptDisclaimer() {
+        viewModelScope.launch { settings.acceptCloudDisclaimer() }
+    }
+
     /** Provider ids with a voice discovery in flight. */
     private val _busyIds = MutableStateFlow<Set<String>>(emptySet())
     val busyIds: StateFlow<Set<String>> = _busyIds.asStateFlow()

@@ -44,6 +44,10 @@ releases. This is entirely opt-in. It does nothing until you go to
 **Engines → Cloud voices**, add your own API key for a provider, and
 select one of that provider's voices.
 
+The first time you open that screen, the app shows a disclaimer covering
+everything in this section and will not let you configure a provider
+until you accept it. It is shown once; this page is the permanent copy.
+
 **When you use a cloud voice, the following is sent to that provider
 over HTTPS:**
 

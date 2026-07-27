@@ -146,6 +146,14 @@ internal class FakeSettings(
     private val cloudKeySet = MutableStateFlow(false)
     override val anyCloudApiKeySet: Flow<Boolean> = cloudKeySet
 
+    // Same reason: CloudApiViewModel gates its whole screen on this, so a
+    // never-emitting flow would leave the gate stuck on its null state.
+    private val disclaimerAccepted = MutableStateFlow(false)
+    override val cloudDisclaimerAccepted: Flow<Boolean> = disclaimerAccepted
+    override suspend fun acceptCloudDisclaimer() {
+        disclaimerAccepted.value = true
+    }
+
     // Per-engine preprocessing-rule sets. Defaults to "nothing stored"
     // — `enabledRules(engine)` falls back to EngineProfiles.defaultsFor.
     // Tests that want to start from a stored set can call

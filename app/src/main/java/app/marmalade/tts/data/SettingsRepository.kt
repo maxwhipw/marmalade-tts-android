@@ -386,6 +386,27 @@ open class SettingsRepository @Inject constructor(
     /** True when at least one cloud provider has a key. */
     open val anyCloudApiKeySet: Flow<Boolean> = cloudApiKeys.map { it.isNotEmpty() }
 
+    /**
+     * True once the user has read and accepted the cloud disclaimer — that
+     * choosing a cloud voice sends the text to be spoken to a third party.
+     *
+     * Gates the Cloud voices configure screen: no key can be entered until
+     * this is true, so acceptance always precedes the first byte leaving the
+     * device. Deliberately **not** cleared when the last key is removed —
+     * this records "was told," not "is using," and re-prompting someone who
+     * already read it trains people to click through disclaimers.
+     */
+    open val cloudDisclaimerAccepted: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_CLOUD_DISCLAIMER_ACCEPTED] ?: false
+    }
+
+    /** Records acceptance of the cloud disclaimer. One-way by design. */
+    open suspend fun acceptCloudDisclaimer() {
+        dataStore.edit { prefs ->
+            prefs[KEY_CLOUD_DISCLAIMER_ACCEPTED] = true
+        }
+    }
+
     /** Persist [providerId]'s Cloud API key; blank removes it. */
     open suspend fun setCloudApiKey(providerId: String, value: String) {
         dataStore.edit { prefs ->
@@ -504,6 +525,11 @@ open class SettingsRepository @Inject constructor(
         // Cloud API engine keys, one pref per provider:
         // "cloud_api_key_<providerId>". No provider keyed => unconfigured.
         private const val CLOUD_API_KEY_PREFIX = "cloud_api_key_"
+
+        // Cloud disclaimer acceptance. Absent ⇒ never shown, so existing
+        // installs that already keyed a provider see it once on next visit.
+        private val KEY_CLOUD_DISCLAIMER_ACCEPTED =
+            booleanPreferencesKey("cloud_disclaimer_accepted")
 
         // Measured latency window, one key per model. Purely derived data —
         // safe to drop, and it repopulates itself from use.
