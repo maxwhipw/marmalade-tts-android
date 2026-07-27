@@ -180,9 +180,13 @@ private data class NavTab(
 // from EngineDetailScreen. Engines took its slot back (and its old Build
 // wrench, which Effects had borrowed while Engines lived under Settings).
 private val NAV_TABS = listOf(
-    NavTab(Routes.Speak, "Speak", Icons.Filled.PlayArrow, Icons.Outlined.PlayArrow),
+    // Speak and Effects use in-tree vectors (see MarmaladeIcons): a
+    // play triangle read as "play a file" rather than "speak", and a
+    // star read as "favourites". Same vector selected or not — the
+    // NavigationBar pill already carries the selection.
+    NavTab(Routes.Speak, "Speak", MarmaladeIcons.Speak, MarmaladeIcons.Speak),
     NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Outlined.Person),
-    NavTab(Routes.Effects, "Effects", Icons.Filled.Star, Icons.Outlined.Star),
+    NavTab(Routes.Effects, "Effects", MarmaladeIcons.Effects, MarmaladeIcons.Effects),
     NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Outlined.Build),
     NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )

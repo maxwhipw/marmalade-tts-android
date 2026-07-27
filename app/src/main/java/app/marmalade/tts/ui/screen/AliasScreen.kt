@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -403,6 +404,7 @@ private fun AliasCard(
                     MetaChip(
                         text = if (voicePath.isCloud) "Cloud" else "On device",
                         filled = true,
+                        leadingCloud = voicePath.isCloud,
                     )
                     MetaChip(text = "%.2f×".format(alias.speed))
                     MetaChip(text = effectName)
@@ -1048,7 +1050,12 @@ private fun PrimaryPill() {
  * [filled] marks the one chip that carries real information.
  */
 @Composable
-private fun MetaChip(text: String, filled: Boolean = false) {
+private fun MetaChip(
+    text: String,
+    filled: Boolean = false,
+    /** Cloud glyph ahead of the label. Shared with the Speak screen's row. */
+    leadingCloud: Boolean = false,
+) {
     Surface(
         shape = PillShape,
         color = if (filled) {
@@ -1062,16 +1069,25 @@ private fun MetaChip(text: String, filled: Boolean = false) {
             BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
         },
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (filled) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+        val ink = if (filled) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-        )
+        ) {
+            if (leadingCloud) {
+                CloudMark(tint = ink)
+                Spacer(Modifier.width(5.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Normal,
+                color = ink,
+            )
+        }
     }
 }

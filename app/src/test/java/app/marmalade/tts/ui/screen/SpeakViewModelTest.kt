@@ -22,6 +22,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import app.marmalade.tts.data.VoicePathResolver
 
 /**
  * State-transition coverage for [SpeakViewModel].
@@ -307,6 +308,8 @@ class SpeakViewModelTest {
             voiceDao = dao,
             aliasDao = FakeAliasDao(),
             effectResolver = FakeEffectResolver(),
+            // No cloud providers configured — every test voice is on-device.
+            voicePaths = VoicePathResolver { null },
         )
 
         // Subscribe to keep WhileSubscribed hot. Initially voices is empty,
@@ -389,6 +392,8 @@ class SpeakViewModelTest {
             voiceDao = dao,
             aliasDao = resolvedAliasDao,
             effectResolver = FakeEffectResolver(),
+            // No cloud providers configured — every test voice is on-device.
+            voicePaths = VoicePathResolver { null },
         )
     }
 

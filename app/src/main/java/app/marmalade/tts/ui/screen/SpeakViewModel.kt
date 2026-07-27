@@ -8,6 +8,7 @@ import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
@@ -102,6 +103,7 @@ class SpeakViewModel @Inject constructor(
     private val voiceDao: VoiceMetaDao,
     private val aliasDao: VoiceAliasDao,
     private val effectResolver: EffectResolver,
+    private val voicePaths: VoicePathResolver,
 ) : ViewModel() {
 
     private val _text = MutableStateFlow("")
@@ -225,6 +227,60 @@ class SpeakViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+    /**
+     * One row of the persona list, pre-resolved for display.
+     *
+     * The screen shows exactly these three facts and nothing else, so the
+     * resolution happens once here rather than per-recomposition in the
+     * composable — [VoicePathResolver] consults the cloud provider
+     * directory, which is not work to do inside a list item.
+     */
+    data class Persona(
+        val name: String,
+        /** "Kokoro · Adam" — model then voice. */
+        val subtitle: String,
+        /** Needs the network. Drives the cloud glyph; on-device gets none. */
+        val isCloud: Boolean,
+        val isPrimary: Boolean,
+    )
+
+    /** Every saved persona, in the order the alias screen shows them. */
+    val personas: StateFlow<List<Persona>> =
+        combine(aliases, settings.primaryAliasName) { rows, primary ->
+            rows.map { alias ->
+                val path = voicePaths.resolve(alias.voiceId, alias.engine)
+                Persona(
+                    name = alias.name,
+                    subtitle = path.summary,
+                    isCloud = path.isCloud,
+                    isPrimary = alias.name == primary,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * What the current-voice row shows.
+     *
+     * Null only during the first frame, before either flow has produced
+     * anything. When the user has hand-picked a voice rather than applying
+     * a persona there is no alias to name, so the voice stands in for one —
+     * the row must always say what will be heard, and "nothing selected"
+     * is never true once a default voice exists.
+     */
+    val currentPersona: StateFlow<Persona?> =
+        combine(personas, activeAlias, currentVoice) { list, active, voice ->
+            list.firstOrNull { it.name == active }
+                ?: voice?.let {
+                    val path = voicePaths.resolve(it.id, it.engine)
+                    Persona(
+                        name = it.displayName,
+                        subtitle = path.collapsed,
+                        isCloud = path.isCloud,
+                        isPrimary = false,
+                    )
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         // v0.1.18: auto-apply the user's primary alias on first composition
