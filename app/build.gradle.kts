@@ -19,12 +19,12 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "app.marmalade.tts"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.marmalade.tts"
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 33
         versionName = "1.0.0-beta.1"
 
