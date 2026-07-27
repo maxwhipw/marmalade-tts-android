@@ -481,11 +481,18 @@ private fun RoutingStrip(
         return
     }
 
+    // The primary's strip is a statement, not a control. Routing an app to
+    // the primary changes nothing — it is already the fallback for every app
+    // the user hasn't routed elsewhere — so opening the app picker from here
+    // could only ever produce a no-op assignment. Non-primary aliases keep
+    // the affordance.
     Surface(
-        onClick = onClick,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(if (isPrimary) Modifier else Modifier.clickable(onClick = onClick)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -526,11 +533,10 @@ private fun RoutingStrip(
                     )
                 }
             }
-            // No chevron on the primary's "all unrouted" state: there the
-            // strip is stating a fact about how routing works, not offering
-            // a list to drill into. Where routes exist, the chevron is a
-            // real affordance.
-            if (routedApps.isNotEmpty()) {
+            // No chevron on the primary at all — nothing to drill into when
+            // the strip isn't tappable. Elsewhere it marks a real affordance,
+            // which an alias with no routes doesn't have either.
+            if (routedApps.isNotEmpty() && !isPrimary) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Choose apps for $aliasName",
