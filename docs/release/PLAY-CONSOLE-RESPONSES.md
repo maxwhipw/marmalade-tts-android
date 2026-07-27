@@ -101,7 +101,7 @@ public listing shows.
 | Data type | **App activity → Other user-generated content** |
 | Collected | **Yes** — it is transmitted off device |
 | Shared | **Yes** — it goes to a third party (see note below) |
-| Processed ephemerally | **Yes** — held in memory for the request only; Marmalade stores no text and has no server |
+| Processed ephemerally | **No** — see below |
 | Purpose | **App functionality** only |
 | Required or optional | **Optional** — cloud voices are opt-in; on-device voices send nothing |
 
@@ -116,8 +116,52 @@ inside Marmalade. Ticking the box costs a line on the store listing and
 removes the whole argument. For an app whose pitch is privacy, saying so
 plainly is on-brand.
 
-The user's **API key** is not declared separately: it is the user's own
-credential being sent to the service that issued it, as authentication.
+### Ephemeral: answer No
+
+Marmalade's *own* handling is ephemeral — the text lives in memory for
+the duration of one request and is never written to disk or to a server
+we control. It is tempting to answer Yes on that basis. **Don't.**
+
+The transfer is not ephemeral end-to-end, and this is checkable rather
+than assumed: OpenAI's API documentation states that *"abuse monitoring
+logs are generated for all API feature usage and retained for up to 30
+days, unless longer retention is required by law"* (Zero Data Retention
+exists but requires prior approval and is not what a bring-your-own-key
+user has). Thirty days is not "retained for no longer than necessary to
+service the specific request in real-time".
+
+The asymmetry also matters: answering Yes **removes the entry from the
+public store listing**. Hiding a disclosure from users on the strength of
+an assumption about a third party's retention is the wrong direction for
+this app. No keeps it visible.
+
+### The API key is not a login, and has no data type
+
+- **"My app does not allow users to create an account"** → correct.
+- **"Can users login with accounts created outside of the app?"** →
+  **No.** The key does not log anyone in to *Marmalade*. There is no
+  Marmalade account, identity, or server; nothing gates the app behind
+  authentication. The key is a bearer token forwarded to the third party
+  that issued it.
+- **Storing the key on the device is not "collection."** Play defines
+  collect as *transmitting data off a user's device*. App-private
+  storage never leaves it.
+- **There is no data type to declare it under.** Play's full data-type
+  list contains **no** entry for passwords, credentials, API keys, or
+  authentication tokens — the omission is deliberate, since every app
+  with a login transmits credentials. The nearest neighbours are
+  Personal info → "User IDs" (*"Identifiers that relate to an
+  identifiable person. For example, an account ID, account number, or
+  account name."*) and "Other info" (*"date of birth, gender identity,
+  veteran status"*), and neither describes a bearer token going to its
+  own issuer.
+
+### Deletion: answer No
+
+Not "No, but user data is automatically deleted within 90 days" — that
+would imply Marmalade holds something on a timer. It holds nothing off
+the device at all. Anything a provider retains is deleted by asking that
+provider, which PRIVACY.md says.
 
 ### Why only one box, when a user could type anything
 

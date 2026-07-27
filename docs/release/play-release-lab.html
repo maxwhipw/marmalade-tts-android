@@ -214,10 +214,12 @@ keyPassword=…<button onclick="cp(this)">copy</button></pre>
       <p>"Text never leaves the device" stopped being true when the cloud engine landed. The fallback rationale — Play's <em>prominent in-app disclosure and consent</em> exemption — is a <strong>sharing</strong> exemption, and the question asks "collect <em>or</em> share". Google defines collection as <em>"transmitting data from your app off a user's device"</em>, and exempts only on-device processing and end-to-end encryption. TLS isn't end-to-end; the provider reads the text. The collect limb is met however good the disclosure is.</p>
       <p>Ephemeral processing doesn't rescue a No either — it suppresses public <em>display</em>, not the declaration: <em>"needs to be included in your form response, but… will not be disclosed in your app's Data safety section"</em>.</p>
       <pre>App activity → Other user-generated content
-  Collected: Yes · Shared: Yes · Ephemeral: Yes
+  Collected: Yes · Shared: Yes · Ephemeral: No
   Purpose: App functionality · Optional
 Encrypted in transit: Yes
-Users can request deletion: No (nothing is held; goes to the provider)<button onclick="cp(this)">copy</button></pre>
+Users can request deletion: No (nothing is held; goes to the provider)
+Account creation / external login: None
+API key: not declarable — Play has no credential data type<button onclick="cp(this)">copy</button></pre>
       <div class="note">Shared could be left unticked on the exemption — the consent gate makes that limb strong. Tick it anyway: the exemption turns on what the user "reasonably expects", and the system-TTS path (a cloud primary alias forwards other apps' text) is exactly where that expectation is weakest. One line on the listing buys the whole argument away. Full reasoning in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.5</span><span class="t">Foreground service declarations — the risky one</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
