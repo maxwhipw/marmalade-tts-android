@@ -98,9 +98,9 @@
     <div class="sub">Every step from the tree as it stands to a published listing.</div>
   </div>
   <div class="meta">
-    branch <b>verify/routing-on-api-engine</b> · head <b>d1a5c8e</b><br>
+    branch <b>main</b> · head <b>c858449</b><br>
     <b>1.0.0-beta.1</b> · versionCode <b>33</b> · target/compile SDK <b>36</b><br>
-    AGP <b>8.9.3</b> · Gradle <b>8.11.1</b> · <b>369</b> tests green · <b>unpushed</b>
+    AGP <b>8.9.3</b> · Gradle <b>8.11.1</b> · <b>369</b> tests green · <b>pushed to github</b>
   </div>
 </header>
 
@@ -123,9 +123,9 @@
     </section>
     <section>
       <h3>Ask me to…</h3>
-      <label class="ck"><input type="checkbox" id="w-keystore"> Wire the keystore once you've made it</label>
+      <label class="ck"><input type="checkbox" id="w-backup"> Talk me through backing up the keystore</label>
       <label class="ck"><input type="checkbox" id="w-aab"> Build the release AAB</label>
-      <label class="ck"><input type="checkbox" id="w-privacy"> Publish PRIVACY.md to a public URL</label>
+      <label class="ck"><input type="checkbox" id="w-about"> Link the privacy policy from Settings → About</label>
       <label class="ck"><input type="checkbox" id="w-video"> Script the FGS demo video</label>
       <label class="ck"><input type="checkbox" id="w-fdroid"> Prep the F-Droid submission in parallel</label>
       <label class="ck"><input type="checkbox" id="w-eyes"> Fix whatever edge-to-edge broke</label>
@@ -172,16 +172,19 @@
     <h2>Phase 1 — signing <span class="who">yours</span></h2>
     <p class="lead">The one secret in the whole process. Google holds the app-signing key after enrolment; this is your <em>upload</em> key, and losing it means a support ticket, not a catastrophe — but back it up anyway.</p>
 
-    <div class="step max" data-s="max"><div class="hd"><span class="n">1.1</span><span class="t">Generate the upload keystore</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-      <div class="body"><p>Keep it out of the repo. Full walkthrough in <code>docs/release/SIGNING.md</code>.</p>
-      <pre>keytool -genkeypair -v \
-  -keystore ~/secure/marmalade-upload.jks \
-  -alias marmalade-upload \
-  -keyalg RSA -keysize 4096 -validity 10000<button onclick="cp(this)">copy</button></pre>
-      <div class="note">Back it up twice — KeePassXC entry plus an offline copy. This is the only artefact in the release that can't be regenerated.</div></div></div>
+    <div class="step done" data-s="done"><div class="hd"><span class="n">1.1</span><span class="t">Generate the upload keystore</span><span class="tag done">done</span><span class="chev">▸</span></div>
+      <div class="body"><p>Created <b>26 Jul 2026</b> — RSA 4096, 10000 days, alias <code>marmalade-upload</code>, DN with city and state left out.</p>
+      <pre>~/secure/marmalade-upload.jks   4348 bytes, mode 600<button onclick="cp(this)">copy</button></pre>
+      <p>A second copy was pushed to the Pixel at <code>/sdcard/Download/marmalade-upload.jks</code>. That was transport, not backup — <code>/sdcard</code> is readable by any app holding storage permission. Delete it once the real backup exists.</p>
+      <div class="note warn"><b>Not backed up yet.</b> This is the one artefact in the release that cannot be regenerated. Two copies, neither durable: <code>~/secure</code> on marmalade, and a transit copy on the phone. Wanted — a KeePassXC attachment, plus a non-git path under <code>~/.nexus</code> for Syncthing redundancy. <b>Not agent-wiki</b>: it is a git repo pushed to Forgejo, so the key would land in history permanently, and its remote URL carries a plaintext token.</div></div></div>
 
-    <div class="step claude" data-s="claude"><div class="hd"><span class="n">1.2</span><span class="t">Wire keystore.properties (gitignored)</span><span class="tag claude">I can do</span><span class="chev">▸</span></div>
-      <div class="body"><p>Once the keystore exists, I write the four properties and confirm <code>signingConfigs.release</code> picks them up. Nothing secret is committed — <code>app/build.gradle.kts</code> already reads the file only if it's present.</p></div></div>
+    <div class="step max" data-s="max"><div class="hd"><span class="n">1.2</span><span class="t">Wire keystore.properties (gitignored)</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
+      <div class="body"><p>Four properties, in the repo root, matched by <code>.gitignore</code> line 31 so it can never be committed. <code>app/build.gradle.kts</code> reads it only if present, so its absence is what keeps release builds unsigned today.</p>
+      <pre>storeFile=/home/max/secure/marmalade-upload.jks
+storePassword=…
+keyAlias=marmalade-upload
+keyPassword=…<button onclick="cp(this)">copy</button></pre>
+      <div class="note"><b>Yours, not mine</b> — writing it means typing the passwords, and pasting them into a chat puts them in a transcript on disk. Create the file yourself; I take over from 1.3.</div></div></div>
 
     <div class="step claude" data-s="claude"><div class="hd"><span class="n">1.3</span><span class="t">Build the release AAB</span><span class="tag claude">I can do</span><span class="chev">▸</span></div>
       <div class="body"><p>Play takes an AAB, not an APK. The <code>play</code> flavor.</p>
@@ -200,11 +203,16 @@
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.2</span><span class="t">Create the app</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
       <div class="body"><p>Name <strong>Marmalade TTS</strong> · Free · App, not game · English (US) default.</p></div></div>
 
-    <div class="step max" data-s="max"><div class="hd"><span class="n">2.3</span><span class="t">Privacy policy URL</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-      <div class="body"><p>Required even though the app collects nothing. <code>PRIVACY.md</code> exists in the repo — it needs a public, stable URL. A GitHub blob link works; Pages is nicer. Same link goes in Settings → About.</p></div></div>
+    <div class="step done" data-s="done"><div class="hd"><span class="n">2.3</span><span class="t">Privacy policy URL</span><span class="tag done">live</span><span class="chev">▸</span></div>
+      <div class="body"><p>Rewritten 27 Jul and live on <code>main</code>. Paste this into the Console and into Settings → About:</p>
+      <pre>https://github.com/maxwhipw/marmalade-tts-android/blob/main/PRIVACY.md<button onclick="cp(this)">copy</button></pre>
+      <p>The version it replaced said the spoken text never leaves the phone — true when written in June, false since the cloud engine landed on 24 Jul. The rewrite states plainly: nothing is collected, no Marmalade server exists, on-device voices are fully offline, and a cloud voice sends your full text to that provider under <em>their</em> policy, with no affiliation and no ability to action a deletion request on your behalf.</p>
+      <div class="note">It also spells out the consequence a reader would otherwise miss: Marmalade is a <em>system</em> TTS engine, so a cloud primary alias means other apps' text — ebooks, messages, anything an accessibility service reads — goes to that provider too.</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.4</span><span class="t">Data safety form</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-      <div class="body"><p><strong>No data collected, no data shared.</strong> The user-initiated engine download is exempt as ephemeral processing. Wording is in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</p></div></div>
+      <div class="body"><p><strong>No data collected, no data shared</strong> — still the right answer, but <em>not</em> for the reason the plan used to give.</p>
+      <p>The old rationale was "synthesized text never leaves the device". That is no longer true. The answer now rests on Play's other limb: transfers made <em>"based on a prominent in-app disclosure and consent"</em> are exempt. The Cloud voices screen says "your text is sent over the network per request" before any key can be entered, which meets it.</p>
+      <div class="note warn">The weak edge is the system-TTS path — a cloud primary alias forwards other apps' text, and those apps' users never saw the disclosure. If a reviewer pushes on it, don't argue: declare the text transfer rather than defend the exemption. Full reasoning in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.5</span><span class="t">Foreground service declarations — the risky one</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
       <div class="body"><p>Two types are declared, each needing a use-case justification <em>and</em> a demo video.</p>
@@ -272,9 +280,9 @@
 
 <script>
 const WORK = [
-  ['w-keystore','wire keystore.properties and confirm the release signing config picks it up (I will have generated the keystore)'],
-  ['w-aab','build the signed release AAB for the play flavor'],
-  ['w-privacy','get PRIVACY.md published at a public stable URL and link it from Settings → About'],
+  ['w-backup','walk me through backing up the upload keystore properly — KeePassXC attachment plus a non-git path under ~/.nexus — and then delete the transit copy at /sdcard/Download/marmalade-upload.jks off the phone'],
+  ['w-aab','build the signed release AAB for the play flavor (I will have written keystore.properties myself)'],
+  ['w-about','link the published privacy policy from Settings → About'],
   ['w-video','script the two foreground-service demo videos Play requires, mediaPlayback and specialUse'],
   ['w-fdroid','prepare the F-Droid submission in parallel rather than after Play'],
   ['w-eyes','fix whatever edge-to-edge enforcement broke visually at targetSdk 36'],
@@ -311,16 +319,16 @@ function updatePrompt(){
   const picked=WORK.filter(([id])=>document.getElementById(id).checked).map(([,t])=>t);
   let s;
   if(!picked.length){
-    s='Working in ~/coding/marmalade-tts-android on branch verify/routing-on-api-engine '+
-      '(head d1a5c8e, unpushed). Read docs/release/PLAY-RELEASE-PLAN.md and '+
+    s='Working in ~/coding/marmalade-tts-android on branch main '+
+      '(head c858449, pushed to github). Read docs/release/PLAY-RELEASE-PLAN.md and '+
       'docs/release/PLAY-CONSOLE-RESPONSES.md first.\n\n'+
       'I went through the Play release lab. No task picked yet — tick one or more '+
       'boxes in the left rail, or tell me what you want next.';
   } else {
-    s='Working in ~/coding/marmalade-tts-android on branch verify/routing-on-api-engine '+
-      '(head d1a5c8e, unpushed). 369 tests green, targetSdk 36, no paywall, listing '+
-      'assets complete. Read docs/release/PLAY-RELEASE-PLAN.md and '+
-      'docs/release/PLAY-CONSOLE-RESPONSES.md first.\n\n'+
+    s='Working in ~/coding/marmalade-tts-android on branch main '+
+      '(head c858449, pushed to github). 369 tests green, targetSdk 36, no paywall, '+
+      'listing assets complete, privacy policy live. Read docs/release/PLAY-RELEASE-PLAN.md '+
+      'and docs/release/PLAY-CONSOLE-RESPONSES.md first.\n\n'+
       (picked.length===1?'Next task:\n':'Next tasks, in this order:\n')+
       picked.map((t,i)=>`${i+1}. ${t}`).join('\n')+
       '\n\nGuardrails: do not push either repo (github is public, I give an explicit '+
