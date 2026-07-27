@@ -184,24 +184,34 @@ class VoicePickerViewModel @Inject constructor(
     }
 
     /**
-     * Land inside the currently-selected voice's source rather than making
-     * the user re-navigate to the voice they're about to change. The screen
-     * calls this from a LaunchedEffect once [voiceTree] and [selectedId] have
-     * both resolved — driven from the outside rather than by a collector in
-     * `init`, which would keep a coroutine alive for the VM's whole life to
-     * do a job that happens exactly once.
+     * Drill straight past the source list in engine-scoped mode
+     * (`voices?engine=<name>`, reached from an engine's detail page), where
+     * [voiceTree] holds that one engine and a source list would be a one-item
+     * step that teaches the user nothing.
      *
-     * Idempotent: later emissions (a newly installed engine, say) leave the
-     * user's own navigation alone.
+     * Everywhere else the picker deliberately opens at the top: it used to
+     * land inside the current voice's model, which put the user in the one
+     * list they were least likely to want — they opened the picker to leave
+     * that model. Landing on the sources makes switching engine the default
+     * move and costs one tap to get back to where you already were.
+     *
+     * The screen calls this from a LaunchedEffect once [voiceTree] has
+     * resolved — driven from the outside rather than by a collector in
+     * `init`, which would keep a coroutine alive for the VM's whole life to
+     * do a job that happens exactly once. Idempotent: later emissions (a
+     * newly installed engine, say) leave the user's own navigation alone.
      */
-    fun setInitialDrill(tree: List<VoiceSource>, selected: String) {
+    fun setInitialDrill(tree: List<VoiceSource>) {
         if (initialDrillSet || tree.isEmpty()) return
         initialDrillSet = true
-        val path = tree.firstNotNullOfOrNull { source ->
-            source.models.firstOrNull { model -> model.voices.any { it.id == selected } }
-                ?.let { source.name to it.name }
-        } ?: return
-        _pickerState.value = VoicePickerState(source = path.first, model = path.second)
+        if (engineFilter == null) return
+        val source = tree.singleOrNull() ?: return
+        _pickerState.value = VoicePickerState(
+            source = source.name,
+            // Same one-item rule one level down: on-device engines are their
+            // own only model.
+            model = source.models.singleOrNull()?.name,
+        )
     }
 
     fun onQueryChange(query: String) {

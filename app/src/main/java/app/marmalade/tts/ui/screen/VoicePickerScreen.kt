@@ -116,9 +116,9 @@ fun VoicePickerScreen(
         viewModel.refresh()
     }
 
-    // Open inside the selected voice's source once the tree resolves.
-    LaunchedEffect(tree, selectedId) {
-        viewModel.setInitialDrill(tree, selectedId)
+    // Opens on the source list; engine-scoped mode drills past it.
+    LaunchedEffect(tree) {
+        viewModel.setInitialDrill(tree)
     }
 
     // Engine-scoped mode (voices?engine=<name>, reached from the engine's
