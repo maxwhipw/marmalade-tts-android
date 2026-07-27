@@ -15,6 +15,17 @@ Two labs, served locally (ports may need restarting):
 - `docs/design/speak-screen-lab.html` — the Speak-screen study
 - `docs/release/play-listing-lab.html` — Play listing mock + asset audit
   (its assets live in `docs/release/play-assets/`)
+- `docs/release/play-design-lab.html` — **NEW (956f58b, 2026-07-27,
+  separate session)**: variations for icon (A1–A6), feature graphic
+  (B1–B3), screenshot framing (C1–C3 + caption copy for all 5 shots),
+  and listing copy (3 names / 5 shorts / 3 fulls, live counters). Every
+  SVG has a download button; export pipeline in section F (needs
+  Manrope + Fredoka installed for inkscape). Numbers sourced from
+  `EngineCatalog.kt` / `BuiltinEffects.kt` — re-count before submission
+  if engines change. Venice raster concepts (section E) are pending:
+  the Venice API key returned 401; four prompts are staged in the page.
+  Next step: Max picks variants, then export per section F and write
+  winning copy back to `fastlane/metadata/android/en-US/`.
 
 ## What landed this session
 
