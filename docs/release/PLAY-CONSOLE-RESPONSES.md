@@ -119,6 +119,29 @@ plainly is on-brand.
 The user's **API key** is not declared separately: it is the user's own
 credential being sent to the service that issued it, as authentication.
 
+### Why only one box, when a user could type anything
+
+A TTS input field can receive a phone number, a symptom, a bank balance
+— so it is tempting to tick Contacts, Health, and Financial info too.
+**Don't.** The form's standard is data *"actually collected and/or
+shared"*, and "Other user-generated content" is Google's designated
+catch-all for exactly this shape: *"Any other user-generated content not
+listed here… For example, user bios, notes, or open-ended responses."*
+
+The objective line is what the app can obtain **by any means other than
+someone typing it**, and the manifest settles it. Marmalade holds
+`INTERNET`, `POST_NOTIFICATIONS`, three foreground-service permissions
+and battery-optimisation — no `READ_CONTACTS`, no location, no health,
+no storage, and no `QUERY_ALL_PACKAGES`. There is no file or document
+import; the only inbound intents are `SEND` and `PROCESS_TEXT`, both
+`text/plain`. So the app cannot collect any of those categories.
+
+Ticking them would be **inaccurate**, which the form requires you not to
+be: the listing would tell users Marmalade reads their contacts. It also
+contradicts PRIVACY.md. Tick a second box only when a feature
+specifically ingests that category — a document importer would earn
+"Files and docs"; reading notifications would earn "Messages".
+
 ### Security practices (these appear once collection is Yes)
 
 - **Is all user data encrypted in transit?** → **Yes.** Provider calls
