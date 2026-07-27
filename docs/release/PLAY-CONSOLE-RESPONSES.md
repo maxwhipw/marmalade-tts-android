@@ -257,23 +257,23 @@ not attach.
 > outside of the app"* becomes something a reviewer could read
 > over-literally. Cheap to avoid.
 
-### Deletion: open, decide before submitting
+### Deletion: No — decided 2026-07-27
 
-⚠️ The panel split here and no answer is forced.
+**"Do you provide a way for users to request that their data is
+deleted?" → No.**
 
-The question presumes a developer-held datastore that does not exist.
-Nothing is retained off-device; removing a key deletes the DataStore
-entry; anything the provider retains is deleted through the user's own
-account with them.
-
-- **No** — the reading that the question is about developer-held data,
-  of which there is none. This is what the form currently has.
-- **Yes** — truthful if grounded in "the app provides in-app removal and
-  the developer retains nothing anywhere," and one reviewer preferred it.
+The question presumes a developer-held datastore. There isn't one: no
+server, no account, nothing retained off the device. Answering **Yes**
+would advertise a request channel that has nothing behind it.
 
 Do **not** pick *"No, but user data is automatically deleted within 90
-days"* — that asserts a retention timer we do not operate. Whichever of
-the two is chosen, PRIVACY.md must say the same thing.
+days"* — that asserts a retention timer we do not operate.
+
+`PRIVACY.md` carries a matching **"Deleting your data"** section: app
+storage is removed by clearing storage or uninstalling, a provider key is
+removed in-app, and anything a provider retained is deleted through the
+user's own account with them. The two documents must keep saying the same
+thing.
 
 ### Why only one box, when a user could type anything
 

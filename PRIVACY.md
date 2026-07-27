@@ -115,6 +115,21 @@ Apart from the two GitHub requests above and any cloud provider you
 explicitly configure, the app contacts no other server. Marmalade has no
 server of its own.
 
+## Deleting your data
+
+There is no "delete my data" request to send us, because there is nothing
+on our side to delete. Marmalade has no server and no account, and keeps
+nothing about you anywhere but on your own phone.
+
+- **Everything the app stores** — your settings, aliases, effect presets,
+  per-app routing, history, and any provider API key — lives in
+  app-private storage on your device. Removing a key deletes it.
+  Uninstalling the app, or clearing its storage in Android's app
+  settings, removes all of it.
+- **Anything a cloud provider has kept** is held by that provider, not by
+  us, and has to be deleted through your own account with them. We have
+  no access to it and cannot make that request on your behalf.
+
 ## Permissions and why they are needed
 
 | Permission | Why Marmalade needs it |

@@ -176,7 +176,7 @@
       <div class="body"><p>Created <b>26 Jul 2026</b> — RSA 4096, 10000 days, alias <code>marmalade-upload</code>, DN with city and state left out.</p>
       <pre>~/secure/marmalade-upload.jks   4348 bytes, mode 600<button onclick="cp(this)">copy</button></pre>
       <p>A second copy was pushed to the Pixel at <code>/sdcard/Download/marmalade-upload.jks</code>. That was transport, not backup — <code>/sdcard</code> is readable by any app holding storage permission. Delete it once the real backup exists.</p>
-      <div class="note warn"><b>Not backed up yet.</b> This is the one artefact in the release that cannot be regenerated. Two copies, neither durable: <code>~/secure</code> on marmalade, and a transit copy on the phone. Wanted — a KeePassXC attachment, plus a non-git path under <code>~/.nexus</code> for Syncthing redundancy. <b>Not agent-wiki</b>: it is a git repo pushed to Forgejo, so the key would land in history permanently, and its remote URL carries a plaintext token.</div></div></div>
+      <div class="note"><b>Not backed up yet — but this is the <i>upload</i> key, which Google can reset.</b> Losing it means generating a new one and filing a reset request in the Play Console with the new certificate in PEM form: an outage of days, not a lost app. Still worth a KeePassXC attachment plus a non-git path under <code>~/.nexus</code>. <b>Not agent-wiki</b>: it is a git repo pushed to Forgejo, so the key would land in history permanently. The unrecoverable key is the <b>app signing</b> key — let Google generate and hold that one at enrolment and it can never be lost.</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">1.2</span><span class="t">Wire keystore.properties (gitignored)</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
       <div class="body"><p>Four properties, in the repo root, matched by <code>.gitignore</code> line 31 so it can never be committed. <code>app/build.gradle.kts</code> reads it only if present, so its absence is what keeps release builds unsigned today.</p>
@@ -219,7 +219,7 @@ Personal info  → User IDs                     (the API key)
         App functionality · Optional
 Encrypted in transit: Yes
 Account creation / external login: None
-Deletion: open — No, or Yes on in-app key removal. Not the 90-day option.<button onclick="cp(this)">copy</button></pre>
+Users can request deletion: No (nothing is held off-device)<button onclick="cp(this)">copy</button></pre>
       <div class="note">Shared could be left unticked on the exemption — the consent gate makes that limb strong. Tick it anyway: the exemption turns on what the user "reasonably expects", and the system-TTS path (a cloud primary alias forwards other apps' text) is exactly where that expectation is weakest. One line on the listing buys the whole argument away. Full reasoning in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.5</span><span class="t">Foreground service declarations — the risky one</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
