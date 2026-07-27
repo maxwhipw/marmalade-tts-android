@@ -1,170 +1,149 @@
-# HANDOFF — Play Console compliance pass, 2026-07-27 (branch `main`)
+# HANDOFF — UI rework, alias bugs, language audit, 2026-07-27 (branch `main`)
 
 ## State
 
-Branch **`main`**, head **`087dbb2`**, **pushed to `github/main`**.
-**372 unit tests green**; both flavors assemble; release APK verified.
-
-Everything from the previous sessions (paywall removal, targetSdk 36,
-Monotone male/female, feature graphic, release lab) is now public on
-`main`.
+Branch **`main`**, head **`40c30e4`**, **6 commits ahead of `github/main`** —
+last pushed state was `9cf5ee6`. Clean tree. **377 unit tests green.**
+Debug APK builds. **Nothing in this batch has been seen on device.**
 
 Build: `./gradlew :app:compileFdroidDebugKotlin` (fast check),
 `:app:testFdroidDebugUnitTest` (suite), `:app:assembleFdroidDebug` (APK),
-`adb install -r` (upgrade in place).
+`adb install -r`.
 
-## What this session did
+Two labs, served locally (ports may need restarting):
 
-### Cloud consent gate — `8c3b06b`
+- `docs/design/speak-screen-lab.html` — the Speak-screen study
+- `docs/release/play-listing-lab.html` — Play listing mock + asset audit
+  (its assets live in `docs/release/play-assets/`)
 
-Engines → Cloud voices now renders **only** a disclaimer until the user
-explicitly accepts. One nav route to `CloudApiScreen`, one call site that
-writes a key, both behind the gate — verified, not assumed.
+## What landed this session
 
-- `SettingsRepository.cloudDisclaimerAccepted` / `acceptCloudDisclaimer()`
-- `CloudApiViewModel.disclaimerAccepted` is `StateFlow<Boolean?>` — the
-  null state matters; a `false` initial would flash the gate for one
-  frame on every later visit while DataStore reads.
-- Never re-armed when keys are removed: it records "was told", not
-  "is using".
-- `FakeSettings` overrides it — an unoverridden flow never emits and the
-  gate would hang on null.
+### Speak screen rewritten — `63fc106`
 
-### Security audit — `a23cac7`
+Direction **B** from the design lab, which Max picked. The voice chip and
+the wrapping alias-chip row are **gone**, replaced by one fixed-height
+56dp `CurrentVoiceRow` (avatar, persona name, `model · voice`, cloud
+glyph, chevron) that opens a `PersonaSheet`. The sheet lists every
+persona with a Primary badge and a tick on the active one, plus "Pick a
+voice directly" and "New persona".
 
-Two real findings, both fixed:
+Also: the top bar's trailing list `IconButton` is gone (a second
+unlabelled route to the picker that read as a menu), and **idle renders
+no status text** — `PlaybackState.Idle -> ""`. The `Box` keeps its height
+so nothing shifts when a real message arrives.
 
-1. **Provider `baseUrl` was unvalidated.** `cloud-providers.json` is
-   fetched from the network, so it is remote input — and it is where the
-   user's text and API key get POSTed. Now rejected at parse time unless
-   `https://`, and rejection fails the **whole document** so the store
-   falls back to the bundled asset rather than half-applying a tampered
-   list. Manifest states `usesCleartextTraffic="false"` explicitly so a
-   dependency merging in `"true"` fails the merge.
-2. **Provider HTTP error bodies were reaching logcat.** They were folded
-   into the `IOException` message, and synthesis failures log the
-   throwable — so a provider echoing the request back in a validation
-   error would have put user text in logcat and any bug report. The body
-   is now discarded unread; `explainStatus(code)` supplies the message.
+New view state in `SpeakViewModel`: `Persona` data class, `personas`, and
+`currentPersona`. The constructor gained `voicePaths: VoicePathResolver`
+— **test factories must pass it**.
 
-Verified against the **built release APK**, not the config: `"input='"`,
-`"ipa='"`, and the ja/zh encode lines all strip to **0** occurrences
-under R8; the shipped manifest carries `usesCleartextTraffic=false` at
-targetSdk 36.
+Nav icons: Speak and Effects now use `ui/MarmaladeIcons.kt`, drawn
+in-tree from the lab's own SVG path data (a play triangle read as "play a
+file", a star read as "favourites"). Not `material-icons-extended` —
+that would pull the whole Material catalogue in for three glyphs.
+**Engines and Settings deliberately unchanged**, per Max.
 
-### Docs corrected — several were factually wrong
+`CloudMark` is one composable shared by the Speak row and the Aliases
+card's Cloud chip, so those two cannot drift apart.
 
-- **`PRIVACY.md`** — the opening paragraph now carries both halves in the
-  first sentence (speaks on-device offline by default, optional cloud
-  voices), so a reader who leaves after one line is not misled. Download
-  description fixed: `libespeak-ng.so` is compiled into the APK and never
-  downloaded, but bundles **do** still carry `espeak-ng-data` — it now
-  says voice models + pronunciation dictionaries and states plainly that
-  no executable code is ever downloaded. Added the third network path
-  nobody had written down: the provider-list fetch, which happens whether
-  or not cloud voices are used.
-- **`SECURITY.md`** — predated the cloud engine and claimed engine
-  downloads were the only network use. Rewritten around the three real
-  outbound paths plus the hardening that now exists.
-- **`docs/release/PLAY-CONSOLE-RESPONSES.md`** — see below.
+### Alias promotion bug — `a19df2d`
 
-## Play Console — the answers, and how they were reached
+Promoting an alias to primary now drops the per-app mappings naming it
+(`AppAliasMappingDao.releaseAppsRoutedTo`). This was a regression from
+earlier the same day: making the primary's routing strip inert (Max's
+request) meant any surviving per-app row became unreachable and its apps
+were pinned to that alias forever.
 
-**Data safety: Yes**, it collects. Two earlier answers were wrong and are
-recorded in the doc so nobody re-derives them:
+**Renaming the current primary deliberately does NOT release** — that is
+a retarget, not a promotion, and dropping routing the user never touched
+would be a second data-loss bug. A test pins each direction.
 
-- "Text never leaves the device" — false since the cloud engine (07-24).
-- "The prominent-disclosure exemption covers it" — that is a **sharing**
-  exemption; the question asks collect **or** share. Collection's only
-  exemptions are on-device-only, end-to-end encryption, and ephemeral.
+### Phonemizer — `d0c92bc`, `40c30e4`
 
-| | Text | API key |
-|---|---|---|
-| Type | App activity → Other user-generated content | Personal info → User IDs |
-| Collected | Yes | Yes |
-| Shared | **No** — exemption relied on | **No** — exemption relied on |
-| Ephemeral | No | No |
-| Purpose | App functionality | App functionality |
-| Optional | Yes | Yes |
+Three IPA characters were silently dropped, all confirmed against the
+shipped bundle's own `tokens.txt`:
 
-Encrypted in transit **Yes**. No account creation, no external login.
+- `'ᴻ' to 177, // ᵻ` — the key was U+1D3B at the id belonging to U+1D7B.
+  The comment named the right character; only the key was wrong. espeak
+  emits `ᵻ` in ~5% of American English IPA.
+- `ɯ` and `ʔ` absent outright — 5.24% of Japanese; measured mean CER
+  **0.059 → 0.013** once they resolve.
 
-**The API key is collected** — Max caught this; a 3-model panel confirmed
-it. The clause: *"irrespective of whether data is transmitted to you or a
-third-party server."* Destination is explicitly irrelevant, which kills
-both "it only goes to its issuer" and "the developer has no server".
+`encodePhonemes` maps unknowns to `PAD` rather than failing, so these
+produced no crash and no log. Kokoro and Kitten share the table, so each
+hit both engines. `IpaTokenVocabTest` now guards it.
 
-**Sharing left unticked** — Max weighed declaring anyway and chose to
-rely on the user-initiated-action exemption. **If a reviewer challenges
-it, tick Shared rather than argue**; the declaration is always available
-and costs one listing line.
-
-**Ephemeral No** — OpenAI documents abuse-monitoring retention "up to 30
-days", and answering Yes removes the entry from the public listing.
-
-**Target audience** — the IARC questionnaire produced ESRB **Teen or
-higher**, locking out under-13. Worth finding which answer caused it, but
-13+ is also the safer landing: under-13 pulls in Families policy and
-COPPA, which sit badly with a third-party cloud path.
-
-**IARC terms** read and recorded at
-`~/.nexus/agent-wiki/coding/store-terms-iarc.md`. Verdict: sign it; the
-uncapped indemnity attaches to questionnaire accuracy.
-
-Release tracking lives at
-`~/.nexus/agent-wiki/projects/marmalade-tts-play-release.md` and the
-interactive checklist at `docs/release/play-release-lab.html`.
+Also corrected two comments claiming the JA path emits "IPA + pitch
+markers". It emits IPA; the accent data is carried across JNI and
+dropped, which is **correct** — misaki's `ja.JAG2P` defaults to the
+segmental cutlet path and Kokoro v1.0 has no token ids for `_`/`-`/`^`.
 
 ## Open — needs Max
 
-- [ ] **The deletion question is still unanswered.** The panel split.
-      "No" reads it as being about developer-held data, of which there is
-      none; "Yes" is truthful if grounded in in-app key removal plus no
-      developer-side retention. **Not** the 90-day option. Whichever is
-      chosen, `PRIVACY.md` must match.
-- [ ] **Keystore has no durable backup.** `~/secure/marmalade-upload.jks`
-      (RSA 4096, alias `marmalade-upload`, mode 600) plus a transit copy
-      at `/sdcard/Download/marmalade-upload.jks` on the Pixel that should
-      be deleted. Wanted: KeePassXC attachment + a non-git path under
-      `~/.nexus`. **Not agent-wiki** — it is a git repo pushed to Forgejo.
+- [ ] **Device verification of everything above.** Nothing in this batch
+      has run on hardware. Highest value: the new Speak row + sheet, and
+      an English/Japanese listen for the `ᵻ`/`ɯ`/`ʔ` fix, which should be
+      audible.
+- [ ] **Four language defects deliberately NOT fixed** — see
+      `docs/LANGUAGE-AUDIT-2026-07.md`. All are prosody changes with
+      strong evidence the *input* is wrong and **zero** evidence about how
+      much worse it *sounds*; STT cannot adjudicate the last one.
+      Suggested order: **D6** digraph→single-token rewrite (largest
+      measured effect, mechanical), **D3** JA spacing ignoring the
+      `chainFlag` it already parses, then **D4/D5** Mandarin (no space
+      tokens at all; 。，？、 and Hindi । dropped) — Mandarin last, since
+      Max can't judge it by ear and it wants a native check.
+- [ ] **Store listing copy is factually wrong.** Short description says
+      "No cloud"; the full description says text "never leaves your
+      phone". False since 2026-07-24, on the most public surface there is,
+      and squarely within Play's Metadata policy. A corrected full
+      description is loaded in the listing lab as the editable default —
+      **not** written back to `fastlane/metadata/android/en-US/`, because
+      the copy is Max's voice and the 80-char short description needs his
+      call.
+- [ ] **Keystore still has no durable backup.** `~/secure/marmalade-upload.jks`
+      plus a transit copy at `/sdcard/Download/marmalade-upload.jks` on
+      the Pixel that should be deleted. It is the *upload* key, which
+      Google will reset on request — an outage of days, not a lost app.
+      Wanted: KeePassXC + a non-git path under `~/.nexus`. **Not
+      agent-wiki**, which is a git repo pushed to Forgejo.
 - [ ] **`keystore.properties`** is Max's to write (typing passwords into
-      a session transcript is the thing to avoid). Four keys, repo root,
-      already gitignored. After that the signed AAB is one command:
+      a transcript is the thing to avoid). Then
       `./gradlew :app:bundlePlayRelease`.
-- [ ] **marmalade-tts-cli is still unpushed** (head `8ccfff7`) — the
-      Megaphone 0.8 / Intercom 0.9 trims and the `next_room` removal that
-      mirror what is now public on Android. Needs its own all-clear.
+- [ ] **marmalade-tts-cli unpushed** (head `8ccfff7`) — Megaphone 0.8 /
+      Intercom 0.9 and the `next_room` removal, mirroring what is already
+      public on Android. Needs its own all-clear.
 
-## Unverified on device
+## The next substantial task: alias UUIDs
 
-Nothing from the last two sessions has been seen on the Pixel: the cloud
-consent gate, both Monotone presets (90 Hz male is a new target), the
-Megaphone/Intercom trims, the voice picker opening on the engine list,
-the inert primary routing strip, the Settings top bar, and edge-to-edge
-at targetSdk 36. Store screenshots were shot at targetSdk 35 and may want
-re-shooting.
+Max's diagnosis, and it is correct. `VoiceAlias` is keyed by its display
+name, so a rename is a `delete` + `insert` and every
+`app_alias_mapping.aliasName` still points at the old name — hence "no
+apps shown" *and* "routed by an alias of an old name" simultaneously.
+A third symptom nobody has hit yet: `VoiceAlias.fallbackAliasName` is
+also name-keyed and also unpatched, so renaming an alias that is another
+alias's cloud fallback silently kills the fallback.
 
-## Older threads still open
+**Effects are already correct** — `Effect` has `@PrimaryKey val id` plus a
+separate mutable `name`. That is the pattern to copy; it also means only
+aliases need the change, not effects.
 
-- Pocket regression listen test (Max's ears) — StreamPerf on a 4-chunk
-  share-sheet run shows only the known slower-than-realtime underrun
-  gaps, no new seam signal.
-- Device-gated perf work in `docs/AUDIT-2026-07-11.md` "Still open":
-  Pocket voice-cond KV snapshot (top RTF item), chunk-0 minChars TTFA
-  exemption.
-- `REPO-MAP.md` still describes the sherpa-onnx architecture.
-- Whether two product flavors still earn their keep now the paywall — the
-  original reason they differed — is gone.
+Scope: Room **v9 → v10** with a table rebuild (PK change), plus
+`app_alias_mapping.aliasName` → `aliasId`, `fallbackAliasName` →
+`fallbackAliasId`, and the DataStore key `primary_alias_name` →
+`primary_alias_id`. Roughly 66 reference sites across three identifier
+names. **It migrates live data on Max's daily driver — test the migration,
+don't bolt it onto another change.**
 
 ## Guardrails
 
-- **Never retune Trailer** — Max signed it off 2026-07-26.
+- **Never retune Trailer** — signed off 2026-07-26.
 - Max's daily driver is the **release** app (`app.marmalade.tts`); never
-  uninstall it and never run `connectedAndroidTest` (it wipes installed
-  engines + config). The debug app is disposable.
+  uninstall it and never run `connectedAndroidTest` (wipes engines +
+  config). The debug app is disposable.
 - Restore any `settings put secure tts_default_synth/tts_default_rate`
-  changes after testing (original: `app.marmalade.tts` / rate **307**).
+  after testing (original: `app.marmalade.tts` / rate **307**).
 - Any built-in effect chain change needs a `CATALOG_VERSION` bump.
 - Effect presets are mirrored in the CLI and must change together.
-- **github is public.** Max gives an explicit all-clear per push. Never
-  push `origin`/Forgejo by hand.
+- **github is public.** Max gives an explicit all-clear per push, every
+  time. Never push `origin`/Forgejo by hand.
+- Big scratch under `~/coding/scratch/`, never `/tmp`.
