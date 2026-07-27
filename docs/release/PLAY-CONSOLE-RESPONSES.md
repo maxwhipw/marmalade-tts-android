@@ -51,32 +51,84 @@ GitHub Pages render of the same file are drop-in replacements.)
 ## Data safety form
 
 - **Does your app collect or share any of the required user data
-  types?** → **No**
+  types?** → **Yes**
 
-⚠️ **Re-check this before submitting.** The old rationale said
-"synthesized text never leaves the device". That stopped being true when
-the cloud API engine landed (2026-07-24): if the user configures a
-provider and picks one of its voices, the text to be spoken is sent to
+**This answer changed on 2026-07-27, from No.** Two earlier rationales
+for **No** were both wrong, and the second was wrong in a subtle way
+worth recording so nobody re-derives it.
+
+**Wrong rationale 1 — "synthesized text never leaves the device."** True
+until the cloud API engine landed (2026-07-24). Since then, a configured
+provider plus a cloud voice means the text to be spoken is transmitted to
 Venice or OpenAI.
 
-The **No** answer is still defensible, on Play's exemption for data
-transferred "based on a specific user-initiated action, where the user
-reasonably expects the data to be shared, **or** based on a prominent
-in-app disclosure and consent"
-(support.google.com/googleplay/android-developer/answer/10787469).
-Marmalade satisfies the disclosure limb: the Cloud voices screen states
-"your text is sent over the network per request" before any key is
-entered, and the key field states the key is "stored only on this device
-and sent only to <provider>". Nothing reaches a provider unless the user
-has entered their own API key and selected a cloud voice.
+**Wrong rationale 2 — "the prominent-disclosure exemption covers it."**
+The exemption is real but it is a **sharing** exemption, and the question
+asks "collect **or** share". Google defines the two separately
+([answer/10787469](https://support.google.com/googleplay/android-developer/answer/10787469)):
 
-The uncomfortable edge is the **system-TTS path**: a cloud voice set as
-the primary alias means text from *other* apps flows to the provider
-without a per-utterance user action. That is disclosed in PRIVACY.md and
-cloud voices are labelled in the picker, but if a reviewer pushes back,
-the honest fallback is to declare it rather than argue — the data type
-would be "Other in-app text", collected and shared, for App
-functionality.
+> **"Collect"** means transmitting data from your app off a user's device.
+
+> **"Sharing"** refers to transferring user data collected from your app
+> to a third party.
+
+The only exemptions from disclosing **collection** are on-device-only
+processing and end-to-end encryption. Neither applies: the text does
+leave the device, and TLS is not end-to-end encryption in Google's sense
+— the provider can read it. So the collect limb is met regardless of how
+strong the disclosure is.
+
+**Ephemeral processing does not rescue a No either**, which is the trap.
+Google's wording is explicit that it is a *display* suppression, not a
+declaration exemption:
+
+> User data transmitted off device that is processed ephemerally **needs
+> to be included in your form response**, but if it meets the standard
+> below, it will not be disclosed in your app's Data safety section on
+> Google Play.
+
+> Processing data "ephemerally" means accessing and using it while the
+> data is only stored in memory and retained for no longer than necessary
+> to service the specific request in real-time.
+
+So: enter it in the form, mark it ephemeral, and Google decides what the
+public listing shows.
+
+### What to declare
+
+| Field | Answer |
+|---|---|
+| Data type | **App activity → Other user-generated content** |
+| Collected | **Yes** — it is transmitted off device |
+| Shared | **Yes** — it goes to a third party (see note below) |
+| Processed ephemerally | **Yes** — held in memory for the request only; Marmalade stores no text and has no server |
+| Purpose | **App functionality** only |
+| Required or optional | **Optional** — cloud voices are opt-in; on-device voices send nothing |
+
+Marmalade *could* lean on the sharing exemption and leave "Shared"
+unticked — the consent gate (2026-07-27) makes the prominent-disclosure
+limb genuinely strong. **Declare it anyway.** The exemption turns on
+whether the user "reasonably expects" the transfer, and the system-TTS
+path is exactly where that expectation is weakest: with a cloud voice as
+the primary alias, text from *other* apps — ebooks, messages, anything an
+accessibility service reads — reaches the provider without any action
+inside Marmalade. Ticking the box costs a line on the store listing and
+removes the whole argument. For an app whose pitch is privacy, saying so
+plainly is on-brand.
+
+The user's **API key** is not declared separately: it is the user's own
+credential being sent to the service that issued it, as authentication.
+
+### Security practices (these appear once collection is Yes)
+
+- **Is all user data encrypted in transit?** → **Yes.** Provider calls
+  and engine downloads are HTTPS.
+- **Can users request that data be deleted?** → **No.** Marmalade holds
+  nothing to delete — no server, no account. Deletion of anything a
+  provider retains has to be requested from that provider, which
+  PRIVACY.md states.
+- **Independent security review badge** → skip. Requires a paid MASA
+  audit by an authorized lab.
 
 Everything else is unambiguous: no analytics, no accounts, no ads, no
 crash reporting. The engine-file download from GitHub transmits no user

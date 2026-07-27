@@ -210,9 +210,15 @@ keyPassword=…<button onclick="cp(this)">copy</button></pre>
       <div class="note">It also spells out the consequence a reader would otherwise miss: Marmalade is a <em>system</em> TTS engine, so a cloud primary alias means other apps' text — ebooks, messages, anything an accessibility service reads — goes to that provider too.</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.4</span><span class="t">Data safety form</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-      <div class="body"><p><strong>No data collected, no data shared</strong> — still the right answer, but <em>not</em> for the reason the plan used to give.</p>
-      <p>The old rationale was "synthesized text never leaves the device". That is no longer true. The answer now rests on Play's other limb: transfers made <em>"based on a prominent in-app disclosure and consent"</em> are exempt. The Cloud voices screen says "your text is sent over the network per request" before any key can be entered, which meets it.</p>
-      <div class="note warn">The weak edge is the system-TTS path — a cloud primary alias forwards other apps' text, and those apps' users never saw the disclosure. If a reviewer pushes on it, don't argue: declare the text transfer rather than defend the exemption. Full reasoning in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</div></div></div>
+      <div class="body"><p><strong>Yes — declare it.</strong> Changed 27 Jul from No, which was wrong twice over.</p>
+      <p>"Text never leaves the device" stopped being true when the cloud engine landed. The fallback rationale — Play's <em>prominent in-app disclosure and consent</em> exemption — is a <strong>sharing</strong> exemption, and the question asks "collect <em>or</em> share". Google defines collection as <em>"transmitting data from your app off a user's device"</em>, and exempts only on-device processing and end-to-end encryption. TLS isn't end-to-end; the provider reads the text. The collect limb is met however good the disclosure is.</p>
+      <p>Ephemeral processing doesn't rescue a No either — it suppresses public <em>display</em>, not the declaration: <em>"needs to be included in your form response, but… will not be disclosed in your app's Data safety section"</em>.</p>
+      <pre>App activity → Other user-generated content
+  Collected: Yes · Shared: Yes · Ephemeral: Yes
+  Purpose: App functionality · Optional
+Encrypted in transit: Yes
+Users can request deletion: No (nothing is held; goes to the provider)<button onclick="cp(this)">copy</button></pre>
+      <div class="note">Shared could be left unticked on the exemption — the consent gate makes that limb strong. Tick it anyway: the exemption turns on what the user "reasonably expects", and the system-TTS path (a cloud primary alias forwards other apps' text) is exactly where that expectation is weakest. One line on the listing buys the whole argument away. Full reasoning in PLAY-CONSOLE-RESPONSES.md §"Data safety form".</div></div></div>
 
     <div class="step max" data-s="max"><div class="hd"><span class="n">2.5</span><span class="t">Foreground service declarations — the risky one</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
       <div class="body"><p>Two types are declared, each needing a use-case justification <em>and</em> a demo video.</p>
