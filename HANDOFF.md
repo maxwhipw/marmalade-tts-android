@@ -1,3 +1,64 @@
+# HANDOFF — Monotone male/female + release-decision gate, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`87e45db`**.
+**370 unit tests green**; installed and verified on the Pixel 8a. **Nothing pushed.**
+
+Sister commit in `~/coding/marmalade-tts-cli`: `8ccfff7` (736 tests, unpushed).
+
+## What shipped — `87e45db`
+
+- **Deadpan → two presets.** `Monotone female` (160 Hz) and `Monotone male`
+  (90 Hz), both the bare `Monotone` block. Max set both targets by ear.
+  Split into two rather than resolved from `VoiceMeta.gender` because **97 of
+  the 151 voices on the device carry no gender**, every one of them cloud,
+  including Gradium/Maximilian — the voice he actually uses. A metadata-driven
+  target would silently fall back for two thirds of the catalog.
+- **Next room removed from both repos** after a second listen.
+- **ElevenLabs latency seed `quick` → `slow`** — Max ran the comparison.
+- `CATALOG_VERSION` **29 → 30**. Device-verified: both presets seeded with the
+  right targets, `builtin:deadpan` and `builtin:next_room` pruned, 22 built-ins.
+
+## Play Store readiness — assessed, NOT started
+
+`docs/release/PLAY-RELEASE-PLAN.md` is the step list. Current state:
+
+**Done:** espeak-ng compiled from source in-APK (the old policy blocker);
+minified R8 release build smoke-tested on device; 5 phone screenshots in
+`fastlane/metadata/android/en-US/images/phoneScreenshots/`; listing text;
+`PRIVACY.md`; icon.
+
+**Blocked on Max:** upload keystore (`keystore.properties` is absent), Play
+Console account (\$25), privacy-policy public URL, foreground-service
+declarations + demo video, content rating.
+
+**Missing asset:** feature graphic 1024×500 — only `icon.png` exists.
+
+**Time-boxed code item:** `targetSdk`/`compileSdk` are **35**; Play requires
+**36 for updates from ~2026-08-31**. Deliberately not started this turn — it is
+a behaviour-change risk (edge-to-edge enforcement among others) on the exact
+build Max is auditioning presets with, and it wants its own verify pass.
+
+## The open decision that gates the rest
+
+Max is considering **free + GPLv3, no paywall**, monetizing later via resold
+inference instead of Pro unlocks. That decides the release shape:
+
+- The paywall is **code-complete but never smoke-tested** (see
+  `docs/release/PAYWALL-PLAN.md`). Two flavors, `ProEntitlement`, `ProGate`,
+  billing wiring, gates in `AppRoot`, `TtsRouter.resolvePerApp` and
+  `DefaultEffectResolver`.
+- ⚠️ **If the Play build ships with `BILLING_ENABLED=true` and no
+  `marmalade_pro` IAP exists in the Console, Play users are locked out of
+  per-app routing and custom effects with a purchase flow that cannot
+  succeed.** Shipping Play free therefore requires either deleting the gates
+  or forcing `isPro` true — not merely "not creating the IAP".
+- Source is **MIT**; the distributed APK is already **GPL-3.0-or-later**
+  because espeak-ng is compiled in. Going GPLv3 at the source level is a real
+  change of posture, not a formality — MIT source means anyone can swap
+  espeak for a permissive phonemizer and close the result.
+
 # HANDOFF — trial-batch verdicts + a Monotone passthrough bug, 2026-07-26 (branch verify/routing-on-api-engine)
 
 ## Branch state
