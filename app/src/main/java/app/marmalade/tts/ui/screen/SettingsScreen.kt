@@ -27,11 +27,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -118,19 +116,20 @@ fun SettingsScreen(
     val intraOpThreads by viewModel.intraOpThreads.collectAsStateWithLifecycle()
     val showDeveloperEngines by viewModel.showDeveloperEngines.collectAsStateWithLifecycle()
     val keepaliveMode by viewModel.keepaliveMode.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
         // AppRoot's outer Scaffold owns status-bar insets; opt this inner
         // Scaffold + its TopAppBar out so the bar doesn't double-pad itself.
         contentWindowInsets = WindowInsets(0),
         topBar = {
+            // Deliberately no scrollBehavior. A pinned behaviour still swaps in
+            // M3's elevated `scrolledContainerColor` the moment content passes
+            // under the bar, and no other screen does that — Settings was the
+            // only one whose title background changed colour as you scrolled.
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
                 windowInsets = WindowInsets(0),
-                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
