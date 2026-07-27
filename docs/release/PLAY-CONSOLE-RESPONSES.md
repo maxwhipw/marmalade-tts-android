@@ -52,11 +52,35 @@ GitHub Pages render of the same file are drop-in replacements.)
 
 - **Does your app collect or share any of the required user data
   types?** → **No**
-- That's the whole form. Rationale if asked: the app has no analytics,
-  no accounts, no ads, no crash reporting; the only network use is the
-  user-initiated download of voice files from GitHub, which transmits
-  no user data and falls under Play's ephemeral-processing exemption.
-  Synthesized text never leaves the device.
+
+⚠️ **Re-check this before submitting.** The old rationale said
+"synthesized text never leaves the device". That stopped being true when
+the cloud API engine landed (2026-07-24): if the user configures a
+provider and picks one of its voices, the text to be spoken is sent to
+Venice or OpenAI.
+
+The **No** answer is still defensible, on Play's exemption for data
+transferred "based on a specific user-initiated action, where the user
+reasonably expects the data to be shared, **or** based on a prominent
+in-app disclosure and consent"
+(support.google.com/googleplay/android-developer/answer/10787469).
+Marmalade satisfies the disclosure limb: the Cloud voices screen states
+"your text is sent over the network per request" before any key is
+entered, and the key field states the key is "stored only on this device
+and sent only to <provider>". Nothing reaches a provider unless the user
+has entered their own API key and selected a cloud voice.
+
+The uncomfortable edge is the **system-TTS path**: a cloud voice set as
+the primary alias means text from *other* apps flows to the provider
+without a per-utterance user action. That is disclosed in PRIVACY.md and
+cloud voices are labelled in the picker, but if a reviewer pushes back,
+the honest fallback is to declare it rather than argue — the data type
+would be "Other in-app text", collected and shared, for App
+functionality.
+
+Everything else is unambiguous: no analytics, no accounts, no ads, no
+crash reporting. The engine-file download from GitHub transmits no user
+data.
 
 ## Foreground service declarations
 

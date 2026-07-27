@@ -1,58 +1,112 @@
 # Privacy Policy — Marmalade TTS
 
-_Last updated: 2026-06-08_
+_Last updated: 2026-07-26_
 
-Marmalade TTS is an **offline, on-device text-to-speech app**. It is
-private by design: the text you have it read never leaves your phone,
-and the app collects no personal data. This policy explains exactly
-what the app does and does not do with your information.
+Marmalade TTS is an **on-device text-to-speech app**. By default it is
+private by design: the text you have it read never leaves your phone, and
+the app collects no personal data.
+
+Marmalade also lets you *optionally* use a third-party cloud voice
+provider. If you choose to, the text you have spoken is sent to that
+provider. That is the one and only case in which your text leaves your
+device, it never happens unless you set it up yourself, and it is
+described in full below.
 
 ## Summary
 
-- **No data collection.** We do not collect, store, or transmit any
-  personal data.
-- **No analytics, tracking, telemetry, crash reporting, ads, or
-  accounts.** None. There is no backend that Marmalade controls.
-- **Speech happens on your device.** The text you (or other apps) send
-  to Marmalade is converted to audio locally and never uploaded.
-- **The only network use** is downloading optional voice/engine files
-  from GitHub when you explicitly choose to install an engine.
+- **We collect nothing.** No analytics, tracking, telemetry, crash
+  reporting, ads, or accounts. There is no Marmalade server anywhere —
+  we could not collect your data even if we wanted to.
+- **On-device voices are fully offline.** Text sent to Marmalade's
+  built-in engines is converted to audio locally and never uploaded.
+- **Cloud voices are opt-in and send your text to a third party.** If
+  you add a provider's API key and select one of its voices, your text
+  goes to that company, under *their* privacy policy and terms — not
+  ours. See below.
+- **Your API keys stay on your device** and are sent only to the
+  provider they belong to.
 
 ## What stays on your device
 
-- **Text to be spoken** — whether you type it, share it to Marmalade,
-  or another app sends it through Android's system text-to-speech
-  interface. Synthesis is local; the text is never sent anywhere.
 - **Your settings and voice choices** — voice selections, aliases /
-  personas, audio-effect presets, per-app voice routing, and history
-  are stored in app-private storage on the device.
+  personas, audio-effect presets, per-app voice routing, and history are
+  stored in app-private storage.
+- **Your provider API keys** — stored in app-private storage. They are
+  never sent anywhere except to the provider they authenticate against.
+- **Text spoken with an on-device voice** — synthesis happens locally
+  and the text is never transmitted.
 
-## The only data that leaves your device
+## Cloud voice providers (optional)
 
-When you tap "Install" on an engine (during onboarding or in
-Settings → Engines), the app downloads that engine's model and
-phonemizer files over HTTPS from:
+Marmalade can synthesize speech through third-party cloud providers —
+currently **Venice AI** and **OpenAI**, with the list updatable in future
+releases. This is entirely opt-in. It does nothing until you go to
+**Engines → Cloud voices**, add your own API key for a provider, and
+select one of that provider's voices.
 
-> **github.com/maxwhipw/marmalade-tts-android-engines** (GitHub
-> Releases)
+**When you use a cloud voice, the following is sent to that provider
+over HTTPS:**
 
-These are ordinary file downloads. The contents of each file are
-verified against a pinned SHA-256 hash before being saved. This is the
-**entire** list of network activity. The app does not contact any other
-server, does not send any information about you with these requests
-beyond what a normal HTTPS file download requires, and works fully
-offline once your chosen engines are installed.
+- **The text to be spoken.** In full.
+- The voice and model you selected, and the speed and audio format
+  requested.
+- Your API key for that provider, as authentication.
+- When discovering voices, a request asking the provider which models
+  and voices your account can use.
 
-GitHub's handling of the network request (e.g. server logs) is governed
-by [GitHub's Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
-Marmalade has no server of its own.
+**That data is then handled by that provider, under that provider's own
+privacy policy and terms and conditions — not this one.** What they log,
+how long they keep it, and whether they use it to train models is
+governed by their policies and your account with them. Please read them
+before enabling a cloud voice:
+
+- Venice AI — <https://venice.ai/legal/privacy> and <https://venice.ai/legal/tos>
+- OpenAI — <https://openai.com/policies/privacy-policy> and <https://openai.com/policies/terms-of-use>
+
+**We are not affiliated with, endorsed by, sponsored by, or partnered
+with any of these providers in any way.** Marmalade is an independent
+app that speaks their public APIs using credentials you supply and an
+account you hold directly with them. Their names and trademarks are used
+only to identify the service you are connecting to. We receive nothing
+from them, we have no visibility into your usage of them, and we cannot
+act on your behalf with them — including honouring any request to delete
+data they hold. Direct those requests to the provider.
+
+**One consequence worth understanding.** Marmalade can act as your
+system-wide text-to-speech engine, and it can route particular apps to
+particular voices. If you set a **cloud** voice as your primary alias or
+route an app to one, then text those *other* apps ask Android to speak —
+your ebooks, your messages, whatever an accessibility service reads
+aloud — is also sent to that provider. If you want a guarantee that
+nothing ever leaves your device, use only the on-device engines. The app
+labels cloud voices as such wherever they appear.
+
+## Other network activity
+
+When you tap "Install" on an on-device engine (during onboarding or in
+Engines), the app downloads that engine's model and phonemizer files over
+HTTPS from:
+
+> **github.com/maxwhipw/marmalade-tts-android-engines** (GitHub Releases)
+
+These are ordinary file downloads. Each file is verified against a
+pinned SHA-256 hash before being saved. No information about you is sent
+beyond what a normal HTTPS file download requires. Once your chosen
+on-device engines are installed, they work fully offline.
+
+GitHub's handling of that request (e.g. server logs) is governed by
+[GitHub's Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+
+Apart from the engine downloads above and any cloud provider you
+explicitly configure, the app contacts no other server. Marmalade has no
+server of its own.
 
 ## Permissions and why they are needed
 
 | Permission | Why Marmalade needs it |
 |---|---|
-| `INTERNET` | Solely to download optional engine/model files from GitHub Releases (above). Used for nothing else. |
-| `POST_NOTIFICATIONS` (Android 13+) | To show the "speaking" / "keeping engine loaded" foreground notice required by Android when the app plays audio or runs a foreground service. |
+| `INTERNET` | To download optional engine/model files from GitHub Releases, and — only if you configure one — to reach your chosen cloud voice provider. |
+| `POST_NOTIFICATIONS` (Android 13+) | To show the "speaking" / "keeping engine loaded" foreground notice Android requires when the app plays audio or runs a foreground service. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | To keep long-form speech playing reliably (including with the screen off) and to expose lock-screen / Bluetooth playback controls. |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | For the optional "keep engine loaded" service so the next speak request is instant. You opt into this in Settings → Performance. |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | To offer an in-app prompt asking Android not to pause the speech service mid-sentence when the screen sleeps. The prompt is optional and you can decline it. |
@@ -64,7 +118,9 @@ app uses which voice; this stays on your device.
 ## Children's privacy
 
 Marmalade does not collect any data from anyone, including children, and
-contains no ads or in-app purchases.
+contains no ads and no in-app purchases. Every feature is free. Note
+that the optional cloud providers above have their own age and account
+requirements.
 
 ## Changes to this policy
 
