@@ -136,7 +136,11 @@ private val VOCAB: Map<Char, Int> = mapOf(
     '→' to 171, // → level
     '↗' to 172, // ↗ rise
     '↘' to 173, // ↘ fall
-    'ᴻ' to 177, // ᵻ
+    'ᵻ' to 177,
+    // ɯ and ʔ are 5.24% of Japanese phoneme output and were absent
+    // entirely, so every one became PAD. IDs are the bundle's own.
+    'ɯ' to 110,
+    'ʔ' to 148,
 )
 
 /**
