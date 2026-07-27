@@ -73,12 +73,12 @@ class EffectBlockJsonTest {
         assertEquals(EffectChain.AI_BLOCKS, blocksOf(BuiltinEffects.AI_ID))
         assertEquals(EffectChain.ETHEREAL_BLOCKS, blocksOf(BuiltinEffects.ETHEREAL_ID))
         assertEquals(EffectChain.DRAGON_BLOCKS, blocksOf(BuiltinEffects.DRAGON_ID))
-        assertEquals(EffectChain.NEXT_ROOM_BLOCKS, blocksOf(BuiltinEffects.NEXT_ROOM_ID))
         // Android-only stackups (E-L).
         assertEquals(EffectChain.CYBORG_BLOCKS, blocksOf(BuiltinEffects.CYBORG_ID))
         assertEquals(EffectChain.EIGHT_BIT_BLOCKS, blocksOf(BuiltinEffects.EIGHT_BIT_ID))
         assertEquals(EffectChain.GLITCH_BLOCKS, blocksOf(BuiltinEffects.GLITCH_ID))
-        assertEquals(EffectChain.DEADPAN_BLOCKS, blocksOf(BuiltinEffects.DEADPAN_ID))
+        assertEquals(EffectChain.MONOTONE_FEMALE_BLOCKS, blocksOf(BuiltinEffects.MONOTONE_FEMALE_ID))
+        assertEquals(EffectChain.MONOTONE_MALE_BLOCKS, blocksOf(BuiltinEffects.MONOTONE_MALE_ID))
     }
 
     @Test

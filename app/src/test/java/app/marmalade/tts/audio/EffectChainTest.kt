@@ -93,21 +93,18 @@ class EffectChainTest {
             listOf(EffectBlock.Lowpass(3446f), EffectBlock.Bitcrush(7f, 8f)),
             EffectChain.EIGHT_BIT_BLOCKS,
         )
-        assertEquals(
-            listOf(EffectBlock.Reverb(60f), EffectBlock.Lowpass(600f), EffectBlock.Vol(1.8f)),
-            EffectChain.NEXT_ROOM_BLOCKS,
-        )
     }
 
     /**
-     * Deadpan has no CLI counterpart — [EffectBlock.Monotone] has no sox
-     * equivalent — so it is pinned here rather than in the mirror test above.
-     * The bare block is the recipe Max signed off on 2026-07-26; anything
-     * stacked after it blurred the words.
+     * The Monotone presets have no CLI counterpart — [EffectBlock.Monotone]
+     * has no sox equivalent — so they are pinned here rather than in the
+     * mirror test above. Both are the bare block, at the two targets Max set
+     * by ear on device 2026-07-26; anything stacked after it blurred the words.
      */
     @Test
-    fun `DEADPAN is the Monotone block alone`() {
-        assertEquals(listOf(EffectBlock.Monotone(160f)), EffectChain.DEADPAN_BLOCKS)
+    fun `the Monotone presets are the bare block at their two targets`() {
+        assertEquals(listOf(EffectBlock.Monotone(160f)), EffectChain.MONOTONE_FEMALE_BLOCKS)
+        assertEquals(listOf(EffectBlock.Monotone(90f)), EffectChain.MONOTONE_MALE_BLOCKS)
     }
 
     // ── identity paths ───────────────────────────────────────────────────────

@@ -212,7 +212,8 @@ class CloudProvidersTest {
         fun seed(id: String) = venice.models.first { it.id == id }.latency
         assertEquals(LatencyBucket.INSTANT, seed("tts-kokoro"))
         assertEquals(LatencyBucket.INSTANT, seed("tts-gradium-v1"))
-        assertEquals(LatencyBucket.QUICK, seed("tts-elevenlabs-turbo-v2-5"))
+        // Slow since 2026-07-26 — Max ran the comparison on device.
+        assertEquals(LatencyBucket.SLOW, seed("tts-elevenlabs-turbo-v2-5"))
         assertEquals(LatencyBucket.QUICK, seed("tts-minimax-speech-02-hd"))
         assertEquals(LatencyBucket.QUICK, seed("tts-xai-v1"))
         assertEquals(LatencyBucket.SLOW, seed("tts-inworld-1-5-max"))

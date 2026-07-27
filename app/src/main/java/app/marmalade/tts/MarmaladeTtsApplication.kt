@@ -263,7 +263,13 @@ class MarmaladeTtsApplication : Application() {
          *    Crooner, Fine print, Bedtime and Tiles are rejected — their
          *    `builtin:test_*` rows are pruned. Megaphone Vol 1.1 → 0.8 and
          *    Intercom 1.2 → 0.9; both were still too hot.
+         *  - v30: 1.0.0-beta.1 — second listening pass. Next room dropped from
+         *    both repos after all. Deadpan becomes two presets, `Monotone
+         *    female` (160 Hz) and `Monotone male` (90 Hz) — one target can't
+         *    serve both registers, and two thirds of the cloud voices carry no
+         *    gender to resolve it from. `builtin:deadpan` and
+         *    `builtin:next_room` are pruned.
          */
-        const val CATALOG_VERSION: Int = 29
+        const val CATALOG_VERSION: Int = 30
     }
 }

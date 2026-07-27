@@ -309,15 +309,6 @@ object EffectChain {
         EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f),
         EffectBlock.Tempo(factor = 0.85f),
     )
-    // A voice through a closed door. Order is the whole trick: the reverb
-    // happens in the *other* room, so the low-pass after it muffles the tail
-    // along with the voice — reverb last would be a dark voice in a bright
-    // room, which breaks the image.
-    val NEXT_ROOM_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Reverb(reverberance = 60f),
-        EffectBlock.Lowpass(freqHz = 600f),
-        EffectBlock.Vol(factor = 1.8f),
-    )
 
     // -- Stackups using the Android-only blocks (E-L) — no CLI equivalent -------
 
@@ -347,8 +338,16 @@ object EffectChain {
     // also carried chorus, a presence bell and a little room; Max picked the
     // bare block. TD-PSOLA already reads as unmistakably synthetic on its own,
     // and everything stacked on top only blurred the words.
-    val DEADPAN_BLOCKS: List<EffectBlock> = listOf(
+    //
+    // Split by voice range rather than resolved from voice metadata: a target
+    // an octave off the speaker's own register sounds wrong, and two thirds of
+    // the cloud voices carry no gender to resolve from. Both targets are Max's,
+    // set by ear on device.
+    val MONOTONE_FEMALE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Monotone(targetHz = 160f),
+    )
+    val MONOTONE_MALE_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Monotone(targetHz = 90f),
     )
 
     /**

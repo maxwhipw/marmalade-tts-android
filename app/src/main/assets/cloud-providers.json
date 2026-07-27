@@ -190,7 +190,7 @@
           "id": "tts-elevenlabs-turbo-v2-5",
           "displayName": "ElevenLabs Turbo v2.5",
           "sampleRate": 44100,
-          "latency": "quick",
+          "latency": "slow",
           "voices": [
             "Alice",
             "Aria",
