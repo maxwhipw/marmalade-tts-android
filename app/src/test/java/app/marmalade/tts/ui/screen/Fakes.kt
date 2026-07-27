@@ -15,10 +15,6 @@ import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.preprocessing.EngineProfiles
-import app.marmalade.tts.pro.PaywallReason
-import app.marmalade.tts.pro.ProEntitlement
-import app.marmalade.tts.pro.ProGate
-import app.marmalade.tts.pro.PurchaseResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -297,22 +293,6 @@ internal class FakeInstalledAppsProvider(
 }
 
 /** Pro entitlement pinned to a fixed answer (F-Droid behaves as `true`). */
-internal class FakeProEntitlement(isPro: Boolean = true) : ProEntitlement {
-    override val isPro = MutableStateFlow(isPro)
-    override suspend fun launchPurchase(activity: android.app.Activity): PurchaseResult =
-        PurchaseResult.NotApplicable
-
-    override suspend fun restorePurchases() = Unit
-}
-
-/** Records paywall invocations so tests can assert the gate fired. */
-internal class FakeProGate : ProGate {
-    val shown = mutableListOf<PaywallReason>()
-    override fun show(reason: PaywallReason) {
-        shown += reason
-    }
-}
-
 /**
  * A `DataStore<Preferences>` that does nothing. [FakeSettings] passes
  * this to its parent constructor purely to satisfy nullability — the

@@ -1,7 +1,6 @@
 package app.marmalade.tts.audio
 
 import app.marmalade.tts.data.db.EffectDao
-import app.marmalade.tts.pro.ProEntitlement
 
 /**
  * Resolves a stored effect reference — an [app.marmalade.tts.data.db.Effect]
@@ -28,23 +27,13 @@ interface EffectResolver {
  * `blocksJson`. A decode failure (corrupt row) degrades to the dry chain
  * rather than crashing synthesis — the persisted JSON is a system boundary,
  * and one bad row shouldn't take down the system-TTS service.
- *
- * Custom effects are a Pro feature, gated here at synth time — the same
- * pattern as [app.marmalade.tts.service.TtsRouter.resolvePerApp]'s per-app
- * gate: creation is UI-gated, but a refunded user's already-created
- * effects must go inert, not keep applying forever. The rows stay in the
- * DB (a re-purchase restores them seamlessly); built-in presets are free
- * for everyone. F-Droid's [ProEntitlement.isPro] is always true, so this
- * costs nothing there.
  */
 class DefaultEffectResolver(
     private val effectDao: EffectDao,
-    private val proEntitlement: ProEntitlement,
 ) : EffectResolver {
     override suspend fun blocksFor(effectId: String?): List<EffectBlock> {
         if (effectId == null) return emptyList()
         val row = effectDao.findById(effectId) ?: return emptyList()
-        if (!row.isBuiltin && !proEntitlement.isPro.value) return emptyList()
         return try {
             EffectBlockJson.decode(row.blocksJson)
         } catch (_: Exception) {

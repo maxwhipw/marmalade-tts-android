@@ -1,7 +1,6 @@
 package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.data.db.AppAliasMapping
-import app.marmalade.tts.pro.PaywallReason
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -23,7 +22,6 @@ import org.junit.Test
 //     └── asserts on:
 //          ├── sheetState (which alias, which ticks)
 //          ├── FakeAppAliasMappingDao.upserted / .deleted
-//          └── FakeProGate.shown  (the paywall path)
 //
 // No Android runtime — pure JVM. The PackageManager roster sits behind
 // InstalledAppsProvider precisely so this stays a plain JUnit test.
@@ -190,38 +188,16 @@ class AppRoutingViewModelTest {
         assertFalse(vm.sheetState.first().isOpen)
     }
 
-    // -- Pro gate -------------------------------------------------------------
-
     @Test
-    fun toggle_whenNotPro_opensThePaywallInsteadOfTicking() = runTest {
-        val gate = FakeProGate()
-        val vm = newViewModel(
-            roster = listOf(installed("com.moon.reader", "Moon+")),
-            isPro = false,
-            gate = gate,
-        )
-
-        vm.openSheet("narrator")
-        vm.toggle("com.moon.reader")
-
-        assertEquals(listOf(PaywallReason.PerAppVoice), gate.shown)
-        assertTrue("Nothing should be ticked", vm.sheetState.first().selected.isEmpty())
-    }
-
-    @Test
-    fun toggle_whenNotPro_stillAllowsUnticking() = runTest {
-        // The refunded-user cleanup path: routes made while subscribed must
-        // stay removable, which is why only ticking is gated.
+    fun toggle_unticksAnExistingRouteAndSaveDeletesIt() = runTest {
         val dao = FakeAppAliasMappingDao(listOf(mapping("com.moon.reader", "narrator")))
-        val gate = FakeProGate()
-        val vm = newViewModel(dao = dao, isPro = false, gate = gate)
+        val vm = newViewModel(dao = dao)
         vm.mappings.first { it.isNotEmpty() }
 
         vm.openSheet("narrator")
         vm.toggle("com.moon.reader")
         vm.saveRouting()
 
-        assertTrue("Unticking must not hit the paywall", gate.shown.isEmpty())
         assertEquals(listOf("com.moon.reader"), dao.deleted)
     }
 
@@ -230,13 +206,9 @@ class AppRoutingViewModelTest {
     private fun newViewModel(
         dao: FakeAppAliasMappingDao = FakeAppAliasMappingDao(),
         roster: List<InstalledApp> = emptyList(),
-        isPro: Boolean = true,
-        gate: FakeProGate = FakeProGate(),
     ) = AppRoutingViewModel(
         mappingDao = dao,
         appsProvider = FakeInstalledAppsProvider(roster),
-        proEntitlement = FakeProEntitlement(isPro),
-        proGate = gate,
     )
 
     private fun mapping(

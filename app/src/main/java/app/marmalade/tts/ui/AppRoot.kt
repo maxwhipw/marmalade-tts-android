@@ -40,12 +40,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.pro.PaywallReason
-import app.marmalade.tts.pro.ProEntryPoint
-import app.marmalade.tts.pro.ProGateHost
-import dagger.hilt.android.EntryPointAccessors
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.CloudApiScreen
@@ -211,17 +205,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         return
     }
 
-    // Paywall host wraps the entire navigated content. F-Droid flavor's
-    // ProGateHost is a no-op passthrough; the Play flavor renders a
-    // ModalBottomSheet next to [content] whenever the singleton ProGate
-    // flips its pending-reason. See pro/ProGate.kt.
-    val ctx = LocalContext.current
-    val proEntry = remember(ctx) {
-        EntryPointAccessors.fromApplication(ctx.applicationContext, ProEntryPoint::class.java)
-    }
-    val proGate = remember(proEntry) { proEntry.proGate() }
-    val proGateEntitlement = remember(proEntry) { proEntry.proEntitlement() }
-
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
@@ -245,7 +228,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         // family by prefix rather than exact string.
         currentRoute?.startsWith(Routes.EffectEditor) != true
 
-    ProGateHost(proGate = proGate) {
     Scaffold(
         bottomBar = {
             AnimatedVisibility(
@@ -338,23 +320,11 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 AliasScreen(onBack = { navController.navigateToTab(Routes.Speak) })
             }
             composable(Routes.Effects) {
-                // Custom-effect creation is Pro-gated. Editing built-in
-                // presets stays free (those are stable, shipped-with-the-
-                // app data, not user-created). Same precedent as the
-                // per-app voices screen — see PAYWALL-PLAN.md §4.
-                val isProState = proGateEntitlement.isPro.collectAsStateWithLifecycle()
-                val isPro = isProState.value
                 EffectsScreen(
                     onBack = { navController.navigateToTab(Routes.Speak) },
-                    onCreate = {
-                        if (isPro) navController.navigate(Routes.effectEditorCreate())
-                        else proGate.show(PaywallReason.CustomEffect)
-                    },
+                    onCreate = { navController.navigate(Routes.effectEditorCreate()) },
                     onEdit = { id -> navController.navigate(Routes.effectEditorEdit(id)) },
-                    onDuplicate = { id ->
-                        if (isPro) navController.navigate(Routes.effectEditorDuplicate(id))
-                        else proGate.show(PaywallReason.CustomEffect)
-                    },
+                    onDuplicate = { id -> navController.navigate(Routes.effectEditorDuplicate(id)) },
                 )
             }
             composable(
@@ -403,7 +373,6 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             }
         }
     }
-    } // ProGateHost
 }
 
 /**

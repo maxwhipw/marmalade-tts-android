@@ -111,7 +111,6 @@ class MarmaladeTtsServiceTest {
             mappingDao = EmptyMappingDao,
             aliasDao = EmptyAliasDao,
             settings = fakeSettings,
-            proEntitlement = AlwaysProEntitlement,
         ))
     }
 
@@ -331,7 +330,6 @@ class MarmaladeTtsServiceTest {
             mappingDao = EmptyMappingDao,
             aliasDao = aliasDao,
             settings = fakeSettings,
-            proEntitlement = AlwaysProEntitlement,
         ))
     }
 
@@ -751,13 +749,3 @@ private val NoOpPreferencesDataStoreForService =
         ): androidx.datastore.preferences.core.Preferences =
             throw UnsupportedOperationException("test stub")
     }
-
-private object AlwaysProEntitlement : app.marmalade.tts.pro.ProEntitlement {
-    override val isPro: kotlinx.coroutines.flow.StateFlow<Boolean> =
-        kotlinx.coroutines.flow.MutableStateFlow(true)
-    override suspend fun launchPurchase(
-        activity: android.app.Activity
-    ): app.marmalade.tts.pro.PurchaseResult =
-        app.marmalade.tts.pro.PurchaseResult.NotApplicable
-    override suspend fun restorePurchases() = Unit
-}

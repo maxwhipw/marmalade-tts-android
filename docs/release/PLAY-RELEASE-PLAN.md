@@ -4,12 +4,13 @@ Step-by-step path from the current tree (1.0.0-beta.1, versionCode 33)
 to a published Play listing. Steps marked **[Max]** need a human;
 everything else Claude can do or has done.
 
-> **Paywall integration is in scope for the first Play release.**
-> See [PAYWALL-PLAN.md](PAYWALL-PLAN.md). The flavor split, the
-> `marmalade_pro` IAP product, and the paywall sheet land before
-> the first Closed-track upload. The F-Droid build (see
-> [FDROID-RELEASE-PLAN.md](FDROID-RELEASE-PLAN.md)) compiles a
-> separate `fdroid` flavor that includes every Pro feature for free.
+> **There is no paywall.** The app ships free with every feature
+> unlocked in both flavors — the Pro plan was withdrawn on 2026-07-26
+> and the implementation removed; see
+> [PAYWALL-PLAN.md](PAYWALL-PLAN.md) for the reasoning. No
+> `marmalade_pro` IAP is created, and no in-app purchase or billing
+> surface is declared to the Console. The `play`/`fdroid` flavor split
+> survives only so the Play build can omit the GitHub Sponsors link.
 
 ## Phase 0 — code prerequisites
 

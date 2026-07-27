@@ -72,23 +72,17 @@ android {
 
     ndkVersion = "26.3.11579264"
 
-    // Two distribution flavors sharing one applicationId + signing config:
-    //   - `play`   : adds Google Play Billing; paywall sheet gates per-app
-    //                voices + custom effect creation behind `marmalade_pro`.
-    //   - `fdroid` : every feature unlocked, no Google classes whatsoever.
-    // Flavor source sets live under `src/play/` and `src/fdroid/`; the
-    // `playImplementation` config keeps billing-client out of the F-Droid
-    // APK at the dependency-graph level. See docs/release/PAYWALL-PLAN.md.
+    // Two distribution flavors sharing one applicationId, signing config and
+    // feature set. Every feature is free in both — the Pro paywall was removed
+    // in 1.0.0-beta.1 (see docs/release/PAYWALL-PLAN.md for why). The split
+    // survives for one difference: `src/fdroid/` carries a GitHub Sponsors
+    // link in About, and `src/play/` deliberately doesn't, because Google's
+    // payments policy is unsettled on out-of-app donation links for a
+    // developer who isn't a registered charity.
     flavorDimensions += "distribution"
     productFlavors {
-        create("fdroid") {
-            dimension = "distribution"
-            buildConfigField("boolean", "BILLING_ENABLED", "false")
-        }
-        create("play") {
-            dimension = "distribution"
-            buildConfigField("boolean", "BILLING_ENABLED", "true")
-        }
+        create("fdroid") { dimension = "distribution" }
+        create("play") { dimension = "distribution" }
     }
 
     signingConfigs {
@@ -232,12 +226,6 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.27.1")
 
     // Google Play Billing — **play flavor only**. Drives the
-    // `marmalade_pro` IAP gating per-app voices + custom effects.
-    // `playImplementation` keeps the dep (and its network calls)
-    // entirely out of the F-Droid APK's dependency graph. See
-    // docs/release/PAYWALL-PLAN.md.
-    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
-
     // Testing — JVM
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

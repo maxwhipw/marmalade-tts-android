@@ -1,4 +1,35 @@
-# Pro paywall plan — Play-only, F-Droid stays free
+# Pro paywall plan — WITHDRAWN 2026-07-26
+
+> **This plan was withdrawn and the implementation removed.** Marmalade TTS
+> ships free, with every feature unlocked, in both flavors. Nothing below is
+> live; it is kept as the record of what was built and why it was dropped.
+>
+> **Why it went.** The features being sold — per-app routing and custom
+> effects — are power-user features, and the power users of a free, local,
+> open-source TTS engine are the least likely audience to pay for them. Set
+> against that, the paywall cost two flavors of billing wiring, an entitlement
+> cache, gates in `AppRoot`, `TtsRouter.resolvePerApp` and
+> `DefaultEffectResolver`, and a permanent class of "why did my effect stop
+> working" bug — a synth-time gate that silently returned a dry chain. For a
+> first release the free, no-asterisk story is also worth more than the
+> revenue: it is what gets the app into awesome-lists and past a sceptical
+> reader without a caveat.
+>
+> Monetization, if it comes, is the metered hosted-inference tier described in
+> the agent-wiki launch-strategy note — a separate commercial service, decided
+> after there is adoption to serve. Donations via GitHub Sponsors stay in the
+> F-Droid build.
+>
+> **What was removed** (1.0.0-beta.1): `app/src/main/java/app/marmalade/tts/pro/`,
+> both flavors' `pro/` source sets, the `billing-ktx` dependency, the
+> `BILLING_ENABLED` build field and its proguard rules. The `play`/`fdroid`
+> flavor split survives for exactly one difference — the Sponsors link in
+> About, which the Play build omits because Google's payments policy is
+> unsettled on out-of-app donation links for a developer who is not a
+> registered charity.
+
+---
+
 
 Implementation spec for gating per-app voices + custom sound effects
 behind a one-time Pro purchase in the Play build, while keeping the

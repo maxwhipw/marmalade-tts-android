@@ -4,12 +4,13 @@ Step-by-step path to an F-Droid listing. F-Droid builds and signs the
 APK themselves from a tagged commit, so no keystore is needed — but the
 build must succeed on their buildserver from a clean checkout.
 
-> **F-Droid builds the `fdroid` product flavor — fully free, no
-> paywall.** The `play` flavor has a one-time IAP gating per-app
-> voices + custom effects; the `fdroid` flavor returns
-> `isPro = true` unconditionally and contains zero Google Billing
-> classes. See [PAYWALL-PLAN.md](PAYWALL-PLAN.md). The fdroiddata
-> recipe must specify `gradle: [fdroid]`.
+> **F-Droid builds the `fdroid` product flavor.** Both flavors are now
+> fully free — the paywall was withdrawn on 2026-07-26 and the billing
+> dependency removed entirely, so no build contains Google Billing
+> classes (see [PAYWALL-PLAN.md](PAYWALL-PLAN.md)). The `fdroid` flavor
+> still differs in one respect: it carries the GitHub Sponsors link in
+> About, which the Play build omits. The fdroiddata recipe must specify
+> `gradle: [fdroid]`.
 
 ## Phase 0 — code prerequisites
 

@@ -78,7 +78,6 @@ fun AppRoutingSheet(
     state: RoutingSheetState,
     installedApps: List<InstalledApp>,
     mappings: List<AppAliasMapping>,
-    isPro: Boolean,
     onQueryChange: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSave: () -> Unit,
@@ -119,12 +118,7 @@ fun AppRoutingSheet(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = if (isPro) {
-                    "Anything you don't tick here falls back to your primary alias."
-                } else {
-                    "Per-app routing is a Marmalade Pro feature. Without it every " +
-                        "app uses your primary alias — which is what most people want anyway."
-                },
+                text = "Anything you don't tick here falls back to your primary alias.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

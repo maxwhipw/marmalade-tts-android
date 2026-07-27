@@ -8,9 +8,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.AppAliasMappingDao
-import app.marmalade.tts.pro.PaywallReason
-import app.marmalade.tts.pro.ProEntitlement
-import app.marmalade.tts.pro.ProGate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -147,23 +144,15 @@ data class RoutingSheetState(
  * alias card and the app-picker sheet behind it.
  *
  * Deliberately separate from [AliasViewModel] rather than merged into it.
- * Routing needs the PackageManager roster and the Pro gate; aliases need
- * neither, and keeping them apart leaves [AliasViewModel] free of both. The
- * screen holds two `hiltViewModel()` handles.
+ * Routing needs the PackageManager roster; aliases don't, and keeping them
+ * apart leaves [AliasViewModel] free of it. The screen holds two
+ * `hiltViewModel()` handles.
  */
 @HiltViewModel
 class AppRoutingViewModel @Inject constructor(
     private val mappingDao: AppAliasMappingDao,
     private val appsProvider: InstalledAppsProvider,
-    private val proEntitlement: ProEntitlement,
-    private val proGate: ProGate,
 ) : ViewModel() {
-
-    /**
-     * `true` when the user is unlocked. F-Droid build: always true.
-     * Play build: true after a successful `marmalade_pro` purchase.
-     */
-    val isPro: StateFlow<Boolean> = proEntitlement.isPro
 
     /** Clock indirection for tests — same idiom as [AliasViewModel]. */
     internal var now: () -> Long = { System.currentTimeMillis() }
@@ -216,21 +205,15 @@ class AppRoutingViewModel @Inject constructor(
         _sheetState.value = _sheetState.value.copy(query = query)
     }
 
-    /**
-     * Tick or untick [packageName].
-     *
-     * Ticking is the Pro-gated action: for a free user it opens the paywall
-     * and leaves the selection untouched. Unticking always works.
-     */
+    /** Tick or untick [packageName]. */
     fun toggle(packageName: String) {
         val state = _sheetState.value
-        if (packageName in state.selected) {
-            _sheetState.value = state.copy(selected = state.selected - packageName)
-        } else if (proEntitlement.isPro.value) {
-            _sheetState.value = state.copy(selected = state.selected + packageName)
-        } else {
-            proGate.show(PaywallReason.PerAppVoice)
-        }
+        _sheetState.value =
+            if (packageName in state.selected) {
+                state.copy(selected = state.selected - packageName)
+            } else {
+                state.copy(selected = state.selected + packageName)
+            }
     }
 
     /**
@@ -252,11 +235,7 @@ class AppRoutingViewModel @Inject constructor(
             .map { it.packageName }
             .toSet()
 
-        // Defense in depth behind the gate in [toggle]: a free user's tick set
-        // can only shrink, so an addition here would mean the gate was
-        // bypassed. Drop it rather than granting the feature for free.
-        val selected =
-            if (proEntitlement.isPro.value) state.selected else state.selected intersect previous
+        val selected = state.selected
 
         val added = selected - previous
         val removed = previous - selected

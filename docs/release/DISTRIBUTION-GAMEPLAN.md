@@ -10,7 +10,7 @@ holds the outreach plan. Authored 2026-07-11.
 
 | Channel | Verdict |
 |---|---|
-| Google Play | Yes — `play` flavor with `marmalade_pro` IAP |
+| Google Play | Yes — `play` flavor, free, no IAP (paywall withdrawn 2026-07-26) |
 | F-Droid | Yes — `fdroid` flavor, everything free, expect `NonFreeNet` |
 | IzzyOnDroid | **No — do not submit.** Policy states "We are strongly opposed to apps which are fully or in part created by generative AI tools" (izzyondroid.org/docs/general/AppInclusionPolicy, checked 2026-07-11). This project is openly AI-assisted (Co-Authored-By trailers throughout the history); submitting means either concealment or near-certain rejection. Also 84 MB debug APK vs their ~30 MB rule-of-thumb. |
 | GitHub Releases + Obtainium | Yes — free replacement for the Izzy niche. CI already attaches APKs on tag; sideloaders add the repo in Obtainium and get auto-updates. Document it in the README install section. |
@@ -59,13 +59,11 @@ listing is live, so there's a one-tap install link.
 8. [Max] Console forms — privacy policy URL, data safety ("no data
    collected"), FGS declarations, IARC. Prepared answers in
    PLAY-CONSOLE-RESPONSES.md.
-9. [Max] Create `marmalade_pro` one-time IAP (USD 3.99 per
-   PAYWALL-PLAN.md).
 10. Upload AAB to closed testing; recruit 12+ testers if the 14-day
     rule applies (church/friends/family + r/androidapps beta-tester
-    threads are the usual well). **Max's phone has GMS disabled — all
-    Play-flavor testing (install, purchase, refund-flips-isPro) runs
-    on Tahlia's phone** or another GMS device.
+    threads are the usual well). **Max's phone has GMS disabled — any
+    Play-flavor install testing runs on Tahlia's phone** or another
+    GMS device. There is no purchase flow left to test.
 11. Pre-launch report → fix → production.
 
 ### Phase C — F-Droid (parallel with B)
@@ -102,8 +100,8 @@ time, each with the store link + a 30–60 s screen recording with audio
 1. **Screen-reader / low-vision users** — TalkBack users live in TTS
    all day and hate that quality voices need Google/network. r/Blind,
    AudioGames.net forum, AppleVis's Android sibling communities.
-   Angle: works as the system engine, accessibility never paywalled
-   (that promise is already in PAYWALL-PLAN.md — quote it).
+   Angle: works as the system engine, every feature free — nothing an
+   assistive-tech user needs sits behind a purchase.
 2. **Read-aloud / ebook people** — MobileRead forums, @Voice Aloud +
    Moon+ Reader + Librera + KOReader user communities. Angle: point
    your reader's TTS at Marmalade, get Kokoro-quality narration

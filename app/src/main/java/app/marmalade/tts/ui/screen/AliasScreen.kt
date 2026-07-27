@@ -132,7 +132,6 @@ fun AliasScreen(
     val mappings by routingViewModel.mappings.collectAsStateWithLifecycle()
     val installedApps by routingViewModel.installedApps.collectAsStateWithLifecycle()
     val routingSheet by routingViewModel.sheetState.collectAsStateWithLifecycle()
-    val isPro by routingViewModel.isPro.collectAsStateWithLifecycle()
 
     var pendingDelete by remember { mutableStateOf<VoiceAlias?>(null) }
 
@@ -280,7 +279,6 @@ fun AliasScreen(
             state = routingSheet,
             installedApps = installedApps,
             mappings = mappings,
-            isPro = isPro,
             onQueryChange = routingViewModel::onQueryChange,
             onToggle = routingViewModel::toggle,
             onSave = routingViewModel::saveRouting,
