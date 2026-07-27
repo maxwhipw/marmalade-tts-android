@@ -1,3 +1,70 @@
+# HANDOFF — paywall removed, app is free, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`6117ad6`**.
+**369 unit tests green**; both flavors assemble; installed and running on the
+Pixel 8a. **Nothing pushed.**
+
+## The big one — `64badd9`: no more Pro
+
+Max's call: ship free, revisit monetization later as a metered hosted-inference
+tier rather than Pro unlocks.
+
+**Deleted:** `app/src/main/java/app/marmalade/tts/pro/`, both flavors' `pro/`
+source sets, `billing-ktx`, the `BILLING_ENABLED` build field, its proguard
+keeps, and every gate — `AppRoot` (effect create/duplicate),
+`AppRoutingViewModel.toggle` + its save-time intersect, `TtsRouter.resolvePerApp`,
+`DefaultEffectResolver`, `MainActivity.onResume`'s entitlement re-check, and the
+`isPro` copy in `AppRoutingSheet`.
+
+**Verified:** `unzip -p <apk> classes*.dex | strings | grep -c billingclient`
+returns **0 for both the F-Droid and the Play APK**.
+
+**The flavor split survives** — `play` vs `fdroid` now differ in exactly one
+thing: `src/fdroid/.../AboutExtras.kt` renders a GitHub Sponsors link and
+`src/play/.../AboutExtras.kt` is `= Unit`. Kept deliberately: Google's payments
+policy is unsettled on out-of-app donation links for a developer who is not a
+registered charity, and with no IAP the donation link matters more, not less.
+**If that judgement is wrong, collapsing to a single flavor is now a small
+change** — nothing else differs.
+
+`docs/release/PAYWALL-PLAN.md` is kept and marked **WITHDRAWN** with the
+reasoning; PLAY-RELEASE-PLAN, FDROID-RELEASE-PLAN and DISTRIBUTION-GAMEPLAN are
+updated. `docs/AUDIT-2026-07-11.md` still describes the gates — deliberately
+untouched, it is a dated point-in-time record.
+
+## Also this turn
+
+- `c40eeab` — Settings was the only screen passing a `scrollBehavior` to its
+  top bar, so its title background tinted on scroll and nothing else did.
+- `6117ad6` — Play **feature graphic** at
+  `fastlane/metadata/android/en-US/images/featureGraphic.png`. Built by a Fable
+  subagent from the real mascot art (speaking expression) — 1024×500, 24-bit,
+  **no alpha** (Play rejects transparency), verified with `identify`.
+
+## Play readiness now
+
+**Done:** espeak-from-source, R8 release smoke-tested, 5 screenshots, feature
+graphic, listing text, `PRIVACY.md`, icon, and **no billing surface to declare**.
+
+**Blocked on Max:** upload keystore (`keystore.properties` absent), Play Console
+account, public privacy-policy URL, FGS declarations + demo video, IARC rating.
+
+**Time-boxed code item:** `targetSdk`/`compileSdk` are **35**; Play requires
+**36 for updates from ~2026-08-31**. Still not started — behaviour-change risk
+(edge-to-edge enforcement among others) that wants its own device pass.
+
+## NOT verified on device
+
+- Both **Monotone presets unheard** — 90 Hz especially is a new target.
+- Megaphone/Intercom trims unheard.
+- The **UI changes are unseen**: voice picker opening on the engine list, the
+  primary alias's routing strip being inert, and the Settings top bar.
+- **Per-app routing and custom effects are now reachable in the Play flavor for
+  the first time** — previously gated. Worth exercising both paths once.
+- StreamPerf RTF with Monotone applied.
+
 # HANDOFF — Monotone male/female + release-decision gate, 2026-07-26 (branch verify/routing-on-api-engine)
 
 ## Branch state
