@@ -31,4 +31,16 @@ interface AppAliasMappingDao {
 
     @Query("DELETE FROM app_alias_mapping WHERE packageName = :packageName")
     suspend fun delete(packageName: String)
+
+    /**
+     * Drop every mapping pointing at [aliasName].
+     *
+     * Used when an alias is promoted to primary. The primary already
+     * catches every caller that has no rule of its own, so rows naming it
+     * are redundant — and worse, the alias card deliberately makes the
+     * primary's routing strip inert, so those rows become unreachable and
+     * the apps are stuck on it with no way to move them.
+     */
+    @Query("DELETE FROM app_alias_mapping WHERE aliasName = :aliasName")
+    suspend fun releaseAppsRoutedTo(aliasName: String)
 }

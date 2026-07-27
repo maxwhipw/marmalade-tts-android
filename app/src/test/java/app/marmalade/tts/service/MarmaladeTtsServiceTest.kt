@@ -120,6 +120,7 @@ class MarmaladeTtsServiceTest {
         override suspend fun findByPackage(packageName: String) = null
         override suspend fun upsert(mapping: app.marmalade.tts.data.db.AppAliasMapping) = Unit
         override suspend fun delete(packageName: String) = Unit
+        override suspend fun releaseAppsRoutedTo(aliasName: String) = Unit
     }
 
     private object EmptyAliasDao : app.marmalade.tts.data.db.VoiceAliasDao {

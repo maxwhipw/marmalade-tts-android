@@ -11,6 +11,7 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.AppAliasMappingDao
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -134,6 +135,7 @@ data class EditorState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class AliasViewModel @Inject constructor(
     private val aliasDao: VoiceAliasDao,
+    private val mappingDao: AppAliasMappingDao,
     private val voiceDao: VoiceMetaDao,
     private val settings: SettingsRepository,
     private val installer: EngineInstaller,
@@ -553,8 +555,11 @@ class AliasViewModel @Inject constructor(
             // to the new name.
             val currentPrimary = settings.primaryAliasName.first()
             when {
-                currentPrimary == null -> settings.setPrimaryAliasName(name)
+                currentPrimary == null -> promoteToPrimary(name)
                 !state.isNew && oldName != null && oldName != name && currentPrimary == oldName ->
+                    // A rename of the current primary, not a promotion —
+                    // retarget the pointer only. Releasing here would throw
+                    // away routing the user never asked to change.
                     settings.setPrimaryAliasName(name)
                 else -> Unit
             }
@@ -583,7 +588,11 @@ class AliasViewModel @Inject constructor(
             aliasDao.delete(name)
             if (wasPrimary) {
                 val successor = aliases.value.firstOrNull { it.name != name }?.name
-                settings.setPrimaryAliasName(successor)
+                // Null can't happen behind the size<=1 guard, but a null
+                // pointer is also the documented "no primary" state, so
+                // write it through rather than inventing a successor.
+                if (successor != null) promoteToPrimary(successor)
+                else settings.setPrimaryAliasName(null)
             }
         }
         return true
@@ -598,8 +607,23 @@ class AliasViewModel @Inject constructor(
      */
     fun setPrimary(name: String) {
         viewModelScope.launch {
-            settings.setPrimaryAliasName(name)
+            promoteToPrimary(name)
         }
+    }
+
+    /**
+     * Point the primary at [name] and release any apps routed to it.
+     *
+     * The release is not tidiness, it is the fix for a trap: the primary
+     * is already the fallback for every caller without a rule of its own,
+     * so per-app rows naming it change nothing — but the alias card makes
+     * the primary's routing strip inert, so once promoted those rows can
+     * no longer be edited and the apps are pinned to it permanently.
+     * Dropping them leaves every app reachable again.
+     */
+    private suspend fun promoteToPrimary(name: String) {
+        settings.setPrimaryAliasName(name)
+        mappingDao.releaseAppsRoutedTo(name)
     }
 
     // -- internals -------------------------------------------------------------

@@ -4,6 +4,7 @@ import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
+import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -569,6 +570,65 @@ class AliasViewModelTest {
         )
     }
 
+    // -- promotion releases routing -------------------------------------------
+
+    @Test
+    fun setPrimary_releasesTheAppsRoutedToThatAlias() = runTest {
+        // The trap this closes: the alias card makes the PRIMARY's routing
+        // strip inert on purpose, so any per-app row still naming the newly
+        // promoted alias becomes uneditable and its apps are pinned to it
+        // with no way out. The rows are redundant anyway — the primary
+        // already catches every caller without a rule of its own.
+        val mappings = FakeAppAliasMappingDao(
+            listOf(
+                AppAliasMapping("com.moon.reader", "narrator", null, 0L),
+                AppAliasMapping("org.signal", "narrator", null, 0L),
+                AppAliasMapping("com.spotify.music", "robot", null, 0L),
+            ),
+        )
+        val vm = newViewModel(
+            aliases = listOf(alias("narrator"), alias("robot")),
+            mappingDao = mappings,
+        )
+
+        vm.setPrimary("narrator")
+
+        assertEquals(listOf("narrator"), mappings.released)
+        assertEquals(
+            "Only the promoted alias's rows are dropped",
+            listOf("com.spotify.music"),
+            mappings.getAll().first().map { it.packageName },
+        )
+    }
+
+    @Test
+    fun renamingThePrimary_keepsRoutingIntact() = runTest {
+        // A rename is not a promotion. Releasing here would silently throw
+        // away routing the user never touched.
+        val mappings = FakeAppAliasMappingDao(
+            listOf(AppAliasMapping("com.spotify.music", "robot", null, 0L)),
+        )
+        val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        settings.setPrimaryAliasName("narrator")
+        val existing = alias("narrator")
+        val vm = newViewModel(
+            aliases = listOf(existing),
+            mappingDao = mappings,
+            settings = settings,
+        )
+
+        vm.openEditor(existing)
+        vm.onEditorNameChange("storyteller")
+        assertTrue(vm.save())
+
+        assertEquals("storyteller", settings.primaryAliasName.first())
+        assertEquals(
+            "A rename must not drop anyone's routing",
+            emptyList<String>(),
+            mappings.released,
+        )
+    }
+
     // -- helpers --------------------------------------------------------------
 
     /**
@@ -584,6 +644,7 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         ),
+        mappingDao: FakeAppAliasMappingDao = FakeAppAliasMappingDao(),
     ): AliasViewModel {
         require(aliasDao == null || aliases.isEmpty()) {
             "Pass either aliasDao or aliases, not both"
@@ -592,6 +653,7 @@ class AliasViewModelTest {
         val voiceDao = FakeDao(voices = KittenDirectVoiceCatalog.voices)
         return AliasViewModel(
             aliasDao = dao,
+            mappingDao = mappingDao,
             voiceDao = voiceDao,
             settings = settings,
             installer = AliasFakeInstaller(),

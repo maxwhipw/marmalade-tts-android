@@ -275,6 +275,7 @@ internal class FakeAppAliasMappingDao(
     private val state = MutableStateFlow(initial)
     val upserted = mutableListOf<AppAliasMapping>()
     val deleted = mutableListOf<String>()
+    val released = mutableListOf<String>()
 
     override fun getAll() = state
     override suspend fun findByPackage(packageName: String): AppAliasMapping? =
@@ -290,6 +291,11 @@ internal class FakeAppAliasMappingDao(
     override suspend fun delete(packageName: String) {
         deleted += packageName
         state.value = state.value.filterNot { it.packageName == packageName }
+    }
+
+    override suspend fun releaseAppsRoutedTo(aliasName: String) {
+        released += aliasName
+        state.value = state.value.filterNot { it.aliasName == aliasName }
     }
 }
 
