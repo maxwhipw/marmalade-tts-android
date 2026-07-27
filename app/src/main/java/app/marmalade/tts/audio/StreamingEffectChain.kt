@@ -730,7 +730,15 @@ private class MonotoneProcessor(targetHz: Float, private val sr: Int) : BlockPro
     private fun runMarks() {
         while (true) {
             // The mark's period comes from the hop covering it, so that hop
-            // must have been analysed first.
+            // must have been ANALYSED first — not merely buffered. Checking
+            // the input length instead only looks equivalent while input
+            // arrives in small pieces, because then data availability gates
+            // detection anyway. Hand the whole utterance over in one call and
+            // marks outrun detection to the end of the buffer, where `f0At`
+            // clamps every one of them to the last analysed hop; when that hop
+            // is the leading silence of a TTS clip, the entire utterance is
+            // marked unvoiced and PSOLA degrades to an exact passthrough.
+            if (!ended && hopIndexFor(nextMarkPos) >= nextHop) return
             if (!ended && inBase + inLen < hopEndFor(nextMarkPos)) return
             if (nextHop == 0) return
             // Once the input has ended, `have` stops gating — so stop here, or

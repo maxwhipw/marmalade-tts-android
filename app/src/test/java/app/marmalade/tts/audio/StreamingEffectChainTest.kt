@@ -1,6 +1,7 @@
 package app.marmalade.tts.audio
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.sin
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -184,6 +185,42 @@ class StreamingEffectChainTest {
         val pcm = glide(20_000, 180.0, 260.0)
         val chain = listOf(EffectBlock.Monotone(160f))
         assertArrayEquals(streamWhole(chain, pcm), streamChunked(chain, pcm, 333))
+    }
+
+    @Test
+    fun `monotone flattens a glide that starts after silence`() {
+        // Real TTS output opens with a beat of silence, and that used to be
+        // enough to disable the block entirely in whole-buffer mode. Marks
+        // were gated on the input being *buffered* rather than *analysed*, so
+        // handed the whole utterance at once they ran to the end of the buffer
+        // while detection was still capped to its pitch-track ring. `f0At`
+        // clamps a mark past the analysed region to the last analysed hop —
+        // here, the silence — so every mark came out unvoiced, and unvoiced
+        // marks are a passthrough by construction: Hann grains at their own
+        // analysis spacing reconstruct the input exactly. The output was the
+        // dry signal, sample for sample, and every existing test still passed
+        // because the old fixture was voiced from sample 0.
+        val lead = sr / 2
+        val pcm = ShortArray(lead) + glide(48_000, 180.0, 260.0)
+        val out = streamWhole(listOf(EffectBlock.Monotone(160f)), pcm)
+
+        val dry = pcm.copyOfRange(lead, pcm.size)
+        val shared = minOf(dry.size, out.size - lead)
+        var diff = 0.0
+        for (i in 0 until shared) diff += abs(dry[i] - out[lead + i].toInt()).toDouble()
+        assertTrue("monotone must not degrade to a passthrough", diff / shared > 50.0)
+
+        var checked = 0
+        for (start in lead + sr / 4 until out.size - 2048 step 4096) {
+            val hz = detectHz(out, start) ?: continue
+            val cents = 1200.0 * kotlin.math.ln(hz / 160.0) / kotlin.math.ln(2.0)
+            assertTrue(
+                "output should sit on 160 Hz, got %.1f Hz (%.0f cents off) at %d".format(hz, cents, start),
+                abs(cents) < 60.0,
+            )
+            checked++
+        }
+        assertTrue("expected several voiced measurements, got $checked", checked >= 5)
     }
 
     @Test
