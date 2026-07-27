@@ -55,6 +55,15 @@
         </intent>
     </queries>
 
+    <!--
+      usesCleartextTraffic="false" is already the platform default at
+      targetSdk >= 28, so this is stated rather than changed. Two reasons
+      to state it: it is the manifest-level half of the "encrypted in
+      transit" answer on Play's Data safety form (the other half is the
+      https check in CloudProviders.parseDocument), and being explicit
+      means a dependency that merges in usesCleartextTraffic="true" fails
+      the manifest merge instead of silently winning.
+    -->
     <application
         android:name="app.marmalade.tts.MarmaladeTtsApplication"
         android:allowBackup="false"
@@ -62,6 +71,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.MarmaladeTts">
 
         <!--

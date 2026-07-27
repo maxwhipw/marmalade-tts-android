@@ -1,9 +1,11 @@
 package app.marmalade.tts.data.cloud
 
 import app.marmalade.tts.data.LatencyBucket
+import org.json.JSONException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,6 +70,37 @@ class CloudProvidersTest {
     }
 
     @Test
+    fun `a non-https provider endpoint is refused`() {
+        // The document is fetched from the network, so baseUrl is remote
+        // input — and it is exactly where the user's text and API key get
+        // POSTed. Refuse cleartext here rather than leaning on the
+        // platform's cleartext default, which a later manifest change
+        // could switch off with nothing connecting it back to this.
+        for (bad in listOf("http://api.venice.ai/v1", "HTTP://api.venice.ai/v1", "//evil.test")) {
+            assertThrows(JSONException::class.java) {
+                CloudProviders.parse(
+                    """{"providers": [{"id": "v", "displayName": "V", "baseUrl": "$bad"}]}""",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `one cleartext provider rejects the whole document`() {
+        // Failing the document (rather than dropping the bad entry) is what
+        // makes CloudProviderStore fall back to the bundled asset instead of
+        // half-applying a tampered list.
+        assertThrows(JSONException::class.java) {
+            CloudProviders.parse(
+                """{"providers": [
+                     {"id": "ok", "displayName": "OK", "baseUrl": "https://api.venice.ai/v1"},
+                     {"id": "bad", "displayName": "Bad", "baseUrl": "http://evil.test/v1"}
+                   ]}""",
+            )
+        }
+    }
+
+    @Test
     fun `bundled asset parses and covers venice + openai`() {
         val json = javaClass.classLoader!!
             .getResourceAsStream("assets/cloud-providers.json")
@@ -87,6 +120,10 @@ class CloudProvidersTest {
                 p.models.all { it.voices.isNotEmpty() },
             )
             assertFalse(p.baseUrl.endsWith("/"))
+            assertTrue(
+                "provider ${p.id} must be https",
+                p.baseUrl.startsWith("https://"),
+            )
         }
         // Venice's Kokoro entry still carries the full static voice list.
         val venice = providers.first { it.id == "venice" }

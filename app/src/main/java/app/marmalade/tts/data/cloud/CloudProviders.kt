@@ -142,13 +142,37 @@ object CloudProviders {
                 CloudProvider(
                     id = p.getString("id"),
                     displayName = p.getString("displayName"),
-                    baseUrl = p.getString("baseUrl").trimEnd('/'),
+                    baseUrl = requireHttps(p.getString("baseUrl").trimEnd('/')),
                     keyHint = p.optString("keyHint"),
                     discoverVoices = p.optBoolean("discoverVoices", false),
                     models = parseModels(p.optJSONArray("models")),
                 )
             },
         )
+    }
+
+    /**
+     * Reject any provider endpoint that isn't HTTPS.
+     *
+     * This document is fetched from the network ([CloudProviderStore.
+     * REMOTE_PROVIDERS_URL]) so a new provider can ship without an app
+     * update — which means `baseUrl` is remote input, and the user's text
+     * plus their API key are what get POSTed to it. The platform already
+     * blocks cleartext (targetSdk 36 defaults `usesCleartextTraffic` to
+     * false and no manifest overrides it), but that is a default someone
+     * could switch off years from now without connecting it to this.
+     * Refusing at the parse boundary makes "encrypted in transit" a
+     * property of the code rather than of a build setting.
+     *
+     * Throws [JSONException] rather than a bespoke type so it lands in the
+     * same handler as any other malformed document: the remote copy is
+     * discarded and the bundled asset stays in force.
+     */
+    private fun requireHttps(url: String): String {
+        if (!url.startsWith("https://", ignoreCase = true)) {
+            throw JSONException("Provider baseUrl must be https, got: $url")
+        }
+        return url
     }
 
     /** Providers only — for callers that don't care about the version. */

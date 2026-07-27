@@ -348,11 +348,32 @@ fun interface CloudSpeechHttp {
      * the (streaming) response body.
      *
      * @throws IOException on connection failure or a non-2xx status —
-     *         message carries the HTTP code + server error body so the
-     *         user-facing failure explains itself (401 bad key, 402 out
-     *         of credit, …).
+     *         the message carries the HTTP code and a fixed explanation,
+     *         never the provider's response body. See [explainStatus].
      */
     fun post(url: String, apiKey: String, json: String): InputStream
+}
+
+/**
+ * Human-readable cause for a non-2xx cloud status, built only from the
+ * status code.
+ *
+ * **The provider's error body is deliberately discarded.** Synthesis
+ * failures are logged with their exception message
+ * ([app.marmalade.tts.service.MarmaladeTtsService] logs `Synthesis
+ * failed` with the throwable), and providers routinely echo the offending
+ * request back in validation errors — so relaying the body would pipe the
+ * user's text into logcat, and from there into any bug report. The status
+ * code alone distinguishes every case the user can act on.
+ */
+internal fun explainStatus(code: Int): String = when (code) {
+    401, 403 -> "the API key was rejected — check it in Engines → Cloud voices"
+    402 -> "the provider reports no remaining credit"
+    404 -> "the provider does not offer this model or voice"
+    413 -> "the text is too long for this provider"
+    429 -> "rate limited by the provider — try again shortly"
+    in 500..599 -> "the provider had a server error"
+    else -> "the provider rejected the request"
 }
 
 /** Production [CloudSpeechHttp] on HttpURLConnection (no extra deps). */
@@ -369,11 +390,12 @@ class UrlCloudSpeechHttp @Inject constructor() : CloudSpeechHttp {
         conn.outputStream.use { it.write(json.toByteArray()) }
         val code = conn.responseCode
         if (code !in 200..299) {
-            val detail = conn.errorStream?.use { err ->
-                err.readBytes().toString(Charsets.UTF_8).take(300)
-            }.orEmpty()
+            // Drain and drop the error body rather than reading it: the
+            // connection is being torn down anyway, and the body is the
+            // one place a provider can hand back the user's own text.
+            conn.errorStream?.close()
             conn.disconnect()
-            throw IOException("Cloud API HTTP $code: $detail")
+            throw IOException("Cloud API HTTP $code — ${explainStatus(code)}")
         }
         return conn.inputStream
     }

@@ -106,7 +106,7 @@ object LicenseCatalog {
         // text with the correct copyright holder.
         License("MIT", null, "https://opensource.org/license/mit"),
         License("BSD-3-Clause", null, "https://opensource.org/license/bsd-3-clause"),
-        License("Modified BSD", null, "http://open-jtalk.sourceforge.net/"),
+        License("Modified BSD", null, "https://open-jtalk.sourceforge.net/"),
         // Standalone bodies with no embedded licensor copyright — shared.
         License(
             "GPL-3.0-or-later", "GPL-3.0.txt",
