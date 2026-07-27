@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 //     ├── activeAlias ◄────── SpeakViewModel.activeAlias
 //     │                          ▲
 //     │                          │ set by applyAlias(name); also auto-set on
-//     │                          │ VM init from settings.primaryAliasName so
+//     │                          │ VM init from settings.primaryAliasId so
 //     │                          │ effects/speed configured on the primary
 //     │                          │ alias fire on first Speak. Cleared when
 //     │                          │ defaultVoiceId emits a value that doesn't
@@ -247,7 +247,7 @@ class SpeakViewModel @Inject constructor(
 
     /** Every saved persona, in the order the alias screen shows them. */
     val personas: StateFlow<List<Persona>> =
-        combine(aliases, settings.primaryAliasName) { rows, primary ->
+        combine(aliases, settings.primaryAliasId) { rows, primary ->
             rows.map { alias ->
                 val path = voicePaths.resolve(alias.voiceId, alias.engine)
                 Persona(
@@ -403,7 +403,7 @@ class SpeakViewModel @Inject constructor(
      */
     private fun autoApplyPrimaryAlias() {
         viewModelScope.launch {
-            val primary = settings.primaryAliasName.first()
+            val primary = settings.primaryAliasId.first()
             if (primary.isNullOrBlank()) {
                 Log.d(TAG, "autoApplyPrimaryAlias: no primary set, leaving defaults")
                 return@launch

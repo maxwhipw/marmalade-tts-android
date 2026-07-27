@@ -159,6 +159,7 @@ class OnboardingViewModelTest {
         // when no primary is set yet.
         val existing = VoiceAlias(
             name = "narrator",
+            id = "id-test",
             engine = "kitten-direct-v0_8",
             voiceId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             speed = 1.0f,
@@ -179,8 +180,8 @@ class OnboardingViewModelTest {
         assertEquals(true, settings.onboarded.first())
         assertEquals(
             "Primary should self-heal to the existing alias",
-            "narrator",
-            settings.primaryAliasName.first(),
+            "id-test",
+            settings.primaryAliasId.first(),
         )
     }
 
@@ -201,7 +202,11 @@ class OnboardingViewModelTest {
         assertTrue("saveAliasAndContinue should succeed with valid fields", ok)
         assertEquals(1, aliasDao.upsertedAliases.size)
         assertEquals("narrator", aliasDao.upsertedAliases.single().name)
-        assertEquals("narrator", settings.primaryAliasName.first())
+        assertEquals(
+            "The primary points at the created row's id, not its label",
+            aliasDao.upsertedAliases.single().id,
+            settings.primaryAliasId.first(),
+        )
         // P-J: advances to BackgroundUnrestricted instead of jumping
         // straight to SystemDefault — the user still has the battery-opt
         // + system-TTS-pick steps ahead. onboarded stays false until
@@ -242,8 +247,8 @@ class OnboardingViewModelTest {
         assertEquals(1, aliasDao.upsertedAliases.size)
         val row = aliasDao.upsertedAliases.single()
         assertEquals("default", row.name)
+        assertEquals(row.id, settings.primaryAliasId.first())
         assertEquals("kokoro-direct-v1_0", row.engine)
-        assertEquals("default", settings.primaryAliasName.first())
         // Fast-defaults path skips the battery prompt by design, but now
         // routes through the notification-permission ask before the final
         // system-TTS step (Smart keep-warm is the default → needs the grant).

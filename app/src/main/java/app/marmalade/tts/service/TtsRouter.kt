@@ -21,13 +21,13 @@ import kotlinx.coroutines.flow.first
 //     ├── if callerPackage != null:
 //     │     AppAliasMappingDao.findByPackage(callerPackage) ──► mapping?
 //     │       │
-//     │       └── VoiceAliasDao.findByName(mapping.aliasName) ──► alias?
+//     │       └── VoiceAliasDao.findById(mapping.aliasId) ──► alias?
 //     │             │
 //     │             └── if alias != null → return alias  (per-app match)
 //     │
-//     ├── SettingsRepository.primaryAliasName.first() ──► primaryName?
+//     ├── SettingsRepository.primaryAliasId.first() ──► primaryName?
 //     │     │
-//     │     └── VoiceAliasDao.findByName(primaryName) ──► alias?
+//     │     └── VoiceAliasDao.findById(primaryId) ──► alias?
 //     │           │
 //     │           └── return alias OR null  (primary fallback)
 //     │
@@ -86,8 +86,8 @@ class TtsRouter @Inject constructor(
         resolvePerApp(callerPackage)?.let { return it }
 
         // 2. Primary fallback.
-        val primaryName = settings.primaryAliasName.first() ?: return null
-        return aliasDao.findByName(primaryName)
+        val primaryId = settings.primaryAliasId.first() ?: return null
+        return aliasDao.findById(primaryId)
     }
 
     /**
@@ -103,15 +103,15 @@ class TtsRouter @Inject constructor(
     suspend fun resolvePerApp(callerPackage: String?): VoiceAlias? {
         if (callerPackage == null) return null
         val mapping = mappingDao.findByPackage(callerPackage) ?: return null
-        return aliasDao.findByName(mapping.aliasName)
+        return aliasDao.findById(mapping.aliasId)
     }
     /**
      * The voice an alias falls back to when its own voice can't be reached,
      * or null when it has none (or the referenced alias has since been
-     * deleted — [VoiceAlias.fallbackAliasName] is deliberately not a foreign
+     * deleted — [VoiceAlias.fallbackAliasId] is deliberately not a foreign
      * key, so a dangling reference is expected rather than exceptional).
      */
     suspend fun fallbackVoiceIdFor(alias: VoiceAlias): String? =
-        alias.fallbackAliasName?.let { aliasDao.findByName(it) }?.voiceId
+        alias.fallbackAliasId?.let { aliasDao.findById(it) }?.voiceId
 
 }

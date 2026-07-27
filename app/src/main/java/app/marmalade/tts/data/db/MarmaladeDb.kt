@@ -41,7 +41,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class, Effect::class],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
@@ -194,3 +194,4 @@ val MIGRATION_8_9: Migration = object : Migration(8, 9) {
         db.execSQL("ALTER TABLE `voice_alias` ADD COLUMN `fallbackAliasName` TEXT")
     }
 }
+

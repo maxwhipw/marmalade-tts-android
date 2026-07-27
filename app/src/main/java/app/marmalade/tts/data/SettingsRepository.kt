@@ -107,22 +107,24 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
-     * Name of the alias currently designated as **primary** — the
-     * default-fallback voice/effect/speed bundle used when no per-app
-     * rule matches, or when an external caller asks marmalade to speak
-     * without specifying a voice.
+     * [app.marmalade.tts.data.db.VoiceAlias.id] of the alias designated
+     * **primary** — the fallback voice/effect/speed bundle used when no
+     * per-app rule matches, or when an external caller asks marmalade to
+     * speak without naming a voice.
      *
-     * Emits `null` when no primary has been set yet (fresh install,
-     * or the previously-primary alias was deleted). The alias name is
-     * the PK on the `voice_alias` table; callers must treat a stale
-     * pointer (alias deleted out from under us) as null and re-derive.
+     * Emits `null` when no primary is set (fresh install, or the primary
+     * was deleted). Callers must treat a stale pointer as null and
+     * re-derive; the id is deliberately not a foreign key.
      *
-     * Stored as a *user preference*, not as a column on `VoiceAlias`,
-     * so the alias schema stays unchanged and deleting an alias is a
-     * simple `dao.delete(name)` plus a defensive clear here.
+     * Held an alias *name* before db v10, which meant a rename silently
+     * detached the primary unless every write site remembered to retarget
+     * it. Ids do not need remembering.
+     *
+     * Stored as a user preference rather than a column on `VoiceAlias` so
+     * the alias table has no "is primary" flag to keep consistent.
      */
-    open val primaryAliasName: Flow<String?> = dataStore.data.map { prefs ->
-        prefs[KEY_PRIMARY_ALIAS]
+    open val primaryAliasId: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_PRIMARY_ALIAS_ID]
     }
 
     /**
@@ -132,12 +134,12 @@ open class SettingsRepository @Inject constructor(
      * storing an empty string — keeps the "no primary set" state
      * indistinguishable from a fresh install on read.
      */
-    open suspend fun setPrimaryAliasName(value: String?) {
+    open suspend fun setPrimaryAliasId(value: String?) {
         dataStore.edit { prefs ->
             if (value == null) {
-                prefs.remove(KEY_PRIMARY_ALIAS)
+                prefs.remove(KEY_PRIMARY_ALIAS_ID)
             } else {
-                prefs[KEY_PRIMARY_ALIAS] = value
+                prefs[KEY_PRIMARY_ALIAS_ID] = value
             }
         }
     }
@@ -503,8 +505,15 @@ open class SettingsRepository @Inject constructor(
         private val KEY_KEEP_LOADED = booleanPreferencesKey("keep_engine_loaded")
 
         // Primary alias pointer (nullable). Null is encoded as
-        // "key absent from DataStore" — see [setPrimaryAliasName].
-        private val KEY_PRIMARY_ALIAS = stringPreferencesKey("primary_alias_name")
+        // "key absent from DataStore" — see [setPrimaryAliasId].
+        // Points at VoiceAlias.id since db v10. Deliberately a NEW key
+        // rather than a reused one: the old "primary_alias_name" holds a
+        // display name, and a stale name silently resolving to nothing is
+        // exactly the failure v10 set out to remove. DataStore survives the
+        // destructive DB step, so the old key may still be on disk; nothing
+        // reads it, and a pointer at a wiped alias is already handled as
+        // "no primary" by every caller.
+        private val KEY_PRIMARY_ALIAS_ID = stringPreferencesKey("primary_alias_id")
 
         // Last-seeded catalog version. v0.1.19 introduces this so that
         // expanding a voice catalog (e.g. Kokoro 11 → 53 voices for

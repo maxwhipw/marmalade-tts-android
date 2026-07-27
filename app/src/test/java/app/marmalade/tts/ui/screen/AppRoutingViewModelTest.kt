@@ -60,11 +60,11 @@ class AppRoutingViewModelTest {
         )
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
 
         val state = vm.sheetState.first()
         assertTrue("Sheet should be open", state.isOpen)
-        assertEquals("narrator", state.aliasName)
+        assertEquals("narrator", state.aliasId)
         assertEquals(
             "Only narrator's apps should start ticked",
             setOf("com.moon.reader", "com.bible.study"),
@@ -76,7 +76,7 @@ class AppRoutingViewModelTest {
     fun openSheet_loadsTheAppRoster() = runTest {
         val vm = newViewModel(roster = listOf(installed("com.moon.reader", "Moon+ Reader")))
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
 
         assertEquals(
             listOf("com.moon.reader"),
@@ -98,13 +98,13 @@ class AppRoutingViewModelTest {
         )
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.toggle("com.bible.study") // tick a new one
         vm.toggle("com.moon.reader") // untick an existing one
         vm.saveRouting()
 
         assertEquals(listOf("com.bible.study"), dao.upserted.map { it.packageName })
-        assertEquals("narrator", dao.upserted.single().aliasName)
+        assertEquals("narrator", dao.upserted.single().aliasId)
         assertEquals(
             "The roster label should be cached on the new row",
             "Bible Study",
@@ -127,18 +127,18 @@ class AppRoutingViewModelTest {
         )
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.toggle("com.pocket")
         vm.saveRouting()
 
         // The stolen row is re-pointed (PK replace), never deleted...
         assertEquals(listOf("com.pocket"), dao.upserted.map { it.packageName })
-        assertEquals("narrator", dao.upserted.single().aliasName)
+        assertEquals("narrator", dao.upserted.single().aliasId)
         assertTrue("Stealing must not delete anything", dao.deleted.isEmpty())
         // ...and the other alias keeps the app this sheet never touched.
         assertEquals(
             "quick read",
-            dao.getAll().first().single { it.packageName == "com.maps" }.aliasName,
+            dao.getAll().first().single { it.packageName == "com.maps" }.aliasId,
         )
     }
 
@@ -151,7 +151,7 @@ class AppRoutingViewModelTest {
         vm.now = { 9_999L }
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.toggle("com.pocket")
         vm.saveRouting()
 
@@ -168,7 +168,7 @@ class AppRoutingViewModelTest {
         val vm = newViewModel(dao = dao, roster = listOf(installed("com.moon.reader", "Moon+")))
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.saveRouting()
 
         assertTrue(dao.upserted.isEmpty())
@@ -180,7 +180,7 @@ class AppRoutingViewModelTest {
         val dao = FakeAppAliasMappingDao()
         val vm = newViewModel(dao = dao, roster = listOf(installed("com.moon.reader", "Moon+")))
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.toggle("com.moon.reader")
         vm.dismissSheet()
 
@@ -194,7 +194,7 @@ class AppRoutingViewModelTest {
         val vm = newViewModel(dao = dao)
         vm.mappings.first { it.isNotEmpty() }
 
-        vm.openSheet("narrator")
+        vm.openSheet("narrator", "narrator")
         vm.toggle("com.moon.reader")
         vm.saveRouting()
 
@@ -208,6 +208,7 @@ class AppRoutingViewModelTest {
         roster: List<InstalledApp> = emptyList(),
     ) = AppRoutingViewModel(
         mappingDao = dao,
+            aliasDao = FakeAliasDao(),
         appsProvider = FakeInstalledAppsProvider(roster),
     )
 
@@ -217,7 +218,7 @@ class AppRoutingViewModelTest {
         createdAt: Long = 0L,
     ) = AppAliasMapping(
         packageName = packageName,
-        aliasName = aliasName,
+        aliasId = aliasName,
         displayName = null,
         createdAt = createdAt,
     )

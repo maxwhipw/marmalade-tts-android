@@ -23,12 +23,20 @@ interface VoiceAliasDao {
     @Query("SELECT * FROM voice_alias ORDER BY createdAt ASC")
     fun getAll(): Flow<List<VoiceAlias>>
 
+    @Query("SELECT * FROM voice_alias WHERE id = :id LIMIT 1")
+    suspend fun findById(id: String): VoiceAlias?
+
+    /**
+     * Look up by display label. Still needed where the user typed or
+     * picked a name (the editor's uniqueness check, CLI-style lookups) —
+     * but never on the synthesis path, which resolves ids.
+     */
     @Query("SELECT * FROM voice_alias WHERE name = :name LIMIT 1")
     suspend fun findByName(name: String): VoiceAlias?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(alias: VoiceAlias)
 
-    @Query("DELETE FROM voice_alias WHERE name = :name")
-    suspend fun delete(name: String)
+    @Query("DELETE FROM voice_alias WHERE id = :id")
+    suspend fun delete(id: String)
 }

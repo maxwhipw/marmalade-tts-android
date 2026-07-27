@@ -79,6 +79,13 @@ object AppModule {
             // touched). Fallback stays as a belt-and-braces option for any
             // future hash drift.
             .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            // v10 re-keyed voice_alias from its display name to a UUID and
+            // repointed every reference at it. A migration for that is four
+            // statements of correlated-subquery SQL whose failure mode is
+            // silently mis-linked routing — and Max, the only user pre-1.0,
+            // would rather reinstall than carry that risk in the codebase.
+            // Scoped to 9 so the older migrations still run for anyone on them.
+            .fallbackToDestructiveMigrationFrom(9)
             .fallbackToDestructiveMigration()
             .build()
     }

@@ -87,16 +87,16 @@ fun AppRoutingSheet(
 
     // Owner lookup for the "Currently → X" subtitle. Excludes this alias —
     // those rows are ticked, which already says where they belong.
-    val otherOwners = remember(mappings, state.aliasName) {
+    val otherOwners = remember(mappings, state.aliasId) {
         mappings
-            .filter { it.aliasName != state.aliasName }
-            .associate { it.packageName to it.aliasName }
+            .filter { it.aliasId != state.aliasId }
+            .associate { it.packageName to it.aliasId }
     }
 
     // Row order is fixed when the sheet opens, NOT recomputed per tick —
     // otherwise an app would leap to the top of the list the moment you
     // ticked it, out from under the finger that just tapped it.
-    val initiallyRouted = remember(state.aliasName) { state.selected }
+    val initiallyRouted = remember(state.aliasId) { state.selected }
 
     val visible = remember(installedApps, state.query, initiallyRouted) {
         val query = state.query.trim().lowercase()
@@ -112,7 +112,7 @@ fun AppRoutingSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Text(
-                text = "Apps that use ${state.aliasName}",
+                text = "Apps that use ${state.aliasId}",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )

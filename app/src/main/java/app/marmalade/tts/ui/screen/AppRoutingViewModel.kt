@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.AppAliasMappingDao
+import app.marmalade.tts.data.db.VoiceAliasDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,7 +29,7 @@ import kotlinx.coroutines.withContext
 //     │
 //     ├── mappings  ◄────── AppRoutingViewModel.mappings
 //     │                        ▲  Flow — AppAliasMappingDao.getAll(), grouped
-//     │                        │  by aliasName to render each card's strip.
+//     │                        │  by aliasId to render each card's strip.
 //     │
 //     ├── installedApps ◄── AppRoutingViewModel.installedApps
 //     │                        ▲  one-shot InstalledAppsProvider.load(), fired
@@ -38,7 +40,7 @@ import kotlinx.coroutines.withContext
 //     │                        │  scoped to + the ticked package set.
 //     │
 //     └── actions
-//          ├── openSheet(aliasName)  — loads apps, seeds ticks from `mappings`
+//          ├── openSheet(aliasId)    — loads apps, seeds ticks from `mappings`
 //          ├── toggle(packageName)   — tick/untick (Pro-gated on tick only)
 //          └── saveRouting()         — diffs ticks against the alias's current
 //                                      rows: upsert additions, delete removals
@@ -48,7 +50,7 @@ import kotlinx.coroutines.withContext
 // alias for display, and [AppRoutingViewModel.saveRouting] translates an
 // alias-scoped tick set back into per-package upserts and deletes.
 //
-// `aliasName` references VoiceAlias.name but is NOT a foreign key — see
+// `aliasId` references VoiceAlias.id but is NOT a foreign key — see
 // AppAliasMapping kdoc. If the user deletes the referenced alias the mapping
 // stays around and TtsRouter falls back to the primary on the next synth.
 // -----------------------------------------------------------------------------
@@ -128,12 +130,18 @@ class PackageManagerAppsProvider @Inject constructor(
 /**
  * Working state of the per-alias routing sheet.
  *
- * [selected] is the full tick set for [aliasName] — seeded from the saved
+ * [selected] is the full tick set for [aliasId] — seeded from the saved
  * mappings when the sheet opens and diffed against them on save, so a sheet
  * that is opened and cancelled writes nothing.
  */
 data class RoutingSheetState(
     val isOpen: Boolean = false,
+    val aliasId: String = "",
+    /**
+     * Display label for [aliasId]. Carried alongside the id rather than
+     * looked up, because this sheet is the one place that has to *show*
+     * an alias — rendering the id would put a UUID in front of the user.
+     */
     val aliasName: String = "",
     val selected: Set<String> = emptySet(),
     val query: String = "",
@@ -151,8 +159,19 @@ data class RoutingSheetState(
 @HiltViewModel
 class AppRoutingViewModel @Inject constructor(
     private val mappingDao: AppAliasMappingDao,
+    private val aliasDao: VoiceAliasDao,
     private val appsProvider: InstalledAppsProvider,
 ) : ViewModel() {
+
+    /**
+     * id → display name, for the sheet's "Currently used by X" subtitle.
+     *
+     * The mapping rows only carry ids now, so the one place that reports
+     * which *other* alias owns an app needs a way back to a label.
+     */
+    val aliasNames: StateFlow<Map<String, String>> = aliasDao.getAll()
+        .map { rows -> rows.associate { it.id to it.name } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Clock indirection for tests — same idiom as [AliasViewModel]. */
     internal var now: () -> Long = { System.currentTimeMillis() }
@@ -176,7 +195,7 @@ class AppRoutingViewModel @Inject constructor(
     val sheetState: StateFlow<RoutingSheetState> = _sheetState.asStateFlow()
 
     /**
-     * Open the routing sheet for [aliasName], ticking the apps already routed
+     * Open the routing sheet for [aliasId], ticking the apps already routed
      * there.
      *
      * Not Pro-gated: free users can open the sheet, see which apps are routed
@@ -185,13 +204,14 @@ class AppRoutingViewModel @Inject constructor(
      * clean up mappings they made while subscribed, and it puts the paywall at
      * the moment of intent rather than on the door.
      */
-    fun openSheet(aliasName: String) {
+    fun openSheet(aliasId: String, aliasName: String) {
         loadInstalledApps()
         _sheetState.value = RoutingSheetState(
             isOpen = true,
+            aliasId = aliasId,
             aliasName = aliasName,
             selected = mappings.value
-                .filter { it.aliasName == aliasName }
+                .filter { it.aliasId == aliasId }
                 .map { it.packageName }
                 .toSet(),
         )
@@ -228,10 +248,10 @@ class AppRoutingViewModel @Inject constructor(
      */
     fun saveRouting() {
         val state = _sheetState.value
-        val aliasName = state.aliasName
+        val aliasId = state.aliasId
         val current = mappings.value
         val previous = current
-            .filter { it.aliasName == aliasName }
+            .filter { it.aliasId == aliasId }
             .map { it.packageName }
             .toSet()
 
@@ -246,7 +266,7 @@ class AppRoutingViewModel @Inject constructor(
                 mappingDao.upsert(
                     AppAliasMapping(
                         packageName = packageName,
-                        aliasName = aliasName,
+                        aliasId = aliasId,
                         displayName = roster
                             .firstOrNull { it.packageName == packageName }
                             ?.displayName,

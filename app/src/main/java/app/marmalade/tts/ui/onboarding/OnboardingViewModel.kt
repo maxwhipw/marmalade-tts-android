@@ -62,7 +62,7 @@ import kotlinx.coroutines.launch
 //     │
 //     ├── validate alias fields
 //     ├── voiceAliasDao.upsert(...)
-//     ├── settings.setPrimaryAliasName(name)  — first alias is primary
+//     ├── settings.setPrimaryAliasId(name)  — first alias is primary
 //     └── finish()
 //
 //   finish()
@@ -443,10 +443,10 @@ class OnboardingViewModel @Inject constructor(
             return false
         }
         viewModelScope.launch {
-            // Defensive collision handling: if there's an existing alias
-            // by this name we replace it (Room's REPLACE strategy on PK).
-            // The onboarding wizard only runs pre-onboarded, so this is
-            // really just a fresh-install + sideloaded-data edge case.
+            // Reuse the id if an alias by this name somehow already exists,
+            // so onboarding run twice edits one persona instead of leaving
+            // an orphan. Names are unique; ids are what routing points at.
+            val aliasId = aliasDao.findByName(name)?.id ?: VoiceAlias.newId()
             aliasDao.upsert(
                 VoiceAlias(
                     name = name,
@@ -455,12 +455,13 @@ class OnboardingViewModel @Inject constructor(
                     speed = s.speed,
                     effectPreset = s.effect.name,
                     createdAt = now(),
+                    id = aliasId,
                     // Keep effectId (the synth-path source of truth) in sync
                     // with the onboarding effect dropdown — see AliasViewModel.save.
                     effectId = BuiltinEffects.idForLegacyPreset(s.effect.name),
                 ),
             )
-            settings.setPrimaryAliasName(name)
+            settings.setPrimaryAliasId(aliasId)
             // Advance to BackgroundUnrestricted (P-J) instead of finishing —
             // the user still has the battery-opt + system-TTS-pick steps
             // ahead before they're truly set up.
@@ -518,6 +519,7 @@ class OnboardingViewModel @Inject constructor(
                 }
                 return@launch
             }
+            val aliasId = aliasDao.findByName("default")?.id ?: VoiceAlias.newId()
             aliasDao.upsert(
                 VoiceAlias(
                     name = "default",
@@ -526,9 +528,10 @@ class OnboardingViewModel @Inject constructor(
                     speed = 1.0f,
                     effectPreset = EffectPreset.NONE.name,
                     createdAt = now(),
+                    id = aliasId,
                 ),
             )
-            settings.setPrimaryAliasName("default")
+            settings.setPrimaryAliasId(aliasId)
             // Advance to the NotificationPermission step (then SystemDefault).
             // The fast-defaults path still skips the battery prompt by design,
             // but should still get the notification ask — Smart keep-warm is
@@ -564,9 +567,9 @@ class OnboardingViewModel @Inject constructor(
     fun advanceToSystemDefault(): Boolean {
         if (!aliasCreated.value) return false
         viewModelScope.launch {
-            if (settings.primaryAliasName.first() == null) {
+            if (settings.primaryAliasId.first() == null) {
                 aliasDao.getAll().first().firstOrNull()?.let { first ->
-                    settings.setPrimaryAliasName(first.name)
+                    settings.setPrimaryAliasId(first.id)
                 }
             }
         }
@@ -579,9 +582,9 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             // Self-heal: if there's no primary set but at least one alias
             // exists, auto-promote the first alias to primary.
-            if (settings.primaryAliasName.first() == null) {
+            if (settings.primaryAliasId.first() == null) {
                 aliasDao.getAll().first().firstOrNull()?.let { first ->
-                    settings.setPrimaryAliasName(first.name)
+                    settings.setPrimaryAliasId(first.id)
                 }
             }
             settings.setOnboarded(true)

@@ -1,6 +1,7 @@
 package app.marmalade.tts.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 // -----------------------------------------------------------------------------
@@ -34,13 +35,22 @@ import androidx.room.PrimaryKey
  * → "Voice aliases / personas") so a `narrator` on the phone behaves
  * the same way as `marmalade-tts narrator "..."` on the desktop.
  *
- * The primary key is the user-chosen [name] (alphanumeric +
- * dash/underscore, lower-case, no spaces) — collisions are intentional:
- * editing an alias is just an `upsert` with the same name.
+ * Identity is [id], an opaque UUID assigned once at creation and never
+ * shown. [name] is display only and free to change.
  *
- * @property name          User-facing key, e.g. `"narrator"`. Must satisfy
- *                         [NAME_REGEX]; validate at the call site
- *                         via [isValidName] before constructing.
+ * It was the other way round until db v10, and that was the source of a
+ * family of bugs: renaming an alias meant deleting one row and inserting
+ * another, so every `app_alias_mapping.aliasName`, every other alias's
+ * fallback pointer, and the primary-alias setting were all left naming a
+ * row that no longer existed. The user saw their per-app routing vanish
+ * while the picker still insisted those apps were "routed by" the old
+ * name. Nothing about a display string should be load-bearing.
+ *
+ * @property id            Opaque, immutable, never displayed. Generated
+ *                         by [newId] at creation.
+ * @property name          Display label, e.g. `"narrator"`. Mutable.
+ *                         Must satisfy [NAME_REGEX]; validate at the call
+ *                         site via [isValidName] before constructing.
  * @property engine        Matches `EngineDescriptor.name` (e.g. `"kitten"`).
  *                         Stored as a string rather than a foreign key so
  *                         engines coming and going in the catalog don't
@@ -55,9 +65,16 @@ import androidx.room.PrimaryKey
  * @property createdAt     Epoch ms — used only for stable list ordering
  *                         in the UI.
  */
-@Entity(tableName = "voice_alias")
+@Entity(
+    tableName = "voice_alias",
+    // Names stay unique — the editor's collision check relies on it and a
+    // duplicate would make the picker ambiguous. It is a constraint on a
+    // column now, not on identity.
+    indices = [Index(value = ["name"], unique = true)],
+)
 data class VoiceAlias(
-    @PrimaryKey val name: String,
+    @PrimaryKey val id: String,
+    val name: String,
     val engine: String,
     val voiceId: String,
     val speed: Float,
@@ -104,9 +121,12 @@ data class VoiceAlias(
      *
      * Added in db v8→v9.
      */
-    val fallbackAliasName: String? = null,
+    val fallbackAliasId: String? = null,
 ) {
     companion object {
+        /** A fresh opaque id. Only creation calls this; renames never do. */
+        fun newId(): String = java.util.UUID.randomUUID().toString()
+
         /**
          * Allowed alias names: letters (any case, incl. unicode), digits,
          * spaces, dashes, underscores, and apostrophes. 1–50 chars after
@@ -114,10 +134,10 @@ data class VoiceAlias(
          * time, so `"  Max Warren  "` ends up as `"Max Warren"`.
          *
          * Originally restricted to lower-case-only no-spaces tokens for
-         * supposed CLI round-trip parity, but the Android side stores
-         * aliases as Room primary keys and never shells them out — and
-         * users (rightly) want to name personas after people, with
-         * proper capitalization and spaces.
+         * supposed CLI round-trip parity. Relaxed because users (rightly)
+         * want to name personas after people, with capitals and spaces.
+         * Since db v10 the name is not an identifier at all, so the only
+         * job left for this rule is keeping labels sane and unambiguous.
          */
         const val MAX_NAME_LENGTH: Int = 50
 

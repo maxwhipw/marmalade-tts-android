@@ -48,9 +48,12 @@ import androidx.room.PrimaryKey
  * @property packageName  Android package name, e.g. `"com.spotify.music"`.
  *                        The PK; matches the value returned by
  *                        `PackageManager.getNameForUid(uid)`.
- * @property aliasName    References [VoiceAlias.name]. **Not a foreign key
- *                        on purpose** — cascade-delete behavior is wrong
- *                        here. If the alias is deleted, we want the router
+ * @property aliasId      References [VoiceAlias.id] — the immutable one,
+ *                        so renaming an alias no longer orphans every
+ *                        mapping that points at it (the bug this column
+ *                        was renamed to fix, db v10). **Still not a
+ *                        foreign key on purpose**: cascade-delete is wrong
+ *                        here. If the alias is deleted we want the router
  *                        to fall through to the primary, not silently drop
  *                        the user's per-app preference.
  * @property displayName  Cached human-readable app label from
@@ -65,7 +68,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "app_alias_mapping")
 data class AppAliasMapping(
     @PrimaryKey val packageName: String,
-    val aliasName: String,
+    val aliasId: String,
     val displayName: String?,
     val createdAt: Long,
 )

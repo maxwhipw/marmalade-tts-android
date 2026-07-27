@@ -33,7 +33,7 @@ interface AppAliasMappingDao {
     suspend fun delete(packageName: String)
 
     /**
-     * Drop every mapping pointing at [aliasName].
+     * Drop every mapping pointing at [aliasId].
      *
      * Used when an alias is promoted to primary. The primary already
      * catches every caller that has no rule of its own, so rows naming it
@@ -41,6 +41,6 @@ interface AppAliasMappingDao {
      * primary's routing strip inert, so those rows become unreachable and
      * the apps are stuck on it with no way to move them.
      */
-    @Query("DELETE FROM app_alias_mapping WHERE aliasName = :aliasName")
-    suspend fun releaseAppsRoutedTo(aliasName: String)
+    @Query("DELETE FROM app_alias_mapping WHERE aliasId = :aliasId")
+    suspend fun releaseAppsRoutedTo(aliasId: String)
 }

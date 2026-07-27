@@ -124,11 +124,12 @@ class MarmaladeTtsServiceTest {
     }
 
     private object EmptyAliasDao : app.marmalade.tts.data.db.VoiceAliasDao {
+        override suspend fun findById(id: String) = null
         override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
             kotlinx.coroutines.flow.flowOf(emptyList())
         override suspend fun findByName(name: String) = null
         override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
-        override suspend fun delete(name: String) = Unit
+        override suspend fun delete(id: String) = Unit
     }
 
     // -- 1. happy path: start → audioAvailable* → done --------------------
@@ -313,6 +314,7 @@ class MarmaladeTtsServiceTest {
     private fun installKittenPrimary() {
         val alias = app.marmalade.tts.data.db.VoiceAlias(
             name = "kitty",
+            id = "id-test",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Bella",
             speed = 1.5f,
@@ -322,11 +324,12 @@ class MarmaladeTtsServiceTest {
         val aliasDao = object : app.marmalade.tts.data.db.VoiceAliasDao {
             override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
                 kotlinx.coroutines.flow.flowOf(listOf(alias))
+            override suspend fun findById(id: String) = alias.takeIf { it.id == id }
             override suspend fun findByName(name: String) = alias.takeIf { it.name == name }
             override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
-            override suspend fun delete(name: String) = Unit
+            override suspend fun delete(id: String) = Unit
         }
-        kotlinx.coroutines.runBlocking { fakeSettings.setPrimaryAliasName("kitty") }
+        kotlinx.coroutines.runBlocking { fakeSettings.setPrimaryAliasId(alias.id) }
         setField(service, "router", TtsRouter(
             mappingDao = EmptyMappingDao,
             aliasDao = aliasDao,
@@ -728,14 +731,14 @@ internal class FakePreprocessSettings(
         this.rules.value = rules
     }
 
-    // TtsRouter.resolveAlias calls settings.primaryAliasName.first() —
+    // TtsRouter.resolveAlias calls settings.primaryAliasId.first() —
     // the parent's flow is built on the no-op DataStore which emits
     // nothing, causing first() to fail. Override with a real flow that
     // emits null (= no primary set) so the router falls through to
     // "use engine default."
     private val primary = MutableStateFlow<String?>(null)
-    override val primaryAliasName: Flow<String?> = primary
-    override suspend fun setPrimaryAliasName(value: String?) { primary.value = value }
+    override val primaryAliasId: Flow<String?> = primary
+    override suspend fun setPrimaryAliasId(value: String?) { primary.value = value }
 }
 
 private val NoOpPreferencesDataStoreForService =

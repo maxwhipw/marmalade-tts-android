@@ -70,37 +70,37 @@ class SettingsRepositoryTest {
         assertEquals("kitten-direct-v0_8:Leo", repo.defaultVoiceId.first())
     }
 
-    // -- primaryAliasName -----------------------------------------------------
+    // -- primaryAliasId -----------------------------------------------------
 
     @Test
-    fun primaryAliasName_defaultsToNullWhenUnset() = runTest {
+    fun primaryAliasId_defaultsToNullWhenUnset() = runTest {
         val repo = newRepo()
         assertNull(
             "Fresh install should have a null primary alias",
-            repo.primaryAliasName.first(),
+            repo.primaryAliasId.first(),
         )
     }
 
     @Test
-    fun setPrimaryAliasName_roundTripsThroughDataStore() = runTest {
+    fun setPrimaryAliasId_roundTripsThroughDataStore() = runTest {
         val repo = newRepo()
-        repo.setPrimaryAliasName("narrator")
-        assertEquals("narrator", repo.primaryAliasName.first())
+        repo.setPrimaryAliasId("narrator")
+        assertEquals("narrator", repo.primaryAliasId.first())
     }
 
     @Test
-    fun setPrimaryAliasName_nullClearsThePointer() = runTest {
+    fun setPrimaryAliasId_nullClearsThePointer() = runTest {
         val repo = newRepo()
-        repo.setPrimaryAliasName("narrator")
-        assertEquals("narrator", repo.primaryAliasName.first())
+        repo.setPrimaryAliasId("narrator")
+        assertEquals("narrator", repo.primaryAliasId.first())
 
         // Null write must remove the key, not store an empty string —
         // otherwise consumers can't distinguish "user cleared" from
         // "never set".
-        repo.setPrimaryAliasName(null)
+        repo.setPrimaryAliasId(null)
         assertNull(
             "Writing null should remove the key entirely",
-            repo.primaryAliasName.first(),
+            repo.primaryAliasId.first(),
         )
     }
 

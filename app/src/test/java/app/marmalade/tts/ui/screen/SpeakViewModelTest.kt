@@ -107,6 +107,7 @@ class SpeakViewModelTest {
     @Test
     fun speak_passesEffectAndSpeedFromActiveAlias() = runTest {
         val alias = VoiceAlias(
+            id = "id-" + "robocop",
             name = "robocop",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Hugo",
@@ -139,6 +140,7 @@ class SpeakViewModelTest {
         // the engine via the speak() call. Auto (null) and explicit values
         // both round-trip.
         val alias = VoiceAlias(
+            id = "id-" + "narrator-jp",
             name = "narrator-jp",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Luna",
@@ -182,6 +184,7 @@ class SpeakViewModelTest {
         // must reflect live in the cached StateFlows. Pre-fix the user had
         // to re-select another alias and come back to pick up edits.
         val original = VoiceAlias(
+            id = "id-" + "narrator",
             name = "narrator",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Bella",
@@ -227,6 +230,7 @@ class SpeakViewModelTest {
         // Symmetric guard for alpha.10.M: editing a DIFFERENT alias from
         // the one currently selected must not bleed into the cached state.
         val active = VoiceAlias(
+            id = "id-" + "narrator",
             name = "narrator",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Bella",
@@ -235,6 +239,7 @@ class SpeakViewModelTest {
             createdAt = 0L,
         )
         val other = VoiceAlias(
+            id = "id-" + "robocop",
             name = "robocop",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Hugo",
@@ -262,6 +267,7 @@ class SpeakViewModelTest {
     @Test
     fun applyAlias_thenManualVoiceChange_clearsEffect() = runTest {
         val alias = VoiceAlias(
+            id = "id-" + "echo",
             name = "echo",
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Luna",

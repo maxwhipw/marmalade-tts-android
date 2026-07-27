@@ -58,17 +58,17 @@ import kotlinx.coroutines.launch
 //     │                          │ flatMapLatest(editorState.engine)
 //     │                  VoiceMetaDao.getByEngine(engine)
 //     │
-//     ├── primaryAliasName ◄────── AliasViewModel.primaryAliasName
+//     ├── primaryAliasId ◄────── AliasViewModel.primaryAliasId
 //     │                                  ▲
 //     │                                  │ Flow
-//     │                          SettingsRepository.primaryAliasName
+//     │                          SettingsRepository.primaryAliasId
 //     │
 //     └── actions
 //          ├── save()    → validate → VoiceAliasDao.upsert(...)
 //          │                + auto-promote first alias to primary if none set,
 //          │                + retarget primary on rename of current primary.
-//          ├── delete(n) → VoiceAliasDao.delete(n) + clear primary if it was n.
-//          └── setPrimary(n) → SettingsRepository.setPrimaryAliasName(n)
+//          ├── delete(id) → VoiceAliasDao.delete(id) + promote a successor.
+//          └── setPrimary(n) → SettingsRepository.setPrimaryAliasId(n)
 // -----------------------------------------------------------------------------
 
 /** Why an attempted save was rejected. UI shows this inline under the name field. */
@@ -98,6 +98,12 @@ sealed class SaveError {
 data class EditorState(
     val isOpen: Boolean = false,
     val isNew: Boolean = true,
+    /**
+     * Id of the alias being edited, null when creating. Distinct from
+     * [originalName], which is only kept so the uniqueness check can
+     * exempt the row from colliding with itself.
+     */
+    val editingId: String? = null,
     val originalName: String? = null,
     val name: String = "",
     val engine: String = "",
@@ -112,9 +118,9 @@ data class EditorState(
     val phonemizationLanguage: String? = null,
     /**
      * Alias to speak with when a cloud voice can't be reached. Only
-     * surfaced in the editor for cloud voices; see [VoiceAlias.fallbackAliasName].
+     * surfaced in the editor for cloud voices; see [VoiceAlias.fallbackAliasId].
      */
-    val fallbackAliasName: String? = null,
+    val fallbackAliasId: String? = null,
     val error: SaveError? = null,
 )
 
@@ -199,12 +205,12 @@ class AliasViewModel @Inject constructor(
 
     /**
      * The currently designated primary alias name (or null when none is
-     * set). Sourced verbatim from [SettingsRepository.primaryAliasName] —
+     * set). Sourced verbatim from [SettingsRepository.primaryAliasId] —
      * callers that need a "resolved" primary (i.e. fall back to null when
      * the named alias has been deleted) should cross-check against
      * [aliases] before consuming.
      */
-    val primaryAliasName: StateFlow<String?> = settings.primaryAliasName
+    val primaryAliasId: StateFlow<String?> = settings.primaryAliasId
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -325,9 +331,9 @@ class AliasViewModel @Inject constructor(
             // protection is worth nothing if it depends on the user knowing
             // to configure it, and "speaks in a different voice" beats
             // "says nothing" when the network drops mid-sentence.
-            fallbackAliasName = when {
+            fallbackAliasId = when {
                 !isCloud -> null
-                state.fallbackAliasName != null -> state.fallbackAliasName
+                state.fallbackAliasId != null -> state.fallbackAliasId
                 else -> defaultFallbackAlias()
             },
             error = null,
@@ -336,7 +342,7 @@ class AliasViewModel @Inject constructor(
     }
 
     fun onEditorFallbackChange(aliasName: String?) {
-        _editorState.value = _editorState.value.copy(fallbackAliasName = aliasName)
+        _editorState.value = _editorState.value.copy(fallbackAliasId = aliasName)
     }
 
     /**
@@ -354,7 +360,7 @@ class AliasViewModel @Inject constructor(
     /** Primary on-device alias if there is one, else any on-device alias. */
     private fun defaultFallbackAlias(): String? {
         val candidates = fallbackCandidates()
-        val primary = primaryAliasName.value
+        val primary = primaryAliasId.value
         return candidates.firstOrNull { it.name == primary }?.name
             ?: candidates.firstOrNull()?.name
     }
@@ -429,6 +435,7 @@ class AliasViewModel @Inject constructor(
             EditorState(
                 isOpen = true,
                 isNew = false,
+                editingId = existing.id,
                 originalName = existing.name,
                 name = existing.name,
                 engine = existing.engine,
@@ -514,13 +521,14 @@ class AliasViewModel @Inject constructor(
             return false
         }
 
-        val createdAt = if (state.isNew) {
-            now()
-        } else {
-            findExisting(state.originalName)?.createdAt ?: now()
-        }
+        val existing = state.editingId?.let { id -> aliases.value.firstOrNull { it.id == id } }
+        val createdAt = existing?.createdAt ?: now()
 
         val alias = VoiceAlias(
+            // An edit keeps its id, which is the entire point: a rename is
+            // now an UPDATE of one column, and everything pointing at this
+            // alias keeps pointing at it.
+            id = existing?.id ?: VoiceAlias.newId(),
             name = name,
             engine = state.engine,
             voiceId = state.voiceId,
@@ -535,33 +543,24 @@ class AliasViewModel @Inject constructor(
             // Only cloud voices can fail for lack of a network, so only they
             // carry a fallback. Persisting one on an on-device alias would be
             // dead data that later reads have to remember to ignore.
-            fallbackAliasName = state.fallbackAliasName
+            fallbackAliasId = state.fallbackAliasId
                 ?.takeIf { voicePaths.resolve(state.voiceId, state.engine).isCloud },
         )
 
         viewModelScope.launch {
-            // If the user renamed an alias, delete the old row first so
-            // we don't leave a duplicate behind under the previous PK.
-            val oldName = state.originalName
-            if (!state.isNew && oldName != null && oldName != name) {
-                aliasDao.delete(oldName)
-            }
+            // A rename is now a plain upsert on the same id — one UPDATE,
+            // no delete-and-reinsert. Per-app routing, other aliases'
+            // fallback pointers and the primary pointer all reference the
+            // id, so none of them need touching and none of them can be
+            // left naming a row that no longer exists.
             aliasDao.upsert(alias)
-            // First-alias-becomes-primary rule. We auto-promote whenever
-            // there is no primary set yet (null pointer in settings) —
-            // covers fresh installs and the "primary was deleted, next
-            // created alias inherits" recovery path. Renames of the
-            // current primary keep the pointer in sync by re-writing it
-            // to the new name.
-            val currentPrimary = settings.primaryAliasName.first()
-            when {
-                currentPrimary == null -> promoteToPrimary(name)
-                !state.isNew && oldName != null && oldName != name && currentPrimary == oldName ->
-                    // A rename of the current primary, not a promotion —
-                    // retarget the pointer only. Releasing here would throw
-                    // away routing the user never asked to change.
-                    settings.setPrimaryAliasName(name)
-                else -> Unit
+
+            // First-alias-becomes-primary: promote whenever nothing is set
+            // yet. Covers fresh installs and the "primary was deleted, next
+            // created alias inherits" recovery path. There is deliberately
+            // no rename branch any more — there is nothing to retarget.
+            if (settings.primaryAliasId.first() == null) {
+                promoteToPrimary(alias.id)
             }
         }
         _editorState.value = EditorState()
@@ -569,7 +568,7 @@ class AliasViewModel @Inject constructor(
     }
 
     /**
-     * Remove the alias with [name]. No-op if it doesn't exist.
+     * Remove the alias with [id]. No-op if it doesn't exist.
      *
      * Invariants enforced here:
      *  - The last remaining alias cannot be deleted — every install with
@@ -581,33 +580,33 @@ class AliasViewModel @Inject constructor(
      *    the auto-promote rule in [save] which handles the fresh-install
      *    + recovery cases.
      */
-    fun delete(name: String): Boolean {
+    fun delete(id: String): Boolean {
         if (aliases.value.size <= 1) return false
         viewModelScope.launch {
-            val wasPrimary = settings.primaryAliasName.first() == name
-            aliasDao.delete(name)
+            val wasPrimary = settings.primaryAliasId.first() == id
+            aliasDao.delete(id)
             if (wasPrimary) {
-                val successor = aliases.value.firstOrNull { it.name != name }?.name
+                val successor = aliases.value.firstOrNull { it.id != id }?.id
                 // Null can't happen behind the size<=1 guard, but a null
                 // pointer is also the documented "no primary" state, so
                 // write it through rather than inventing a successor.
                 if (successor != null) promoteToPrimary(successor)
-                else settings.setPrimaryAliasName(null)
+                else settings.setPrimaryAliasId(null)
             }
         }
         return true
     }
 
     /**
-     * Explicitly designate [name] as the primary alias. The caller is
+     * Explicitly designate [id] as the primary alias. The caller is
      * responsible for passing the name of an existing alias — this method
      * does not cross-check against [aliases] (the UI only exposes the
      * action via context menus on already-rendered rows, so the row's
      * existence is implicit at call time).
      */
-    fun setPrimary(name: String) {
+    fun setPrimary(id: String) {
         viewModelScope.launch {
-            promoteToPrimary(name)
+            promoteToPrimary(id)
         }
     }
 
@@ -621,9 +620,9 @@ class AliasViewModel @Inject constructor(
      * no longer be edited and the apps are pinned to it permanently.
      * Dropping them leaves every app reachable again.
      */
-    private suspend fun promoteToPrimary(name: String) {
-        settings.setPrimaryAliasName(name)
-        mappingDao.releaseAppsRoutedTo(name)
+    private suspend fun promoteToPrimary(id: String) {
+        settings.setPrimaryAliasId(id)
+        mappingDao.releaseAppsRoutedTo(id)
     }
 
     // -- internals -------------------------------------------------------------

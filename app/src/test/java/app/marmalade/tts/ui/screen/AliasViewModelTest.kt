@@ -32,7 +32,7 @@ import org.junit.Test
 //     └── asserts on:
 //          ├── editorState (name/voiceId/effect/error/isOpen) snapshots
 //          ├── FakeAliasDao.upsertedAliases (what got persisted)
-//          └── FakeAliasDao.deletedNames    (what got removed)
+//          └── FakeAliasDao.deletedIds    (what got removed)
 //
 // No Android runtime — pure JVM. MainDispatcherRule swaps Dispatchers.Main
 // for UnconfinedTestDispatcher so viewModelScope.launch in save()/delete()
@@ -230,7 +230,7 @@ class AliasViewModelTest {
         )
         assertTrue(
             "No delete should fire on validation failure",
-            aliasDao.deletedNames.isEmpty(),
+            aliasDao.deletedIds.isEmpty(),
         )
         val state = vm.editorState.first()
         assertTrue("Editor should stay open after failed save", state.isOpen)
@@ -238,7 +238,7 @@ class AliasViewModelTest {
     }
 
     @Test
-    fun save_renameOfExisting_deletesOldRowAndInsertsNew() = runTest {
+    fun save_renameOfExisting_updatesInPlaceKeepingTheId() = runTest {
         val existing = alias("narrator")
         val aliasDao = FakeAliasDao(initial = listOf(existing))
         val vm = newViewModel(aliasDao = aliasDao)
@@ -253,10 +253,23 @@ class AliasViewModelTest {
         val saved = vm.save()
         assertTrue(saved)
 
-        // Rename path: drops the old PK row first so we don't carry both.
-        assertTrue(
-            "Old name 'narrator' should be deleted on rename",
-            aliasDao.deletedNames.contains("narrator"),
+        // A rename is one UPDATE now. Nothing is deleted, and the id is
+        // preserved — which is what keeps per-app routing, other aliases'
+        // fallbacks and the primary pointer attached across the rename.
+        assertEquals(
+            "A rename must not delete anything",
+            emptyList<String>(),
+            aliasDao.deletedIds,
+        )
+        assertEquals(
+            "The row keeps its identity across a rename",
+            existing.id,
+            aliasDao.upsertedAliases.single().id,
+        )
+        assertEquals(
+            "Exactly one row survives",
+            listOf("storyteller"),
+            aliasDao.getAll().first().map { it.name },
         )
         val inserted = aliasDao.upsertedAliases.singleOrNull { it.name == "storyteller" }
         assertNotNull(
@@ -292,9 +305,10 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        assertNull("Primary should start null", settings.primaryAliasName.first())
+        assertNull("Primary should start null", settings.primaryAliasId.first())
 
-        val vm = newViewModel(settings = settings)
+        val dao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = dao, settings = settings)
         vm.openEditor()
         vm.onEditorNameChange("narrator")
         vm.onEditorVoiceChange(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
@@ -303,8 +317,8 @@ class AliasViewModelTest {
 
         assertEquals(
             "First-created alias should auto-promote to primary",
-            "narrator",
-            settings.primaryAliasName.first(),
+            dao.findByName("narrator")?.id,
+            settings.primaryAliasId.first(),
         )
     }
 
@@ -314,14 +328,16 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        val vm = newViewModel(settings = settings)
+        val dao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = dao, settings = settings)
 
         // First alias — auto-promotes.
         vm.openEditor()
         vm.onEditorNameChange("narrator")
         vm.onEditorVoiceChange(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
         vm.save()
-        assertEquals("narrator", settings.primaryAliasName.first())
+        val firstId = dao.findByName("narrator")!!.id
+        assertEquals(firstId, settings.primaryAliasId.first())
 
         // Second alias — primary should NOT change.
         vm.openEditor()
@@ -331,8 +347,8 @@ class AliasViewModelTest {
 
         assertEquals(
             "Primary should remain on the first alias",
-            "narrator",
-            settings.primaryAliasName.first(),
+            firstId,
+            settings.primaryAliasId.first(),
         )
     }
 
@@ -346,7 +362,7 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        settings.setPrimaryAliasName("narrator")
+        settings.setPrimaryAliasId("narrator")
         val vm = newViewModel(
             aliasDao = FakeAliasDao(initial = listOf(primary, other)),
             settings = settings,
@@ -357,8 +373,8 @@ class AliasViewModelTest {
 
         assertEquals(
             "Deleting the primary should promote the remaining alias",
-            "storyteller",
-            settings.primaryAliasName.first(),
+            "id-narrator",
+            settings.primaryAliasId.first(),
         )
     }
 
@@ -376,7 +392,7 @@ class AliasViewModelTest {
         assertFalse("delete() should refuse the last alias", deleted)
         assertTrue(
             "the last alias must not reach the DAO's delete",
-            aliasDao.deletedNames.isEmpty(),
+            aliasDao.deletedIds.isEmpty(),
         )
     }
 
@@ -388,7 +404,7 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        settings.setPrimaryAliasName("narrator")
+        settings.setPrimaryAliasId("narrator")
         val vm = newViewModel(
             aliasDao = FakeAliasDao(initial = listOf(primary, other)),
             settings = settings,
@@ -400,7 +416,7 @@ class AliasViewModelTest {
         assertEquals(
             "Deleting a non-primary alias should not affect the primary pointer",
             "narrator",
-            settings.primaryAliasName.first(),
+            settings.primaryAliasId.first(),
         )
     }
 
@@ -412,7 +428,7 @@ class AliasViewModelTest {
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        settings.setPrimaryAliasName("narrator")
+        settings.setPrimaryAliasId("narrator")
         val vm = newViewModel(
             aliasDao = FakeAliasDao(initial = listOf(first, second)),
             settings = settings,
@@ -424,22 +440,24 @@ class AliasViewModelTest {
         assertEquals(
             "Primary should follow the explicit setPrimary call",
             "storyteller",
-            settings.primaryAliasName.first(),
+            settings.primaryAliasId.first(),
         )
     }
 
     @Test
-    fun renamingPrimaryAlias_retargetsPointer() = runTest {
+    fun renamingPrimaryAlias_leavesThePointerAlone() = runTest {
+        // This used to assert the pointer was rewritten to the new NAME.
+        // Since the pointer holds an id, a rename is invisible to it — and
+        // that is the whole point: nothing has to remember to retarget, so
+        // nothing can forget to.
         val existing = alias("narrator")
         val settings = FakeSettings(
             initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             initialOnboarded = true,
         )
-        settings.setPrimaryAliasName("narrator")
-        val vm = newViewModel(
-            aliasDao = FakeAliasDao(initial = listOf(existing)),
-            settings = settings,
-        )
+        val dao = FakeAliasDao(initial = listOf(existing))
+        settings.setPrimaryAliasId(existing.id)
+        val vm = newViewModel(aliasDao = dao, settings = settings)
         vm.aliases.first { it.isNotEmpty() }
 
         vm.openEditor(existing)
@@ -447,9 +465,14 @@ class AliasViewModelTest {
         vm.save()
 
         assertEquals(
-            "Renaming the primary alias should follow it to the new name",
+            "The primary pointer is an id and a rename must not disturb it",
+            existing.id,
+            settings.primaryAliasId.first(),
+        )
+        assertEquals(
+            "...and it still resolves to the alias, under its new label",
             "storyteller",
-            settings.primaryAliasName.first(),
+            dao.findById(existing.id)?.name,
         )
     }
 
@@ -467,7 +490,7 @@ class AliasViewModelTest {
 
         assertTrue(
             "delete() should reach the DAO with the given name",
-            aliasDao.deletedNames.contains("narrator"),
+            aliasDao.deletedIds.contains("narrator"),
         )
     }
 
@@ -581,9 +604,9 @@ class AliasViewModelTest {
         // already catches every caller without a rule of its own.
         val mappings = FakeAppAliasMappingDao(
             listOf(
-                AppAliasMapping("com.moon.reader", "narrator", null, 0L),
-                AppAliasMapping("org.signal", "narrator", null, 0L),
-                AppAliasMapping("com.spotify.music", "robot", null, 0L),
+                AppAliasMapping("com.moon.reader", "id-narrator", null, 0L),
+                AppAliasMapping("org.signal", "id-narrator", null, 0L),
+                AppAliasMapping("com.spotify.music", "id-robot", null, 0L),
             ),
         )
         val vm = newViewModel(
@@ -591,9 +614,9 @@ class AliasViewModelTest {
             mappingDao = mappings,
         )
 
-        vm.setPrimary("narrator")
+        vm.setPrimary("id-narrator")
 
-        assertEquals(listOf("narrator"), mappings.released)
+        assertEquals(listOf("id-narrator"), mappings.released)
         assertEquals(
             "Only the promoted alias's rows are dropped",
             listOf("com.spotify.music"),
@@ -606,11 +629,11 @@ class AliasViewModelTest {
         // A rename is not a promotion. Releasing here would silently throw
         // away routing the user never touched.
         val mappings = FakeAppAliasMappingDao(
-            listOf(AppAliasMapping("com.spotify.music", "robot", null, 0L)),
+            listOf(AppAliasMapping("com.spotify.music", "id-robot", null, 0L)),
         )
         val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
-        settings.setPrimaryAliasName("narrator")
         val existing = alias("narrator")
+        settings.setPrimaryAliasId(existing.id)
         val vm = newViewModel(
             aliases = listOf(existing),
             mappingDao = mappings,
@@ -621,11 +644,78 @@ class AliasViewModelTest {
         vm.onEditorNameChange("storyteller")
         assertTrue(vm.save())
 
-        assertEquals("storyteller", settings.primaryAliasName.first())
+        assertEquals(existing.id, settings.primaryAliasId.first())
         assertEquals(
             "A rename must not drop anyone's routing",
             emptyList<String>(),
             mappings.released,
+        )
+    }
+
+    @Test
+    fun renaming_keepsPerAppRoutingAttached() = runTest {
+        // Max's report: rename an alias and its routed apps vanish from the
+        // card, while the picker still insists they are "routed by" the old
+        // name. Cause was the name being the primary key — a rename was a
+        // delete plus an insert, so every mapping was left naming a row that
+        // no longer existed. Nothing observable should change here.
+        val existing = alias("narrator")
+        val mappings = FakeAppAliasMappingDao(
+            listOf(
+                AppAliasMapping("com.moon.reader", existing.id, null, 0L),
+                AppAliasMapping("org.signal", existing.id, null, 0L),
+            ),
+        )
+        val dao = FakeAliasDao(initial = listOf(existing))
+        // Something else must already be primary. With no primary set, save()
+        // auto-promotes this alias — which correctly releases its routing, and
+        // would mask the thing under test.
+        val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        settings.setPrimaryAliasId("id-someone-else")
+        val vm = newViewModel(aliasDao = dao, mappingDao = mappings, settings = settings)
+        vm.aliases.first { it.isNotEmpty() }
+
+        vm.openEditor(existing)
+        vm.onEditorNameChange("storyteller")
+        assertTrue(vm.save())
+
+        val rows = mappings.getAll().first()
+        assertEquals(
+            "Both apps stay routed across the rename",
+            listOf("com.moon.reader", "org.signal"),
+            rows.map { it.packageName }.sorted(),
+        )
+        assertEquals(
+            "...and still point at the same alias",
+            listOf(existing.id, existing.id),
+            rows.map { it.aliasId },
+        )
+        assertEquals(
+            "which now answers to the new label",
+            "storyteller",
+            dao.findById(existing.id)?.name,
+        )
+    }
+
+    @Test
+    fun renaming_keepsAnotherAliasesFallbackAttached() = runTest {
+        // The symptom nobody hit yet: a cloud alias's fallback pointer was
+        // also name-keyed, so renaming the fallback target silently broke
+        // the only thing standing between a network failure and silence.
+        val target = alias("backup")
+        val cloud = alias("gradium").copy(fallbackAliasId = target.id)
+        val dao = FakeAliasDao(initial = listOf(target, cloud))
+        val vm = newViewModel(aliasDao = dao)
+        vm.aliases.first { it.size == 2 }
+
+        vm.openEditor(target)
+        vm.onEditorNameChange("emergency")
+        assertTrue(vm.save())
+
+        assertEquals(
+            "The fallback still resolves after its target was renamed",
+            "emergency",
+            dao.findById(dao.findByName("gradium")!!.fallbackAliasId!!)?.name,
         )
     }
 
@@ -675,6 +765,9 @@ class AliasViewModelTest {
         phonemizationLanguage: String? = null,
     ): VoiceAlias = VoiceAlias(
         name = name,
+        // Stable, derived id: the fixtures are keyed by name for
+        // readability, but the code under test must key on the id.
+        id = "id-$name",
         engine = engine,
         voiceId = voiceId,
         speed = speed,

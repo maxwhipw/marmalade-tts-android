@@ -131,8 +131,8 @@ internal class FakeSettings(
     // Primary alias pointer (nullable). Mirrors the prod field — null
     // means "no primary set" and is the default for fresh test fixtures.
     private val primaryAlias = MutableStateFlow<String?>(null)
-    override val primaryAliasName: Flow<String?> = primaryAlias
-    override suspend fun setPrimaryAliasName(value: String?) {
+    override val primaryAliasId: Flow<String?> = primaryAlias
+    override suspend fun setPrimaryAliasId(value: String?) {
         primaryAlias.value = value
     }
 
@@ -216,21 +216,25 @@ internal class FakeAliasDao(
 ) : VoiceAliasDao {
     private val state = MutableStateFlow(initial)
     val upsertedAliases = mutableListOf<VoiceAlias>()
-    val deletedNames = mutableListOf<String>()
+    val deletedIds = mutableListOf<String>()
 
     override fun getAll() = state
+    override suspend fun findById(id: String): VoiceAlias? =
+        state.value.firstOrNull { it.id == id }
     override suspend fun findByName(name: String): VoiceAlias? =
         state.value.firstOrNull { it.name == name }
 
     override suspend fun upsert(alias: VoiceAlias) {
         upsertedAliases += alias
-        // REPLACE semantics: drop any row with the same PK before adding.
-        state.value = state.value.filterNot { it.name == alias.name } + alias
+        // REPLACE semantics on the real PK, which is the id — so a rename
+        // updates a row here exactly as it does in Room, rather than
+        // leaving the old name behind and hiding the bug this fixes.
+        state.value = state.value.filterNot { it.id == alias.id } + alias
     }
 
-    override suspend fun delete(name: String) {
-        deletedNames += name
-        state.value = state.value.filterNot { it.name == name }
+    override suspend fun delete(id: String) {
+        deletedIds += id
+        state.value = state.value.filterNot { it.id == id }
     }
 }
 
@@ -293,9 +297,9 @@ internal class FakeAppAliasMappingDao(
         state.value = state.value.filterNot { it.packageName == packageName }
     }
 
-    override suspend fun releaseAppsRoutedTo(aliasName: String) {
-        released += aliasName
-        state.value = state.value.filterNot { it.aliasName == aliasName }
+    override suspend fun releaseAppsRoutedTo(aliasId: String) {
+        released += aliasId
+        state.value = state.value.filterNot { it.aliasId == aliasId }
     }
 }
 

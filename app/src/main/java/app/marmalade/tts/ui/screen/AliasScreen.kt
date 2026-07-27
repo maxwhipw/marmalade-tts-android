@@ -124,7 +124,7 @@ fun AliasScreen(
 ) {
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    val primaryAliasName by viewModel.primaryAliasName.collectAsStateWithLifecycle()
+    val primaryAliasId by viewModel.primaryAliasId.collectAsStateWithLifecycle()
     val effects by viewModel.effects.collectAsStateWithLifecycle()
     val voiceTree by viewModel.voiceTree.collectAsStateWithLifecycle()
     val pickerState by viewModel.pickerState.collectAsStateWithLifecycle()
@@ -140,11 +140,11 @@ fun AliasScreen(
     // the unrouted ones. The DAO's createdAt ASC order breaks ties inside each
     // group (sortedWith is stable), so promoting or routing an alias moves it
     // without reshuffling its neighbours.
-    val orderedAliases = remember(aliases, mappings, primaryAliasName) {
-        val routedNames = mappings.mapTo(mutableSetOf()) { it.aliasName }
+    val orderedAliases = remember(aliases, mappings, primaryAliasId) {
+        val routedNames = mappings.mapTo(mutableSetOf()) { it.aliasId }
         aliases.sortedWith(
             compareBy(
-                { it.name != primaryAliasName },
+                { it.name != primaryAliasId },
                 { it.name !in routedNames },
             ),
         )
@@ -211,13 +211,13 @@ fun AliasScreen(
                     items(items = orderedAliases, key = { it.name }) { alias ->
                         AliasCard(
                             alias = alias,
-                            isPrimary = alias.name == primaryAliasName,
+                            isPrimary = alias.id == primaryAliasId,
                             effectName = effects.firstOrNull { it.id == alias.effectId }?.name
                                 ?: "No effect",
                             voicePath = viewModel.voicePathFor(alias),
-                            routedApps = mappings.filter { it.aliasName == alias.name },
+                            routedApps = mappings.filter { it.aliasId == alias.id },
                             onOpenEditor = { viewModel.openEditor(alias) },
-                            onOpenRouting = { routingViewModel.openSheet(alias.name) },
+                            onOpenRouting = { routingViewModel.openSheet(alias.id, alias.name) },
                         )
                     }
                 }
@@ -241,10 +241,10 @@ fun AliasScreen(
             // the only control there that wasn't "open the editor".
             canSetPrimary = !editorState.isNew &&
                 editorState.originalName != null &&
-                editorState.originalName != primaryAliasName,
+                editorState.originalName != primaryAliasId,
             fallbackCandidates = viewModel.fallbackCandidates(),
             onSetPrimary = {
-                editorState.originalName?.let { viewModel.setPrimary(it) }
+                editorState.editingId?.let { viewModel.setPrimary(it) }
             },
             onNameChange = viewModel::onEditorNameChange,
             onOpenVoicePicker = viewModel::openVoicePicker,
@@ -295,7 +295,7 @@ fun AliasScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.delete(alias.name)
+                        viewModel.delete(alias.id)
                         pendingDelete = null
                         // The editor sheet is still open behind this dialog,
                         // editing the row we just deleted.
@@ -658,7 +658,7 @@ private fun AliasEditorSheet(
             // every on-device alias would be noise.
             if (voicePath?.isCloud == true) {
                 FallbackPicker(
-                    selected = state.fallbackAliasName,
+                    selected = state.fallbackAliasId,
                     candidates = fallbackCandidates,
                     onPick = onFallbackChange,
                 )
