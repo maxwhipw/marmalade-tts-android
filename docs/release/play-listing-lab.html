@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Play Listing Lab</title>
+<style>
+  :root{
+    --bg:#12100e; --panel:#1b1815; --panel2:#221e1a; --line:#332c25;
+    --ink:#f5ede3; --dim:#a89684; --dimmer:#7c6c5d;
+    --orange:#f97316; --toast:#fed7aa; --peach:#fdba74;
+    --ok:#4ade80; --warn:#fbbf24; --block:#f87171;
+    --mono:ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    /* Play surface */
+    --p-bg:#fff; --p-ink:#1f1f1f; --p-dim:#5f6368; --p-line:#e3e3e3;
+    --p-green:#01875f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  header{padding:20px 26px 15px;border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+  h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  h1 span{color:var(--orange)}
+  .sub{color:var(--dim);font-size:13px}
+  .meta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dimmer);text-align:right}
+  .meta b{color:var(--peach);font-weight:500}
+
+  .wrap{display:grid;grid-template-columns:1fr 420px;gap:0;align-items:start}
+  .left{padding:24px 26px 60px;min-width:0}
+  .right{border-left:1px solid var(--line);background:var(--panel);
+    padding:20px;position:sticky;top:0;max-height:100vh;overflow:auto}
+  @media (max-width:1100px){ .wrap{grid-template-columns:1fr} .right{position:static;max-height:none;border-left:0;border-top:1px solid var(--line)} }
+
+  h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--peach);margin:0 0 12px}
+  .right h3{margin:22px 0 9px;font-size:11px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--dimmer)}
+  .right h3:first-child{margin-top:0}
+
+  /* ---- the Play mock ---- */
+  .phone{width:100%;max-width:412px;margin:0 auto;background:var(--p-bg);
+    color:var(--p-ink);border-radius:26px;overflow:hidden;
+    box-shadow:0 0 0 9px #2b2b2b, 0 20px 50px rgba(0,0,0,.6);
+    font-size:14px;line-height:1.45}
+  .p-pad{padding:16px}
+  .p-head{display:flex;gap:16px;align-items:flex-start;padding:20px 16px 0}
+  .p-icon{width:72px;height:72px;border-radius:30%;flex:none;
+    background:#eee;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .p-title{font-size:22px;font-weight:400;letter-spacing:-.01em;margin:0 0 3px;
+    word-break:break-word}
+  .p-dev{color:var(--p-green);font-size:13px;font-weight:500}
+  .p-sub{color:var(--p-dim);font-size:12px;margin-top:2px}
+  .p-stats{display:flex;align-items:center;gap:0;margin:20px 0 4px;text-align:center}
+  .p-stat{flex:1;padding:0 4px}
+  .p-stat b{display:block;font-size:14px;font-weight:600}
+  .p-stat span{font-size:11px;color:var(--p-dim)}
+  .p-stat + .p-stat{border-left:1px solid var(--p-line)}
+  .p-install{display:block;width:calc(100% - 32px);margin:14px 16px 4px;
+    background:var(--p-green);color:#fff;border:0;border-radius:8px;
+    padding:11px;font-size:15px;font-weight:600;font-family:inherit}
+  .p-shots{display:flex;gap:8px;overflow-x:auto;padding:18px 16px 6px;
+    scrollbar-width:thin}
+  .p-shots img{height:290px;border-radius:8px;flex:none;
+    border:1px solid var(--p-line)}
+  .p-h{font-size:17px;font-weight:500;margin:20px 0 8px}
+  .p-about{color:var(--p-ink)}
+  .p-short{font-size:14px;margin:0 0 12px}
+  .p-full{font-size:13.5px;color:#3c4043;white-space:pre-wrap;
+    max-height:230px;overflow:hidden;position:relative;transition:max-height .25s}
+  .p-full.open{max-height:none}
+  .p-fade{height:44px;margin-top:-44px;position:relative;
+    background:linear-gradient(transparent,#fff)}
+  .p-more{color:var(--p-green);font-weight:600;font-size:13.5px;
+    background:0;border:0;padding:8px 0;font-family:inherit;cursor:pointer}
+  .p-feat{width:100%;display:block;border-radius:10px}
+  .p-ds{border:1px solid var(--p-line);border-radius:10px;padding:13px;margin-top:8px}
+  .p-ds div{display:flex;gap:10px;padding:5px 0;font-size:13px;color:#3c4043}
+  .p-ds i{font-style:normal;flex:none;width:16px;text-align:center}
+
+  /* ---- controls ---- */
+  label.f{display:block;margin-bottom:14px}
+  label.f span{display:block;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--dimmer);margin-bottom:5px}
+  textarea,input.t{width:100%;background:#0d0b09;border:1px solid var(--line);
+    color:var(--toast);border-radius:6px;padding:8px 10px;font-family:var(--mono);
+    font-size:12px;line-height:1.5;resize:vertical}
+  textarea:focus,input.t:focus{outline:0;border-color:var(--orange)}
+  .cnt{float:right;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);
+    text-transform:none;letter-spacing:0}
+  .cnt.over{color:var(--block);font-weight:700}
+  .cnt.near{color:var(--warn)}
+
+  /* ---- audit ---- */
+  .row{border:1px solid var(--line);border-left:3px solid var(--line);
+    border-radius:8px;background:var(--panel2);padding:10px 12px;margin-bottom:8px}
+  .row.pass{border-left-color:var(--ok)}
+  .row.fail{border-left-color:var(--block)}
+  .row.fixed{border-left-color:var(--orange)}
+  .row .rh{display:flex;gap:9px;align-items:center;font-size:13.5px}
+  .row .rh b{flex:1;font-weight:600}
+  .tag{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:99px}
+  .tag.pass{background:rgba(74,222,128,.14);color:var(--ok)}
+  .tag.fail{background:rgba(248,113,113,.14);color:var(--block)}
+  .tag.fixed{background:rgba(249,115,22,.16);color:var(--peach)}
+  .row p{margin:7px 0 0;font-size:12.5px;color:var(--dim)}
+  .row q{display:block;margin:7px 0 0;padding-left:10px;
+    border-left:2px solid var(--line);font-size:12px;color:var(--toast);font-style:italic}
+  .dl{display:inline-block;margin-top:9px;background:var(--orange);color:#2b1400;
+    text-decoration:none;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600}
+  .dl:hover{background:var(--peach)}
+  .dl.ghost{background:0;color:var(--peach);border:1px solid var(--line)}
+
+  .warn{border-left:2px solid var(--block);padding:2px 0 2px 12px;margin:14px 0;
+    color:#fca5a5;font-size:13px}
+  .note{border-left:2px solid var(--orange);padding:2px 0 2px 12px;margin:14px 0;
+    color:var(--toast);font-size:13px}
+  code{font-family:var(--mono);font-size:11.5px;background:#0d0b09;
+    padding:1px 5px;border-radius:4px;color:var(--toast)}
+  pre{background:#0d0b09;border:1px solid var(--line);border-radius:7px;
+    padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;
+    color:var(--toast);margin:9px 0}
+  .toggle{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+  .toggle button{background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    padding:5px 12px;border-radius:99px;font-size:12px;cursor:pointer;font-family:inherit}
+  .toggle button.on{background:var(--orange);color:#2b1400;border-color:var(--orange);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Play Listing Lab</span></h1>
+    <div class="sub">Live mock of the store listing, with every asset audited against Google's spec.</div>
+  </div>
+  <div class="meta">
+    assets in <b>docs/release/play-assets/</b><br>
+    spec: <b>answer/9866151</b> + <b>icon-design-specifications</b><br>
+    audited <b>2026-07-27</b>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="left">
+    <h2 class="sec">Store listing preview</h2>
+    <div class="toggle">
+      <button id="t-light" class="on">Light</button>
+      <button id="t-dark">Dark</button>
+    </div>
+
+    <div class="phone" id="phone">
+      <div class="p-head">
+        <img class="p-icon" id="m-icon" src="play-assets/icon-512.png" alt="">
+        <div style="min-width:0">
+          <div class="p-title" id="m-title">Marmalade TTS</div>
+          <div class="p-dev">Maxwell Warren</div>
+          <div class="p-sub">Contains ads · No · In-app purchases · No</div>
+        </div>
+      </div>
+
+      <div class="p-stats">
+        <div class="p-stat"><b>—</b><span>No reviews</span></div>
+        <div class="p-stat"><b>10+</b><span>Downloads</span></div>
+        <div class="p-stat"><b>Teen</b><span>ESRB</span></div>
+      </div>
+
+      <button class="p-install">Install</button>
+
+      <div class="p-shots" id="m-shots"></div>
+
+      <div class="p-pad">
+        <div class="p-h">About this app</div>
+        <p class="p-short" id="m-short"></p>
+        <div class="p-full" id="m-full"></div>
+        <div class="p-fade" id="m-fade"></div>
+        <button class="p-more" id="m-more">More ↓</button>
+
+        <div class="p-h">Data safety</div>
+        <div class="p-ds">
+          <div><i>↗</i><span>This app may collect these data types: <b>Personal info</b> and <b>App activity</b></span></div>
+          <div><i>🔒</i><span>Data is encrypted in transit</span></div>
+          <div><i>✕</i><span>You can't request that data be deleted</span></div>
+        </div>
+
+        <div class="p-h">Feature graphic <span style="font-size:11px;color:var(--p-dim)">(promo surfaces only — not shown on the listing page)</span></div>
+        <img class="p-feat" id="m-feat" src="play-assets/feature-1024x500.png" alt="">
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <h3>Listing text</h3>
+    <label class="f">
+      <span>App name <em class="cnt" id="c-title"></em></span>
+      <input class="t" id="i-title" value="Marmalade TTS">
+    </label>
+    <label class="f">
+      <span>Short description <em class="cnt" id="c-short"></em></span>
+      <textarea id="i-short" rows="3"></textarea>
+    </label>
+    <label class="f">
+      <span>Full description <em class="cnt" id="c-full"></em></span>
+      <textarea id="i-full" rows="10"></textarea>
+    </label>
+
+    <h3>Asset audit</h3>
+
+    <div class="row fixed">
+      <div class="rh"><b>App icon</b><span class="tag fixed">fixed</span></div>
+      <q>32-bit PNG (with alpha) · 512px by 512px · Maximum file size: 1024KB</q>
+      <p>The committed <code>icon.png</code> was 512×512 but <b>24-bit, no alpha channel</b>. Regenerated as PNG32. 15 KB.</p>
+      <p>Also per spec: full square, <b>no rounded corners and no drop shadow</b> — <q>Google Play dynamically applies a rounded corner mask with a radius equivalent to 30% of icon size</q> The preview above applies that 30% mask, so what you see is what users see.</p>
+      <a class="dl" href="play-assets/icon-512.png" download="icon-512.png">Download icon</a>
+    </div>
+
+    <div class="row pass">
+      <div class="rh"><b>Feature graphic</b><span class="tag pass">pass</span></div>
+      <q>JPEG or 24-bit PNG (no alpha) · 1024px by 500px</q>
+      <p>1024×500, 24-bit, no alpha. Compliant as committed; re-exported for byte-identical certainty. 162 KB.</p>
+      <a class="dl" href="play-assets/feature-1024x500.png" download="feature-1024x500.png">Download feature graphic</a>
+    </div>
+
+    <div class="row fixed">
+      <div class="rh"><b>Phone screenshots ×5</b><span class="tag fixed">fixed</span></div>
+      <q>JPEG or 24-bit PNG (no alpha) · Minimum dimension: 320px · Maximum dimension: 3840px · maximum dimension of your screenshot can't be more than twice as long as minimum dimension</q>
+      <p><b>Two violations.</b> They carried an <b>alpha channel</b> (spec says none), and at 1080×2400 the ratio is <b>2.222</b> — over the hard 2.0 limit, because a 20:9 phone screen is taller than Play allows. Play rejects these.</p>
+      <p>Fixed by padding the width 1080 → <b>1200</b> on the app's own background, giving exactly <b>2.000</b>. Padding rather than cropping, so no UI is lost.</p>
+      <a class="dl" href="play-assets/screenshots/01-speak.png" download>01 speak</a>
+      <a class="dl ghost" href="play-assets/screenshots/02-voices.png" download>02</a>
+      <a class="dl ghost" href="play-assets/screenshots/03-aliases.png" download>03</a>
+      <a class="dl ghost" href="play-assets/screenshots/04-effects.png" download>04</a>
+      <a class="dl ghost" href="play-assets/screenshots/05-settings.png" download>05</a>
+    </div>
+
+    <div class="row fail">
+      <div class="rh"><b>Listing copy</b><span class="tag fail">wrong</span></div>
+      <p>The committed short and full descriptions say the app has <b>no cloud</b> and that text <b>never leaves your phone</b>. Both stopped being true on 2026-07-24. This is the most public surface carrying the claim, and Play's Metadata policy covers misleading descriptions.</p>
+      <p>Edit the fields above until the preview reads true, then write them back to <code>fastlane/metadata/android/en-US/</code>.</p>
+    </div>
+
+    <h3>Still to shoot</h3>
+    <div class="row fail">
+      <div class="rh"><b>Tablet screenshots</b><span class="tag fail">missing</span></div>
+      <q>minimum of 4 screenshots · between 1,080 and 7,680px · 16:9 landscape, 9:16 portrait</q>
+      <p>None exist. Not required to publish, but without them Play shows phone shots letterboxed on tablets and the listing loses the "designed for tablets" surfaces.</p>
+    </div>
+
+    <h3>Regenerate</h3>
+    <pre>cd fastlane/metadata/android/en-US/images
+# icon: add the alpha channel
+convert icon.png -alpha set PNG32:out/icon-512.png
+# screenshots: drop alpha, pad to 2.000 ratio
+convert shot.png -background "#12100e" \
+  -alpha remove -alpha off \
+  -gravity center -extent 1200x2400 \
+  PNG24:out/shot.png</pre>
+    <div class="note">Re-shoot on the Pixel before submitting — the current set was captured at <b>targetSdk 35</b>, before edge-to-edge enforcement changed the system bars.</div>
+  </div>
+</div>
+
+<script>
+const SHORT = "Offline neural text-to-speech engine for your whole device. No cloud.";
+const FULL = `Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud can speak through Marmalade. No account, no tracking.
+
+WORKS EVERYWHERE ON YOUR DEVICE
+Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
+
+ON-DEVICE NEURAL VOICES
+Speech is synthesized locally using neural voice models. Used this way the text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install.
+
+OPTIONAL CLOUD VOICES
+If you want them, you can add your own API key for a third-party provider and use its voices instead. This is off by default, you are asked to agree before setting it up, and the text you have spoken is then sent to that provider under their privacy policy. On-device voices are unaffected.
+
+MULTIPLE ENGINES AND VOICES
+Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices.
+
+EXPRESSIVE, EMOTION-AWARE SPEECH
+Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them.
+
+AUDIO EFFECTS
+Apply built-in audio-effect presets (such as cave, monotone, and telephone) to give spoken output character.
+
+VOICE ALIASES / PERSONAS
+Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly.
+
+LONG-FORM READING
+A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
+
+HANDY SHORTCUTS
+Share text to Marmalade from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
+
+PRIVATE BY DESIGN
+No analytics, no telemetry, no ads, no accounts, and no backend of ours. See the in-app privacy policy for exactly what leaves the device and when.
+
+OPEN SOURCE
+Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later.`;
+
+const SHOTS = ['01-speak','02-voices','03-aliases','04-effects','05-settings'];
+document.getElementById('m-shots').innerHTML = SHOTS
+  .map(s => `<img src="play-assets/screenshots/${s}.png" alt="${s}">`).join('');
+
+const LIMITS = {title:30, short:80, full:4000};
+function bind(id, el, limit){
+  const inp = document.getElementById('i-'+id);
+  const cnt = document.getElementById('c-'+id);
+  const out = document.getElementById(el);
+  function sync(){
+    const v = inp.value;
+    out.textContent = v;
+    cnt.textContent = v.length + ' / ' + limit;
+    cnt.className = 'cnt' + (v.length > limit ? ' over'
+                    : v.length > limit * 0.9 ? ' near' : '');
+  }
+  inp.addEventListener('input', sync);
+  sync();
+}
+document.getElementById('i-short').value = SHORT;
+document.getElementById('i-full').value  = FULL;
+bind('title','m-title',LIMITS.title);
+bind('short','m-short',LIMITS.short);
+bind('full','m-full',LIMITS.full);
+
+const full = document.getElementById('m-full'),
+      fade = document.getElementById('m-fade'),
+      more = document.getElementById('m-more');
+more.addEventListener('click', () => {
+  const open = full.classList.toggle('open');
+  fade.style.display = open ? 'none' : 'block';
+  more.textContent = open ? 'Less ↑' : 'More ↓';
+});
+
+// Play's dark listing surface, so the icon and shots can be checked on both.
+const P = {
+  light:{'--p-bg':'#fff','--p-ink':'#1f1f1f','--p-dim':'#5f6368','--p-line':'#e3e3e3','--p-green':'#01875f'},
+  dark: {'--p-bg':'#1f1f1f','--p-ink':'#e3e3e3','--p-dim':'#9aa0a6','--p-line':'#3c4043','--p-green':'#a8c7fa'},
+};
+function theme(m){
+  const ph = document.getElementById('phone');
+  for (const [k,v] of Object.entries(P[m])) ph.style.setProperty(k,v);
+  // the "More" fade has to match whatever the surface is
+  fade.style.background = `linear-gradient(transparent, ${P[m]['--p-bg']})`;
+  document.getElementById('t-light').classList.toggle('on', m==='light');
+  document.getElementById('t-dark').classList.toggle('on', m==='dark');
+}
+document.getElementById('t-light').onclick = () => theme('light');
+document.getElementById('t-dark').onclick  = () => theme('dark');
+theme('light');
+</script>
+</body>
+</html>
