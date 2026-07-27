@@ -105,7 +105,7 @@ reading the full Console page. Unanimous except where marked.
 |---|---|---|
 | Data type | App activity → **Other user-generated content** | Personal info → **User IDs** |
 | Collected | **Yes** | **Yes** |
-| Shared | **Yes** | **Yes** |
+| Shared | **No** — exemption relied on | **No** — exemption relied on |
 | Processed ephemerally | **No** | **No** |
 | Purpose | **App functionality** | **App functionality** |
 | Required or optional | **Optional** | **Optional** |
@@ -154,7 +154,7 @@ identifiable person" asks.
 > over-declaring is not a violation. If a reviewer ever objects to the
 > User IDs row, the fallback is to remove it, not to defend it.
 
-### Sharing: tick it — Max's call, 2026-07-27
+### Sharing: not declared — exemption relied on (Max, 2026-07-27)
 
 **Source, with anchors** —
 [#sharing](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en#sharing)
@@ -193,9 +193,10 @@ not say so":
 > shared, or based on a prominent in-app disclosure and consent that meets
 > the requirements described in our User Data policy.
 
-**We are not relying on it.** Note what it is: relief from *declaring* a
-transfer that is still sharing — not a finding that no sharing occurs.
-Nothing prevents declaring anyway, and three things argue for it:
+**Max's decision: rely on it, leave Shared unticked.** Note what the
+bullet is, so the basis stays clear — relief from *declaring* a transfer
+that is still sharing, not a finding that no sharing occurs. The
+arguments for declaring anyway were weighed and set aside:
 
 1. The exemption hinges on *"where the user reasonably expects"*. With a
    cloud voice as the system primary, text from **other apps** reaches
@@ -209,13 +210,14 @@ Nothing prevents declaring anyway, and three things argue for it:
 3. It is true. Relying on a soft exemption to avoid stating a true thing
    is the wrong trade for an app whose pitch is privacy.
 
-> **This reverses the review panel**, which recommended leaving Shared
-> unticked on the strength of the user-initiated limb. The panel was not
-> wrong about the exemption being available; Max decided not to use it.
-> Do not "correct" this back without re-reading the reasoning above.
+This lands where the review panel did, but by a different route: they
+read the exemption as clearly applicable, while Max weighed declaring
+anyway and chose the exemption knowing the system-TTS soft spot.
 
-Cost: one line on the listing — *Data shared with third parties: Other
-user-generated content, User IDs*. It matches PRIVACY.md exactly.
+**If a reviewer ever challenges it, do not argue** — tick Shared for both
+types. The declaration is always available and costs one listing line;
+the exemption is the only part of this form resting on judgement rather
+than text.
 
 ### Ephemeral: answer No
 

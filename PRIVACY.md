@@ -2,15 +2,14 @@
 
 _Last updated: 2026-07-26_
 
-Marmalade TTS is an **on-device text-to-speech app**. By default it is
-private by design: the text you have it read never leaves your phone, and
-the app collects no personal data.
-
-Marmalade also lets you *optionally* use a third-party cloud voice
-provider. If you choose to, the text you have spoken is sent to that
-provider. That is the one and only case in which your text leaves your
-device, it never happens unless you set it up yourself, and it is
-described in full below.
+Marmalade TTS is an **on-device text-to-speech app** that never collects
+or shares your data by default — the text you have it read stays on your
+phone, and there is no analytics, tracking, or account of any kind. It
+*optionally* lets you use a third-party cloud voice provider instead: if
+you set one up yourself, the text you have spoken is sent to that
+provider, under **their** privacy policy rather than this one. That is
+the one and only case in which your text leaves your device, it never
+happens unless you enable it, and it is described in full below.
 
 ## Summary
 
