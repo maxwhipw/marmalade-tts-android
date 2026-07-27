@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Speak Screen Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Fredoka:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+/* =============================================================
+   LAB CHROME — dark shell, house style inherited from
+   docs/release/play-release-lab.html
+   ============================================================= */
+:root{
+  --bg:#12100e; --panel:#1b1815; --panel2:#221e1a; --line:#332c25;
+  --ink:#f5ede3; --dim:#a89684; --dimmer:#7c6c5d;
+  --orange:#f97316; --toast:#fed7aa; --peach:#fdba74; --cream:#fff7ed;
+  --ok:#4ade80; --warn:#fbbf24; --block:#f87171;
+  --mono:"Space Mono",ui-monospace,Menlo,Consolas,monospace;
+  --body:"Manrope","Inter",system-ui,-apple-system,sans-serif;
+  --wordmark:"Momo Trust Display","Fredoka",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body)}
+header.top{padding:22px 26px 16px;border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:18px;align-items:baseline}
+header.top h1{margin:0;font-size:21px;letter-spacing:-.3px;font-weight:600}
+header.top h1 span{color:var(--orange)}
+.sub{color:var(--dim);font-size:13px}
+.meta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dimmer);text-align:right;line-height:1.7}
+.meta b{color:var(--peach);font-weight:400}
+
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+nav.jump a{color:var(--dim);font-size:12px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+main{padding:26px 26px 80px;max-width:1180px}
+section{margin:0 0 54px;scroll-margin-top:58px}
+section > h2{font-size:17px;font-weight:600;letter-spacing:-.3px;margin:0 0 3px;
+  display:flex;align-items:center;gap:10px}
+section > h2 .k{font-family:var(--mono);font-size:11px;color:var(--dimmer);
+  border:1px solid var(--line);border-radius:5px;padding:2px 7px}
+section > h2 .flag{font-size:10.5px;font-family:var(--mono);padding:2px 9px;border-radius:99px;
+  background:rgba(74,222,128,.13);color:var(--ok);letter-spacing:.04em}
+section > h2 .flag.alt{background:rgba(251,191,36,.13);color:var(--warn)}
+section > p.lead{margin:0 0 16px;color:var(--dim);font-size:13.5px;max-width:86ch}
+h3.mini{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--dimmer);
+  margin:30px 0 12px;font-weight:500}
+
+.args{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0 22px;max-width:1000px}
+.arg{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:12px 15px}
+.arg.pro{border-left-color:var(--ok)}
+.arg.con{border-left-color:var(--block)}
+.arg h4{margin:0 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dimmer);font-weight:500}
+.arg.pro h4{color:var(--ok)} .arg.con h4{color:var(--block)}
+.arg p{margin:0;font-size:13.5px;color:var(--dim);line-height:1.6}
+.arg p strong{color:var(--ink);font-weight:600}
+.verdictline{border-left:2px solid var(--orange);padding:3px 0 3px 13px;margin:0 0 20px;
+  color:var(--toast);font-size:13.5px;max-width:88ch}
+.verdictline.no{border-color:var(--block);color:#fca5a5}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.06em;
+  text-transform:uppercase;padding-left:2px}
+
+/* =============================================================
+   PHONE — real app surface. 412px = the nominal phone width in dp.
+   Tokens below are lifted verbatim from
+   app/src/main/java/app/marmalade/tts/ui/theme/Color.kt, with the
+   mode-aware brand swaps from marmalade-design-scheme-v0 applied
+   (wordmark, accent button, chips).
+   ============================================================= */
+.phone{
+  width:412px;border-radius:28px;overflow:hidden;
+  border:1px solid #000;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  background:var(--p-surface);color:var(--p-ink);
+  display:flex;flex-direction:column;
+}
+.phone.l{
+  --p-surface:#FFF7ED;        /* Orange 50   — background */
+  --p-ink:#1C1917;            /* Stone 900   — onSurface */
+  --p-dim:#57534E;            /* Stone 600   — onSurfaceVariant */
+  --p-container:#FFEDD5;      /* Orange 100  — surfaceContainer (cards, nav) */
+  --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E;        /* Stone 400 */
+  --p-outline-v:#D6D3D1;      /* Stone 300 */
+  --p-accent:#F97316;         /* Orange — the ONE accent, light only */
+  --p-on-accent:#FFFFFF;
+  --p-wordmark:#F97316;       /* orange in light */
+  --p-chip-on:#FED7AA;        /* Toast — selected chip, both modes */
+  --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FFEDD5;       /* Cream — unselected chip, light */
+  --p-chip-off-ink:#1C1917;   /* chip ink is ALWAYS dark */
+  --p-err:#DC2626;
+  --p-scrim:rgba(28,25,23,.42);
+  --p-avatar:#FED7AA; --p-avatar-ink:#422006;
+}
+.phone.d{
+  --p-surface:#1A1A1A;        /* background */
+  --p-ink:#FAFAF9;            /* Stone 50 */
+  --p-dim:#D6D3D1;            /* Stone 300 */
+  --p-container:#292524;      /* Stone 800 — cards, nav bar */
+  --p-container-hi:#332F2C;
+  --p-outline:#737373;
+  --p-outline-v:#3D3D3D;
+  --p-accent:#422006;         /* Rich brown — dark accent button. NEVER orange. */
+  --p-on-accent:#FED7AA;
+  --p-wordmark:#FFEDD5;       /* cream in dark */
+  --p-chip-on:#FED7AA;
+  --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FEF3C7;       /* Soft pastel — unselected chip, dark */
+  --p-chip-off-ink:#1C1917;
+  --p-err:#EF4444;
+  --p-scrim:rgba(0,0,0,.55);
+  --p-avatar:#FED7AA; --p-avatar-ink:#422006;
+}
+.phone .appbar{height:56px;display:flex;align-items:center;padding:0 6px 0 16px;gap:8px}
+.phone .appbar .wm{flex:1;text-align:center;font-family:var(--wordmark);font-weight:600;
+  font-size:22px;color:var(--p-wordmark);letter-spacing:0}
+.phone .appbar .iconbtn{width:44px;height:44px;border-radius:99px;display:grid;place-items:center;
+  color:var(--p-ink);opacity:.85}
+.phone .appbar .iconbtn.ghost{opacity:0;pointer-events:none}
+.phone svg{display:block}
+.phone .stack{padding:8px 16px 0;display:flex;flex-direction:column;align-items:center;flex:1}
+.phone .mascot{margin-bottom:16px}
+
+/* text field — Material outlined, 160dp tall */
+.phone .field{position:relative;width:100%;height:160px;border:1px solid var(--p-outline);
+  border-radius:8px;padding:16px 14px 12px;color:var(--p-ink);background:transparent}
+.phone .field .lab{position:absolute;top:-8px;left:11px;background:var(--p-surface);
+  padding:0 5px;font-size:12px;color:var(--p-dim)}
+.phone .field .val{font-size:15px;line-height:1.5}
+.phone .field .caret{display:inline-block;width:1.5px;height:16px;background:var(--p-accent);
+  vertical-align:-3px;margin-left:1px;animation:blink 1.1s step-end infinite}
+.phone.d .field .caret{background:var(--p-on-accent)}
+@keyframes blink{50%{opacity:0}}
+
+/* the selector slot — every direction swaps only what lives here */
+.phone .sel{width:100%;margin:16px 0 0}
+
+.phone .speak{width:100%;height:48px;border-radius:24px;border:0;margin-top:16px;
+  background:var(--p-accent);color:var(--p-on-accent);
+  font-family:var(--body);font-size:15px;font-weight:500;letter-spacing:.1px;
+  display:grid;place-items:center}
+.phone .speak.off{background:rgba(120,113,108,.12);color:rgba(120,113,108,.55)}
+.phone.d .speak.off{background:rgba(250,250,249,.12);color:rgba(250,250,249,.38)}
+
+/* status line — 20px reserved so the layout never jumps, but IDLE renders nothing */
+.phone .status{width:100%;min-height:20px;margin-top:12px;margin-bottom:8px;text-align:center;
+  font-size:13px;color:var(--p-dim)}
+.phone .status.err{color:var(--p-err)}
+.phone .status.cta{color:var(--p-err);font-weight:500}
+.phone .status .dots i{display:inline-block;width:4px;height:4px;border-radius:99px;
+  background:currentColor;margin-left:3px;animation:pulse 1.2s infinite}
+.phone .status .dots i:nth-child(2){animation-delay:.15s}
+.phone .status .dots i:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+/* bottom nav */
+.phone .nav{display:flex;background:var(--p-container);padding:8px 4px 14px;margin-top:auto}
+.phone .nav .n{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--p-dim);font-size:11px}
+.phone .nav .n .pill{width:56px;height:30px;border-radius:99px;display:grid;place-items:center}
+/* the pill carries the Toast/#7C2D12 pair; the label under it sits on the nav
+   surface, so it takes the surface ink — brown-on-stone would be unreadable. */
+.phone .nav .n.on{color:var(--p-chip-on-ink)}
+.phone.d .nav .n.on{color:var(--p-ink)}
+.phone .nav .n.on .pill{background:var(--p-chip-on);color:var(--p-chip-on-ink)}
+
+/* ---- shared selector atoms ---- */
+.phone .avatar{width:40px;height:40px;border-radius:99px;background:var(--p-avatar);
+  color:var(--p-avatar-ink);display:grid;place-items:center;font-weight:600;font-size:16px;
+  flex:none;position:relative}
+.phone .avatar.sm{width:32px;height:32px;font-size:13px}
+.phone .avatar.lg{width:56px;height:56px;font-size:21px}
+.phone .avatar .cbadge{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;
+  border-radius:99px;background:var(--p-surface);color:var(--p-dim);display:grid;place-items:center}
+.phone .avatar.lg .cbadge{width:20px;height:20px;right:-1px;bottom:-1px}
+.phone .cloud{color:var(--p-dim);vertical-align:-2px}
+.phone .nm{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.phone .sub2{font-size:12.5px;color:var(--p-dim);display:flex;align-items:center;gap:5px}
+.phone .card{background:var(--p-container);border-radius:16px;padding:12px}
+.phone .mchip{font-size:11.5px;padding:3px 9px;border-radius:99px;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:5px;
+  border:1px solid var(--p-outline-v);color:var(--p-dim)}
+.phone .badge{font-size:10.5px;letter-spacing:.04em;padding:2px 8px;border-radius:99px;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);font-weight:600;text-transform:uppercase}
+
+/* baseline chips */
+.phone .chiprow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:8px}
+.phone .chip{height:32px;padding:0 12px;border-radius:8px;display:inline-flex;align-items:center;
+  gap:6px;font-size:14px;white-space:nowrap;background:var(--p-chip-off);color:var(--p-chip-off-ink)}
+.phone .chip.on{background:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.phone .chip.out{background:transparent;color:var(--p-ink);border:1px solid var(--p-outline)}
+
+/* A — persona card */
+.phone .vcard{display:flex;flex-direction:column;gap:10px;padding:14px}
+.phone .vc-top{display:flex;align-items:center;gap:12px}
+.phone .vc-meta{display:flex;gap:6px;flex-wrap:wrap}
+.phone .chgbtn{margin-left:auto;font-size:13px;font-weight:500;color:var(--p-ink);
+  border:1px solid var(--p-outline);border-radius:99px;padding:6px 14px}
+.phone.l .chgbtn{border-color:#422006;color:#422006}   /* outlined btn = rich brown in light */
+.phone.d .chgbtn{border-color:#FFEDD5;color:#FFEDD5}   /* cream in dark */
+
+/* B — single row + sheet */
+.phone .vrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;
+  border-radius:16px;border:1px solid var(--p-outline-v);background:var(--p-container-hi)}
+.phone.d .vrow{background:var(--p-container)}
+.phone .vrow .chev{margin-left:auto;color:var(--p-dim)}
+.phone.sheetwrap{position:relative}
+.phone .scrim{position:absolute;inset:0;background:var(--p-scrim);z-index:2}
+.phone .sheet{position:absolute;left:0;right:0;bottom:0;z-index:3;background:var(--p-container);
+  border-radius:28px 28px 0 0;padding:10px 0 18px}
+.phone .sheet .grab{width:34px;height:4px;border-radius:99px;background:var(--p-outline);
+  margin:0 auto 12px;opacity:.6}
+.phone .sheet h4{margin:0 0 6px;padding:0 20px;font-size:15px;font-weight:600}
+.phone .sheet .srow{display:flex;align-items:center;gap:12px;padding:9px 20px}
+.phone .sheet .srow.on{background:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.phone .sheet .srow.on .sub2{color:var(--p-chip-on-ink);opacity:.75}
+.phone .sheet .srow.on .cloud{color:var(--p-chip-on-ink);opacity:.75}
+.phone .sheet .srow .tick{margin-left:auto}
+.phone .sheet .divider{height:1px;background:var(--p-outline-v);margin:8px 20px}
+.phone .sheet .newrow{display:flex;align-items:center;gap:12px;padding:9px 20px;color:var(--p-dim)}
+
+/* C — segmented */
+.phone .seg{display:flex;width:100%;border:1px solid var(--p-outline);border-radius:99px;
+  overflow:hidden;height:40px}
+.phone .seg .si{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
+  font-size:13.5px;color:var(--p-ink);border-right:1px solid var(--p-outline);min-width:0}
+.phone .seg .si span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone .seg .si.on{background:var(--p-chip-on);color:var(--p-chip-on-ink);font-weight:600}
+.phone .seg .si.more{flex:0 0 46px;border-right:0;color:var(--p-dim)}
+.phone .segcap{text-align:center;font-size:12px;color:var(--p-dim);margin-top:8px;
+  display:flex;align-items:center;justify-content:center;gap:5px}
+
+/* D — pinned primary + micro rail */
+.phone .pinned{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;
+  border-radius:16px;background:var(--p-container)}
+.phone .microrail{display:flex;gap:10px;margin-top:10px;align-items:center;padding-left:2px}
+.phone .microrail .avatar{opacity:.55}
+.phone .microrail .plus{background:transparent;border:1px dashed var(--p-outline);
+  color:var(--p-dim);opacity:1}
+.phone .microrail .more{font-size:12px;color:var(--p-dim);margin-left:auto}
+
+/* E — carousel */
+.phone .carousel{display:flex;align-items:center;justify-content:center;gap:14px;width:100%}
+.phone .carousel .c{display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.4}
+.phone .carousel .c.on{opacity:1}
+.phone .carousel .c .cn{font-size:11.5px;color:var(--p-dim);max-width:64px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.phone .carousel .c.on .cn{font-size:15px;font-weight:600;color:var(--p-ink);max-width:150px}
+.phone .caroussub{text-align:center;font-size:12px;color:var(--p-dim);margin-top:6px;
+  display:flex;align-items:center;justify-content:center;gap:5px}
+.phone .dots2{display:flex;gap:5px;justify-content:center;margin-top:10px}
+.phone .dots2 i{width:5px;height:5px;border-radius:99px;background:var(--p-outline);opacity:.5}
+.phone .dots2 i.on{background:var(--p-ink);opacity:.75;width:14px}
+
+/* tails used by the status-behaviour board */
+.tail{width:412px;border-radius:20px;overflow:hidden;border:1px solid #000;
+  background:var(--p-surface);color:var(--p-ink);font-family:var(--body);font-size:14px;
+  padding:16px 16px 0}
+.tail.l{}
+.tailgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(412px,1fr));gap:18px;max-width:880px}
+
+/* swatch board */
+.board{display:flex;gap:18px;flex-wrap:wrap}
+.swatch{border-radius:16px;padding:18px;width:380px;display:flex;flex-direction:column;gap:14px;
+  font-family:var(--body);font-size:14px;background:var(--p-surface);color:var(--p-ink);
+  border:1px solid #000}
+.swatch .r{display:flex;align-items:center;gap:10px}
+.swatch .t{font-size:12px;color:var(--p-dim);margin-left:auto;font-family:var(--mono)}
+
+table.tk{border-collapse:collapse;font-size:13px;margin-top:10px}
+table.tk td,table.tk th{border:1px solid var(--line);padding:6px 11px;text-align:left}
+table.tk th{color:var(--dimmer);font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+table.tk td.c{font-family:var(--mono);font-size:12px;color:var(--peach)}
+table.tk .sw{display:inline-block;width:13px;height:13px;border-radius:3px;vertical-align:-2px;
+  margin-right:7px;border:1px solid rgba(255,255,255,.15)}
+
+ul.pts{margin:8px 0 0;padding-left:20px;color:var(--dim);font-size:13.5px;max-width:88ch}
+ul.pts li{margin:5px 0}
+ul.pts strong{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Marmalade TTS — <span>Speak Screen Lab</span></h1>
+    <div class="sub">Five reworks of the alias / voice selector. Live HTML at 412&nbsp;dp, light and dark.</div>
+  </div>
+  <div class="meta">
+    brief <b>“the chips just look awkward”</b><br>
+    keep <b>wordmark · input · speak button</b> · rework <b>selector · status line</b><br>
+    palette from <b>ui/theme/Color.kt</b> + <b>marmalade-design-scheme-v0</b>
+  </div>
+</header>
+
+<nav class="jump">
+  <a href="#now">Today</a>
+  <a href="#a">A · Persona card</a>
+  <a href="#b">B · Row + sheet</a>
+  <a href="#c">C · Segmented</a>
+  <a href="#d">D · Pinned + rail</a>
+  <a href="#e">E · Carousel</a>
+  <a href="#status">Status line</a>
+  <a href="#cloud">Cloud glyph</a>
+  <span class="spacer"></span>
+  <a href="#ship" class="pick">→ What I'd ship</a>
+</nav>
+
+<main>
+
+<!-- ============================ TODAY ============================ -->
+<section id="now">
+  <h2><span class="k">now</span> The screen as it ships today</h2>
+  <p class="lead">
+    Reproduced from <code>SpeakScreen.kt</code> so the comparison is fair: outlined voice chip,
+    then a <code>FlowRow</code> of alias FilterChips plus a trailing “Create alias” AssistChip,
+    then Speak, then a permanent “Ready”. Two competing chip languages stacked on top of each
+    other, no hierarchy between them, and in dark mode the pale chips are the loudest thing on
+    the page — which is exactly the awkwardness.
+  </p>
+  <div class="stage" id="stage-now"></div>
+  <ul class="pts">
+    <li><strong>Two chip shapes, one job.</strong> The outlined chip is the current <em>voice</em>;
+      the filled chips are <em>aliases</em> that also set the voice. Same visual weight class,
+      different meanings, no label explaining either.</li>
+    <li><strong>No hierarchy.</strong> Nothing says which alias is primary, and the alias you
+      picked looks identical to the one you never use.</li>
+    <li><strong>Everything hidden.</strong> Engine, speed, effect and cloud-vs-device are all
+      invisible here — they only exist on the Aliases screen.</li>
+    <li><strong>“Ready” is noise.</strong> It's on screen 99% of the time and says nothing.</li>
+  </ul>
+</section>
+
+<!-- ============================ A ============================ -->
+<section id="a">
+  <h2><span class="k">A</span> Persona card</h2>
+  <p class="lead">
+    One elevated card that <em>is</em> the current persona: avatar, name, primary badge,
+    engine&nbsp;›&nbsp;voice with the cloud glyph, and a meta row for speed / effect / language.
+    Tapping anywhere on the card (or “Change”) opens the persona sheet. The chip row disappears
+    entirely.
+  </p>
+  <div class="args">
+    <div class="arg pro"><h4>For</h4><p>
+      This is the only direction that answers <strong>“what will I actually hear?”</strong> before
+      you press Speak. Engine, voice, speed, effect and network-dependency are all on the surface,
+      so the card doubles as a pre-flight check — and “Gradium › Adam ☁ · 1.00× · No effect” is
+      genuinely useful when you have six near-identical personas. It's a single object with a
+      single tap target, which reads far calmer than a wrapped chip field, and it grows to any
+      number of aliases without reflowing the layout. It also matches the alias cards on the
+      Aliases screen, so the two screens finally speak the same language.
+    </p></div>
+    <div class="arg con"><h4>Against</h4><p>
+      It's the <strong>biggest</strong> block of the five and it pushes Speak down the page — on a
+      short phone the button starts flirting with the fold, which is a real cost on the one screen
+      whose whole job is “type, tap”. Switching persona now costs two taps and a sheet animation
+      where today it costs one, and Max's stated love of the screen is that it's minimal; a card
+      with five data points is the least minimal option here. The meta chips also risk becoming
+      decoration you stop reading after a week, at which point you've paid the height for nothing.
+    </p></div>
+  </div>
+  <div class="stage" id="stage-a"></div>
+</section>
+
+<!-- ============================ B ============================ -->
+<section id="b">
+  <h2><span class="k">B</span> Current-voice row → persona sheet <span class="flag">recommended</span></h2>
+  <p class="lead">
+    A single 56&nbsp;dp row directly under the input: avatar, persona name, engine&nbsp;·&nbsp;voice
+    in secondary text, cloud glyph if it's a network voice, chevron. Tap opens a bottom sheet
+    listing every persona with the same three facts, plus “New persona”. Nothing else on the screen.
+  </p>
+  <div class="args">
+    <div class="arg pro"><h4>For</h4><p>
+      It's the <strong>smallest possible control that still names what it does</strong> — one line,
+      one tap target, reads left-to-right like a sentence, and its meaning is unambiguous in a way
+      the current two-chip-languages arrangement never is. It scales to fifty personas without
+      touching the home screen's height or layout, which the chip row emphatically does not. The
+      sheet is where richness belongs: full names, engine, cloud glyph, search later if the list
+      grows, and “New persona” living at the bottom instead of squatting in the main screen as a
+      permanent chip. It preserves the minimalism Max says he likes while removing the exact
+      element he says looks awkward, and it's the least code: one row composable plus a
+      <code>ModalBottomSheet</code> reusing the Aliases list rows.
+    </p></div>
+    <div class="arg con"><h4>Against</h4><p>
+      Switching persona goes from <strong>one tap to two</strong>, and if you genuinely ping-pong
+      between two voices all day that's a real tax — the chip row's one virtue is that your top
+      three aliases are always one tap away. It also hides the roster: a new user can no longer
+      see at a glance that personas exist at all, so discovery leans entirely on the row's chevron
+      affordance. And a sheet is one more surface to theme, animate and test.
+    </p></div>
+  </div>
+  <div class="stage" id="stage-b"></div>
+</section>
+
+<!-- ============================ C ============================ -->
+<section id="c">
+  <h2><span class="k">C</span> Segmented switcher</h2>
+  <p class="lead">
+    One fixed-height pill track split into segments — your first three personas plus an
+    overflow “···” that opens the full list. Selected segment is Toast; cloud-backed personas
+    carry the glyph inline. A single caption under the track spells out what's selected.
+  </p>
+  <div class="args">
+    <div class="arg pro"><h4>For</h4><p>
+      It keeps the <strong>one-tap switch</strong> that the chip row's only real advantage, but
+      replaces a ragged wrapped field with one rigid object of fixed height — so the layout never
+      reflows, Speak never moves, and there's exactly one control instead of “outlined chip plus
+      N filled chips plus a create chip”. Segmented controls also carry the right semantics:
+      these options are <em>mutually exclusive</em>, which is precisely true of personas and which
+      the current FilterChip row fails to communicate. The caption underneath restores the engine
+      and cloud information the chips throw away, for one line of height.
+    </p></div>
+    <div class="arg con"><h4>Against</h4><p>
+      It <strong>doesn't survive long names</strong>: “Maximilian” and “Documentary Narrator” in
+      412&nbsp;dp across three segments means truncation on day one, and truncated persona names
+      are worse than no names. Three visible slots is an arbitrary cut, so the roster becomes
+      “first three by creation date plus a mystery ···”, and the overflow is a second-class citizen
+      that will hold most of your personas the moment you have five. Material 3's segmented button
+      also isn't really meant for user-generated variable-width content, so it'll fight you.
+    </p></div>
+  </div>
+  <div class="stage" id="stage-c"></div>
+</section>
+
+<!-- ============================ D ============================ -->
+<section id="d">
+  <h2><span class="k">D</span> Primary pinned + avatar micro-rail</h2>
+  <p class="lead">
+    Leans on something the app already knows: <code>SettingsRepository.primaryAliasName</code>.
+    The primary persona gets a real row with name, engine, speed and cloud glyph; every other
+    persona collapses to a 32&nbsp;dp initial in a micro-rail underneath, with a dashed “+”.
+    Tap an initial to switch (it swaps into the pinned row), long-press to make it primary.
+  </p>
+  <div class="args">
+    <div class="arg pro"><h4>For</h4><p>
+      It's the only direction that <strong>encodes the hierarchy that already exists in the data</strong>
+      — one persona is primary, the rest are alternates — instead of pretending all N are equal
+      the way the chip row does. That means one-tap switching survives, but the layout cost of the
+      alternates drops to a single 32&nbsp;dp line no matter how many you have, so it's both
+      denser and more informative than today. Circular initials read as “people/personas”
+      instantly, and hanging the cloud glyph off the avatar corner as a badge gives you
+      per-persona network legibility for free, at a glance, across the whole roster.
+    </p></div>
+    <div class="arg con"><h4>Against</h4><p>
+      <strong>Initials are ambiguous</strong> — two personas starting with “M” look identical, and
+      unlike a contacts app there's no photo to disambiguate them, so you're relying on position
+      memory. That's fine at three personas and bad at eight. It also introduces two interaction
+      grammars in the same block (tap to select, long-press to re-pin) with no visible affordance
+      for the second, and “which one is pinned vs which one is active” becomes a state you have to
+      draw carefully or it reads as two selections at once.
+    </p></div>
+  </div>
+  <div class="stage" id="stage-d"></div>
+</section>
+
+<!-- ============================ E ============================ -->
+<section id="e">
+  <h2><span class="k">E</span> Persona carousel</h2>
+  <p class="lead">
+    A horizontally swipeable dial of avatars centred on the active persona — the centre one is
+    56&nbsp;dp with its full name below, neighbours shrink and fade. Page dots underneath.
+    Swipe to change, tap a neighbour to jump, “+” lives at the end of the reel.
+  </p>
+  <div class="args">
+    <div class="arg pro"><h4>For</h4><p>
+      By far the most <strong>characterful</strong> option and the best fit for the mascot-led,
+      warm personality of the brand — personas genuinely are characters, and a dial of faces sells
+      that in a way a chip never will. Swiping is a zero-tap gesture with a large target, and the
+      focus/blur treatment gives an unmistakable answer to “which one is active” with no selection
+      chrome at all. It's also the most delightful thing on the roadmap for a screen that's
+      currently four rectangles, and it stays exactly one row tall regardless of roster size.
+    </p></div>
+    <div class="arg con"><h4>Against</h4><p>
+      It's <strong>the wrong control for a settings-shaped decision</strong>. Carousels hide
+      their contents, make “go to the fifth persona” a multi-swipe chore, and are notoriously
+      poor for accessibility and TalkBack ordering. It puts a horizontal-swipe target directly
+      under a multi-line text field, which invites gesture conflicts, and the fade-to-40%
+      neighbours are borderline on contrast in both modes. It's the option most likely to be
+      loved in a mockup and resented in daily use, and it solves “awkward” by adding flourish
+      rather than by adding clarity.
+    </p></div>
+  </div>
+  <div class="stage" id="stage-e"></div>
+</section>
+
+<!-- ============================ STATUS ============================ -->
+<section id="status">
+  <h2><span class="k">status</span> The status line: silent when idle</h2>
+  <p class="lead">
+    Per the brief — idle says <em>nothing</em>. The 20&nbsp;dp slot stays reserved so the bottom
+    nav doesn't jump when a message arrives, but it renders empty. The line only speaks when it
+    has something real: speaking, loading a model, an error, or a missing engine (which stays an
+    actionable <code>TextButton</code> in error colour, as it is today). Change in
+    <code>statusText()</code>: <code>PlaybackState.Idle → ""</code>.
+  </p>
+  <div class="tailgrid" id="stage-status"></div>
+  <h3 class="mini">Rules</h3>
+  <ul class="pts">
+    <li><strong>Idle → empty string.</strong> Not “Ready”, not a dash. Absence is the success state.</li>
+    <li><strong>Reserve the height, don't reserve the text.</strong> A fixed 20&nbsp;dp minHeight
+      keeps Speak and the nav bar still when a message appears or clears.</li>
+    <li><strong>Only two colours.</strong> <code>onSurfaceVariant</code> for transient progress,
+      <code>error</code> for anything the user must act on. Nothing gets a success colour.</li>
+    <li><strong>Model-missing stays a button</strong>, not a sentence — it's the one status that
+      has a fix one tap away.</li>
+  </ul>
+</section>
+
+<!-- ============================ CLOUD ============================ -->
+<section id="cloud">
+  <h2><span class="k">cloud</span> The cloud glyph</h2>
+  <p class="lead">
+    Roughly half the voice roster is network-backed (Venice / OpenAI) and half runs on-device.
+    That difference decides whether a persona can fail on a train, whether it costs money, and
+    whether it leaves the phone — so it deserves a persistent mark, not a word buried on the
+    Aliases screen. The glyph is a 14&nbsp;dp filled cloud in <code>onSurfaceVariant</code>:
+    quiet enough to ignore, present enough to scan. On-device gets <em>nothing</em> — absence is
+    the default, which keeps the common case clean and makes the marked case pop.
+  </p>
+  <div class="board" id="stage-cloud"></div>
+  <h3 class="mini">Placement per direction</h3>
+  <table class="tk">
+    <tr><th>Where</th><th>Form</th><th>Why</th></tr>
+    <tr><td>A · card, D · pinned row</td><td>inline, after the voice name</td><td>reads as part of the sentence “Gradium › Adam ☁”</td></tr>
+    <tr><td>B · row and sheet</td><td>inline in the secondary line</td><td>same glyph in both surfaces, so the sheet teaches the row</td></tr>
+    <tr><td>C · segment</td><td>leading, before the truncatable name</td><td>survives ellipsis — the name truncates, the glyph doesn't</td></tr>
+    <tr><td>D · micro-rail, E · carousel</td><td>corner badge on the avatar</td><td>only way to mark a roster of faces without adding a row</td></tr>
+    <tr><td>Aliases screen</td><td>leading icon inside the existing “Cloud” MetaChip</td><td>Max's ask, verbatim — same glyph, so the two screens agree</td></tr>
+  </table>
+  <h3 class="mini">Colour</h3>
+  <table class="tk">
+    <tr><th>Context</th><th>Light</th><th>Dark</th></tr>
+    <tr><td>Inline / secondary text</td><td class="c"><span class="sw" style="background:#57534E"></span>#57534E</td><td class="c"><span class="sw" style="background:#D6D3D1"></span>#D6D3D1</td></tr>
+    <tr><td>On a Toast chip / selected row</td><td class="c"><span class="sw" style="background:#7C2D12"></span>#7C2D12 @75%</td><td class="c"><span class="sw" style="background:#7C2D12"></span>#7C2D12 @75%</td></tr>
+    <tr><td>Avatar corner badge</td><td class="c">surface disc + <span class="sw" style="background:#57534E"></span>#57534E</td><td class="c">surface disc + <span class="sw" style="background:#D6D3D1"></span>#D6D3D1</td></tr>
+  </table>
+  <p class="lead" style="margin-top:14px">
+    Never tint it blue or give it an accent colour — orange is precious, and a status glyph that
+    competes with the Speak button is a brand-scheme violation and an attention bug at once.
+  </p>
+</section>
+
+<!-- ============================ SHIP ============================ -->
+<section id="ship">
+  <h2><span class="k">pick</span> What I'd ship <span class="flag">B, with one borrowed idea from D</span></h2>
+  <div class="verdictline">
+    <strong>Ship B — the current-voice row plus a persona sheet.</strong> It removes the awkward
+    element outright rather than restyling it, it keeps the screen as minimal as Max says he
+    wants it, and it's the only direction whose height is constant no matter how many personas
+    exist. Everything rich moves into the sheet, where there's room for it and where it doesn't
+    tax the ninety-nine-times-out-of-a-hundred case of “type, tap Speak”.
+  </div>
+  <div class="verdictline">
+    <strong>Borrow the primary badge from D.</strong> The app already stores a primary alias and
+    the home screen currently ignores it. Marking it in the sheet (and defaulting the row to it)
+    costs nothing and recovers the hierarchy that the flat chip row destroys.
+  </div>
+  <div class="verdictline no">
+    <strong>Not C, not E.</strong> C truncates real persona names inside a week and turns the
+    roster into “first three plus a mystery button”. E is the prettiest mock here and would be
+    the first thing to annoy you at persona number five — plus a horizontal swipe target sitting
+    directly under a multi-line text field is asking for gesture conflicts.
+  </div>
+  <div class="verdictline">
+    <strong>A is the honourable runner-up</strong> and the right answer if the pre-flight
+    information turns out to matter more than height — it's also the smallest jump from B, since
+    B's row is just A's card with the meta line deleted. Build B first; if you miss the detail,
+    A is a one-file expansion of the same component.
+  </div>
+  <h3 class="mini">Ship list, in order</h3>
+  <ul class="pts">
+    <li><strong>1 · Status line goes silent.</strong> One line in <code>statusText()</code>,
+      zero risk, immediate win. Keep the reserved height.</li>
+    <li><strong>2 · Cloud glyph everywhere.</strong> Add it to the existing “Cloud” MetaChip on
+      the Aliases screen and to whatever the Speak screen ends up showing. One shared
+      composable, so the two screens can't drift.</li>
+    <li><strong>3 · Replace both chip rows with the B row.</strong> Delete
+      <code>AliasChipRow</code> and the standalone <code>AssistChip</code>; one row replaces both.</li>
+    <li><strong>4 · Persona sheet.</strong> <code>ModalBottomSheet</code> reusing the Aliases list
+      rows, primary badged, “New persona” at the bottom routing to the existing alias editor.</li>
+    <li><strong>5 · Leave the wordmark, mascot, input and Speak button alone.</strong> They are
+      not the problem and every mock above keeps them pixel-identical on purpose.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+/* =============================================================
+   Mock renderer. One markup template per direction, instantiated
+   once per mode — so light and dark can never drift apart.
+   ============================================================= */
+
+const I = {
+  list:  '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h2v2H3V6zm4 0h14v2H7V6zM3 11h2v2H3v-2zm4 0h14v2H7v-2zM3 16h2v2H3v-2zm4 0h14v2H7v-2z"/></svg>',
+  cloud: (s=14)=>`<svg width="${s}" height="${s*0.72}" viewBox="0 0 24 17" fill="currentColor" class="cloudsvg"><path d="M19.35 7.04A7.49 7.49 0 0 0 12 1a7.48 7.48 0 0 0-6.63 4.04A5.99 5.99 0 0 0 6 17h13a4.99 4.99 0 0 0 .35-9.96z"/></svg>`,
+  chev:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.6 8.6 12 12l3.4-3.4 1.4 1.4-4.8 4.8-4.8-4.8z"/></svg>',
+  tick:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
+  plus:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
+  spk:   '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.06a6.99 6.99 0 0 1 0 13.48v2.06a9 9 0 0 0 0-17.6z"/></svg>',
+  per:   '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 4.4V20h16v-1.6c0-2.2-3.6-4.4-8-4.4z"/></svg>',
+  fx:    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h13M21 17h0"/><circle cx="15" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="19" cy="17" r="2" fill="currentColor" stroke="none"/></svg>',
+  eng:   '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></svg>',
+  cog:   '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.38.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.48 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>',
+};
+
+/* the jar mascot, inline so the file stays self-contained */
+function mascot(speaking){
+  return `<svg width="64" height="64" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="58" rx="19" ry="3" fill="#000" opacity=".08"/>
+    <rect x="14" y="7" width="36" height="9" rx="4.5" fill="#FFF7ED" stroke="#D6D3D1" stroke-width="1.2"/>
+    <rect x="18" y="13" width="28" height="4" rx="2" fill="#E7E5E4"/>
+    <rect x="12" y="16" width="40" height="40" rx="13" fill="#F97316"/>
+    <rect x="12" y="16" width="40" height="40" rx="13" fill="none" stroke="#C2410C" stroke-width="1" opacity=".5"/>
+    <circle cx="24" cy="27" r="3.4" fill="#422006"/>
+    <circle cx="40" cy="27" r="3.4" fill="#422006"/>
+    <circle cx="25.1" cy="25.9" r="1.1" fill="#fff"/>
+    <circle cx="41.1" cy="25.9" r="1.1" fill="#fff"/>
+    <circle cx="17.5" cy="32" r="2.6" fill="#FDBA74" opacity=".8"/>
+    <circle cx="46.5" cy="32" r="2.6" fill="#FDBA74" opacity=".8"/>
+    ${speaking
+      ? '<ellipse cx="32" cy="34" rx="4" ry="5" fill="#422006"/>'
+      : '<path d="M28 33q4 4 8 0" stroke="#422006" stroke-width="2" fill="none" stroke-linecap="round"/>'}
+    <rect x="17" y="40" width="30" height="13" rx="4" fill="#FFEDD5"/>
+    <rect x="21" y="44" width="22" height="1.8" rx=".9" fill="#FDBA74"/>
+    <rect x="21" y="48" width="14" height="1.8" rx=".9" fill="#FDBA74"/>
+  </svg>`;
+}
+
+const CLOUD = I.cloud(13);
+
+/* ---- shared page furniture ---- */
+const APPBAR = `<div class="appbar">
+  <div class="iconbtn ghost">${I.list}</div>
+  <div class="wm">marmalade tts</div>
+  <div class="iconbtn">${I.list}</div>
+</div>`;
+
+const FIELD = `<div class="field">
+  <div class="lab">Text to speak</div>
+  <div class="val">Grace and peace to you from God our Father.<span class="caret"></span></div>
+</div>`;
+
+const NAV = `<div class="nav">
+  <div class="n on"><div class="pill">${I.spk}</div>Speak</div>
+  <div class="n"><div class="pill">${I.per}</div>Aliases</div>
+  <div class="n"><div class="pill">${I.fx}</div>Effects</div>
+  <div class="n"><div class="pill">${I.eng}</div>Engines</div>
+  <div class="n"><div class="pill">${I.cog}</div>Settings</div>
+</div>`;
+
+function speakBtn(label='Speak', off=false){
+  return `<button class="speak${off?' off':''}">${label}</button>`;
+}
+function status(kind){
+  switch(kind){
+    case 'idle':     return `<div class="status"></div>`;
+    case 'ready':    return `<div class="status">Ready</div>`;
+    case 'speaking': return `<div class="status">Speaking<span class="dots"><i></i><i></i><i></i></span></div>`;
+    case 'loading':  return `<div class="status">Loading Kokoro<span class="dots"><i></i><i></i><i></i></span></div>`;
+    case 'error':    return `<div class="status err">Venice request failed — no network</div>`;
+    case 'missing':  return `<div class="status cta">Tap to install Kokoro</div>`;
+  }
+}
+
+/* ---- selector templates ---- */
+
+const SEL = {};
+
+/* today */
+SEL.now = `
+<div class="sel" style="display:flex;flex-direction:column;align-items:center">
+  <span class="chip out">Maximilian</span>
+  <div class="chiprow">
+    <span class="chip">Kitten - Kiki</span>
+    <span class="chip">Gradium - Maximilian</span>
+    <span class="chip">Kokoro - Adam</span>
+    <span class="chip">${I.plus} Create alias</span>
+  </div>
+</div>`;
+
+/* A — persona card */
+SEL.a = `
+<div class="sel">
+  <div class="card vcard">
+    <div class="vc-top">
+      <div class="avatar">M</div>
+      <div style="min-width:0">
+        <div class="nm">Maximilian <span class="badge" style="margin-left:4px">primary</span></div>
+        <div class="sub2">Gradium › Adam ${CLOUD}</div>
+      </div>
+      <div class="chgbtn">Change</div>
+    </div>
+    <div class="vc-meta">
+      <span class="mchip">1.00×</span>
+      <span class="mchip">No effect</span>
+      <span class="mchip">en-us</span>
+    </div>
+  </div>
+</div>`;
+
+/* B — row */
+SEL.b = `
+<div class="sel">
+  <div class="vrow">
+    <div class="avatar sm">M</div>
+    <div style="min-width:0">
+      <div style="font-size:15px;font-weight:600;letter-spacing:-.2px">Maximilian</div>
+      <div class="sub2">Gradium · Adam ${CLOUD}</div>
+    </div>
+    <div class="chev">${I.chev}</div>
+  </div>
+</div>`;
+
+/* B — sheet overlay (rendered inside the phone, absolutely positioned) */
+const SHEET = `
+<div class="scrim"></div>
+<div class="sheet">
+  <div class="grab"></div>
+  <h4>Persona</h4>
+  <div class="srow on">
+    <div class="avatar sm">M</div>
+    <div style="min-width:0">
+      <div style="font-size:15px;font-weight:600">Maximilian <span style="font-size:10.5px;opacity:.7;font-weight:700;letter-spacing:.04em">· PRIMARY</span></div>
+      <div class="sub2">Gradium · Adam ${CLOUD}</div>
+    </div>
+    <div class="tick">${I.tick}</div>
+  </div>
+  <div class="srow">
+    <div class="avatar sm">K</div>
+    <div style="min-width:0">
+      <div style="font-size:15px;font-weight:600">Kiki</div>
+      <div class="sub2">Kitten · Bella</div>
+    </div>
+  </div>
+  <div class="srow">
+    <div class="avatar sm">A</div>
+    <div style="min-width:0">
+      <div style="font-size:15px;font-weight:600">Adam</div>
+      <div class="sub2">Kokoro · am_adam</div>
+    </div>
+  </div>
+  <div class="srow">
+    <div class="avatar sm">N</div>
+    <div style="min-width:0">
+      <div style="font-size:15px;font-weight:600">Narrator</div>
+      <div class="sub2">Venice · ElevenLabs Turbo ${CLOUD}</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="newrow">${I.plus}<span style="font-size:15px">New persona</span></div>
+</div>`;
+
+/* C — segmented */
+SEL.c = `
+<div class="sel">
+  <div class="seg">
+    <div class="si"><span class="t">Kiki</span></div>
+    <div class="si on">${I.cloud(12)}<span class="t">Maximilian</span></div>
+    <div class="si"><span class="t">Adam</span></div>
+    <div class="si more">•••</div>
+  </div>
+  <div class="segcap">Gradium · Adam ${CLOUD} · 1.00× · No effect</div>
+</div>`;
+
+/* D — pinned + micro rail */
+function ava(letter, cloud, extra=''){
+  return `<div class="avatar sm ${extra}">${letter}${cloud?`<span class="cbadge">${I.cloud(9)}</span>`:''}</div>`;
+}
+SEL.d = `
+<div class="sel">
+  <div class="pinned">
+    <div class="avatar">M<span class="cbadge">${I.cloud(10)}</span></div>
+    <div style="min-width:0">
+      <div class="nm">Maximilian</div>
+      <div class="sub2">Gradium › Adam · 1.00×</div>
+    </div>
+    <div class="badge" style="margin-left:auto">primary</div>
+  </div>
+  <div class="microrail">
+    ${ava('K',false)}
+    ${ava('A',false)}
+    ${ava('N',true)}
+    ${ava('T',true)}
+    <div class="avatar sm plus">${I.plus}</div>
+    <div class="more">5 personas</div>
+  </div>
+</div>`;
+
+/* E — carousel */
+SEL.e = `
+<div class="sel">
+  <div class="carousel">
+    <div class="c"><div class="avatar sm">K</div><div class="cn">Kiki</div></div>
+    <div class="c on">
+      <div class="avatar lg">M<span class="cbadge">${I.cloud(11)}</span></div>
+      <div class="cn">Maximilian</div>
+    </div>
+    <div class="c"><div class="avatar sm">A</div><div class="cn">Adam</div></div>
+  </div>
+  <div class="caroussub">Gradium › Adam ${CLOUD} · 1.00×</div>
+  <div class="dots2"><i></i><i class="on"></i><i></i><i></i><i></i></div>
+</div>`;
+
+/* ---- phone builder ---- */
+function phone(mode, selector, opts={}){
+  const st = opts.status || 'idle';
+  const overlay = opts.overlay || '';
+  return `<div class="phone ${mode}${overlay?' sheetwrap':''}">
+    ${APPBAR}
+    <div class="stack">
+      <div class="mascot">${mascot(opts.speaking)}</div>
+      ${FIELD}
+      ${selector}
+      ${speakBtn(opts.speaking?'Stop':'Speak', opts.off)}
+      ${status(st)}
+    </div>
+    ${NAV}
+    ${overlay}
+  </div>`;
+}
+
+function mount(id, selector, extraSlots=[], baseOpts={}){
+  const el = document.getElementById(id);
+  if(!el) return;
+  let html = '';
+  html += `<div class="slot"><div class="cap">Light</div>${phone('l', selector, baseOpts)}</div>`;
+  html += `<div class="slot"><div class="cap">Dark</div>${phone('d', selector, baseOpts)}</div>`;
+  for(const s of extraSlots){
+    html += `<div class="slot"><div class="cap">${s.cap}</div>${phone(s.mode, selector, s.opts)}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+/* the baseline keeps its permanent "Ready" — that's the point of the contrast */
+mount('stage-now', SEL.now, [], {status:'ready'});
+mount('stage-a',   SEL.a);
+mount('stage-b',   SEL.b, [
+  {cap:'Light · sheet open', mode:'l', opts:{overlay:SHEET}},
+  {cap:'Dark · sheet open',  mode:'d', opts:{overlay:SHEET}},
+]);
+mount('stage-c',   SEL.c);
+mount('stage-d',   SEL.d);
+mount('stage-e',   SEL.e);
+
+/* ---- status board: just the tail of the screen, both modes ---- */
+(function(){
+  const el = document.getElementById('stage-status');
+  const cases = [
+    ['idle',     'Idle — nothing at all',            {}],
+    ['speaking', 'Speaking — transient progress',    {speaking:true}],
+    ['loading',  'Loading a model — same treatment', {off:true}],
+    ['error',    'Error — error colour, plain text', {}],
+    ['missing',  'Engine missing — actionable, error colour', {off:true}],
+  ];
+  let html = '';
+  for(const [kind, cap, o] of cases){
+    for(const mode of ['l','d']){
+      html += `<div class="slot"><div class="cap">${cap} · ${mode==='l'?'light':'dark'}</div>
+        <div class="tail phone ${mode}">
+          ${SEL.b}
+          ${speakBtn(o.speaking?'Stop':'Speak', o.off)}
+          ${status(kind)}
+          <div style="height:4px"></div>
+        </div></div>`;
+    }
+  }
+  el.innerHTML = html;
+})();
+
+/* ---- cloud glyph board ---- */
+(function(){
+  const el = document.getElementById('stage-cloud');
+  const body = `
+    <div class="r"><div class="avatar sm">M<span class="cbadge">${I.cloud(9)}</span></div>
+      <div><div style="font-weight:600">Maximilian</div>
+      <div class="sub2">Gradium · Adam ${CLOUD}</div></div>
+      <span class="t">inline + badge</span></div>
+    <div class="r"><div class="avatar sm">K</div>
+      <div><div style="font-weight:600">Kiki</div>
+      <div class="sub2">Kitten · Bella</div></div>
+      <span class="t">on-device: bare</span></div>
+    <div class="r" style="gap:6px">
+      <span class="chip on">${I.cloud(12)} Cloud</span>
+      <span class="chip out">1.00×</span>
+      <span class="chip out">No effect</span>
+      <span class="t">aliases card</span></div>
+    <div class="r" style="gap:6px">
+      <span class="mchip">${I.cloud(11)} Venice</span>
+      <span class="mchip">${I.cloud(11)} OpenAI</span>
+      <span class="mchip">Kokoro</span>
+      <span class="t">engine chips</span></div>
+    <div class="r" style="gap:14px;align-items:flex-end">
+      <span class="cloud">${I.cloud(10)}</span>
+      <span class="cloud">${I.cloud(13)}</span>
+      <span class="cloud">${I.cloud(16)}</span>
+      <span class="cloud">${I.cloud(20)}</span>
+      <span class="t">10 / 13 / 16 / 20 dp</span></div>`;
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light</div><div class="swatch phone l">${body}</div></div>` +
+    `<div class="slot"><div class="cap">Dark</div><div class="swatch phone d">${body}</div></div>`;
+})();
+
+/* jump-nav active highlight */
+(function(){
+  const links = [...document.querySelectorAll('nav.jump a')];
+  const secs  = links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const io = new IntersectionObserver(es=>{
+    for(const e of es){
+      if(!e.isIntersecting) continue;
+      links.forEach(a=>a.classList.toggle('pick', a.getAttribute('href')==='#'+e.target.id));
+    }
+  }, {rootMargin:'-56px 0px -70% 0px'});
+  secs.forEach(s=>io.observe(s));
+})();
+</script>
+</body>
+</html>
