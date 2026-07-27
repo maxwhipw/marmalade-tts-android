@@ -15,8 +15,8 @@ class VoiceLatencyTest {
     @Test
     fun `buckets split on the calibrated cut points`() {
         assertEquals(LatencyBucket.INSTANT, LatencyBucket.ofMillis(0))
-        assertEquals(LatencyBucket.INSTANT, LatencyBucket.ofMillis(599))
-        assertEquals(LatencyBucket.QUICK, LatencyBucket.ofMillis(600))
+        assertEquals(LatencyBucket.INSTANT, LatencyBucket.ofMillis(999))
+        assertEquals(LatencyBucket.QUICK, LatencyBucket.ofMillis(1_000))
         assertEquals(LatencyBucket.QUICK, LatencyBucket.ofMillis(1_799))
         assertEquals(LatencyBucket.SLOW, LatencyBucket.ofMillis(1_800))
         assertEquals(LatencyBucket.SLOW, LatencyBucket.ofMillis(9_000))
