@@ -256,7 +256,14 @@ class MarmaladeTtsApplication : Application() {
          *    Tiles). Those are provisional: approving one means renaming it and
          *    mirroring it into the CLI, rejecting one means deleting the row and
          *    letting the prune drop it.
+         *  - v29: 1.0.0-beta.1 — trial batch judged on device. Next room is
+         *    promoted to `builtin:next_room` and mirrored into the CLI;
+         *    Deadpan to `builtin:deadpan`, stripped to the bare Monotone(160)
+         *    block and Android-only (Monotone has no sox equivalent). Cassette,
+         *    Crooner, Fine print, Bedtime and Tiles are rejected — their
+         *    `builtin:test_*` rows are pruned. Megaphone Vol 1.1 → 0.8 and
+         *    Intercom 1.2 → 0.9; both were still too hot.
          */
-        const val CATALOG_VERSION: Int = 28
+        const val CATALOG_VERSION: Int = 29
     }
 }

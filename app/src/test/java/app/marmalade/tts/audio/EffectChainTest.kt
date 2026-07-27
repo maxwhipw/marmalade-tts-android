@@ -54,7 +54,7 @@ class EffectChainTest {
             EffectChain.STADIUM_BLOCKS,
         )
         assertEquals(
-            listOf(EffectBlock.Bandpass(500f, 4000f), EffectBlock.Overdrive(30f), EffectBlock.Vol(1.1f)),
+            listOf(EffectBlock.Bandpass(500f, 4000f), EffectBlock.Overdrive(30f), EffectBlock.Vol(0.8f)),
             EffectChain.MEGAPHONE_BLOCKS,
         )
         assertEquals(
@@ -74,7 +74,7 @@ class EffectChainTest {
                 EffectBlock.Overdrive(18f),
                 EffectBlock.Mid(1500f, 4f),
                 EffectBlock.Reverb(30f),
-                EffectBlock.Vol(1.2f),
+                EffectBlock.Vol(0.9f),
             ),
             EffectChain.INTERCOM_BLOCKS,
         )
@@ -93,6 +93,21 @@ class EffectChainTest {
             listOf(EffectBlock.Lowpass(3446f), EffectBlock.Bitcrush(7f, 8f)),
             EffectChain.EIGHT_BIT_BLOCKS,
         )
+        assertEquals(
+            listOf(EffectBlock.Reverb(60f), EffectBlock.Lowpass(600f), EffectBlock.Vol(1.8f)),
+            EffectChain.NEXT_ROOM_BLOCKS,
+        )
+    }
+
+    /**
+     * Deadpan has no CLI counterpart — [EffectBlock.Monotone] has no sox
+     * equivalent — so it is pinned here rather than in the mirror test above.
+     * The bare block is the recipe Max signed off on 2026-07-26; anything
+     * stacked after it blurred the words.
+     */
+    @Test
+    fun `DEADPAN is the Monotone block alone`() {
+        assertEquals(listOf(EffectBlock.Monotone(160f)), EffectChain.DEADPAN_BLOCKS)
     }
 
     // ── identity paths ───────────────────────────────────────────────────────

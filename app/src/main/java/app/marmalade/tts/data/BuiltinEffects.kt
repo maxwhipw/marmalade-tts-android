@@ -42,15 +42,10 @@ object BuiltinEffects {
     const val EIGHT_BIT_ID = "builtin:eight_bit"
     const val GLITCH_ID = "builtin:glitch"
 
-    // Trial presets — seeded for Max to audition, named "<name> - test".
-    // Approve → rename and mirror into the CLI. Reject → delete + prune.
-    const val CASSETTE_ID = "builtin:test_cassette"
-    const val CROONER_ID = "builtin:test_crooner"
-    const val DEADPAN_ID = "builtin:test_deadpan"
-    const val FINE_PRINT_ID = "builtin:test_fine_print"
-    const val NEXT_ROOM_ID = "builtin:test_next_room"
-    const val BEDTIME_ID = "builtin:test_bedtime"
-    const val TILES_ID = "builtin:test_tiles"
+    const val NEXT_ROOM_ID = "builtin:next_room"
+
+    /** Monotone has no sox equivalent, so this one is Android-only. */
+    const val DEADPAN_ID = "builtin:deadpan"
 
     /**
      * The seeded CLI presets, in the CLI's listing order. Built-ins sort ahead
@@ -85,18 +80,12 @@ object BuiltinEffects {
             row(AI_ID, "AI", EffectChain.AI_BLOCKS),
             row(ETHEREAL_ID, "Ethereal", EffectChain.ETHEREAL_BLOCKS),
             row(DRAGON_ID, "Dragon", EffectChain.DRAGON_BLOCKS),
-            // Android-only stackups (Bitcrush / RingMod — no sox equivalent).
+            row(NEXT_ROOM_ID, "Next room", EffectChain.NEXT_ROOM_BLOCKS),
+            // Android-only stackups (Bitcrush / RingMod / Monotone — no sox equivalent).
             row(CYBORG_ID, "Cyborg", EffectChain.CYBORG_BLOCKS),
             row(EIGHT_BIT_ID, "8-bit", EffectChain.EIGHT_BIT_BLOCKS),
             row(GLITCH_ID, "Glitch", EffectChain.GLITCH_BLOCKS),
-            // Trial batch — auditioning only, see EffectChain's trial section.
-            row(CASSETTE_ID, "Cassette - test", EffectChain.CASSETTE_BLOCKS),
-            row(CROONER_ID, "Crooner - test", EffectChain.CROONER_BLOCKS),
-            row(DEADPAN_ID, "Deadpan - test", EffectChain.DEADPAN_BLOCKS),
-            row(FINE_PRINT_ID, "Fine print - test", EffectChain.FINE_PRINT_BLOCKS),
-            row(NEXT_ROOM_ID, "Next room - test", EffectChain.NEXT_ROOM_BLOCKS),
-            row(BEDTIME_ID, "Bedtime - test", EffectChain.BEDTIME_BLOCKS),
-            row(TILES_ID, "Tiles - test", EffectChain.TILES_BLOCKS),
+            row(DEADPAN_ID, "Deadpan", EffectChain.DEADPAN_BLOCKS),
         )
     }
 

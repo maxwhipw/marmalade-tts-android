@@ -193,7 +193,7 @@ object EffectChain {
     val MEGAPHONE_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Bandpass(lowHz = 500f, highHz = 4000f),
         EffectBlock.Overdrive(gainDb = 30f),
-        EffectBlock.Vol(factor = 1.1f),
+        EffectBlock.Vol(factor = 0.8f),
     )
 
     // -- Curated voice stackups (E-K) ------------------------------------------
@@ -268,7 +268,7 @@ object EffectChain {
         EffectBlock.Overdrive(gainDb = 18f),
         EffectBlock.Mid(freqHz = 1500f, gainDb = 4f),
         EffectBlock.Reverb(reverberance = 30f),
-        EffectBlock.Vol(factor = 1.2f),
+        EffectBlock.Vol(factor = 0.9f),
     )
     // Submerged: dark low-pass, chorus shimmer, slight pitch + wobble. The
     // low-pass + tremolo eat level, so a Vol makeup keeps it audible.
@@ -309,6 +309,15 @@ object EffectChain {
         EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f),
         EffectBlock.Tempo(factor = 0.85f),
     )
+    // A voice through a closed door. Order is the whole trick: the reverb
+    // happens in the *other* room, so the low-pass after it muffles the tail
+    // along with the voice — reverb last would be a dark voice in a bright
+    // room, which breaks the image.
+    val NEXT_ROOM_BLOCKS: List<EffectBlock> = listOf(
+        EffectBlock.Reverb(reverberance = 60f),
+        EffectBlock.Lowpass(freqHz = 600f),
+        EffectBlock.Vol(factor = 1.8f),
+    )
 
     // -- Stackups using the Android-only blocks (E-L) — no CLI equivalent -------
 
@@ -334,79 +343,12 @@ object EffectChain {
         EffectBlock.Vol(factor = 1.35f),
     )
 
-    // -- Trial presets — awaiting Max's verdict ---------------------------------
-    // Seeded under "<name> - test" names so they're obvious in the list. Approve
-    // → rename, drop the marker, and mirror into the CLI's BUILTIN_PRESETS.
-    // Reject → delete the block list, the row, and prune. Deliberately NOT in
-    // the CLI or the README yet: no point churning the public docs twice.
-
-    // Home tape recording: warm, dull, faintly wavering. Drive first so the
-    // soft-clip harmonics get smoothed by the head roll-off rather than
-    // sitting on top of it as fizz.
-    val CASSETTE_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Overdrive(gainDb = 6f),
-        EffectBlock.Lowpass(freqHz = 5500f),
-        EffectBlock.Chorus(speedHz = 0.5f, depthMs = 1.5f),
-        EffectBlock.Compressor(thresholdDb = -22f, ratio = 2.5f),
-        EffectBlock.Vol(factor = 1.15f),
-    )
-    // 1950s stage mic. The one distinct ~120 ms slapback repeat is the whole
-    // period cue — Cave and Stadium bury their echoes in reverb, this keeps it
-    // dry and audible, with only a whisper of room behind it.
-    val CROONER_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Highpass(freqHz = 120f),
-        EffectBlock.Overdrive(gainDb = 4f),
-        EffectBlock.Compressor(thresholdDb = -20f, ratio = 4f),
-        EffectBlock.Mid(freqHz = 3000f, gainDb = 2f),
-        EffectBlock.Echo(gainIn = 0.85f, gainOut = 0.55f, delayMs = 120f, decay = 0.45f),
-        EffectBlock.Reverb(reverberance = 12f),
-    )
-    // Flat-affect facility AI: the sentence's melody ironed out, every word
-    // still clear. [EffectBlock.Monotone] runs first so its detector sees the
-    // clean voice; the tight chorus says "not human" without smearing it.
+    // Nothing but the flattener. Auditioned 2026-07-26 against a version that
+    // also carried chorus, a presence bell and a little room; Max picked the
+    // bare block. TD-PSOLA already reads as unmistakably synthetic on its own,
+    // and everything stacked on top only blurred the words.
     val DEADPAN_BLOCKS: List<EffectBlock> = listOf(
         EffectBlock.Monotone(targetHz = 160f),
-        EffectBlock.Chorus(speedHz = 0.3f, depthMs = 1f),
-        EffectBlock.Mid(freqHz = 2800f, gainDb = 2f),
-        EffectBlock.Reverb(reverberance = 10f),
-    )
-    // End-of-advert disclaimer. Tempo runs early and pitch is untouched, so it
-    // reads as a fast talker rather than a chipmunk; the deep squash then
-    // supplies the breathless no-gaps density and the presence bell keeps
-    // consonants cutting through at speed.
-    val FINE_PRINT_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Highpass(freqHz = 100f),
-        EffectBlock.Tempo(factor = 1.35f),
-        EffectBlock.Compressor(thresholdDb = -24f, ratio = 4f),
-        EffectBlock.Mid(freqHz = 3000f, gainDb = 3f),
-        EffectBlock.Vol(factor = 1.25f),
-    )
-    // A voice through a closed door. Order is the whole trick: the reverb
-    // happens in the *other* room, so the low-pass after it muffles the tail
-    // along with the voice — reverb last would be a dark voice in a bright
-    // room, which breaks the image.
-    val NEXT_ROOM_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Reverb(reverberance = 60f),
-        EffectBlock.Lowpass(freqHz = 600f),
-        EffectBlock.Vol(factor = 1.8f),
-    )
-    // Hushed wind-down narrator. The high shelf tames sibilance more gracefully
-    // than a low-pass would, and deliberately no reverb and no presence boost —
-    // that restraint is what separates it from Audiobook.
-    val BEDTIME_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Tempo(factor = 0.93f),
-        EffectBlock.Treble(db = -4f),
-        EffectBlock.Bass(db = 3f),
-        EffectBlock.Compressor(thresholdDb = -26f, ratio = 2f),
-    )
-    // Small tiled room. Bright and short where Cave is dark and huge: thin the
-    // low end so it doesn't boom, then a close 45 ms slap under a modest
-    // reverb, with air on top.
-    val TILES_BLOCKS: List<EffectBlock> = listOf(
-        EffectBlock.Highpass(freqHz = 180f),
-        EffectBlock.Treble(db = 3f),
-        EffectBlock.Echo(gainIn = 0.8f, gainOut = 0.5f, delayMs = 45f, decay = 0.25f),
-        EffectBlock.Reverb(reverberance = 40f),
     )
 
     /**
