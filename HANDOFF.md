@@ -1,3 +1,89 @@
+# HANDOFF — trial-batch verdicts + a Monotone passthrough bug, 2026-07-26 (branch verify/routing-on-api-engine)
+
+## Branch state
+
+Working branch **`verify/routing-on-api-engine`**, head **`b95d034`**.
+**370 unit tests green**; fdroid debug APK builds. **Nothing pushed.**
+
+Sister commit in `~/coding/marmalade-tts-cli`: `39d21e2` (also unpushed).
+
+## The bug worth knowing about — `5552e18`
+
+**Whole-buffer Monotone was an exact passthrough on real speech.** Not
+degraded — literally the dry signal, 0.05 LSB mean absolute difference over a
+13.6 s clip.
+
+Analysis marks were gated on the input being *buffered* rather than
+*analysed*. Those look equivalent while audio arrives in small pieces, because
+then data availability gates detection anyway. Hand the whole utterance over in
+one call and marks run to the end of the buffer while detection is still capped
+to its 64-entry pitch-track ring; `f0At` clamps a mark past the analysed region
+to the last analysed hop, and for a TTS clip that hop is the **leading
+silence**. So every mark came out unvoiced — and unvoiced marks are a
+passthrough by construction, since Hann grains at their own analysis spacing
+reconstruct the input exactly.
+
+The streaming path was always correct. So the block worked wherever audio
+arrives in chunks and did nothing wherever it doesn't — the concatenated
+`Synthesizer` / `SynthesisPipeline` route through `EffectChain.applyChain`.
+
+**Every test passed the whole time.** The fixture was voiced from sample 0, so
+no mark was ever placed against silence; and the flatness assertion cannot tell
+a correct flattener from a stale one anyway, because the output period is the
+constant target no matter which hop's F0 got read. `monotone flattens a glide
+that starts after silence` now opens with half a second of silence and asserts
+the output is *not* the input. Keep that assertion.
+
+## The audition verdicts — `1b2f46d`
+
+Max heard the 7 trial presets on the Pixel 8a.
+
+| Preset | Verdict |
+|---|---|
+| **Deadpan** | **Kept** — "the monotone effect really works". Stripped to bare `Monotone(160)`; the chorus / presence bell / room are gone. `builtin:deadpan` |
+| **Next room** | **Kept** — the best of the batch. `builtin:next_room`, mirrored into the CLI |
+| Cassette | Rejected ("a hard no") |
+| Crooner | Rejected |
+| Fine print, Bedtime, Tiles | Rejected |
+
+Deadpan is **Android-only** — Monotone has no sox equivalent — so it is pinned
+by its own `DEADPAN is the Monotone block alone` test rather than by the CLI
+mirror test. Next room is a normal mirrored preset.
+
+Also: Megaphone Vol 1.1 → 0.8, Intercom 1.2 → 0.9. **Trailer untouched.**
+
+`CATALOG_VERSION` **28 → 29**.
+
+## Other fixes this turn
+
+- `94e06c7` — the voice picker opens on the **engine list** instead of landing
+  inside the current voice's model. Engine-scoped mode (`voices?engine=`) still
+  drills past the one-item source list.
+- `5ed87dc` — the **primary alias's routing strip is no longer tappable**.
+  Routing an app to the primary is a no-op; it is already the fallback.
+- `b95d034` — `INSTANT_BELOW_MS` 600 → 1000 so Gradium reads Instant. Note the
+  descriptor seed already said `instant`; measurement overrides it once three
+  samples exist, so the cut point was the thing to move.
+
+## NOT verified on device
+
+**ADB dropped mid-turn** (port 42965 refused connection) and never came back,
+so nothing since the first install has been heard or seen on the phone.
+
+- **Deadpan needs a re-listen.** Max heard the *old* Deadpan (Monotone + chorus
+  + mid + reverb) through the *streaming* path, which was unaffected by the
+  passthrough bug. What ships now is the bare block. Also worth confirming his
+  "does it stop working at the end?" — measurement says no: after the fix every
+  quarter of a 13.6 s clip sits on 160.0 Hz and the final second is the
+  cleanest region of all (sd 12.7 cents, 100% within 50 cents).
+- **StreamPerf RTF with Deadpan applied** — sliding-YIN cost on the 8a is still
+  unmeasured.
+- **The Gradium badge.** 1000 ms was picked on principle, not from this
+  device's stored medians — they could not be read. It may also lift xAI into
+  Instant. Check with:
+  `adb exec-out run-as app.marmalade.tts.debug cat files/datastore/<prefs>`
+- The two UI changes are unseen.
+
 # HANDOFF — Monotone PSOLA rewrite + trial presets, 2026-07-26 (branch verify/routing-on-api-engine)
 
 ## Branch state
