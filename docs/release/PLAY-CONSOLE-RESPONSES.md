@@ -72,11 +72,13 @@ asks "collect **or** share". Google defines the two separately
 > **"Sharing"** refers to transferring user data collected from your app
 > to a third party.
 
-The only exemptions from disclosing **collection** are on-device-only
-processing and end-to-end encryption. Neither applies: the text does
-leave the device, and TLS is not end-to-end encryption in Google's sense
-— the provider can read it. So the collect limb is met regardless of how
-strong the disclosure is.
+The exemptions from disclosing **collection** are exactly three:
+on-device-only processing, end-to-end encryption, and ephemeral
+processing. None applies. The text leaves the device; TLS is not
+end-to-end encryption in Google's sense (the provider must be able to
+read it, and Play asks about in-transit encryption *separately*, which
+shows the two are different concepts); and ephemeral is addressed below.
+So the collect limb is met regardless of how strong the disclosure is.
 
 **Ephemeral processing does not rescue a No either**, which is the trap.
 Google's wording is explicit that it is a *display* suppression, not a
@@ -91,77 +93,153 @@ declaration exemption:
 > data is only stored in memory and retained for no longer than necessary
 > to service the specific request in real-time.
 
-So: enter it in the form, mark it ephemeral, and Google decides what the
-public listing shows.
+So ephemeral is a *listing* suppression, not a way out of declaring —
+and in any case it is answered No here, for the reasons below.
 
 ### What to declare
 
-| Field | Answer |
-|---|---|
-| Data type | **App activity → Other user-generated content** |
-| Collected | **Yes** — it is transmitted off device |
-| Shared | **Yes** — it goes to a third party (see note below) |
-| Processed ephemerally | **No** — see below |
-| Purpose | **App functionality** only |
-| Required or optional | **Optional** — cloud voices are opt-in; on-device voices send nothing |
+**Two data types, not one.** Reviewed 2026-07-27 by a three-model panel
+reading the full Console page. Unanimous except where marked.
 
-Marmalade *could* lean on the sharing exemption and leave "Shared"
-unticked — the consent gate (2026-07-27) makes the prominent-disclosure
-limb genuinely strong. **Declare it anyway.** The exemption turns on
-whether the user "reasonably expects" the transfer, and the system-TTS
-path is exactly where that expectation is weakest: with a cloud voice as
-the primary alias, text from *other* apps — ebooks, messages, anything an
-accessibility service reads — reaches the provider without any action
-inside Marmalade. Ticking the box costs a line on the store listing and
-removes the whole argument. For an app whose pitch is privacy, saying so
-plainly is on-brand.
+| | Text to be spoken | The user's API key |
+|---|---|---|
+| Data type | App activity → **Other user-generated content** | Personal info → **User IDs** |
+| Collected | **Yes** | **Yes** |
+| Shared | **No** — exempt | **No** — exempt |
+| Processed ephemerally | **No** | **No** |
+| Purpose | **App functionality** | **App functionality** |
+| Required or optional | **Optional** | **Optional** |
+
+Nothing else. No Location, Financial info, Messages, Contacts, Device
+IDs, or Crash logs/Diagnostics — there is no crash reporter.
+
+### The API key IS collected — the clause that settles it
+
+An earlier draft of this document said the key needed no declaration, on
+the reasoning that storing it on-device isn't collection and it is only
+ever sent to the service that issued it. **Both halves are wrong**, and
+the second is wrong because of one clause all three reviewers found:
+
+> "Collect" means transmitting data from your app off a user's device.
+> … **Libraries and SDKs:** This includes user data transmitted off
+> device from your app by libraries and/or SDKs used in your app,
+> **irrespective of whether data is transmitted to you or a third-party
+> server.**
+
+The destination is explicitly irrelevant. "It goes back to its own
+issuer" and "the developer has no server and never sees it" are both
+answered by that sentence. The key rides in an `Authorization: Bearer`
+header on every cloud request, so it is transmitted off device, so it is
+collected.
+
+Storing it on-device remains *not* collection — the on-device exemption
+is conditioned on data "not sent off device", and the key is sent. The
+persistence is a red herring in both directions; the header is what
+decides it.
+
+**Data type: Personal info → User IDs** — *"Identifiers that relate to an
+identifiable person. For example, an account ID, account number, or
+account name."* The key is issued per-account and the provider resolves
+it to a specific identifiable customer, which is what "relates to an
+identifiable person" asks.
+
+> **Panel split, recorded honestly.** Two of three reviewers said User
+> IDs. The third argued for ticking **nothing**: Play has no
+> credential/token data type at all (verified by grepping the page —
+> zero occurrences of "password", "credential", or "token"), and the
+> User IDs examples describe identifiers that name a person *to the
+> developer*, which this never does. That is a real argument. It loses
+> on two grounds: the definition says "relate to", not "identify to
+> you"; and under-declaring is what draws enforcement while
+> over-declaring is not a violation. If a reviewer ever objects to the
+> User IDs row, the fallback is to remove it, not to defend it.
+
+### Sharing: do not tick it — but know that this is a choice
+
+All three reviewers agreed the transfer is exempt from the *sharing*
+declaration:
+
+> **User-initiated action or prominent disclosure and user consent.**
+> Transferring user data to a third party based on a specific
+> user-initiated action, where the user reasonably expects the data to
+> be shared, or based on a prominent in-app disclosure and consent…
+
+The user obtains a key from a named provider, pastes it into a dialog
+naming that provider, and picks a voice whose id names that provider.
+The consent gate (2026-07-27) satisfies the second limb independently.
+
+Venice/OpenAI are **third parties, not service providers** — a service
+provider processes *"on behalf of the developer and based on the
+developer's instructions"*, and these process on behalf of the **user**,
+under the user's own account and contract. Never declare them as service
+providers; that would be false.
+
+The exemption covers **sharing only**. There is no user-initiated
+exemption from *collection*, which is why both rows above are still
+declared as collected. That asymmetry is the whole shape of this form.
+
+**The residual soft spot** is the system-TTS path: with a cloud voice as
+the primary alias, text from *other* apps reaches the provider with no
+action inside Marmalade, and "the user reasonably expects" is weakest
+there. Ticking "Shared" anyway would buy that argument away for the cost
+of one listing line. That is a defensible over-declaration, not a
+requirement — decide it deliberately rather than drifting into it.
 
 ### Ephemeral: answer No
 
-Marmalade's *own* handling is ephemeral — the text lives in memory for
-the duration of one request and is never written to disk or to a server
-we control. It is tempting to answer Yes on that basis. **Don't.**
+Marmalade's *own* handling is ephemeral — memory only, never written to
+disk or to a server we control. It is tempting to answer Yes on that
+basis. **Don't.**
 
 The transfer is not ephemeral end-to-end, and this is checkable rather
 than assumed: OpenAI's API documentation states that *"abuse monitoring
 logs are generated for all API feature usage and retained for up to 30
 days, unless longer retention is required by law"* (Zero Data Retention
-exists but requires prior approval and is not what a bring-your-own-key
-user has). Thirty days is not "retained for no longer than necessary to
+exists but requires prior approval, which a bring-your-own-key user will
+not have). Thirty days is not "retained for no longer than necessary to
 service the specific request in real-time".
 
-The asymmetry also matters: answering Yes **removes the entry from the
-public store listing**. Hiding a disclosure from users on the strength of
-an assumption about a third party's retention is the wrong direction for
-this app. No keeps it visible.
+The provider is not our service provider, so we cannot certify their
+retention at all. And answering Yes **removes the entry from the public
+listing** — hiding a disclosure from users on an assumption about a
+third party's internals is the wrong direction for this app.
 
-### The API key is not a login, and has no data type
+### Account creation and login: No
 
 - **"My app does not allow users to create an account"** → correct.
 - **"Can users login with accounts created outside of the app?"** →
-  **No.** The key does not log anyone in to *Marmalade*. There is no
-  Marmalade account, identity, or server; nothing gates the app behind
-  authentication. The key is a bearer token forwarded to the third party
-  that issued it.
-- **Storing the key on the device is not "collection."** Play defines
-  collect as *transmitting data off a user's device*. App-private
-  storage never leaves it.
-- **There is no data type to declare it under.** Play's full data-type
-  list contains **no** entry for passwords, credentials, API keys, or
-  authentication tokens — the omission is deliberate, since every app
-  with a login transmits credentials. The nearest neighbours are
-  Personal info → "User IDs" (*"Identifiers that relate to an
-  identifiable person. For example, an account ID, account number, or
-  account name."*) and "Other info" (*"date of birth, gender identity,
-  veteran status"*), and neither describes a bearer token going to its
-  own issuer.
+  **No.** An app account is *"a unique user identity that developers
+  provide as a user-facing feature to serve the user across applications
+  and/or devices."* Marmalade provides no identity, no directory, no
+  server; nothing gates the app behind authentication. The Venice/OpenAI
+  account pre-exists the app and belongs to the provider.
 
-### Deletion: answer No
+Because there is no app account, Play's account-deletion obligations do
+not attach.
 
-Not "No, but user data is automatically deleted within 90 days" — that
-would imply Marmalade holds something on a timer. It holds nothing off
-the device at all. Anything a provider retains is deleted by asking that
-provider, which PRIVACY.md says.
+> Keep `CloudProvider.keyHint` as plain descriptive text. If it ever
+> becomes a tappable deep link into a provider signup flow, the clause
+> about an app that *"directs the user to an app account creation flow
+> outside of the app"* becomes something a reviewer could read
+> over-literally. Cheap to avoid.
+
+### Deletion: open, decide before submitting
+
+⚠️ The panel split here and no answer is forced.
+
+The question presumes a developer-held datastore that does not exist.
+Nothing is retained off-device; removing a key deletes the DataStore
+entry; anything the provider retains is deleted through the user's own
+account with them.
+
+- **No** — the reading that the question is about developer-held data,
+  of which there is none. This is what the form currently has.
+- **Yes** — truthful if grounded in "the app provides in-app removal and
+  the developer retains nothing anywhere," and one reviewer preferred it.
+
+Do **not** pick *"No, but user data is automatically deleted within 90
+days"* — that asserts a retention timer we do not operate. Whichever of
+the two is chosen, PRIVACY.md must say the same thing.
 
 ### Why only one box, when a user could type anything
 
