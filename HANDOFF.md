@@ -2,9 +2,10 @@
 
 ## State
 
-Branch **`main`**, head **`40c30e4`**, **6 commits ahead of `github/main`** —
-last pushed state was `9cf5ee6`. Clean tree. **377 unit tests green.**
+Branch **`main`**, head **`aa61c94`**, ahead of `github/main` —
+last pushed state was `9cf5ee6`. **386 unit tests green.**
 Debug APK builds. **Nothing in this batch has been seen on device.**
+Untracked (not ours, left alone): `app/schemas/.../MarmaladeDb/10.json`.
 
 Build: `./gradlew :app:compileFdroidDebugKotlin` (fast check),
 `:app:testFdroidDebugUnitTest` (suite), `:app:assembleFdroidDebug` (APK),
@@ -88,12 +89,35 @@ markers". It emits IPA; the accent data is carried across JNI and
 dropped, which is **correct** — misaki's `ja.JAG2P` defaults to the
 segmental cutlet path and Kokoro v1.0 has no token ids for `_`/`-`/`^`.
 
+### "Yeah" mispronunciation fixed — `d78b188` (P0 launch-lab item)
+
+Root cause was espeak, not the token map: espeak-ng (1.51 and the pinned
+1.52 submodule) has **no dictionary entry for "yeah"**, so letter-to-sound
+emits `jˈɛh` — a literal aspirated [h], audibly "yeh-h". Misaki
+transcribes it `jˈɛə`. No text respelling produces that, so the fix is
+phoneme-level: new `phonemizer/EnPhonemeFixups.kt` rewrites word-initial
+`j[ˈˌ]?ɛh → jɛə` on espeak output for `en*` voices (no right-hand
+boundary — "yeah's" is `jˈɛhz`). Covers KittenDirect **and**
+KokoroDirect. `EnPhonemeFixupsTest` (7 tests) pins it.
+
+The CLI shared the bug (kittentts phonemizes with espeak internally);
+fixed there too — `marmalade-tts-cli` commit `85d9b5f` patches the
+daemon's phonemizer backend. Deploy on marmalade needs `./install.sh` +
+kitten daemon restart. CLI piper/matcha/emojivoice still carry the
+espeak bug; CLI kokoro (misaki) is fine.
+
+A/B samples (same Kitten nano ONNX, old vs new phonemes):
+**http://marmalade:8095/yeah-fix/** (symlink `~/labs/yeah-fix` →
+`~/coding/scratch/yeah/`).
+
 ## Open — needs Max
 
 - [ ] **Device verification of everything above.** Nothing in this batch
       has run on hardware. Highest value: the new Speak row + sheet, and
       an English/Japanese listen for the `ᵻ`/`ɯ`/`ʔ` fix, which should be
-      audible.
+      audible. Plus the "yeah" fix: pre-listen at
+      http://marmalade:8095/yeah-fix/, then say "Yeah, sure." on device
+      with Kitten and Kokoro voices.
 - [ ] **Four language defects deliberately NOT fixed** — see
       `docs/LANGUAGE-AUDIT-2026-07.md`. All are prosody changes with
       strong evidence the *input* is wrong and **zero** evidence about how
