@@ -17,6 +17,10 @@ package app.marmalade.tts.phonemizer
 //     out mangled on every model size), so it gets flat /jæ/ ("ya"),
 //     which won the listening test bar none.
 //
+// This table is expected to grow: pronunciation bug reports (Settings →
+// Report a bug) get diagnosed the same way — espeak IPA vs a reference
+// transcription, A/B'd per model — and land here as new entries.
+//
 // Entries match at a word start (string start or after the space that
 // separates words in espeak's sentence-mode output) and deliberately do
 // NOT require a right-hand boundary: espeak phonemizes "yeah's" as

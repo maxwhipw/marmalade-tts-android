@@ -480,6 +480,17 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     )
 
     AboutLinkRow(
+        label = "Report a bug",
+        supporting = "Something broken or mispronounced? Opens a GitHub issue with the details filled in.",
+        url = app.marmalade.tts.util.BugReportUrl.build(
+            versionName = BuildConfig.VERSION_NAME,
+            flavor = BuildConfig.FLAVOR,
+            androidVersion = android.os.Build.VERSION.RELEASE,
+            deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+        ),
+    )
+
+    AboutLinkRow(
         label = "More Marmalade",
         supporting = "Other Marmalade apps on GitHub.",
         url = "https://github.com/maxwhipw",
