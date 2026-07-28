@@ -122,10 +122,13 @@ class EspeakPhonemizer(
             Log.w(TAG, "phonemize called on a closed phonemizer")
             return ""
         }
-        synchronized(nativeLock) {
+        val raw = synchronized(nativeLock) {
             applyVoiceLocked(voice)
-            return nativePhonemize(text) ?: ""
+            nativePhonemize(text) ?: ""
         }
+        // espeak's English LTS gets some common informal words wrong
+        // ("yeah" → /jɛh/); see EnPhonemeFixups.
+        return if (voice.startsWith("en")) EnPhonemeFixups.apply(raw) else raw
     }
 
     /**
