@@ -1011,9 +1011,9 @@ private fun NotificationPermissionStep(
             text = if (granted) {
                 "Marmalade can show its speaking and “keeping warm” notifications."
             } else {
-                "When Marmalade keeps an engine warm for instant replies (the " +
-                    "default), it shows a small notification while loaded. Allow " +
-                    "notifications so that — and the playback notice — can appear."
+                "Marmalade shows a small notification while it speaks, and " +
+                    "another while it keeps an engine warm for instant replies " +
+                    "(the default). Allow notifications so both can appear."
             },
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
