@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Launch Lab</title>
+<style>
+  :root{
+    --bg:#12100e; --panel:#1b1815; --panel2:#221e1a; --line:#332c25;
+    --ink:#f5ede3; --dim:#a89684; --dimmer:#7c6c5d;
+    --orange:#f97316; --toast:#fed7aa; --peach:#fdba74;
+    --ok:#4ade80; --warn:#fbbf24;
+    --mono:ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  header{padding:20px 26px 15px;border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+  h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  h1 span{color:var(--orange)}
+  .sub{color:var(--dim);font-size:13px}
+  .meta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dimmer);text-align:right}
+  .meta b{color:var(--peach);font-weight:500}
+  main{padding:26px;max-width:1080px;margin:0 auto}
+
+  .phase{border:1px solid var(--line);border-radius:12px;background:var(--panel);
+    margin-bottom:18px;overflow:hidden}
+  .phase > summary{cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:12px;
+    list-style:none}
+  .phase > summary::-webkit-details-marker{display:none}
+  .phase h2{margin:0;font-size:15px;flex:1}
+  .phase h2 .id{font-family:var(--mono);font-size:11px;color:var(--orange);margin-right:8px}
+  .prog{font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
+  .prog.done{color:var(--ok)}
+  .inner{padding:4px 18px 16px;border-top:1px solid var(--line)}
+  .inner p.why{color:var(--dim);font-size:13px;margin:10px 0 14px;max-width:820px}
+  .inner p.why b{color:var(--toast)}
+
+  label.step{display:flex;gap:11px;padding:8px 10px;border-radius:8px;
+    align-items:flex-start;cursor:pointer;font-size:14px}
+  label.step:hover{background:var(--panel2)}
+  label.step input{margin-top:3px;accent-color:var(--orange);flex:none;width:16px;height:16px}
+  label.step .t b{color:var(--toast);font-weight:600}
+  label.step .t small{display:block;color:var(--dimmer);font-size:12px;margin-top:2px}
+  label.step.checked .t{color:var(--dimmer);text-decoration:line-through}
+  label.step.checked .t b{color:var(--dimmer)}
+
+  .copyblock{border:1px solid var(--line);border-radius:10px;background:#0d0b09;
+    margin:12px 0}
+  .copyblock .ch{display:flex;align-items:center;gap:10px;padding:8px 12px;
+    border-bottom:1px solid var(--line)}
+  .copyblock .ch b{flex:1;font-size:13px;color:var(--peach)}
+  .copyblock .ch .id{font-family:var(--mono);font-size:10.5px;color:var(--orange)}
+  .copyblock pre{margin:0;padding:12px 14px;white-space:pre-wrap;font-family:var(--mono);
+    font-size:12px;line-height:1.6;color:var(--toast)}
+  button.cp{background:var(--orange);color:#2b1400;border:0;border-radius:6px;
+    padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  button.cp:hover{background:var(--peach)}
+  button.cp.ok{background:var(--ok)}
+
+  .note{border-left:2px solid var(--orange);padding:2px 0 2px 12px;margin:14px 0;
+    color:var(--toast);font-size:13px;max-width:820px}
+  .warnbox{border-left:2px solid var(--warn);padding:2px 0 2px 12px;margin:14px 0;
+    color:#fde68a;font-size:13px;max-width:820px}
+  code{font-family:var(--mono);font-size:11.5px;background:#0d0b09;
+    padding:1px 5px;border-radius:4px;color:var(--toast)}
+  pre.cmd{background:#0d0b09;border:1px solid var(--line);border-radius:7px;
+    padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;
+    color:var(--toast);margin:9px 0;max-width:820px}
+  textarea.tracker{width:100%;min-height:170px;background:#0d0b09;border:1px solid var(--line);
+    color:var(--toast);border-radius:8px;padding:10px 12px;font-family:var(--mono);
+    font-size:12px;line-height:1.7;resize:vertical}
+  a{color:var(--peach)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Launch Lab</span></h1>
+    <div class="sub">Tracker + step-by-step for the store launch. Checkbox and tracker state persists in this browser (localStorage). Playbook source: <code>agent-wiki/tech/coding/android-app-publishing.md</code>.</div>
+  </div>
+  <div class="meta">
+    route: <b>F-Droid first → Play</b><br>
+    tester goal: <b>18 recruited / 12 surviving</b><br>
+    drafted <b>2026-07-27</b>
+  </div>
+</header>
+
+<main>
+
+<div class="note"><b>The one rule:</b> the Play gate is a <b>closed</b> test — 12 testers opted in
+for 14 <i>consecutive</i> days, graded on real engagement. Open testing does <b>not</b> substitute
+for it (the requirement names closed testing), and open-test reviews are public and carry into the
+production listing. Given the app's maturity an open test isn't <i>wrong</i> — but run it, if at all,
+after production access is granted and only if closed testing left device-coverage doubts. It adds
+nothing to the gate.</div>
+
+<details class="phase" open>
+<summary><h2><span class="id">P0</span> Pre-flight — quality + upload gates</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">Everything here blocks either the upload or the first impression. Do these before
+recruiting a single tester — testers churn if the first build wobbles.</p>
+
+<label class="step"><input type="checkbox" data-k="p0-yeah"><span class="t"><b>Fix the Kitten "Yeah" mispronunciation</b>
+<small>Known issue Max flagged: "Yeah" renders wrong in various contexts on Kitten (maybe others). Likely espeak G2P ("yeah" → /jɛə/) meeting Kitten's trained IPA conventions — same class of mismatch as the deferred OpenPhonemizer path. Debug recipe: compare espeak phonemes for "Yeah." / "Yeah, sure." / "yeah" mid-sentence vs what the CLI's Kitten produces; check the phoneme→token map for /ɛə/. Worth fixing before testers hear it daily.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p0-api36"><span class="t"><b>Target API 36</b>
+<small>Mandatory for new apps from 2026-08-31 — the launch lands right on this. Extension to Nov 1 exists but don't plan on it.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p0-16kb"><span class="t"><b>Verify 16 KB page alignment of every bundled .so</b>
+<small>Play refuses the upload otherwise (espeak-ng + onnxruntime are the risks). Check each LOAD segment align ≥ 0x4000:</small></span></label>
+<pre class="cmd">cd $(mktemp -d) && unzip -q ~/path/to/app-release.apk 'lib/arm64-v8a/*.so'
+for so in lib/arm64-v8a/*.so; do
+  echo "$so: $(readelf -lW "$so" | awk '/LOAD/{print $NF}' | sort -u | tr '\n' ' ')"
+done   # every value must be 0x4000 (or larger)</pre>
+<label class="step"><input type="checkbox" data-k="p0-privacy"><span class="t"><b>Privacy policy URL live</b>
+<small>Required regardless of data collection. Host it with the project site / GitHub Pages.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p0-datasafety"><span class="t"><b>Data safety form drafted — including the cloud-voices path if api-engine ships</b>
+<small>The 2026-07-15 policy explicitly covers BYO-API-key third-party AI: user text leaves the device, so it must be declared with consent, even though we collect nothing. "Private by design" is true of the on-device path only. If api-engine stays off main, declare nothing and the form is trivial.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p0-fgs"><span class="t"><b>Foreground-service declaration + demo video</b>
+<small>mediaPlayback for long-form reading. Play Console wants a video showing how the feature is triggered — record a 30s screen capture of share-to-Marmalade → lock screen → playback controls.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p0-shots"><span class="t"><b>Store assets final</b>
+<small>Winners picked in the <a href="play-design-lab.html">design lab</a>, exported per its section F, screenshots re-shot on the Pixel (current set predates edge-to-edge), copy written back to fastlane. Screenshot alt text (140 chars each) filled — on-brand for an accessibility-adjacent app.</small></span></label>
+</div>
+</details>
+
+<details class="phase" open>
+<summary><h2><span class="id">P1</span> F-Droid first — real users before the Play gate</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">Max's preferred route, and the research agrees: catalogs ship on our schedule, not
+Google's, and produce exactly the feedback loop (GitHub issues, FOSS users) that makes the Play
+closed test and questionnaire stronger. <b>Caveat:</b> the most degoogled slice of this audience
+can't be Play testers (no Play Store) — they're phase-1 users and bug-finders, not the tester pool.</p>
+
+<label class="step"><input type="checkbox" data-k="p1-release"><span class="t"><b>Tag a release; signed APK on GitHub Releases</b>
+<small>With changelog + install instructions ("select Marmalade in Settings → Text-to-speech output").</small></span></label>
+<label class="step"><input type="checkbox" data-k="p1-izzy"><span class="t"><b>Submit to IzzyOnDroid</b>
+<small>Fast lane — builds from the signed release APK. Issue at <a href="https://gitlab.com/IzzyOnDroid/repo">gitlab.com/IzzyOnDroid/repo</a> (mirror on Codeberg). Read their inclusion policy first.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p1-fdroid"><span class="t"><b>File the official F-Droid RFP</b>
+<small>Merge latency is days→months, hence filing now. Have the model-weights licensing story airtight (voice licenses are already curated — CREDITS.md). F-Droid signs with its own key: Play↔F-Droid can't cross-update; keep versionCodes coordinated and document the reinstall.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p1-fossdroid"><span class="t"><b>Announce on r/fossdroid</b>
+<small>Confirmed rules: "Application Release" flair + state the license. Copy T4 below.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p1-fedi"><span class="t"><b>Lemmy !android@lemdro.id + Mastodon</b>
+<small>#FOSS #FDroid #Android #Accessibility. Short, human, link to GitHub + IzzyOnDroid.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p1-feedback"><span class="t"><b>Run one fix cycle on the feedback</b>
+<small>GitHub issues + Reddit replies → fixes shipped. These become "what we changed based on testing" material too.</small></span></label>
+</div>
+</details>
+
+<details class="phase" open>
+<summary><h2><span class="id">P2</span> Tester recruitment — 18 in, 12 must survive</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why"><b>The game plan:</b> three pools, in order of engagement quality.
+<b>Pool A — accessibility users</b> (blind/low-vision Android users): they use TTS daily, run
+stock Android with Play, and double as the first marketing beachhead. <b>Pool B — FOSS users
+who still have Play</b> (from P1's release). <b>Pool C — friends &amp; family</b> with any Android
+phone; engagement beats expertise, they just need the task list. Skip tester-swap farms and
+Fiverr — engagement is what Google grades, and farms don't engage.</p>
+
+<label class="step"><input type="checkbox" data-k="p2-track"><span class="t"><b>Create the closed track + Google Group</b>
+<small>Play Console → Testing → Closed. Use a Google Group as the tester list so people self-join and drop-offs can be replaced without editing the track. Note the opt-in URL — it goes in every copy block below as [OPT-IN LINK].</small></span></label>
+<label class="step"><input type="checkbox" data-k="p2-onboard"><span class="t"><b>Publish the tester onboarding doc</b>
+<small>Copy T6 → a GitHub gist / repo TESTING.md. Every recruit gets this link.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p2-bau"><span class="t"><b>Email the Blind Android Users podcast</b>
+<small>contactus@blindandroidusers.com + their groups.io list. Copy T1. This is the single highest-value send.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p2-rblind"><span class="t"><b>Post to r/Blind — after reading the sidebar rules manually</b>
+<small>Copy T2. Frame is feedback-seeking, never promotional. If rules forbid it, message the mods first.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p2-reddit"><span class="t"><b>r/androidapps + r/androiddev weekly thread</b>
+<small>Copy T5 (check current flair rules). These skew Pool B.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p2-friends"><span class="t"><b>Message friends &amp; family individually</b>
+<small>Copy T3, personalized. Any Android phone with Play counts. Ask for a specific yes.</small></span></label>
+
+<b style="font-size:13px;color:var(--toast)">Tester tracker</b> <span style="font-size:12px;color:var(--dimmer)">(persists in this browser — name · source · opt-in date · notes)</span>
+<textarea class="tracker" data-k="p2-tracker" placeholder="1. Tahlia · family · 2026-08-02 · Pixel 7, opted in ✓
+2. (BAU listener) · r/Blind · …
+…aim for 18; the gate needs 12 continuously opted in for the FINAL 14 days before applying."></textarea>
+</div>
+</details>
+
+<details class="phase">
+<summary><h2><span class="id">P3</span> The 14-day window — engagement is the product</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">Google's review grades tester engagement and whether you shipped changes in response.
+A quiet 14 days is a failed 14 days. A tester who drops mid-window resets <i>their</i> clock —
+replace flat-liners immediately.</p>
+
+<label class="step"><input type="checkbox" data-k="p3-d0"><span class="t"><b>Day 0: confirm ≥12 opted in and installed</b>
+<small>Play Console shows the count. Don't start the clock mentally until it reads 12+.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p3-daily"><span class="t"><b>Check the opt-in count every 1–2 days</b>
+<small>Log it in the tracker above. Top up from the Google Group on any drop.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p3-u1"><span class="t"><b>~Day 4: ship update #1 from tester feedback</b>
+<small>Real fixes, real changelog. Announce in the Group — it's also a reason for testers to reopen the app.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p3-checkin"><span class="t"><b>~Day 7: mid-window check-in message</b>
+<small>Copy T7 to the Group. Ask two concrete questions; collect quotes.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p3-u2"><span class="t"><b>~Day 10: ship update #2</b></span></label>
+<label class="step"><input type="checkbox" data-k="p3-log"><span class="t"><b>Log all feedback verbatim in <code>docs/release/tester-feedback.md</code></b>
+<small>The questionnaire asks for a feedback summary and what changed because of it — quotes write those answers for you.</small></span></label>
+</div>
+</details>
+
+<details class="phase">
+<summary><h2><span class="id">P4</span> Production access application</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">Three sections; answer every question at 250+ characters with specifics. The raw
+material is the tracker + feedback log + the P1/P3 changelogs. Review usually ≤7 days. Rejection
+is recoverable but restarts the clock, so don't wing it.</p>
+<label class="step"><input type="checkbox" data-k="p4-a1"><span class="t"><b>Draft "about your closed test"</b>
+<small>How recruited (accessibility communities + FOSS release users + friends — name them; paid services would also be legit to disclose, we just didn't need them), engagement evidence, feedback summary with quotes.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p4-a2"><span class="t"><b>Draft "about your app"</b>
+<small>Audience: accessibility users, listeners, privacy-conscious; value: on-device neural system TTS engine with per-app personas/effects/emotion; year-one installs: give a modest honest number.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p4-a3"><span class="t"><b>Draft "production readiness"</b>
+<small>List concrete changes shipped during testing (versions + what/why), device coverage seen, crash-free evidence.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p4-apply"><span class="t"><b>Apply</b></span></label>
+</div>
+</details>
+
+<details class="phase">
+<summary><h2><span class="id">P5</span> Launch + announce</h2><span class="prog"></span></summary>
+<div class="inner">
+<label class="step"><input type="checkbox" data-k="p5-stage"><span class="t"><b>Production at 5–10% staged rollout, English-speaking countries</b>
+<small>Hold 24–48h watching crash/ANR vitals. A TTS engine that fails on a device is useless on that device — staged rollout is the review-bomb insurance.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p5-ramp"><span class="t"><b>Ramp to 100%</b></span></label>
+<label class="step"><input type="checkbox" data-k="p5-hn"><span class="t"><b>Show HN</b> <small>Copy T8. One shot; reply like a human all day.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p5-press"><span class="t"><b>Accessibility press emails</b>
+<small>Copy T9 → AFB AccessWorld (afb.org/aw), Double Tap (youtube.com/@doubletapvideo), AccessibleAndroid.com; re-ping Blind Android Users with the "now in production" update. Also pitch Speech Central's blog — they review OSS engines.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p5-listings"><span class="t"><b>AlternativeTo entry + XDA thread</b>
+<small>"Alternative to Google Text-to-Speech / Speechify". Durable, ten minutes each.</small></span></label>
+<label class="step"><input type="checkbox" data-k="p5-cadence"><span class="t"><b>Standing cadence: monthly updates, reply to every review</b>
+<small>Freshness and review replies are ranking signals; retention now outweighs installs — a set-and-forget system engine is definitionally retained.</small></span></label>
+</div>
+</details>
+
+<h2 style="font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--peach);
+  margin:40px 0 6px;border-top:1px solid var(--line);padding-top:26px">Copy deck</h2>
+<p style="color:var(--dim);font-size:13px;max-width:820px">Fill the placeholders
+(<code>[OPT-IN LINK]</code>, <code>[GITHUB]</code>, <code>[TESTING DOC]</code>) once P2's track
+exists. Tone throughout: honest, specific, zero marketing-speak — these communities smell it
+instantly.</p>
+
+<div class="copyblock"><div class="ch"><span class="id">T1</span><b>Blind Android Users podcast — email</b><button class="cp">Copy</button></div>
+<pre>Subject: Marmalade TTS — a free, open-source offline TTS engine; looking for blind Android testers
+
+Hi — I'm Max, a solo developer. I've built Marmalade TTS, a free, open-source
+text-to-speech ENGINE for Android (not another reader app): you set it as the
+system TTS in Settings, and TalkBack and every reading app speak through it.
+
+Why it might interest your community:
+- 60+ neural voices, 9 languages, synthesized fully on-device — works offline,
+  and text never leaves the phone
+- No ads, no accounts, no analytics; MIT-licensed source
+- Per-app voices (TalkBack can sound different from your e-reader), audio
+  effect presets, and long-form reading with lock-screen controls
+
+I'm running the Google Play closed test that new developers need before
+production, and I'd genuinely rather have testers who use TTS all day than
+box-tickers — the feedback is the point. Joining takes two minutes:
+[TESTING DOC]
+
+If the app looks interesting for the show or the mailing list I'd be happy to
+answer anything or do a walkthrough. Either way, thank you for what you do —
+it's the best Android resource this project's audience has.
+
+Max
+[GITHUB]</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T2</span><b>r/Blind — post</b><button class="cp">Copy</button></div>
+<pre>Title: I built a free, open-source offline TTS engine for Android — would love
+feedback from daily TTS users (closed-test spots open)
+
+Hi all — solo dev here. Marmalade TTS is a system text-to-speech engine
+(the thing TalkBack and reader apps speak through), free and open source.
+The pitch: 60+ neural voices running fully on your phone, offline, with no
+ads, accounts, or tracking. You can give each app its own voice — TalkBack
+snappy, your book app warm — and there are effect presets if you want them.
+
+I'm honestly here for feedback more than installs: voices that read well to
+sighted people aren't always the ones that are pleasant at speed all day, and
+you'd know within minutes what I've gotten wrong. I'm also running the Google
+Play closed test new developers are required to do (12 testers for 14 days),
+so if you're willing to keep it installed and use it for two weeks, that
+helps enormously: [TESTING DOC]
+
+Happy to answer anything about how it works or what data it does (and
+doesn't) touch. Mods — if this crosses a line, tell me and I'll adjust.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T3</span><b>Friends &amp; family — message</b><button class="cp">Copy</button></div>
+<pre>Hey! I'm about to launch my Android app (the talking one — it reads anything
+on your phone aloud with nice voices, works without internet). Google makes
+new developers run a 14-day test with 12 real people before I'm allowed to
+publish it, and I need testers who'll actually poke at it a bit.
+
+Would you be up for it? It's: click one link on your phone, install, and then
+just use it a little across two weeks — have it read you an article, try a
+couple of voices, tell me anything that's weird. That's genuinely it, and
+you'd be directly making the launch happen.
+
+Link + a 2-minute setup guide: [TESTING DOC]</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T4</span><b>r/fossdroid — "Application Release" flair</b><button class="cp">Copy</button></div>
+<pre>Title: Marmalade TTS — free, on-device neural TTS engine (MIT source,
+GPL-3.0-or-later APK; F-Droid RFP filed, on IzzyOnDroid now)
+
+A system TTS engine, not a reader: set it once in Settings → Text-to-speech
+and every app that reads aloud uses it. 60+ neural voices across three
+engine families, 9 languages, fully offline — no ads, analytics, accounts,
+or network use beyond downloading the voice models you pick.
+
+The fun parts: emoji in text drive emotional delivery, effects are built
+from editable DSP blocks (22 presets), and each app can route to its own
+voice persona.
+
+License: source is MIT; the shipped APK includes espeak-ng built from source,
+so the distributed binary is GPL-3.0-or-later. Full component licensing is
+shown in-app.
+
+IzzyOnDroid: [LINK] · Source: [GITHUB] · F-Droid RFP: [LINK]
+Feedback and issues very welcome — solo dev, actively fixing.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T5</span><b>r/androidapps — post</b><button class="cp">Copy</button></div>
+<pre>Title: [DEV] Marmalade TTS — free offline neural text-to-speech engine
+(no ads/accounts), closed-test spots open
+
+I built the TTS engine I wanted on my own phone: 60+ neural voices that run
+fully on-device (offline, private), registered as a system TTS engine so
+every reader app, browser and TalkBack can use it. Different voice per app,
+editable audio effects, emoji-driven emotion, long-form reading with
+lock-screen controls. Free, open source, no ads or accounts.
+
+It's in closed testing ahead of the Play launch — if you'd like early access
+(and don't mind keeping it installed for two weeks, which is what Google
+requires of new devs), here's the door: [TESTING DOC]</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T6</span><b>Tester onboarding doc (TESTING.md / gist)</b><button class="cp">Copy</button></div>
+<pre># Testing Marmalade TTS — 2 minutes to start
+
+Thank you! Google requires new developers to run a closed test with 12 real
+testers for 14 consecutive days. You being here is literally what lets this
+app launch.
+
+## Setup (once)
+1. Join the tester group: [GOOGLE GROUP LINK]
+2. Opt in + install: [OPT-IN LINK]
+3. Open Marmalade, pick an engine when it offers (Kokoro = best all-round),
+   and let it download.
+4. Optional but great: Settings → Text-to-speech output → select Marmalade,
+   so your other apps use it too.
+
+## Across the two weeks (the important part)
+- Keep it installed the whole time (uninstalling resets your 14 days).
+- Use it a few times a week minimum: have it read an article or your
+  clipboard, try a few voices, play with the Effects tab.
+- Tell me what's broken or weird, however small: [FEEDBACK LINK — GitHub
+  issues or email]. "This voice says 'Yeah' strangely" is exactly the kind
+  of report I want.
+
+## What this app does with your data
+Nothing leaves your phone: no ads, no analytics, no accounts. The only
+network use is downloading the voice models you choose.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T7</span><b>Mid-window tester check-in</b><button class="cp">Copy</button></div>
+<pre>Subject: Week 1 down — thank you + two questions
+
+Quick thank-you to everyone testing Marmalade — the launch literally can't
+happen without you. Update [VERSION] just went out with fixes from your
+reports: [2–3 BULLETS].
+
+Two questions, answer with one line if you have a minute:
+1. Which voice have you ended up actually using, and for what?
+2. What's the one thing that most needs fixing before this goes public?
+
+One week left — please keep it installed through [DATE] (uninstalling resets
+the clock Google counts). After that you're free, though I'd love it if you
+stayed.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T8</span><b>Show HN</b><button class="cp">Copy</button></div>
+<pre>Title: Show HN: Marmalade TTS – on-device neural text-to-speech engine for
+Android (open source)
+
+I built an Android system TTS engine that runs neural voices entirely
+on-device: 60+ voices across three model families (14MB-ish fast models up
+to expressive ones), 9 languages, no cloud, no telemetry. It registers via
+Android's TextToSpeechService API, so TalkBack, e-readers and browsers all
+speak through it.
+
+Technical bits HN might enjoy: espeak-ng built from source as the G2P
+frontend feeding ONNX acoustic models via onnxruntime (direct, no wrapper
+framework); a block-based DSP effect chain (EQ/reverb/bitcrush/ring-mod)
+that streams; and emoji-driven emotional prosody — "we made it 😊" and
+"we made it 😨" perform differently.
+
+Source (MIT; distributed APK is GPL-3.0-or-later via espeak-ng): [GITHUB]
+Play: [PLAY LINK] · F-Droid/IzzyOnDroid: [LINK]
+
+Solo project — happy to answer anything about on-device TTS, the ONNX
+export gotchas, or Play's new-developer gauntlet.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">T9</span><b>Accessibility press — AccessWorld / Double Tap / AccessibleAndroid</b><button class="cp">Copy</button></div>
+<pre>Subject: Story pitch: a free, open-source offline TTS engine for Android
+
+Hi [NAME] — I'm Max, a solo developer, and I've just launched Marmalade TTS:
+a free, open-source text-to-speech ENGINE for Android. Unlike reader apps,
+it replaces the system TTS voice itself — so TalkBack and every reading app
+gain 60+ on-device neural voices in 9 languages, working fully offline with
+no ads, accounts, or data collection.
+
+Why I think it fits [OUTLET]: your audience uses TTS more hours a day than
+anyone, and almost all quality voices still route through cloud services or
+paid apps. This one is free, private, and user-controlled — including a
+different voice per app (TalkBack ≠ book reader) and adjustable speech
+character.
+
+It's live on Google Play and F-Droid: [LINKS]. I'd be glad to do an
+interview, a demo, or answer anything by email. And if your reviewers tear
+into it, honestly, that feedback makes the next version better.
+
+Max · [GITHUB]</pre></div>
+
+</main>
+
+<script>
+const LS = 'marmalade-launch-lab:';
+// checkboxes
+document.querySelectorAll('label.step input').forEach(cb => {
+  const k = LS + cb.dataset.k;
+  cb.checked = localStorage.getItem(k) === '1';
+  cb.closest('label').classList.toggle('checked', cb.checked);
+  cb.addEventListener('change', () => {
+    localStorage.setItem(k, cb.checked ? '1' : '0');
+    cb.closest('label').classList.toggle('checked', cb.checked);
+    progress();
+  });
+});
+// tracker textareas
+document.querySelectorAll('textarea.tracker').forEach(t => {
+  const k = LS + t.dataset.k;
+  t.value = localStorage.getItem(k) || '';
+  t.addEventListener('input', () => localStorage.setItem(k, t.value));
+});
+// per-phase progress
+function progress(){
+  document.querySelectorAll('details.phase').forEach(ph => {
+    const boxes = ph.querySelectorAll('input[type=checkbox]');
+    const done = [...boxes].filter(b => b.checked).length;
+    const el = ph.querySelector('.prog');
+    el.textContent = done + ' / ' + boxes.length;
+    el.classList.toggle('done', done === boxes.length && boxes.length > 0);
+  });
+}
+progress();
+// copy buttons
+document.querySelectorAll('.copyblock').forEach(b => {
+  const btn = b.querySelector('button.cp');
+  btn.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(b.querySelector('pre').textContent);
+    btn.textContent = 'Copied ✓'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1500);
+  });
+});
+</script>
+</body>
+</html>
