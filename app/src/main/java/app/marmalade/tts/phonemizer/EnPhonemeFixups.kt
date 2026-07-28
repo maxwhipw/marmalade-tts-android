@@ -3,16 +3,19 @@ package app.marmalade.tts.phonemizer
 // -----------------------------------------------------------------------------
 // EnPhonemeFixups — post-espeak corrections for English IPA output.
 //
-// espeak-ng (verified on 1.51 and the pinned 1.52 submodule) has no
-// dictionary entry for some common informal words and falls back to
-// letter-to-sound rules that get them wrong. The canonical case is
-// "yeah": en_list/en_extra carry no entry, so LTS produces /jɛh/ with a
-// literal aspirated [h] — audibly "yeh-h" — instead of /jɛə/. Misaki
-// (Kokoro's reference phonemizer) transcribes it jˈɛə.
+// espeak-ng (verified on 1.51, the pinned 1.52 submodule, and current
+// upstream master) has no dictionary entry for some common informal
+// words and falls back to letter-to-sound rules that get them wrong.
+// The canonical case is "yeah": no en_list/en_extra entry, so LTS
+// produces /jɛh/ with a literal aspirated [h] — audibly "yeh-h".
 //
-// Fixing the compiled en_dict inside the engine bundle would require a
-// bundle re-spin every espeak data update; a phoneme-level substitution
-// here covers every English-voiced engine (Kitten, Kokoro) at once.
+// The replacement is per acoustic model, chosen by ear (2026-07-27
+// A/B lab, scratch/yeah):
+//   - Kokoro gets /jɛə/ — misaki's gold-lexicon transcription, i.e.
+//     the exact string Kokoro saw for "yeah" in training.
+//   - Kitten renders /jɛə/ poorly (15M params; the ɛ→ə glide comes
+//     out mangled on every model size), so it gets flat /jæ/ ("ya"),
+//     which won the listening test bar none.
 //
 // Entries match at a word start (string start or after the space that
 // separates words in espeak's sentence-mode output) and deliberately do
@@ -21,21 +24,21 @@ package app.marmalade.tts.phonemizer
 // /jɛh/ + consonant, so the open right side is safe.
 // -----------------------------------------------------------------------------
 
-internal object EnPhonemeFixups {
+object EnPhonemeFixups {
 
-    // (regex, replacement) pairs. $1 preserves espeak's stress mark
-    // (primary ˈ, secondary ˌ, or none), which precedes the vowel.
-    private val FIXUPS: List<Pair<Regex, String>> = listOf(
-        // yeah: LTS /jɛh/ → /jɛə/ (final [h] becomes a schwa off-glide)
-        Regex("""(?<=^| )j([ˈˌ]?)ɛh""") to "j$1ɛə",
+    /** Which acoustic model the phonemes are destined for. */
+    enum class Model { KITTEN, KOKORO }
+
+    // $1 preserves espeak's stress mark (primary ˈ, secondary ˌ, or
+    // none), which precedes the vowel.
+    private val YEAH = Regex("""(?<=^| )j([ˈˌ]?)ɛh""")
+
+    private val YEAH_REPLACEMENT = mapOf(
+        Model.KITTEN to "j$1æ",
+        Model.KOKORO to "j$1ɛə",
     )
 
     /** Apply all fixups to an espeak IPA string produced with an English voice. */
-    fun apply(phonemes: String): String {
-        var out = phonemes
-        for ((re, replacement) in FIXUPS) {
-            out = re.replace(out, replacement)
-        }
-        return out
-    }
+    fun apply(phonemes: String, model: Model): String =
+        YEAH.replace(phonemes, YEAH_REPLACEMENT.getValue(model))
 }

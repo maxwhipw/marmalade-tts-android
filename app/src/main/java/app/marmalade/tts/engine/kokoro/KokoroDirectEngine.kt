@@ -17,6 +17,7 @@ import app.marmalade.tts.engine.kitten.PAD_TOKEN
 import app.marmalade.tts.engine.kitten.encodePhonemes
 import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.CutletJaG2P
+import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
 import app.marmalade.tts.phonemizer.OpenJtalkPhonemizer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -284,6 +285,7 @@ open class KokoroDirectEngine @Inject constructor(
             libPath = EspeakPhonemizer.APK_LIB_NAME,
             dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
             voice = ESPEAK_VOICE,
+            fixupModel = EnPhonemeFixups.Model.KOKORO,
         )
         val rate = espeak.open()
         if (rate < 0) {

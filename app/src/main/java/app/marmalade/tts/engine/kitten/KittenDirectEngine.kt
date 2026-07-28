@@ -13,6 +13,7 @@ import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.perf.CpuClusterDetector
+import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -243,6 +244,7 @@ open class KittenDirectEngine @Inject constructor(
             libPath = EspeakPhonemizer.APK_LIB_NAME,
             dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
             voice = "en-us",
+            fixupModel = EnPhonemeFixups.Model.KITTEN,
         )
         val rate = espeak.open()
         if (rate < 0) {

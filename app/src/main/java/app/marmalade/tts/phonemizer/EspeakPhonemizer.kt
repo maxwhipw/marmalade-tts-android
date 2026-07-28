@@ -38,6 +38,7 @@ class EspeakPhonemizer(
     private val libPath: String,
     private val dataPath: String,
     private val voice: String = "en-us",
+    private val fixupModel: EnPhonemeFixups.Model,
 ) {
 
     private val opened = AtomicBoolean(false)
@@ -127,8 +128,9 @@ class EspeakPhonemizer(
             nativePhonemize(text) ?: ""
         }
         // espeak's English LTS gets some common informal words wrong
-        // ("yeah" → /jɛh/); see EnPhonemeFixups.
-        return if (voice.startsWith("en")) EnPhonemeFixups.apply(raw) else raw
+        // ("yeah" → /jɛh/); see EnPhonemeFixups. The replacement differs
+        // per acoustic model, hence [fixupModel] on the constructor.
+        return if (voice.startsWith("en")) EnPhonemeFixups.apply(raw, fixupModel) else raw
     }
 
     /**
