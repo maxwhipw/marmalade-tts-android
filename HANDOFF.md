@@ -2,8 +2,8 @@
 
 ## State
 
-Branch **`main`**, head **`178b789`**, ahead of `github/main` —
-last pushed state was `9cf5ee6`. **387 unit tests green.**
+Branch **`main`**, head **`2d3dcae`**, ahead of `github/main` —
+last pushed state was `9cf5ee6`. **390 unit tests green.**
 Debug APK builds. **Nothing in this batch has been seen on device.**
 Untracked (not ours, left alone): `app/schemas/.../MarmaladeDb/10.json`.
 
@@ -100,8 +100,10 @@ right phonemes, so the fix is phoneme-level:
 espeak output for `en*` voices (no right-hand boundary — "yeah's" is
 `jˈɛhz`).
 
-**Per-model targets, ear-picked by Max in the A/B lab
-(http://marmalade:8095/yeah-fix/, symlink → `~/coding/scratch/yeah/`):**
+**Diagnosis confirmed by Max (2026-07-27): Kokoro renders every "yeah"
+candidate nearly identically — the model is robust; Kitten is the weak
+renderer.** Per-model targets, ear-picked by Max in the A/B lab
+(http://marmalade:8095/yeah-fix/, symlink → `~/coding/scratch/yeah/`):
 Kitten renders misaki's `jˈɛə` poorly at every size (mini glitched
 outright; Max: mini is not better than nano), so **Kitten → flat `jæ`**
 ("ya", won bar none); **Kokoro → `jˈɛə`** (misaki gold — its own
@@ -114,6 +116,18 @@ The CLI shared the bug (kittentts phonemizes with espeak internally);
 with the same `jæ`. Deploy on marmalade needs `./install.sh` + kitten
 daemon restart. CLI piper/matcha/emojivoice still carry the espeak bug;
 CLI kokoro (misaki) is fine.
+
+### Report a bug in Settings — `2d3dcae`
+
+Settings → About gains a "Report a bug" row (`util/BugReportUrl.kt`)
+that opens a GitHub new-issue page with a friendly prefilled markdown
+body: what happened / what did you expect / exact text + voice if a
+word sounds wrong, plus an auto-filled environment line (version,
+flavor, Android, device). Deliberately NOT a GitHub issue form — low
+reporting bar, per Max. Pronunciation reports are the feed for the
+per-model patch table in `EnPhonemeFixups.kt`; the diagnosis recipe
+(espeak IPA vs reference, A/B per model) is in that file's header and
+in memory note `espeak-yeah-lts-bug`.
 
 ## Open — needs Max
 
