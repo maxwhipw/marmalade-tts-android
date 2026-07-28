@@ -19,15 +19,22 @@ the same commit as the change.
 
 ## Remotes
 
-**github is the only remote and is authoritative.**
+**github is authoritative — and PUBLIC.** The repo is live at
+github.com/maxwhipw/marmalade-tts-android with users' eyes on it
+(issues enabled; Settings → Report a bug links straight to it, and the
+privacy policy is served from it).
 
 ```
-github   https://github.com/maxwhipw/marmalade-tts-android.git
+github   https://github.com/maxwhipw/marmalade-tts-android.git   (public, authoritative)
+origin   http://claude-agent@george:3000/claude-agent/marmalade-tts-android.git   (Forgejo, local)
 ```
 
-Push only to github (`git push github main`). Unlike the sister CLI
-project at `/home/max/coding/marmalade-tts-cli`, this repo has no
-Forgejo mirror configured — github is the single source of truth.
+Push posture (Max, 2026-07-27): **Forgejo (`origin`) may be pushed
+loosely** — it's local infrastructure, low consequence. **github is
+heavily vetted**: every push there needs Max's explicit all-clear,
+with the usual pre-push review (secrets, personal/infra details,
+half-finished work) — an all-clear for one push does not carry to the
+next.
 
 ## Versioning
 
