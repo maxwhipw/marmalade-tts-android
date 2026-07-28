@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade — Mascot Polish Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12100e; --panel:#1b1815; --panel2:#221e1a; --line:#332c25;
+    --ink:#f5ede3; --dim:#a89684; --dimmer:#7c6c5d;
+    --orange:#f97316; --toast:#fed7aa; --peach:#fdba74;
+    --mono:ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  header{padding:20px 26px 15px;border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+  h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  h1 span{color:var(--orange)}
+  .sub{color:var(--dim);font-size:13px}
+  .meta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dimmer);text-align:right}
+  .meta b{color:var(--peach);font-weight:500}
+  main{padding:26px;max-width:1500px;margin:0 auto}
+  h2.sec{font-size:12px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--peach);margin:44px 0 6px;border-top:1px solid var(--line);padding-top:26px}
+  h2.sec:first-child{margin-top:0;border-top:0;padding-top:0}
+  .lede{color:var(--dim);font-size:13.5px;max-width:880px;margin:0 0 20px}
+  .lede b{color:var(--toast);font-weight:600}
+  .strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px;display:flex;flex-direction:column;gap:10px}
+  .card h3{margin:0;font-size:14px}
+  .card h3 .id{font-family:var(--mono);font-size:11px;color:var(--orange);margin-right:6px}
+  .card ul{margin:0;padding-left:18px;font-size:12px;color:var(--dim)}
+  .card li{margin-bottom:3px}
+  .stage{background:#FFF7ED;border-radius:10px;padding:14px;line-height:0}
+  .stage.dark{background:#1c1917}
+  .stage svg{width:100%;height:auto;display:block}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button.dl{background:var(--orange);color:#2b1400;border:0;border-radius:6px;
+    padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  button.dl:hover{background:var(--peach)}
+  .ladder{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;
+    background:#FFF7ED;border-radius:12px;padding:22px}
+  .ladder.dark{background:#1c1917}
+  .ladder .cell{text-align:center;line-height:0}
+  .ladder .cell em{display:block;line-height:1.4;font-style:normal;font-size:10px;
+    color:#9a8467;font-family:var(--mono);margin-top:6px}
+  .note{border-left:2px solid var(--orange);padding:2px 0 2px 12px;margin:14px 0;
+    color:var(--toast);font-size:13px;max-width:880px}
+  code{font-family:var(--mono);font-size:11.5px;background:#0d0b09;
+    padding:1px 5px;border-radius:4px;color:var(--toast)}
+  pre{background:#0d0b09;border:1px solid var(--line);border-radius:7px;
+    padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;
+    color:var(--toast);margin:9px 0;max-width:880px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade — <span>Mascot Polish Lab</span></h1>
+    <div class="sub">Same jar, same personality — a cumulative polish pass toward an official mascot. Source of truth: <code>mascot-drafts/concept1-kawaii-classic.svg</code> (400×520), which the in-app drawables were scaled from.</div>
+  </div>
+  <div class="meta">
+    canvas <b>400×520</b> · app drawables <b>108dp</b><br>
+    passes are <b>cumulative</b> (P4 ⊃ P3 ⊃ P2 ⊃ P1)<br>
+    drafted <b>2026-07-27</b>
+  </div>
+</header>
+
+<main>
+
+<h2 class="sec">The progression</h2>
+<p class="lede">
+Each card keeps everything from the one before and fixes one layer. Nothing about the
+character changes — squat amber jar, white ridged lid, big sparkle eyes, gentle smile,
+cream label with the orange slice. The finish line (P4) is the <b>official candidate</b>:
+same jar, tightened until it holds up at 24&nbsp;px and at 512.
+</p>
+
+<div class="strip">
+
+  <div class="card">
+    <h3><span class="id">P0</span> Baseline (as-is)</h3>
+    <ul>
+      <li>The current concept1 SVG, verbatim (serif label text and all).</li>
+    </ul>
+    <div class="stage">
+      <svg data-dl="mascot-p0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520">
+        <defs>
+          <linearGradient id="p0j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5A623"/><stop offset="1" stop-color="#D4831E"/></linearGradient>
+          <linearGradient id="p0s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <linearGradient id="p0l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#F0DFC0"/></linearGradient>
+          <linearGradient id="p0m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8942A"/><stop offset=".4" stop-color="#D4780A"/><stop offset="1" stop-color="#C06A08"/></linearGradient>
+        </defs>
+        <ellipse cx="200" cy="490" rx="120" ry="18" fill="#000000" opacity=".08"/>
+        <rect x="75" y="170" width="250" height="300" rx="40" fill="url(#p0j)"/>
+        <rect x="85" y="300" width="230" height="162" rx="32" fill="url(#p0m)" opacity=".5"/>
+        <rect x="85" y="180" width="40" height="260" rx="20" fill="url(#p0s)" opacity=".4"/>
+        <rect x="110" y="155" width="180" height="25" rx="8" fill="#E8D5B0"/>
+        <rect x="95" y="110" width="210" height="52" rx="14" fill="url(#p0l)" stroke="#D4C4A0" stroke-width="2"/>
+        <rect x="105" y="105" width="190" height="14" rx="7" fill="#FFF5E6" stroke="#D4C4A0" stroke-width="1.5"/>
+        <g stroke="#E0D0B0" stroke-width="1" opacity=".5">
+          <line x1="120" y1="118" x2="120" y2="155"/><line x1="150" y1="115" x2="150" y2="158"/>
+          <line x1="180" y1="113" x2="180" y2="158"/><line x1="210" y1="113" x2="210" y2="158"/>
+          <line x1="240" y1="115" x2="240" y2="158"/><line x1="270" y1="118" x2="270" y2="155"/>
+        </g>
+        <ellipse cx="155" cy="290" rx="22" ry="26" fill="#3D2B1F"/>
+        <ellipse cx="245" cy="290" rx="22" ry="26" fill="#3D2B1F"/>
+        <circle cx="164" cy="280" r="9" fill="#fff"/><circle cx="149" cy="296" r="5" fill="#fff"/>
+        <circle cx="254" cy="280" r="9" fill="#fff"/><circle cx="239" cy="296" r="5" fill="#fff"/>
+        <path d="M185 335 Q200 350 215 335" stroke="#3D2B1F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <rect x="115" y="380" width="170" height="65" rx="10" fill="#FFF8EE" stroke="#D4B896" stroke-width="1.5"/>
+        <line x1="130" y1="392" x2="270" y2="392" stroke="#E8C9A0" stroke-width="1"/>
+        <text x="200" y="420" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#A0522D">marmalade</text>
+        <line x1="130" y1="432" x2="270" y2="432" stroke="#E8C9A0" stroke-width="1"/>
+        <circle cx="200" cy="370" r="12" fill="#F5A623" stroke="#D4831E" stroke-width="1.5"/>
+        <line x1="200" y1="362" x2="200" y2="378" stroke="#FFF5E6" stroke-width="1" opacity=".6"/>
+        <line x1="192" y1="364" x2="196" y2="378" stroke="#FFF5E6" stroke-width="1" opacity=".6"/>
+        <line x1="208" y1="364" x2="204" y2="378" stroke="#FFF5E6" stroke-width="1" opacity=".6"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="id">P1</span> Geometry</h3>
+    <ul>
+      <li>Lid, neck, and body centered on one axis; radii from one scale (8/16/24/44).</li>
+      <li>Lid slightly wider than neck, body slightly wider than lid — a proper silhouette taper.</li>
+      <li>Shadow shrunk + softened; jar no longer "floats" on a saucer.</li>
+      <li>Glass shine becomes a capsule inset from the corner, not a corner-clipping rect.</li>
+    </ul>
+    <div class="stage">
+      <svg data-dl="mascot-p1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520">
+        <defs>
+          <linearGradient id="p1j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5A623"/><stop offset="1" stop-color="#D4831E"/></linearGradient>
+          <linearGradient id="p1l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#F0DFC0"/></linearGradient>
+          <linearGradient id="p1m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8942A"/><stop offset="1" stop-color="#C06A08"/></linearGradient>
+        </defs>
+        <ellipse cx="200" cy="486" rx="104" ry="13" fill="#000000" opacity=".06"/>
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="url(#p1j)"/>
+        <rect x="88" y="306" width="224" height="152" rx="34" fill="url(#p1m)" opacity=".5"/>
+        <rect x="92" y="188" width="34" height="248" rx="17" fill="#FFFFFF" opacity=".22"/>
+        <rect x="108" y="154" width="184" height="26" rx="9" fill="#E8D5B0"/>
+        <rect x="94" y="108" width="212" height="54" rx="16" fill="url(#p1l)" stroke="#D4C4A0" stroke-width="2"/>
+        <rect x="104" y="100" width="192" height="16" rx="8" fill="#FFF5E6" stroke="#D4C4A0" stroke-width="1.5"/>
+        <g stroke="#E0D0B0" stroke-width="1" opacity=".5">
+          <line x1="124" y1="116" x2="124" y2="156"/><line x1="154" y1="113" x2="154" y2="158"/>
+          <line x1="184" y1="112" x2="184" y2="158"/><line x1="216" y1="112" x2="216" y2="158"/>
+          <line x1="246" y1="113" x2="246" y2="158"/><line x1="276" y1="116" x2="276" y2="156"/>
+        </g>
+        <ellipse cx="152" cy="288" rx="22" ry="26" fill="#3D2B1F"/>
+        <ellipse cx="248" cy="288" rx="22" ry="26" fill="#3D2B1F"/>
+        <circle cx="161" cy="278" r="9" fill="#fff"/><circle cx="146" cy="294" r="5" fill="#fff"/>
+        <circle cx="257" cy="278" r="9" fill="#fff"/><circle cx="242" cy="294" r="5" fill="#fff"/>
+        <path d="M183 334 Q200 350 217 334" stroke="#3D2B1F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <rect x="112" y="378" width="176" height="68" rx="14" fill="#FFF8EE" stroke="#D4B896" stroke-width="1.5"/>
+        <line x1="128" y1="392" x2="272" y2="392" stroke="#E8C9A0" stroke-width="1"/>
+        <text x="200" y="422" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#A0522D">marmalade</text>
+        <line x1="128" y1="432" x2="272" y2="432" stroke="#E8C9A0" stroke-width="1"/>
+        <circle cx="200" cy="370" r="13" fill="#F5A623" stroke="#D4831E" stroke-width="2"/>
+        <line x1="200" y1="361" x2="200" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="191.5" y1="363.5" x2="196" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="208.5" y1="363.5" x2="204" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="id">P2</span> Color &amp; material</h3>
+    <ul>
+      <li>Jar gradient warmed toward the brand ramp (<code>#F7AC2B → #D9820F</code>); marmalade fill gets a gentle wavy meniscus instead of a hard rect.</li>
+      <li>Rim-light capsule on the right edge — glass reads round, not flat.</li>
+      <li>Label and lid share one cream (<code>#FFF8EE</code>); neck warmed to sit between lid and body.</li>
+    </ul>
+    <div class="stage">
+      <svg data-dl="mascot-p2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520">
+        <defs>
+          <linearGradient id="p2j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F7AC2B"/><stop offset="1" stop-color="#D9820F"/></linearGradient>
+          <linearGradient id="p2l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#F1E2C6"/></linearGradient>
+          <linearGradient id="p2m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8942A"/><stop offset="1" stop-color="#C06A08"/></linearGradient>
+        </defs>
+        <ellipse cx="200" cy="486" rx="104" ry="13" fill="#000000" opacity=".06"/>
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="url(#p2j)"/>
+        <path d="M88 316 Q126 304 160 312 Q200 321 240 312 Q276 304 312 316 L312 424 Q312 458 278 458 L122 458 Q88 458 88 424 Z" fill="url(#p2m)" opacity=".48"/>
+        <rect x="92" y="188" width="34" height="248" rx="17" fill="#FFFFFF" opacity=".22"/>
+        <rect x="296" y="212" width="12" height="200" rx="6" fill="#FFFFFF" opacity=".10"/>
+        <rect x="108" y="154" width="184" height="26" rx="9" fill="#EDDCBB"/>
+        <rect x="94" y="108" width="212" height="54" rx="16" fill="url(#p2l)" stroke="#DCCBA6" stroke-width="2"/>
+        <rect x="104" y="100" width="192" height="16" rx="8" fill="#FFF5E6" stroke="#DCCBA6" stroke-width="1.5"/>
+        <g stroke="#E0D0B0" stroke-width="1" opacity=".5">
+          <line x1="124" y1="116" x2="124" y2="156"/><line x1="154" y1="113" x2="154" y2="158"/>
+          <line x1="184" y1="112" x2="184" y2="158"/><line x1="216" y1="112" x2="216" y2="158"/>
+          <line x1="246" y1="113" x2="246" y2="158"/><line x1="276" y1="116" x2="276" y2="156"/>
+        </g>
+        <ellipse cx="152" cy="288" rx="22" ry="26" fill="#3D2B1F"/>
+        <ellipse cx="248" cy="288" rx="22" ry="26" fill="#3D2B1F"/>
+        <circle cx="161" cy="278" r="9" fill="#fff"/><circle cx="146" cy="294" r="5" fill="#fff"/>
+        <circle cx="257" cy="278" r="9" fill="#fff"/><circle cx="242" cy="294" r="5" fill="#fff"/>
+        <path d="M183 334 Q200 350 217 334" stroke="#3D2B1F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <rect x="112" y="378" width="176" height="68" rx="14" fill="#FFF8EE" stroke="#DFC69C" stroke-width="1.5"/>
+        <line x1="128" y1="392" x2="272" y2="392" stroke="#E8C9A0" stroke-width="1"/>
+        <text x="200" y="422" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#A0522D">marmalade</text>
+        <line x1="128" y1="432" x2="272" y2="432" stroke="#E8C9A0" stroke-width="1"/>
+        <circle cx="200" cy="370" r="13" fill="#F5A623" stroke="#D4831E" stroke-width="2"/>
+        <line x1="200" y1="361" x2="200" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="191.5" y1="363.5" x2="196" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="208.5" y1="363.5" x2="204" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="id">P3</span> Face</h3>
+    <ul>
+      <li>Eyes nudged onto a facial grid (level with each other, 96&nbsp;units apart) and 5% bigger.</li>
+      <li>Smile thickened to <code>5</code> — at app sizes the 2.5 stroke disappears.</li>
+      <li>Blush restored to visible (<code>#FB7185</code> @ 30% — in the app drawable it exported at 8% and vanished).</li>
+      <li>Highlight pattern standardized: big top-right + small bottom-left, both eyes.</li>
+    </ul>
+    <div class="stage">
+      <svg data-dl="mascot-p3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520">
+        <defs>
+          <linearGradient id="p3j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F7AC2B"/><stop offset="1" stop-color="#D9820F"/></linearGradient>
+          <linearGradient id="p3l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#F1E2C6"/></linearGradient>
+          <linearGradient id="p3m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8942A"/><stop offset="1" stop-color="#C06A08"/></linearGradient>
+        </defs>
+        <ellipse cx="200" cy="486" rx="104" ry="13" fill="#000000" opacity=".06"/>
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="url(#p3j)"/>
+        <path d="M88 316 Q126 304 160 312 Q200 321 240 312 Q276 304 312 316 L312 424 Q312 458 278 458 L122 458 Q88 458 88 424 Z" fill="url(#p3m)" opacity=".48"/>
+        <rect x="92" y="188" width="34" height="248" rx="17" fill="#FFFFFF" opacity=".22"/>
+        <rect x="296" y="212" width="12" height="200" rx="6" fill="#FFFFFF" opacity=".10"/>
+        <rect x="108" y="154" width="184" height="26" rx="9" fill="#EDDCBB"/>
+        <rect x="94" y="108" width="212" height="54" rx="16" fill="url(#p3l)" stroke="#DCCBA6" stroke-width="2"/>
+        <rect x="104" y="100" width="192" height="16" rx="8" fill="#FFF5E6" stroke="#DCCBA6" stroke-width="1.5"/>
+        <g stroke="#E0D0B0" stroke-width="1" opacity=".5">
+          <line x1="124" y1="116" x2="124" y2="156"/><line x1="154" y1="113" x2="154" y2="158"/>
+          <line x1="184" y1="112" x2="184" y2="158"/><line x1="216" y1="112" x2="216" y2="158"/>
+          <line x1="246" y1="113" x2="246" y2="158"/><line x1="276" y1="116" x2="276" y2="156"/>
+        </g>
+        <ellipse cx="152" cy="286" rx="23" ry="27" fill="#3D2B1F"/>
+        <ellipse cx="248" cy="286" rx="23" ry="27" fill="#3D2B1F"/>
+        <circle cx="162" cy="275" r="10" fill="#fff"/><circle cx="146" cy="293" r="5" fill="#fff"/>
+        <circle cx="258" cy="275" r="10" fill="#fff"/><circle cx="242" cy="293" r="5" fill="#fff"/>
+        <ellipse cx="117" cy="315" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="283" cy="315" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <path d="M182 334 Q200 352 218 334" stroke="#3D2B1F" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <rect x="112" y="378" width="176" height="68" rx="14" fill="#FFF8EE" stroke="#DFC69C" stroke-width="1.5"/>
+        <line x1="128" y1="392" x2="272" y2="392" stroke="#E8C9A0" stroke-width="1"/>
+        <text x="200" y="422" text-anchor="middle" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#A0522D">marmalade</text>
+        <line x1="128" y1="432" x2="272" y2="432" stroke="#E8C9A0" stroke-width="1"/>
+        <circle cx="200" cy="370" r="13" fill="#F5A623" stroke="#D4831E" stroke-width="2"/>
+        <line x1="200" y1="361" x2="200" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="191.5" y1="363.5" x2="196" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+        <line x1="208.5" y1="363.5" x2="204" y2="379" stroke="#FFF5E6" stroke-width="1.2" opacity=".65"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="id">P4</span> Detail discipline → <b>official candidate</b></h3>
+    <ul>
+      <li>Hairline details replaced by fewer, chunkier ones: 6 lid ridges → rounded strokes (w=3) that survive 24&nbsp;px.</li>
+      <li>Label: serif Georgia → brand wordmark face (Fredoka 600, lowercase, deep amber) with clear space; decorative rules dropped.</li>
+      <li>Orange slice enlarged (r=14), segments thickened, sits half-overlapping the label like a wax seal.</li>
+      <li>Face lifted 6 units — more chin, reads younger/friendlier.</li>
+    </ul>
+    <div class="stage">
+      <svg data-dl="mascot-p4-official" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520">
+        <defs>
+          <linearGradient id="p4j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F7AC2B"/><stop offset="1" stop-color="#D9820F"/></linearGradient>
+          <linearGradient id="p4l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#F1E2C6"/></linearGradient>
+          <linearGradient id="p4m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8942A"/><stop offset="1" stop-color="#C06A08"/></linearGradient>
+        </defs>
+        <ellipse cx="200" cy="486" rx="104" ry="13" fill="#000000" opacity=".06"/>
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="url(#p4j)"/>
+        <path d="M88 316 Q126 304 160 312 Q200 321 240 312 Q276 304 312 316 L312 424 Q312 458 278 458 L122 458 Q88 458 88 424 Z" fill="url(#p4m)" opacity=".48"/>
+        <rect x="92" y="188" width="34" height="248" rx="17" fill="#FFFFFF" opacity=".22"/>
+        <rect x="296" y="212" width="12" height="200" rx="6" fill="#FFFFFF" opacity=".10"/>
+        <rect x="108" y="154" width="184" height="26" rx="9" fill="#EDDCBB"/>
+        <rect x="94" y="108" width="212" height="54" rx="16" fill="url(#p4l)" stroke="#DCCBA6" stroke-width="2"/>
+        <rect x="104" y="100" width="192" height="16" rx="8" fill="#FFF5E6" stroke="#DCCBA6" stroke-width="1.5"/>
+        <g stroke="#E3D3B2" stroke-width="3" stroke-linecap="round" opacity=".8">
+          <line x1="126" y1="118" x2="126" y2="152"/><line x1="156" y1="115" x2="156" y2="155"/>
+          <line x1="186" y1="114" x2="186" y2="156"/><line x1="214" y1="114" x2="214" y2="156"/>
+          <line x1="244" y1="115" x2="244" y2="155"/><line x1="274" y1="118" x2="274" y2="152"/>
+        </g>
+        <ellipse cx="152" cy="280" rx="23" ry="27" fill="#3D2B1F"/>
+        <ellipse cx="248" cy="280" rx="23" ry="27" fill="#3D2B1F"/>
+        <circle cx="162" cy="269" r="10" fill="#fff"/><circle cx="146" cy="287" r="5" fill="#fff"/>
+        <circle cx="258" cy="269" r="10" fill="#fff"/><circle cx="242" cy="287" r="5" fill="#fff"/>
+        <ellipse cx="117" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="283" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <path d="M182 328 Q200 346 218 328" stroke="#3D2B1F" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <rect x="112" y="378" width="176" height="68" rx="14" fill="#FFF8EE" stroke="#DFC69C" stroke-width="1.5"/>
+        <text x="200" y="424" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="600" font-size="27" fill="#C2410C">marmalade</text>
+        <circle cx="200" cy="372" r="14" fill="#F5A623" stroke="#D4831E" stroke-width="2.5"/>
+        <g stroke="#FFF5E6" stroke-width="1.6" opacity=".7">
+          <line x1="200" y1="362" x2="200" y2="382"/>
+          <line x1="191" y1="365" x2="196" y2="381"/>
+          <line x1="209" y1="365" x2="204" y2="381"/>
+          <line x1="190" y1="372" x2="210" y2="372"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">Expression set (P4 face system)</h2>
+<p class="lede">The app already switches faces (<code>mascot_happy.xml</code> / <code>mascot_speaking.xml</code>).
+The official set keeps that and adds a third for playback states. Same body, only the face group changes.</p>
+
+<div class="strip">
+  <div class="card">
+    <h3><span class="id">E1</span> Happy (default)</h3>
+    <div class="stage">
+      <svg data-dl="mascot-face-happy" xmlns="http://www.w3.org/2000/svg" viewBox="60 220 280 160">
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="#F0A21F"/>
+        <ellipse cx="152" cy="280" rx="23" ry="27" fill="#3D2B1F"/><ellipse cx="248" cy="280" rx="23" ry="27" fill="#3D2B1F"/>
+        <circle cx="162" cy="269" r="10" fill="#fff"/><circle cx="146" cy="287" r="5" fill="#fff"/>
+        <circle cx="258" cy="269" r="10" fill="#fff"/><circle cx="242" cy="287" r="5" fill="#fff"/>
+        <ellipse cx="117" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="283" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <path d="M182 328 Q200 346 218 328" stroke="#3D2B1F" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="id">E2</span> Speaking</h3>
+    <div class="stage">
+      <svg data-dl="mascot-face-speaking" xmlns="http://www.w3.org/2000/svg" viewBox="60 220 280 160">
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="#F0A21F"/>
+        <ellipse cx="152" cy="280" rx="23" ry="27" fill="#3D2B1F"/><ellipse cx="248" cy="280" rx="23" ry="27" fill="#3D2B1F"/>
+        <circle cx="162" cy="269" r="10" fill="#fff"/><circle cx="146" cy="287" r="5" fill="#fff"/>
+        <circle cx="258" cy="269" r="10" fill="#fff"/><circle cx="242" cy="287" r="5" fill="#fff"/>
+        <ellipse cx="117" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="283" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="200" cy="334" rx="17" ry="14" fill="#3D2B1F"/>
+        <path d="M186 338 a14 9 0 0 0 28 0 z" fill="#C2410C"/>
+      </svg>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="id">E3</span> Listening (paused)</h3>
+    <div class="stage">
+      <svg data-dl="mascot-face-listening" xmlns="http://www.w3.org/2000/svg" viewBox="60 220 280 160">
+        <rect x="78" y="168" width="244" height="300" rx="44" fill="#F0A21F"/>
+        <path d="M129 280 a23 23 0 0 1 46 4" stroke="#3D2B1F" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <path d="M225 280 a23 23 0 0 1 46 4" stroke="#3D2B1F" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <ellipse cx="117" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <ellipse cx="283" cy="309" rx="16" ry="9" fill="#FB7185" opacity=".30"/>
+        <path d="M186 332 Q200 342 214 332" stroke="#3D2B1F" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">Does it survive small? (P4 at app + launcher sizes)</h2>
+<div class="ladder" id="ladder-light"></div>
+<div style="height:14px"></div>
+<div class="ladder dark" id="ladder-dark"></div>
+<p class="lede" style="margin-top:14px">At 24&nbsp;px the P0 details (hairline lid lines, label rules,
+2.5-weight smile) turn to noise; P4's chunkier strokes and the single wordmark hold. The dark row
+matters because the app's dark surface (<code>#1c1917</code>) is where the mascot lives half the time.</p>
+
+<h2 class="sec">Shipping it</h2>
+<p class="lede">If P4 (or an edited version) gets blessed as official:</p>
+<pre># 1. canonical file — replaces concept1 as source of truth
+docs/design/mascot-official.svg          (P4, downloaded from this page)
+
+# 2. re-derive the app drawables at 108dp (same 0.2077 scale the current ones used)
+#    mascot_happy.xml / mascot_speaking.xml / (new) mascot_listening.xml
+#    — keep the existing path structure, swap coordinates/colors
+
+# 3. re-derive store art: play-design-lab.html icons A1/A2/A5 inherit the
+#    polished body automatically once redrawn from mascot-official.svg</pre>
+<div class="note">The P4 label wordmark uses Fredoka 600 (the sanctioned backup wordmark face).
+For final export, either install Fredoka locally before rasterizing, or convert the text to
+outlines (<code>inkscape --export-text-to-path</code>) so the SVG is font-independent.</div>
+
+</main>
+
+<script>
+// download buttons
+document.querySelectorAll('svg[data-dl]').forEach(svg => {
+  const card = svg.closest('.card');
+  if (!card) return;
+  const bar = document.createElement('div'); bar.className = 'btns';
+  const b = document.createElement('button'); b.className = 'dl';
+  b.textContent = 'Download ' + svg.dataset.dl + '.svg';
+  b.onclick = () => {
+    const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svg.outerHTML], {type:'image/svg+xml'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = svg.dataset.dl + '.svg'; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  bar.appendChild(b); card.appendChild(bar);
+});
+
+// size ladder: clone the P4 svg at descending sizes on light + dark
+const official = document.querySelector('svg[data-dl="mascot-p4-official"]');
+const sizes = [200, 108, 64, 48, 32, 24];
+for (const mode of ['light', 'dark']) {
+  const row = document.getElementById('ladder-' + mode);
+  for (const s of sizes) {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    const c = official.cloneNode(true);
+    c.removeAttribute('data-dl');
+    // re-id gradients per clone so they don't collide
+    const suf = '-' + mode + s;
+    c.querySelectorAll('[id]').forEach(n => n.id += suf);
+    c.querySelectorAll('[fill^="url("]').forEach(n =>
+      n.setAttribute('fill', n.getAttribute('fill').replace(')', suf + ')')));
+    c.style.width = s + 'px'; c.style.height = 'auto';
+    cell.appendChild(c);
+    const em = document.createElement('em'); em.textContent = s + 'px';
+    cell.appendChild(em);
+    row.appendChild(cell);
+  }
+}
+</script>
+</body>
+</html>

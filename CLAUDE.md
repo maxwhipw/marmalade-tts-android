@@ -157,3 +157,14 @@ deferred — phonemizer-side IPA convention mismatches with the trained
 Kitten model caused enough quality regression to make espeak-in-bundle
 the right call. Revisit if there's ever a no-GPL-anywhere requirement.
 
+
+## Android app publishing — knowledge base TODO
+
+We are building a durable knowledge base on Android app publishing (Play
+Console process, tester requirements, ASO, launch channels, F-Droid) in
+the **agent-wiki, under the coding section** — started 2026-07-27 at
+`~/.nexus/agent-wiki/tech/coding/android-app-publishing.md`. When a
+session learns something durable about publishing (a policy detail, a
+review outcome, a channel that worked or didn't), record it THERE, not
+only in this repo's docs — repo docs hold Marmalade-specific plans, the
+wiki holds the reusable knowledge.
