@@ -2,8 +2,8 @@
 
 ## State
 
-Branch **`main`**, head **`aa61c94`**, ahead of `github/main` —
-last pushed state was `9cf5ee6`. **386 unit tests green.**
+Branch **`main`**, head **`178b789`**, ahead of `github/main` —
+last pushed state was `9cf5ee6`. **387 unit tests green.**
 Debug APK builds. **Nothing in this batch has been seen on device.**
 Untracked (not ours, left alone): `app/schemas/.../MarmaladeDb/10.json`.
 
@@ -89,26 +89,31 @@ markers". It emits IPA; the accent data is carried across JNI and
 dropped, which is **correct** — misaki's `ja.JAG2P` defaults to the
 segmental cutlet path and Kokoro v1.0 has no token ids for `_`/`-`/`^`.
 
-### "Yeah" mispronunciation fixed — `d78b188` (P0 launch-lab item)
+### "Yeah" mispronunciation fixed — `d78b188` + `178b789` (P0 launch-lab item)
 
-Root cause was espeak, not the token map: espeak-ng (1.51 and the pinned
-1.52 submodule) has **no dictionary entry for "yeah"**, so letter-to-sound
-emits `jˈɛh` — a literal aspirated [h], audibly "yeh-h". Misaki
-transcribes it `jˈɛə`. No text respelling produces that, so the fix is
-phoneme-level: new `phonemizer/EnPhonemeFixups.kt` rewrites word-initial
-`j[ˈˌ]?ɛh → jɛə` on espeak output for `en*` voices (no right-hand
-boundary — "yeah's" is `jˈɛhz`). Covers KittenDirect **and**
-KokoroDirect. `EnPhonemeFixupsTest` (7 tests) pins it.
+Root cause was espeak, not the token map: espeak-ng (1.51, the pinned
+1.52 submodule, AND current upstream master — worth filing upstream) has
+**no dictionary entry for "yeah"**, so letter-to-sound emits `jˈɛh` — a
+literal aspirated [h], audibly "yeh-h". No text respelling produces the
+right phonemes, so the fix is phoneme-level:
+`phonemizer/EnPhonemeFixups.kt` rewrites word-initial `j[ˈˌ]?ɛh` on
+espeak output for `en*` voices (no right-hand boundary — "yeah's" is
+`jˈɛhz`).
+
+**Per-model targets, ear-picked by Max in the A/B lab
+(http://marmalade:8095/yeah-fix/, symlink → `~/coding/scratch/yeah/`):**
+Kitten renders misaki's `jˈɛə` poorly at every size (mini glitched
+outright; Max: mini is not better than nano), so **Kitten → flat `jæ`**
+("ya", won bar none); **Kokoro → `jˈɛə`** (misaki gold — its own
+training transcription). Each engine passes its
+`EnPhonemeFixups.Model` when constructing its EspeakPhonemizer.
+`EnPhonemeFixupsTest` (8 tests) pins both targets.
 
 The CLI shared the bug (kittentts phonemizes with espeak internally);
-fixed there too — `marmalade-tts-cli` commit `85d9b5f` patches the
-daemon's phonemizer backend. Deploy on marmalade needs `./install.sh` +
-kitten daemon restart. CLI piper/matcha/emojivoice still carry the
-espeak bug; CLI kokoro (misaki) is fine.
-
-A/B samples (same Kitten nano ONNX, old vs new phonemes):
-**http://marmalade:8095/yeah-fix/** (symlink `~/labs/yeah-fix` →
-`~/coding/scratch/yeah/`).
+`marmalade-tts-cli` `0b00468` patches the daemon's phonemizer backend
+with the same `jæ`. Deploy on marmalade needs `./install.sh` + kitten
+daemon restart. CLI piper/matcha/emojivoice still carry the espeak bug;
+CLI kokoro (misaki) is fine.
 
 ## Open — needs Max
 
