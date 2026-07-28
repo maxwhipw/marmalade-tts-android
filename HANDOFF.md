@@ -2,7 +2,7 @@
 
 ## State
 
-Branch **`main`**, head **`2d3dcae`**, ahead of `github/main` —
+Branch **`main`**, head **`c9e6684`**, ahead of `github/main` —
 last pushed state was `9cf5ee6`. **390 unit tests green.**
 Debug APK builds. **Nothing in this batch has been seen on device.**
 Untracked (not ours, left alone): `app/schemas/.../MarmaladeDb/10.json`.
@@ -128,6 +128,23 @@ reporting bar, per Max. Pronunciation reports are the feed for the
 per-model patch table in `EnPhonemeFixups.kt`; the diagnosis recipe
 (espeak IPA vs reference, A/B per model) is in that file's header and
 in memory note `espeak-yeah-lts-bug`.
+
+### Device-feedback batch, round 1 — `ee73c19` + `c9e6684` + `fde80f8` + `f93461b`
+
+From Max's first on-device pass of the whole batch:
+
+- **Startup crash fixed** (`fde80f8`): Room forbade
+  fallbackToDestructiveMigrationFrom(9) alongside MIGRATION_8_9; scoped
+  call removed, plain destructive fallback covers the intended v10 reset.
+- **Speak row showed a stale non-alias voice** (`ee73c19`): the v10
+  UUID re-key never reached SpeakViewModel — applyAlias resolved
+  findByName(uuid) and no-oped. Everything keys on alias UUID now.
+  Person-avatar → speaker glyph, no colored circle.
+- **Settings restructure** (`c9e6684`): Advanced leaf screen (threads /
+  developer engines / benchmark), About-row icons (info, in-tree bug
+  vector, orange emoji, primary-tinted heart on Support development),
+  license-row copy fix, solid bottom-nav tabs.
+- Onboarding notification copy reworded without em-dashes (`f93461b`).
 
 ## Open — needs Max
 
