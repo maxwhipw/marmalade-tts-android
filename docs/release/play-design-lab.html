@@ -16,19 +16,19 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    font:16.5px/1.6 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
   header{padding:20px 26px 15px;border-bottom:1px solid var(--line);
     display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
-  h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  h1{margin:0;font-size:23px;letter-spacing:-.02em}
   h1 span{color:var(--orange)}
-  .sub{color:var(--dim);font-size:13px}
-  .meta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dimmer);text-align:right}
+  .sub{color:var(--dim);font-size:14.5px}
+  .meta{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--dimmer);text-align:right}
   .meta b{color:var(--peach);font-weight:500}
   main{padding:26px;max-width:1500px;margin:0 auto}
-  h2.sec{font-size:12px;letter-spacing:.13em;text-transform:uppercase;
+  h2.sec{font-size:13.5px;letter-spacing:.13em;text-transform:uppercase;
     color:var(--peach);margin:44px 0 6px;border-top:1px solid var(--line);padding-top:26px}
   h2.sec:first-child{margin-top:0;border-top:0;padding-top:0}
-  .lede{color:var(--dim);font-size:13.5px;max-width:860px;margin:0 0 20px}
+  .lede{color:var(--dim);font-size:15px;max-width:860px;margin:0 0 20px}
   .lede b{color:var(--toast);font-weight:600}
 
   .grid{display:grid;gap:18px}
@@ -37,9 +37,9 @@
   .grid.shots{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
     padding:14px;display:flex;flex-direction:column;gap:10px}
-  .card h3{margin:0;font-size:14px;display:flex;align-items:baseline;gap:8px}
+  .card h3{margin:0;font-size:16px;display:flex;align-items:baseline;gap:8px}
   .card h3 .id{font-family:var(--mono);font-size:11px;color:var(--orange)}
-  .card p{margin:0;font-size:12.5px;color:var(--dim)}
+  .card p{margin:0;font-size:14px;color:var(--dim)}
   .art{border-radius:8px;overflow:hidden;line-height:0;background:#000}
   .art svg{width:100%;height:auto;display:block}
 
@@ -61,7 +61,7 @@
   button.dl:hover{background:var(--peach)}
   .verdict{font-size:11.5px;font-family:var(--mono);color:var(--dimmer)}
 
-  table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0 4px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0 4px}
   th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
   th{color:var(--dimmer);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
     background:var(--panel)}
@@ -81,19 +81,19 @@
   .cnt.near{color:var(--warn)}
   details{border:1px solid var(--line);border-radius:10px;background:var(--panel);
     margin-bottom:12px;max-width:980px}
-  details summary{cursor:pointer;padding:11px 14px;font-size:13.5px;font-weight:600}
+  details summary{cursor:pointer;padding:11px 14px;font-size:15px;font-weight:600}
   details summary .id{font-family:var(--mono);font-size:11px;color:var(--orange);margin-right:8px}
-  details summary .why{color:var(--dim);font-weight:400;font-size:12.5px}
+  details summary .why{color:var(--dim);font-weight:400;font-size:14px}
   details .inner{padding:0 14px 14px}
 
   .note{border-left:2px solid var(--orange);padding:2px 0 2px 12px;margin:14px 0;
-    color:var(--toast);font-size:13px;max-width:860px}
+    color:var(--toast);font-size:14.5px;max-width:860px}
   .warnbox{border-left:2px solid var(--block);padding:2px 0 2px 12px;margin:14px 0;
-    color:#fca5a5;font-size:13px;max-width:860px}
-  code{font-family:var(--mono);font-size:11.5px;background:#0d0b09;
+    color:#fca5a5;font-size:14.5px;max-width:860px}
+  code{font-family:var(--mono);font-size:13px;background:#0d0b09;
     padding:1px 5px;border-radius:4px;color:var(--toast)}
   pre{background:#0d0b09;border:1px solid var(--line);border-radius:7px;
-    padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;
+    padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:13px;
     color:var(--toast);margin:9px 0;max-width:860px}
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
   .gallery img{width:100%;border-radius:8px;display:block}
@@ -678,9 +678,7 @@ Generated explorations — <b>mood references to react to, not store-ready asset
 art should stay vector, from section A/B, so it's crisp at every size and matches the in-app
 mascot exactly). Model: <code>qwen-image</code> — chosen for licensing ethics; rationale in
 the session notes. Prompts describe <b>our own mascot</b> in generic flat-vector terms; no
-artist or studio styles referenced. <b>Status 2026-07-27: generation pending — the Venice
-API key returned 401 in the drafting session.</b> Missing files below simply show as
-"pending"; re-run the four prompts once the key works.
+artist or studio styles referenced. Generated 2026-07-27 into <code>play-assets/lab/</code>.
 </p>
 <div class="gallery" id="venice"></div>
 
