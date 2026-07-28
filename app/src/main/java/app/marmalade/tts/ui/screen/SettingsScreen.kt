@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -25,7 +26,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.MarmaladeFilterChip
+import app.marmalade.tts.ui.MarmaladeIcons
 import app.marmalade.tts.ui.theme.ThemePreset
 
 // -----------------------------------------------------------------------------
@@ -103,18 +104,12 @@ import app.marmalade.tts.ui.theme.ThemePreset
 fun SettingsScreen(
     /** Nav callback for Settings → About → Open-source licenses. */
     onNavigateToLicenses: () -> Unit,
-    /**
-     * Nav callback for the debug-only Benchmark entry. Null in release
-     * builds — the row is hidden when this is null. AppRoot passes the
-     * actual nav lambda only when `BuildConfig.DEBUG`.
-     */
-    onNavigateToBenchmark: (() -> Unit)? = null,
+    /** Nav callback for the Advanced leaf screen (threads, developer, benchmark). */
+    onNavigateToAdvanced: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themePreset by viewModel.themePreset.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-    val intraOpThreads by viewModel.intraOpThreads.collectAsStateWithLifecycle()
-    val showDeveloperEngines by viewModel.showDeveloperEngines.collectAsStateWithLifecycle()
     val keepaliveMode by viewModel.keepaliveMode.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -152,14 +147,6 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            PerformanceSection(
-                manualThreads = intraOpThreads,
-                autoThreads = viewModel.autoIntraOpThreads,
-                onThreadsSelected = viewModel::setIntraOpThreads,
-            )
-
-            HorizontalDivider()
-
             KeepaliveSection(
                 current = keepaliveMode,
                 onSelect = viewModel::setKeepaliveMode,
@@ -167,15 +154,7 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            DeveloperEnginesSection(
-                checked = showDeveloperEngines,
-                onCheckedChange = viewModel::setShowDeveloperEngines,
-            )
-
-            if (onNavigateToBenchmark != null) {
-                HorizontalDivider()
-                BenchmarkSection(onClick = onNavigateToBenchmark)
-            }
+            AdvancedRow(onClick = onNavigateToAdvanced)
 
             HorizontalDivider()
 
@@ -267,66 +246,6 @@ private fun SystemDefaultSection() {
 }
 
 /**
- * ONNX-Runtime intra-op thread count. Defaults to "Auto" which calls
- * [app.marmalade.tts.perf.CpuClusterDetector] at engine load to size
- * threads to the perf-core cluster. Manual override is exposed because
- * the autodetect has gaps on exotic CPU topologies (some Samsung chips
- * split the prime core off the perf cluster; some MediaTek chips have
- * three-tier hierarchies).
- *
- * The setting is read on next engine load — current synthesis isn't
- * affected. The "Restart engine to apply" line documents this.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PerformanceSection(
-    manualThreads: Int?,
-    autoThreads: Int,
-    onThreadsSelected: (Int?) -> Unit,
-) {
-    SectionHeader("Performance")
-
-    Text(
-        text = "ONNX threads",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
-    )
-    // Auto + a small ladder of common big-cluster sizes covering Tensor
-    // G3 (5), Snapdragon 8 Gen2/Pixel 9 (6), Snapdragon 8 Gen3 (8) and
-    // a low fallback for thermal-limited devices.
-    val options: List<Pair<Int?, String>> = listOf(
-        null to "Auto ($autoThreads)",
-        1 to "1",
-        2 to "2",
-        4 to "4",
-        5 to "5",
-        6 to "6",
-        8 to "8",
-    )
-    FlowRow(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        options.forEach { (value, label) ->
-            MarmaladeFilterChip(
-                selected = value == manualThreads,
-                onClick = { onThreadsSelected(value) },
-                label = { Text(label) },
-            )
-        }
-    }
-    Text(
-        text = "Takes effect on your next Speak — the engine reloads " +
-            "automatically when you change this.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-}
-
-/**
  * P-K — engine keepalive mode selector. Three options:
  *
  *  - Off:        no foreground service; engine reloads from cold each
@@ -394,55 +313,16 @@ private fun KeepaliveSection(
     )
 }
 
-/**
- * Opt-in toggle for the legacy sherpa engines (Kokoro v1.0/v1.1, Kitten
- * Nano/Mini). The direct-ORT engines superseded them; they stay installable
- * for A/B comparison but are hidden by default in release builds. Shown in
- * both build types so an interested user can reveal them — the default value
- * differs (on in debug, off in release), wired through
- * [SettingsRepository.showDeveloperEngines].
- */
+/** One chevron row to the Advanced leaf screen (threads, developer, benchmark). */
 @Composable
-private fun DeveloperEnginesSection(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+private fun AdvancedRow(onClick: () -> Unit) {
     SectionHeader("Advanced")
 
     ListItem(
-        modifier = Modifier.clickable { onCheckedChange(!checked) },
-        headlineContent = { Text("Show developer engines") },
-        supportingContent = {
-            Text(
-                text = "Reveal the older sherpa-onnx engines (Kokoro v1.0/v1.1, " +
-                    "Kitten Nano/Mini). The direct-ORT engines replaced them; " +
-                    "these are kept for comparison.",
-            )
-        },
-        trailingContent = {
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
-}
-
-/**
- * Debug-only entry point to the benchmark surface. Only shown when
- * `BuildConfig.DEBUG` (gated by AppRoot passing a non-null lambda to
- * [SettingsScreen]). Release builds never render this section.
- */
-@Composable
-private fun BenchmarkSection(onClick: () -> Unit) {
-    SectionHeader("Debug")
-
-    ListItem(
         modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Benchmark") },
+        headlineContent = { Text("Advanced settings") },
         supportingContent = {
-            Text(
-                text = "Measure per-engine synth timings. Pocket shows a phase " +
-                    "breakdown; sherpa engines get load + total + realtime ratio.",
-            )
+            Text("Synthesis threads, developer engines, and other knobs most people never need.")
         },
         trailingContent = {
             Icon(
@@ -459,6 +339,9 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     SectionHeader("About")
 
     ListItem(
+        leadingContent = {
+            Icon(imageVector = Icons.Filled.Info, contentDescription = null)
+        },
         headlineContent = { Text("Marmalade TTS") },
         supportingContent = { Text("Version ${BuildConfig.VERSION_NAME}") },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
@@ -468,7 +351,7 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
         modifier = Modifier.clickable(onClick = onNavigateToLicenses),
         headlineContent = { Text("Open-source licenses") },
         supportingContent = {
-            Text("Third-party components, the app's MIT license, and the licenses of downloadable engines.")
+            Text("Licenses for the app, its bundled components, and the downloadable engines.")
         },
         trailingContent = {
             Icon(
@@ -488,12 +371,18 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
             androidVersion = android.os.Build.VERSION.RELEASE,
             deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
         ),
+        leading = {
+            Icon(imageVector = MarmaladeIcons.Bug, contentDescription = null)
+        },
     )
 
     AboutLinkRow(
         label = "More Marmalade",
         supporting = "Other Marmalade apps on GitHub.",
         url = "https://github.com/maxwhipw",
+        leading = {
+            Text(text = "\uD83C\uDF4A", style = MaterialTheme.typography.titleMedium)
+        },
     )
 
     // Flavor-specific entries — see src/{play,fdroid}/.../AboutExtras.kt.
@@ -504,7 +393,12 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
 }
 
 @Composable
-internal fun AboutLinkRow(label: String, supporting: String, url: String) {
+internal fun AboutLinkRow(
+    label: String,
+    supporting: String,
+    url: String,
+    leading: (@Composable () -> Unit)? = null,
+) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     ListItem(
         modifier = Modifier.clickable {
@@ -513,6 +407,7 @@ internal fun AboutLinkRow(label: String, supporting: String, url: String) {
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         },
+        leadingContent = leading,
         headlineContent = { Text(label) },
         supportingContent = { Text(supporting) },
         trailingContent = {

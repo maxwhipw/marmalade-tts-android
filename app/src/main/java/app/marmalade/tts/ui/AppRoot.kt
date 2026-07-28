@@ -14,11 +14,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,6 +36,7 @@ import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
+import app.marmalade.tts.ui.screen.AdvancedSettingsScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.CloudApiScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
@@ -116,6 +112,12 @@ object Routes {
     const val CloudApi = "cloud_api"
 
     const val Settings = "settings"
+
+    /**
+     * Advanced settings (ONNX threads, developer engines, benchmark) —
+     * a leaf detail screen off Settings. Nav bar hidden while open.
+     */
+    const val AdvancedSettings = "advanced_settings"
     const val Aliases = "aliases"
     const val Effects = "effects"
 
@@ -185,10 +187,10 @@ private val NAV_TABS = listOf(
     // star read as "favourites". Same vector selected or not — the
     // NavigationBar pill already carries the selection.
     NavTab(Routes.Speak, "Speak", MarmaladeIcons.Speak, MarmaladeIcons.Speak),
-    NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Outlined.Person),
+    NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Filled.Person),
     NavTab(Routes.Effects, "Effects", MarmaladeIcons.Effects, MarmaladeIcons.Effects),
-    NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Outlined.Build),
-    NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
+    NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Filled.Build),
+    NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Filled.Settings),
 )
 
 /**
@@ -226,6 +228,7 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         currentRoute?.startsWith(Routes.Voices) != true &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
         currentRoute != Routes.Licenses &&
+        currentRoute != Routes.AdvancedSettings &&
         currentRoute?.startsWith("${Routes.LicenseText}/") != true &&
         // The editor's route template carries query args
         // ("effect_editor?editId={editId}&dupeId={dupeId}"), so match the
@@ -309,6 +312,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToLicenses = { navController.navigate(Routes.Licenses) },
+                    onNavigateToAdvanced = { navController.navigate(Routes.AdvancedSettings) },
+                )
+            }
+            composable(Routes.AdvancedSettings) {
+                AdvancedSettingsScreen(
+                    onBack = { navController.popBackStack() },
                     onNavigateToBenchmark = if (BuildConfig.DEBUG) {
                         { navController.navigate(Routes.Benchmark) }
                     } else {

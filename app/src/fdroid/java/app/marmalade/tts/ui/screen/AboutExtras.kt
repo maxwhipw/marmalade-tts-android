@@ -1,5 +1,9 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 
 /**
@@ -20,5 +24,13 @@ internal fun AboutExtras() {
         label = "Support development",
         supporting = "Donate via GitHub Sponsors. Voluntary and not tax-deductible.",
         url = "https://github.com/sponsors/maxwhipw",
+        leading = {
+            // A vector heart (not an emoji), tinted primary so the row pops.
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
     )
 }
