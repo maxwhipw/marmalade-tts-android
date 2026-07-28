@@ -20,10 +20,10 @@ import androidx.room.PrimaryKey
 //                 AliasViewModel.save(...) — after validating
 //                 the user-typed name against [VoiceAlias.NAME_REGEX].
 //
-//   SpeakViewModel.applyAlias(name)
+//   SpeakViewModel.applyAlias(id)
 //     │
 //     ▼
-//   VoiceAliasDao.findByName(name) ──► VoiceAlias
+//   VoiceAliasDao.findById(id) ──► VoiceAlias
 //     │
 //     └─► SettingsRepository.setDefaultVoiceId(voiceId)
 //         + in-memory speed / effect state on SpeakViewModel.

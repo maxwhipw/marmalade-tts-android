@@ -1,7 +1,6 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +43,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,11 +91,11 @@ import app.marmalade.tts.ui.theme.Wordmark
 //   User taps an alias chip
 //     │
 //     ▼
-//   SpeakViewModel.applyAlias(name)
+//   SpeakViewModel.applyAlias(id)          (alias UUID, not display name)
 //     │
-//     ├── VoiceAliasDao.findByName ─► alias row
+//     ├── VoiceAliasDao.findById ─► alias row
 //     ├── SettingsRepository.setDefaultVoiceId(alias.voiceId)
-//     └── activeAlias = name  ──► the row's name + the sheet's tick
+//     └── activeAlias = id  ──► the row's name + the sheet's tick
 //
 //   User taps a voice manually in the picker
 //     │
@@ -283,7 +279,7 @@ fun SpeakScreen(
     if (sheetOpen) {
         PersonaSheet(
             personas = personas,
-            activeName = currentPersona?.name,
+            activeId = currentPersona?.id,
             onPick = viewModel::applyAlias,
             onPickVoice = onNavigateToVoices,
             onCreate = onNavigateToAliases,
@@ -315,20 +311,15 @@ private fun CurrentVoiceRow(
             modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+            // A speaker, not a person avatar: an avatar implies personas
+            // can carry an image (they can't) and says nothing about what
+            // the row does. No colored circle behind it either.
+            Icon(
+                imageVector = MarmaladeIcons.Speak,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -392,7 +383,7 @@ fun CloudMark(
 @Composable
 private fun PersonaSheet(
     personas: List<SpeakViewModel.Persona>,
-    activeName: String?,
+    activeId: String?,
     onPick: (String) -> Unit,
     onPickVoice: () -> Unit,
     onCreate: () -> Unit,
@@ -405,7 +396,7 @@ private fun PersonaSheet(
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp),
         )
         LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-            items(personas, key = { it.name }) { persona ->
+            items(personas, key = { it.id }) { persona ->
                 ListItem(
                     headlineContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -435,7 +426,7 @@ private fun PersonaSheet(
                         }
                     },
                     trailingContent = {
-                        if (persona.name == activeName) {
+                        if (persona.id == activeId) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
                                 contentDescription = "Selected",
@@ -444,7 +435,7 @@ private fun PersonaSheet(
                         }
                     },
                     modifier = Modifier.clickable {
-                        onPick(persona.name)
+                        onPick(persona.id)
                         onDismiss()
                     },
                 )

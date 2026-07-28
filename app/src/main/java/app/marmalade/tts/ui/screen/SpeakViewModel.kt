@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 //     ├── aliases   ◄──────── SpeakViewModel.aliases (VoiceAliasDao.getAll)
 //     ├── activeAlias ◄────── SpeakViewModel.activeAlias
 //     │                          ▲
-//     │                          │ set by applyAlias(name); also auto-set on
+//     │                          │ set by applyAlias(id); also auto-set on
 //     │                          │ VM init from settings.primaryAliasId so
 //     │                          │ effects/speed configured on the primary
 //     │                          │ alias fire on first Speak. Cleared when
@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 //     ├── currentSpeed  ◄──── SpeakViewModel.currentSpeed  (set by applyAlias;
 //     │                       passed through to Synthesizer on speak())
 //     │
-//     └── actions ──► onTextChanged / speak() / cancel() / applyAlias(name)
+//     └── actions ──► onTextChanged / speak() / cancel() / applyAlias(id)
 // -----------------------------------------------------------------------------
 
 /** Coarse UI state for the playback area on the Speak screen. */
@@ -237,6 +237,8 @@ class SpeakViewModel @Inject constructor(
      * directory, which is not work to do inside a list item.
      */
     data class Persona(
+        /** Alias UUID; a raw voice id when the row stands in for a hand-picked voice. */
+        val id: String,
         val name: String,
         /** "Kokoro · Adam" — model then voice. */
         val subtitle: String,
@@ -251,10 +253,11 @@ class SpeakViewModel @Inject constructor(
             rows.map { alias ->
                 val path = voicePaths.resolve(alias.voiceId, alias.engine)
                 Persona(
+                    id = alias.id,
                     name = alias.name,
                     subtitle = path.summary,
                     isCloud = path.isCloud,
-                    isPrimary = alias.name == primary,
+                    isPrimary = alias.id == primary,
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -270,10 +273,11 @@ class SpeakViewModel @Inject constructor(
      */
     val currentPersona: StateFlow<Persona?> =
         combine(personas, activeAlias, currentVoice) { list, active, voice ->
-            list.firstOrNull { it.name == active }
+            list.firstOrNull { it.id == active }
                 ?: voice?.let {
                     val path = voicePaths.resolve(it.id, it.engine)
                     Persona(
+                        id = it.id,
                         name = it.displayName,
                         subtitle = path.collapsed,
                         isCloud = path.isCloud,
@@ -302,7 +306,7 @@ class SpeakViewModel @Inject constructor(
         // would run synthesis with the pre-edit values (chip says alias
         // is active but the cached StateFlows are stale).
         combine(_activeAlias, aliases) { active, rows ->
-            if (active == null) null else rows.firstOrNull { it.name == active }
+            if (active == null) null else rows.firstOrNull { it.id == active }
         }
             .onEach { fresh ->
                 if (fresh != null) {
@@ -413,8 +417,9 @@ class SpeakViewModel @Inject constructor(
     }
 
     /**
-     * Apply the alias with [name]: switch voice, speed, and effect to the
-     * alias's saved values, and mark it as the active alias for chip
+     * Apply the alias with [id] (the UUID — display names are labels, not
+     * identity, since the v10 re-key): switch voice, speed, and effect to
+     * the alias's saved values, and mark it as the active alias for chip
      * highlighting.
      *
      * No-ops (with a warn-level log) if the alias isn't found. Engine
@@ -425,11 +430,11 @@ class SpeakViewModel @Inject constructor(
      * the picker, the system-TTS callback path, and this screen all
      * agree on what's selected.
      */
-    fun applyAlias(name: String) {
+    fun applyAlias(id: String) {
         viewModelScope.launch {
-            val alias = aliasDao.findByName(name)
+            val alias = aliasDao.findById(id)
             if (alias == null) {
-                Log.w(TAG, "applyAlias($name): no alias by that name; ignoring")
+                Log.w(TAG, "applyAlias($id): no alias with that id; ignoring")
                 return@launch
             }
 
@@ -440,7 +445,7 @@ class SpeakViewModel @Inject constructor(
             if (EngineCatalog.byName(alias.engine) == null) {
                 Log.w(
                     TAG,
-                    "applyAlias($name): engine '${alias.engine}' not in catalog; " +
+                    "applyAlias($id): engine '${alias.engine}' not in catalog; " +
                         "proceeding with voice/speed/effect only",
                 )
             }
@@ -449,7 +454,7 @@ class SpeakViewModel @Inject constructor(
             if (voice == null) {
                 Log.w(
                     TAG,
-                    "applyAlias($name): voiceId '${alias.voiceId}' not in catalog; " +
+                    "applyAlias($id): voiceId '${alias.voiceId}' not in catalog; " +
                         "skipping voice change",
                 )
                 // No voice change to predict, so seed `expectedAliasVoiceId`
@@ -470,7 +475,7 @@ class SpeakViewModel @Inject constructor(
             _currentEffectBlocks.value = effectResolver.blocksFor(alias.effectId)
             _currentSpeed.value = alias.speed
             _currentPhonemizationLanguage.value = alias.phonemizationLanguage
-            _activeAlias.value = alias.name
+            _activeAlias.value = alias.id
         }
     }
 

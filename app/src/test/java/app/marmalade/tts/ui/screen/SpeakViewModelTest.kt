@@ -120,7 +120,7 @@ class SpeakViewModelTest {
         val vm = newViewModel(player = player, aliases = listOf(alias))
         vm.currentVoice.firstNonNull()
 
-        vm.applyAlias("robocop")
+        vm.applyAlias("id-robocop")
         // The voice swap happens via SettingsRepository.setDefaultVoiceId,
         // so wait for currentVoice to reflect the new id before speaking.
         vm.currentVoice.filter { it?.id == "kitten-direct-v0_8:Hugo" }.first()
@@ -153,7 +153,7 @@ class SpeakViewModelTest {
         val vm = newViewModel(player = player, aliases = listOf(alias))
         vm.currentVoice.firstNonNull()
 
-        vm.applyAlias("narrator-jp")
+        vm.applyAlias("id-narrator-jp")
         vm.currentVoice.filter { it?.id == "kitten-direct-v0_8:Luna" }.first()
 
         vm.onTextChanged("Konnichiwa")
@@ -197,8 +197,8 @@ class SpeakViewModelTest {
         val vm = newViewModel(aliasDao = aliasDao)
         vm.currentVoice.firstNonNull()
 
-        vm.applyAlias("narrator")
-        vm.activeAlias.filter { it == "narrator" }.first()
+        vm.applyAlias("id-narrator")
+        vm.activeAlias.filter { it == "id-narrator" }.first()
         // Sanity: cached state matches the original alias.
         assertEquals(emptyList<EffectBlock>(), vm.currentEffectBlocks.value)
         assertEquals(1.0f, vm.currentSpeed.value, 0.0f)
@@ -251,8 +251,8 @@ class SpeakViewModelTest {
         val vm = newViewModel(aliasDao = aliasDao)
         vm.currentVoice.firstNonNull()
 
-        vm.applyAlias("narrator")
-        vm.activeAlias.filter { it == "narrator" }.first()
+        vm.applyAlias("id-narrator")
+        vm.activeAlias.filter { it == "id-narrator" }.first()
 
         // Edit the OTHER alias.
         aliasDao.upsert(other.copy(speed = 0.5f, effectPreset = "TELEPHONE", effectId = BuiltinEffects.TELEPHONE_ID))
@@ -281,9 +281,9 @@ class SpeakViewModelTest {
         val vm = newViewModel(player = player, settings = settings, aliases = listOf(alias))
         vm.currentVoice.firstNonNull()
 
-        vm.applyAlias("echo")
+        vm.applyAlias("id-echo")
         // Wait for the alias to fully apply before changing voice manually.
-        vm.activeAlias.filter { it == "echo" }.first()
+        vm.activeAlias.filter { it == "id-echo" }.first()
         assertEquals(EffectChain.CAVE_BLOCKS, vm.currentEffectBlocks.value)
         assertEquals(0.9f, vm.currentSpeed.value, 0.0f)
 
