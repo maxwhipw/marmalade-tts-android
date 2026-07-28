@@ -84,8 +84,12 @@ object AppModule {
             // statements of correlated-subquery SQL whose failure mode is
             // silently mis-linked routing — and Max, the only user pre-1.0,
             // would rather reinstall than carry that risk in the codebase.
-            // Scoped to 9 so the older migrations still run for anyone on them.
-            .fallbackToDestructiveMigrationFrom(9)
+            // So there is deliberately no 9→10 migration: any pre-10
+            // database has no complete path and this fallback resets it.
+            // (Room forbids pairing fallbackToDestructiveMigrationFrom(9)
+            // with a migration that ENDS at 9 — crashed at first launch —
+            // and the scoped variant bought nothing: without 9→10, older
+            // versions have no complete path either way.)
             .fallbackToDestructiveMigration()
             .build()
     }
