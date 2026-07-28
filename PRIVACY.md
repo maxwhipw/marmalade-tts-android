@@ -8,7 +8,7 @@ and *optionally* lets you turn on **cloud voices** from a third-party
 provider instead. Used offline, it collects and shares nothing: the text
 you have it read stays on your phone, and there is no analytics,
 tracking, or account of any kind. If you do set up a cloud provider, the
-text you have spoken is sent to that provider, under **their** privacy
+text you send it to read aloud is sent to that provider, under **their** privacy
 policy rather than this one. That is the one and only case in which your
 text leaves your device, it never happens unless you enable it, and it is
 described in full below.

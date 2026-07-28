@@ -1,6 +1,8 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -178,64 +182,89 @@ private fun CloudDisclaimerGate(
     onDecline: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollState = rememberScrollState()
     Column(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-        ) {
-            Text(
-                text = "Before you use cloud voices",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(16.dp))
+        Box(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+            ) {
+                Text(
+                    text = "Before you use cloud voices",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(16.dp))
 
-            DisclaimerPoint(
-                title = "Your text leaves this device",
-                body = "Marmalade's built-in voices run entirely on your " +
-                    "phone and send nothing anywhere. Cloud voices are the " +
-                    "exception: everything you have spoken is transmitted " +
-                    "in full to the provider you choose, along with the " +
-                    "voice, model and speed requested, and your API key.",
-            )
-            DisclaimerPoint(
-                title = "Their rules apply, not ours",
-                body = "What that provider logs, how long it keeps your " +
-                    "text, and whether it trains on it are governed by " +
-                    "their privacy policy and terms — which you accept " +
-                    "directly with them when you create an account.",
-            )
-            DisclaimerPoint(
-                title = "We are not affiliated with them",
-                body = "Marmalade is independent. We are not endorsed by, " +
-                    "sponsored by, or partnered with any provider, we " +
-                    "receive nothing from them, and we cannot see or act " +
-                    "on your usage — including deletion requests, which " +
-                    "have to go to the provider directly.",
-            )
-            DisclaimerPoint(
-                title = "Other apps are affected too",
-                body = "Marmalade can be your system-wide voice. If you " +
-                    "set a cloud voice as your primary, or route an app to " +
-                    "one, then text from those apps — ebooks, messages, " +
-                    "anything read aloud to you — is also sent to that " +
-                    "provider. On-device voices are unaffected.",
-            )
-            DisclaimerPoint(
-                title = "You pay them, not us",
-                body = "Each provider bills your own account for what you " +
-                    "use. Marmalade itself is free and takes no cut.",
-            )
+                DisclaimerPoint(
+                    title = "Your text leaves this device",
+                    body = "Marmalade's built-in voices run entirely on your " +
+                        "phone and send nothing anywhere. Cloud voices are the " +
+                        "exception: the text you send them to read aloud is " +
+                        "transmitted in full to the provider you choose, along " +
+                        "with the voice, model and speed requested, and your " +
+                        "API key.",
+                )
+                DisclaimerPoint(
+                    title = "Their rules apply, not ours",
+                    body = "What that provider logs, how long it keeps your " +
+                        "text, and whether it trains on it are governed by " +
+                        "their privacy policy and terms — which you accept " +
+                        "directly with them when you create an account.",
+                )
+                DisclaimerPoint(
+                    title = "We are not affiliated with them",
+                    body = "Marmalade is independent. We are not endorsed by, " +
+                        "sponsored by, or partnered with any provider, we " +
+                        "receive nothing from them, and we cannot see or act " +
+                        "on your usage — including deletion requests, which " +
+                        "have to go to the provider directly.",
+                )
+                DisclaimerPoint(
+                    title = "Other apps are affected too",
+                    body = "Marmalade can be your system-wide voice. If you " +
+                        "set a cloud voice as your primary, or route an app to " +
+                        "one, then text from those apps — ebooks, messages, " +
+                        "anything read aloud to you — is also sent to that " +
+                        "provider. On-device voices are unaffected.",
+                )
+                DisclaimerPoint(
+                    title = "You pay them, not us",
+                    body = "Each provider bills your own account for what you " +
+                        "use. Marmalade itself is free and takes no cut.",
+                )
 
-            Text(
-                text = "This is also in the privacy policy, linked from " +
-                    "Settings → About, where you can read it again at any " +
-                    "time.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    text = "This is also in the privacy policy, linked from " +
+                        "Settings → About, where you can read it again at any " +
+                        "time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Scroll affordance: on tall-text/small-screen combinations the
+            // gate overflows with no visual hint that more points follow.
+            // A fade into the background at the clipped edge reads as
+            // "continues below"; it disappears once the end is reached.
+            if (scrollState.canScrollForward) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.background,
+                                ),
+                            ),
+                        ),
+                )
+            }
         }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {

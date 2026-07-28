@@ -2,6 +2,7 @@ package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -338,13 +341,13 @@ private fun AdvancedRow(onClick: () -> Unit) {
 private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     SectionHeader("About")
 
-    ListItem(
-        leadingContent = {
+    AboutRow(
+        label = "Marmalade TTS",
+        supporting = "Version ${BuildConfig.VERSION_NAME}",
+        leading = {
             Icon(imageVector = Icons.Filled.Info, contentDescription = null)
         },
-        headlineContent = { Text("Marmalade TTS") },
-        supportingContent = { Text("Version ${BuildConfig.VERSION_NAME}") },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        showChevron = false,
     )
 
     ListItem(
@@ -400,24 +403,63 @@ internal fun AboutLinkRow(
     leading: (@Composable () -> Unit)? = null,
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    ListItem(
+    AboutRow(
+        label = label,
+        supporting = supporting,
+        leading = leading,
         modifier = Modifier.clickable {
             ctx.startActivity(
                 android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         },
-        leadingContent = leading,
-        headlineContent = { Text(label) },
-        supportingContent = { Text(supporting) },
-        trailingContent = {
+    )
+}
+
+/**
+ * About-section row drawn as a plain centered [Row] rather than M3's
+ * [ListItem]: with two supporting lines ListItem becomes "three-line"
+ * and pins leadingContent to the top, which reads as misaligned next
+ * to rows whose icon floats mid-height. Center-aligning everything is
+ * what the section wants.
+ */
+@Composable
+private fun AboutRow(
+    label: String,
+    supporting: String,
+    leading: (@Composable () -> Unit)? = null,
+    showChevron: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            Box(
+                modifier = Modifier.width(40.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) { leading() }
+            Spacer(Modifier.width(8.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (showChevron) {
+            Spacer(Modifier.width(8.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
             )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    )
+        }
+    }
 }
 
 @Composable
