@@ -34,6 +34,14 @@ internal const val PAD_TOKEN: Int = 0
 internal const val KITTEN_END_TOKEN: Int = 10
 
 /**
+ * Highest non-speech token ID: ids 0..16 are pad, punctuation, and the
+ * space (16). Every speech phoneme sits above. [KittenTrim] uses this to
+ * find the trailing non-speech token group whose frames are the
+ * end-of-utterance pause + pad.
+ */
+internal const val SPACE_TOKEN: Int = 16
+
+/**
  * Single-character vocab. Multi-character IPA combining marks are
  * handled by [encodePhonemes] walking the input grapheme-by-grapheme.
  *
