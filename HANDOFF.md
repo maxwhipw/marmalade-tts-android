@@ -1,4 +1,55 @@
-# HANDOFF — UI rework, alias bugs, language audit, 2026-07-27 (branch `main`)
+# HANDOFF — R16 mirror: per-sentence rows + trims + gaps, 2026-07-31 (branch `main`)
+
+## State
+
+Head **`0ccb79e`** (3 new commits on top of `bf90bcc`). **399 unit
+tests green** (`./gradlew :app:testFdroidDebugUnitTest`). Installed on
+Max's Pixel and **DEVICE-VERIFIED (Max, 2026-07-31): "sounds really
+good and is really fast."** StreamPerf logcat from his session
+confirms the mechanics: 5 per-sentence chunks (textLen 24/32/39/56/34),
+warm TTFA 477ms, rtf 0.19–0.29, zero underruns, and every non-final
+consumer chunk exactly +150ms over its producer audio (the run gap),
+final chunk bare.
+
+## What landed (CLI R16/seam-chain mirror, Max's ask 2026-07-31)
+
+KittenDirect now mirrors the CLI's decided streaming sound
+(marmalade-tts-cli `704d6da` + seam chain), adapted to this engine's
+whole-sentence architecture:
+
+- `653fe49` TextChunker `terminalMarksOnly` — `.!?` + newlines split;
+  `:` `;` stay in-sentence; quote-attached marks keep dialogue with
+  its attribution (CLI run-splitter behaviour).
+- `2596f66` `KittenTrim` — duration-exact lead/tail trim, faithful
+  port of the CLI daemon's `_trim_run` (lead keeps 2 frames ~50ms,
+  trailing non-speech token group keeps 3 frames ~75ms; null on a
+  broken contract → caller falls back to the legacy blind 5000-sample
+  trim). Contract verified against the shipped nano bundle's ONNX on
+  desktop: outputs = waveform f32 + duration int64, len(wav) ==
+  sum(dur)×600.
+- `0ccb79e` engine wiring: one SENTENCE per chunk (tiny-sentence
+  merging removed — the brisk short-utterance register is the point,
+  per Max's R16-1 verdict), per-sentence style rows via the existing
+  text-length lookup, KittenTrim in runInference, 150ms inter-sentence
+  gap on each non-final chunk (CLI RUN_GAP_MS).
+
+NOT ported (needs the CLI's phoneme-space planner): sub-sentence
+chunking + context/lookahead conditioning, colon 150ms pad top-up,
+RTF-banded sizing, marginal-RTF perfstats (remember: exclude
+engine-load from any solo sample — cold-start pollution). Sentences
+render whole here, so no conditioning is needed at these seams.
+
+Emulator note: the app CANNOT run on the x86_64 emulator — ORT's
+x86_64 build SIGSEGVs in createSession loading kitten.onnx (tried
+path and byte-array loads; crash is pre-existing, unrelated to these
+changes). APK stays ARM-only; runtime verification = unit tests +
+desktop ONNX contract check + Max's ear on the Pixel.
+
+Max's verdict closes the R16 half of the mirror backlog. The phoneme-
+plan port (sub-sentence conditioning, colon pad, RTF bands) remains
+the big remaining piece.
+
+# HANDOFF (superseded) — UI rework, alias bugs, language audit, 2026-07-27 (branch `main`)
 
 ## State
 
