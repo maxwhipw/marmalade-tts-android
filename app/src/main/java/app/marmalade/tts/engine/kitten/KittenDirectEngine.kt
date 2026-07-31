@@ -77,10 +77,21 @@ private const val PERF_TAG = "StreamPerf"
 private const val STYLE_DIM = 256
 
 /**
- * Last N samples of every Kitten synth are decoder ring-out — drop them.
- * Upstream KittenML and Maise both hardcode 5000; we match.
+ * Legacy blind tail trim, FALLBACK ONLY: used when the model's duration
+ * output is missing or doesn't match the waveform, where [KittenTrim]
+ * would otherwise cut speech. Upstream KittenML and Maise hardcode 5000;
+ * the normal path trims lead and tail duration-exactly instead (the
+ * blind trim clips ~200 ms of real speech on punctuation-less chunks).
  */
 private const val TRIM_SAMPLES = 5000
+
+/**
+ * Silence inserted between sentence chunks (CLI `RUN_GAP_MS`). Trimmed
+ * tails keep only ~75 ms of rendered pause; this restores the
+ * inter-sentence breath uniformly — the CLI lab settled uniform gaps
+ * over mark-proportional ones (J2g).
+ */
+private const val RUN_GAP_MS = 150
 
 /**
  * Per-voice speed multipliers derived from Sherpa-onnx's
@@ -146,20 +157,17 @@ open class KittenDirectEngine @Inject constructor(
         SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
 
     /**
-     * Soft cap for per-chunk char count. KittenDirect chunks at sentence
-     * boundaries (`.?!:` + newlines only — not commas or em-dashes)
-     * and never word-splits, so this is a target for the bin-packer
-     * rather than a hard limit. An over-long sentence with no internal
-     * sentence-end will exceed this and be emitted whole; the
-     * [MAX_PHONEMES_PER_CHUNK] guard in [runInference] catches the
-     * pathological case where the IPA would blow past Kitten's BERT
-     * 512-position limit.
+     * Soft cap for per-chunk char count. Since the R16 mirror, chunks
+     * are one SENTENCE each (`.!?` + newlines; never word-split), so
+     * this cap only matters for a single over-long sentence, which is
+     * emitted whole; the [MAX_PHONEMES_PER_CHUNK] guard in
+     * [runInference] catches the pathological case where the IPA would
+     * blow past Kitten's BERT 512-position limit.
      *
-     * 255 chars empirically lands ~2-4 sentences per chunk for normal
-     * prose. Longer chunks improve prosody pacing (voice style index
-     * is `min(len(text), 399)` per upstream — shorter chunks index a
-     * lower row which seeds the model with "short-utterance prosody"
-     * and produces faster-sounding speech).
+     * The per-sentence style row (text-length lookup) is deliberate:
+     * short sentences get the model's brisk short-utterance register,
+     * long ones the flowing long-form one — the CLI listening rounds
+     * settled that this upstream behaviour is the preferred sound.
      */
     override val maxInputChars: Int = 255
 
@@ -369,24 +377,23 @@ open class KittenDirectEngine @Inject constructor(
         val effectiveLang = phonemizationLanguage ?: KITTEN_DEFAULT_ESPEAK_VOICE
         phonemizer?.setVoice(effectiveLang)
         val voiceName = voiceId.substringAfter(':', voiceId)
-        // KittenDirect chunking rules (per device-testing feedback):
+        // KittenDirect chunking rules (R16 mirror of the CLI, 2026-07-31):
         //  - never split mid-word — even at maxChars boundary
-        //  - split only on .?!: + newlines (commas and em-dashes do NOT
-        //    end a chunk — they're internal prosody, not pauses big
-        //    enough to be a chunk boundary)
-        //  - pack short sentences together up to [maxInputChars] so
-        //    voice-row indexing (text length) seeds the model with
-        //    natural pacing instead of "short utterance, fast speech"
+        //  - one SENTENCE per chunk, split only on .!? + newlines (commas,
+        //    em-dashes, colons and semicolons are internal prosody). Every
+        //    chunk then gets its own sentence's style row via the existing
+        //    text-length lookup — upstream's register rule ("Stop!" gets
+        //    the brisk interjection row, narration gets the flowing one).
+        //    Tiny sentences are deliberately NOT merged any more: merging
+        //    was there to avoid "short utterance, fast speech", but the
+        //    CLI listening rounds settled that the short-utterance register
+        //    is the point, not a defect.
         val chunks = TextChunker.chunk(
             text = text,
             maxChars = maxInputChars,
             packSentences = false,
-            sentenceOnly = true,
             allowWordSplits = false,
-            minChars = MIN_CHARS_PER_CHUNK,
-            // TTFA: let a short opening sentence synthesize alone instead
-            // of waiting on a merged >=80-char chunk (AUDIT-2026-07-11).
-            minCharsExemptFirst = true,
+            terminalMarksOnly = true,
         )
         if (chunks.isEmpty()) return@channelFlow
 
@@ -412,7 +419,16 @@ open class KittenDirectEngine @Inject constructor(
                     val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
                     Log.d(PERF_TAG, "kitten TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms + firstInfer=${inferMs}ms + overhead=${ttfaMs - loadWaitMs - inferMs}ms)")
                 }
-                send(SynthAudio(pcm = pcm, sampleRate = sampleRate))
+                // Uniform inter-sentence gap rides on the sentence that
+                // closes it (CLI RUN_GAP_MS): trimmed tails keep only
+                // ~75 ms of rendered pause, this restores the breath
+                // between sentences. Not appended after the last chunk.
+                val out = if (idx < chunks.size - 1) {
+                    pcm.copyOf(pcm.size + sampleRate * RUN_GAP_MS / 1000)
+                } else {
+                    pcm
+                }
+                send(SynthAudio(pcm = out, sampleRate = sampleRate))
                 prevSendNs = System.nanoTime()
             }
         }
@@ -493,7 +509,14 @@ open class KittenDirectEngine @Inject constructor(
             )
             try {
                 val raw = extractWaveform(results[0].value)
-                val trimmed = if (raw.size > TRIM_SAMPLES) raw.copyOf(raw.size - TRIM_SAMPLES) else raw
+                // Duration-exact lead/tail trim (CLI _trim_run port). The
+                // model's second output is per-token frame counts; when it
+                // matches the waveform, trim the BOS lead pad and the
+                // trailing pause group. Contract broken / output missing →
+                // legacy blind tail trim rather than risk cutting speech.
+                val dur = if (results.size() > 1) extractDurations(results[1].value) else null
+                val trimmed = dur?.let { KittenTrim.trim(inputIds, raw, it) }
+                    ?: if (raw.size > TRIM_SAMPLES) raw.copyOf(raw.size - TRIM_SAMPLES) else raw
                 return floatToPcm16(trimmed)
             } finally {
                 results.close()
@@ -557,6 +580,22 @@ open class KittenDirectEngine @Inject constructor(
             (value as Array<FloatArray>).firstOrNull() ?: FloatArray(0)
         }
         else -> FloatArray(0)
+    }
+
+    /**
+     * Per-token durations from the model's second output, as frame
+     * counts. The export's dtype has been seen as both int64 and float32
+     * across kitten bundles, so accept either; null (→ blind-trim
+     * fallback) on anything else.
+     */
+    private fun extractDurations(value: Any?): LongArray? {
+        val flat: Any? = if (value is Array<*>) value.firstOrNull() else value
+        return when (flat) {
+            is LongArray -> flat
+            is FloatArray -> LongArray(flat.size) { flat[it].toLong() }
+            is IntArray -> LongArray(flat.size) { flat[it].toLong() }
+            else -> null
+        }
     }
 
     private fun floatToPcm16(samples: FloatArray): ShortArray {
@@ -643,16 +682,6 @@ open class KittenDirectEngine @Inject constructor(
         private const val PHONEMIZER_DIR = "phonemizer"
         private const val ESPEAK_DATA_DIR = "espeak-ng-data"
         private const val VOICES_DIR = "voices"
-
-        /**
-         * Soft floor for chunker's `minChars` merge pass — runs of
-         * tiny sentences are merged until the accumulator reaches this
-         * size, but every chunk still ends at a sentence boundary.
-         * Matches sherpa's 50-token tiny-sentence merge threshold.
-         * Speed-prior compensation makes the prosody-by-style-row
-         * concern moot at this chunk size.
-         */
-        private const val MIN_CHARS_PER_CHUNK = 80
 
         /**
          * Default espeak voice for the load-time `EspeakPhonemizer`
