@@ -34,6 +34,16 @@ object TextChunker {
     private val SENTENCE_END = Regex("(?<=[.!?])\\s+|(?<=[。！？])")
     /** Stricter boundary for engines that want pause-only splits — `.!?;:` + newlines + CJK sentence enders. Commas and em-dashes do NOT trigger a split. */
     private val CLAUSE_END = Regex("(?<=[.!?:;])\\s+|(?<=[。！？])|\\n+")
+    /**
+     * Terminal sentence marks + newlines ONLY — `:` and `;` stay inside
+     * their sentence. KittenDirect's per-sentence style rows (R16) need
+     * the split to match the row rule's idea of a sentence: a colon or
+     * semicolon split would compute rows on sentence *fragments* and
+     * re-register mid-sentence. A mark inside closing quotes does not
+     * split (the lookbehind sees the quote), so dialogue keeps its
+     * attribution — same behaviour as the CLI's run splitter.
+     */
+    private val SENTENCE_TERMINAL = Regex("(?<=[.!?])\\s+|(?<=[。！？])|\\n+")
     private val PARAGRAPH_BREAK = Regex("\\n\\s*\\n")
     private val WHITESPACE = Regex("\\s+")
 
@@ -53,10 +63,12 @@ object TextChunker {
      *   minimum-latency first-emit. Combine with [minChars] to merge
      *   runs of tiny sentences (sherpa's pattern).
      * @param sentenceOnly When true, only `.!?;:` + newlines trigger a
-     *   split. Commas, em-dashes do not. Combined with
-     *   [allowWordSplits]=false this gives KittenDirect what it wants:
-     *   never break mid-clause, never break mid-word, only split at
-     *   clear sentence boundaries.
+     *   split. Commas, em-dashes do not.
+     * @param terminalMarksOnly When true (overrides [sentenceOnly]),
+     *   only `.!?` + newlines split — `:` and `;` stay in-sentence.
+     *   KittenDirect's mode: with [packSentences]=false every chunk is
+     *   one whole sentence, so the per-sentence style row (indexed by
+     *   the chunk's text length) matches upstream's register rule.
      * @param allowWordSplits When false, a single sentence that exceeds
      *   [maxChars] is emitted as one over-long chunk rather than
      *   word-wrapped. The engine still has to cope (Kitten's
@@ -85,6 +97,7 @@ object TextChunker {
         allowWordSplits: Boolean = true,
         minChars: Int = 0,
         minCharsExemptFirst: Boolean = false,
+        terminalMarksOnly: Boolean = false,
     ): List<String> {
         require(maxChars > 0) { "maxChars must be positive (got $maxChars)" }
         val trimmed = text.trim()
@@ -101,13 +114,17 @@ object TextChunker {
             return paragraphs.flatMapIndexed { i, p ->
                 chunk(
                     p, maxChars, packSentences, sentenceOnly, allowWordSplits,
-                    minChars, minCharsExemptFirst && i == 0,
+                    minChars, minCharsExemptFirst && i == 0, terminalMarksOnly,
                 )
             }
         }
 
         // Step 3: sentence/clause splits.
-        val boundary = if (sentenceOnly) CLAUSE_END else SENTENCE_END
+        val boundary = when {
+            terminalMarksOnly -> SENTENCE_TERMINAL
+            sentenceOnly -> CLAUSE_END
+            else -> SENTENCE_END
+        }
         val sentences = boundary.split(trimmed)
             .map { it.trim() }
             .filter { it.isNotEmpty() }

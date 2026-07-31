@@ -155,4 +155,68 @@ class TextChunkerTest {
         )
         assertEquals(listOf(long, "Short tail."), chunks)
     }
+
+    // -- terminalMarksOnly (R16 per-sentence mode) ----------------------------
+
+    @Test
+    fun terminalMarksOnlyKeepsColonAndSemicolonInSentence() {
+        // Rows are computed per sentence; a `:`/`;` split would compute
+        // them on fragments and re-register mid-sentence.
+        val chunks = TextChunker.chunk(
+            text = "Look at the panel: is it blinking; or not? All good.",
+            maxChars = 255,
+            packSentences = false,
+            allowWordSplits = false,
+            terminalMarksOnly = true,
+        )
+        assertEquals(
+            listOf("Look at the panel: is it blinking; or not?", "All good."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun terminalMarksOnlySplitsEverySentence() {
+        val chunks = TextChunker.chunk(
+            text = "Stop! Don't touch that wire. Take three steps back, slowly.",
+            maxChars = 255,
+            packSentences = false,
+            allowWordSplits = false,
+            terminalMarksOnly = true,
+        )
+        assertEquals(
+            listOf("Stop!", "Don't touch that wire.", "Take three steps back, slowly."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun terminalMarksOnlySplitsOnNewlines() {
+        val chunks = TextChunker.chunk(
+            text = "First line\nsecond line",
+            maxChars = 255,
+            packSentences = false,
+            allowWordSplits = false,
+            terminalMarksOnly = true,
+        )
+        assertEquals(listOf("First line", "second line"), chunks)
+    }
+
+    @Test
+    fun terminalMarksOnlyKeepsMarkInsideClosingQuoteAttached() {
+        // '?" she asked.' — the mark sits inside the quotes, so the
+        // quoted sentence stays with its attribution (CLI run-split
+        // behaviour: the lookbehind sees the quote, not the mark).
+        val chunks = TextChunker.chunk(
+            text = "\"Where did you put the keys?\" she asked. He shrugged.",
+            maxChars = 255,
+            packSentences = false,
+            allowWordSplits = false,
+            terminalMarksOnly = true,
+        )
+        assertEquals(
+            listOf("\"Where did you put the keys?\" she asked.", "He shrugged."),
+            chunks,
+        )
+    }
 }
