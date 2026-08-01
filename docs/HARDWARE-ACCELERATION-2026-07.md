@@ -140,6 +140,31 @@ The i8mm caveat: the "int8 up to 20–30% faster" results come from XNNPACK/Klei
 kernels; ORT's default CPU int8 path doesn't automatically get them, and ORT's XNNPACK
 EP is float-oriented. Speed claims must be verified on our actual stack.
 
+### Measured on-device (Pixel 8a, 2026-08-01 — debug Benchmark screen "Kokoro quant bench")
+
+onnx-community pre-quantized Kokoro variants vs our shipping fp32 export, identical
+token inputs, engine's own ORT config (XNNPACK EP, perf-core pinning). Max quality-
+approved ALL variants by ear on desktop first (zero audible distinction). Mean RTF
+across 4 texts, single cool-phone run (thermal variance across runs is large — fp32
+baseline measured 1.24 hot vs 0.71 cool; only within-run comparisons are valid):
+
+| Variant | Size | Mean RTF | vs baseline |
+|---|---|---|---|
+| fp32 (our export, baseline) | 310 MB | **0.705** | 1.00× — fastest |
+| uint8f16 | 109 MB | 0.831 | 1.18× slower, 2.9× smaller |
+| fp16 | 163 MB | ~1.06× slower (prior hot run, normalized) | |
+| fp32 onnx-community export | 326 MB | ~1.28× slower (prior hot run, normalized) | our export is genuinely faster |
+| int8 uniform ("quantized") | 88 MB | 1.098 | 1.56× slower |
+| q8f16 | 86 MB | DNF — ~10× slower class, first text alone took 7+ min | disqualified |
+
+Conclusions: **no quantized variant is faster on ARM** — the research prediction held
+(ORT's ConvInteger/MatMulInteger path doesn't hit i8mm kernels), so "smaller = faster
+from bandwidth" is refuted for this stack. fp32 stays the speed champion and remains
+the shipping default. **uint8f16 is the one interesting trade**: 2.9× smaller download
+at an 18% speed cost while still under realtime — a candidate for a low-storage option,
+not a replacement. The desktop q8f16 ORT-optimizer segfault did not reproduce on
+ORT-Android 1.26 (it ran — just absurdly slowly).
+
 ## ExecuTorch: parked, revisit on a development branch
 
 Status per the 2026-06 investigation (full detail in project memory): Pocket-on-ET
