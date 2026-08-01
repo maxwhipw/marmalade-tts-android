@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
@@ -15,6 +16,7 @@ import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.install.EngineCatalog
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,7 @@ class BenchmarkViewModel @Inject constructor(
     private val kittenDirect: KittenDirectEngine,
     private val kittenDirectMini: KittenDirectMiniEngine,
     private val pocket: PocketEngine,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     /**
@@ -232,6 +235,38 @@ class BenchmarkViewModel @Inject constructor(
         )
     }
 
+    /**
+     * Kokoro quantisation bench — see [KokoroQuantBench]. Independent of the
+     * engine bench above: it talks to ORT directly with side-loaded model
+     * files, so no engine selection applies. Results stream in per variant
+     * (the last variant can take the process down by design — see the q8f16
+     * crash guard), so each one is published the moment it lands.
+     */
+    fun runQuantBench() {
+        if (_state.value.quantRunning) return
+        _state.update {
+            it.copy(quantRunning = true, quantResults = emptyList(), quantError = null, quantStatus = "starting…")
+        }
+        viewModelScope.launch {
+            // Free the engine-held Kokoro session first — otherwise the bench's
+            // own session doubles the ~310 MB fp32 footprint and every variant
+            // measures a zram-thrashing phone instead of the model.
+            runCatching { kokoroDirect.release() }
+            val out = ArrayList<KokoroQuantBench.VariantResult>()
+            val fatal = KokoroQuantBench.run(
+                ctx = appContext,
+                onProgress = { s -> _state.update { it.copy(quantStatus = s) } },
+                onVariant = { r ->
+                    out.add(r)
+                    _state.update { it.copy(quantResults = out.toList()) }
+                },
+            )
+            _state.update {
+                it.copy(quantRunning = false, quantStatus = null, quantError = fatal)
+            }
+        }
+    }
+
     private fun installedEngineNames(): List<String> =
         engineProfiles.filter { it.engine.isInstalled() }.map { it.engineName }
 }
@@ -252,6 +287,13 @@ data class BenchmarkState(
     val running: Boolean = false,
     val currentlyRunning: String? = null,
     val error: String? = null,
+    // -- Kokoro quant bench (independent section on the same screen) ----------
+    val quantRunning: Boolean = false,
+    /** Variant/text currently under measurement, for the button label. */
+    val quantStatus: String? = null,
+    val quantResults: List<KokoroQuantBench.VariantResult> = emptyList(),
+    /** Set when the bench couldn't start at all (Kokoro Direct not installed). */
+    val quantError: String? = null,
 )
 
 /** Per-engine outcome of one benchmark run. */

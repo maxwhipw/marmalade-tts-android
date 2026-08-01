@@ -150,6 +150,122 @@ fun BenchmarkScreen(
             if (state.results.isNotEmpty()) {
                 ResultsSection(results = state.results)
             }
+
+            HorizontalDivider()
+
+            KokoroQuantSection(
+                running = state.quantRunning,
+                status = state.quantStatus,
+                results = state.quantResults,
+                error = state.quantError,
+                onRun = viewModel::runQuantBench,
+            )
+        }
+    }
+}
+
+/**
+ * Kokoro precision-variant bench. Independent of the engine bench above —
+ * it measures side-loaded ONNX files through ORT directly, so there's no
+ * engine or voice selection. See [KokoroQuantBench] for the side-load paths.
+ */
+@Composable
+private fun KokoroQuantSection(
+    running: Boolean,
+    status: String?,
+    results: List<KokoroQuantBench.VariantResult>,
+    error: String?,
+    onRun: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Kokoro quant bench", style = MaterialTheme.typography.labelLarge)
+        Text(
+            text = "Times the fp32 baseline plus any variants side-loaded into " +
+                "files/kokoro-quant/. Missing files are skipped. Full detail in " +
+                "logcat under tag KokoroQuantBench.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = onRun,
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (running) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(status ?: "Running…")
+            } else {
+                Text("Run quant bench")
+            }
+        }
+        if (error != null) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        for (r in results) {
+            QuantResultCard(r)
+        }
+    }
+}
+
+@Composable
+private fun QuantResultCard(result: KokoroQuantBench.VariantResult) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(result.label, style = MaterialTheme.typography.titleMedium)
+                Box(modifier = Modifier.weight(1f))
+                if (result.status == "ok") {
+                    Text(
+                        text = "mean RTF %.3f".format(result.meanRtf),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Text(
+                text = if (result.sizeMb > 0) {
+                    "${result.fileName}  ·  %.1f MB".format(result.sizeMb)
+                } else {
+                    result.fileName
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (result.status != "ok") {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = result.status,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (result.status.startsWith("FAILED")) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                return@Column
+            }
+            Spacer(Modifier.height(8.dp))
+            for (t in result.timings) {
+                TimingRow(
+                    label = "${t.textName} (${t.tokenCount} tok)",
+                    value = "${t.medianMs} ms",
+                    detail = "%.2f s audio  ·  RTF %.3f".format(t.audioSeconds, t.rtf),
+                )
+            }
         }
     }
 }
