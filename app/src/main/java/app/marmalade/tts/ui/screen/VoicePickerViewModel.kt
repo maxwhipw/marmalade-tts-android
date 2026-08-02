@@ -294,14 +294,13 @@ class VoicePickerViewModel @Inject constructor(
      */
     private var previewGeneration = 0L
 
-    fun preview(voice: VoiceMeta) {
+    fun preview(voice: VoiceMeta, phrase: String = "Hello, I'm ${voice.displayName}.") {
         // Don't stack previews — cancel anything in flight first.
         synthesizer.cancel()
         val generation = ++previewGeneration
         _previewState.value = PreviewState.Playing(voice.id)
 
         viewModelScope.launch {
-            val phrase = "Hello, I'm ${voice.displayName}."
             val result = synthesizer.speak(phrase, voice.id)
             if (generation != previewGeneration) return@launch // superseded
             _previewState.value = result.fold(

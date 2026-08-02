@@ -1,5 +1,7 @@
 package app.marmalade.tts.data
 
+import androidx.annotation.StringRes
+import app.marmalade.tts.R
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -35,10 +37,10 @@ import javax.inject.Singleton
  * hundreds of milliseconds between sessions, and a figure that jitters
  * reads as broken. The buckets are wide enough to sit still.
  */
-enum class LatencyBucket(val label: String) {
-    INSTANT("Instant"),
-    QUICK("Quick"),
-    SLOW("Slow"),
+enum class LatencyBucket(@StringRes val labelRes: Int) {
+    INSTANT(R.string.voices_latency_instant),
+    QUICK(R.string.voices_latency_quick),
+    SLOW(R.string.voices_latency_slow),
     ;
 
     companion object {

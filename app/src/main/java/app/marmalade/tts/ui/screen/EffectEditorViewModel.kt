@@ -174,7 +174,7 @@ class EffectEditorViewModel @Inject constructor(
      */
     private var previewGeneration = 0L
 
-    fun preview() {
+    fun preview(text: String = EFFECT_PREVIEW_TEXT) {
         if (_state.value.preview is EffectPreviewState.Playing) return
         val generation = ++previewGeneration
         _state.value = _state.value.copy(preview = EffectPreviewState.Playing)
@@ -190,7 +190,7 @@ class EffectEditorViewModel @Inject constructor(
                 return@launch
             }
             val result =
-                synthesizer.speak(EFFECT_PREVIEW_TEXT, voiceId, 1.0f, _state.value.blocks, null)
+                synthesizer.speak(text, voiceId, 1.0f, _state.value.blocks, null)
             if (generation != previewGeneration) return@launch // superseded
             _state.value = _state.value.copy(
                 preview = result.fold(

@@ -298,7 +298,9 @@ class OnboardingViewModel @Inject constructor(
             result.fold(
                 onSuccess = { InstallState.Installed },
                 onFailure = { err ->
-                    InstallState.Failed(err.message ?: "Install failed")
+                    // Blank reason → the screen substitutes its localized
+                    // generic-failure string (no Context in this VM).
+                    InstallState.Failed(err.message ?: "")
                 },
             ),
         )

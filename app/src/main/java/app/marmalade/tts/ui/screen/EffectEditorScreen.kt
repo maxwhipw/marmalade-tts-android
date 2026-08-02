@@ -181,9 +181,10 @@ fun EffectEditorScreen(
 
             Spacer(Modifier.height(4.dp))
 
+            val previewText = stringResource(R.string.effects_preview_text)
             PreviewRow(
                 preview = state.preview,
-                onPreview = viewModel::preview,
+                onPreview = { viewModel.preview(previewText) },
                 onStop = viewModel::stopPreview,
             )
         }

@@ -239,6 +239,10 @@ fun VoicePickerScreen(
             val previewEnabled: (VoiceMeta) -> Boolean =
                 { modelMissingState?.engineName != it.engine }
             val playingId = (previewState as? PreviewState.Playing)?.voiceId
+            val previewPhrase = stringResource(R.string.voices_preview_phrase)
+            val onPreview: (VoiceMeta) -> Unit = { voice ->
+                viewModel.preview(voice, previewPhrase.format(voice.displayName))
+            }
 
             when {
                 pickerState.searching -> SearchResults(
@@ -251,7 +255,7 @@ fun VoicePickerScreen(
                     latency = latency,
                     previewEnabled = previewEnabled,
                     onPick = onPick,
-                    onPreview = viewModel::preview,
+                    onPreview = onPreview,
                 )
                 tree.isEmpty() -> VoicePickerEmpty(
                     stringResource(R.string.voices_empty_none_installed),
@@ -263,7 +267,7 @@ fun VoicePickerScreen(
                     playingId = playingId,
                     previewEnabled = previewEnabled,
                     onPick = onPick,
-                    onPreview = viewModel::preview,
+                    onPreview = onPreview,
                 )
                 source != null -> VoiceModelList(
                     source, latency, ScreenGutter, viewModel::selectModel,

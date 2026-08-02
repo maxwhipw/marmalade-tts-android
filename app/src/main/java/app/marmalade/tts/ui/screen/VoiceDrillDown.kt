@@ -183,7 +183,7 @@ fun VoiceLatencyChip(bucket: LatencyBucket?) {
         modifier = Modifier.padding(end = 8.dp),
     ) {
         Text(
-            text = bucket.label,
+            text = stringResource(bucket.labelRes),
             style = MaterialTheme.typography.labelSmall,
             color = if (filled) {
                 MaterialTheme.colorScheme.onPrimaryContainer

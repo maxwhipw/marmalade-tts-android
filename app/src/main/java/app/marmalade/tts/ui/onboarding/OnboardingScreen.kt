@@ -546,7 +546,9 @@ private fun InstallRow(
             }
             is InstallState.Failed -> {
                 Text(
-                    text = state.reason,
+                    text = state.reason.ifBlank {
+                        stringResource(R.string.onboarding_install_failed)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

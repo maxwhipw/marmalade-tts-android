@@ -120,4 +120,5 @@
     <string name="effects_value_ratio">%1$.1f:1</string>
     <string name="effects_value_bits">%1$.0f-bit</string>
     <string name="effects_value_times">%1$d×</string>
+    <string name="effects_preview_text">The quick brown fox jumps over the lazy dog.</string>
 </resources>

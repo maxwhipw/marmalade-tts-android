@@ -43,4 +43,8 @@
     <!-- Preview errors -->
     <string name="voices_error_preview_failed">Preview failed</string>
     <string name="voices_error_unknown">Unknown error</string>
+    <string name="voices_preview_phrase">Hello, I\'m %1$s.</string>
+    <string name="voices_latency_instant">Instant</string>
+    <string name="voices_latency_quick">Quick</string>
+    <string name="voices_latency_slow">Slow</string>
 </resources>
