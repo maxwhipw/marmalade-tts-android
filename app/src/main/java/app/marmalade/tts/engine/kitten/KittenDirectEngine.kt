@@ -368,14 +368,17 @@ open class KittenDirectEngine @Inject constructor(
         val streamStartNs = System.nanoTime()
         ensureLoadedSuspending()
         val loadWaitMs = (System.nanoTime() - streamStartNs) / 1_000_000
-        // Kitten ships English-only — `phonemizationLanguage` here is
-        // effectively a user override (e.g. `"en-gb"` for British accent).
+        // `phonemizationLanguage` is deliberately ignored: Kitten's model
+        // is English-only, so any other espeak language feeds it IPA it was
+        // never trained on and the audio comes out as noise. The parameter
+        // stays in the signature because TtsEngine is shared with Kokoro,
+        // which does honour it.
+        //
         // setVoice is only a warm-up (pays the ~50 ms language load before
         // chunk 1); per-chunk phonemize(text, lang) re-asserts the voice
         // atomically, since espeak's active voice is process-global and a
         // concurrent synth on the other engine can flip it between chunks.
-        val effectiveLang = phonemizationLanguage ?: KITTEN_DEFAULT_ESPEAK_VOICE
-        phonemizer?.setVoice(effectiveLang)
+        phonemizer?.setVoice(KITTEN_DEFAULT_ESPEAK_VOICE)
         val voiceName = voiceId.substringAfter(':', voiceId)
         // KittenDirect chunking rules (R16 mirror of the CLI, 2026-07-31):
         //  - never split mid-word — even at maxChars boundary
@@ -408,7 +411,7 @@ open class KittenDirectEngine @Inject constructor(
             // Single ORT session is non-reentrant, so we serialise per chunk.
             // The send() outside the lock is fine because PCM is already a
             // ShortArray; no further session access happens during emit.
-            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed, effectiveLang) }
+            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed) }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
                 val audioMs = pcm.size * 1000L / sampleRate
@@ -444,13 +447,12 @@ open class KittenDirectEngine @Inject constructor(
         text: String,
         voiceName: String,
         speed: Float,
-        lang: String = KITTEN_DEFAULT_ESPEAK_VOICE,
     ): ShortArray {
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
         val phon = phonemizer ?: error("phonemizer missing")
 
-        val rawIpa = phon.phonemize(text, lang)
+        val rawIpa = phon.phonemize(text, KITTEN_DEFAULT_ESPEAK_VOICE)
         if (rawIpa.isEmpty()) return ShortArray(0)
 
         // BERT position-embedding cap: any phoneme tail past this would
@@ -684,10 +686,11 @@ open class KittenDirectEngine @Inject constructor(
         private const val VOICES_DIR = "voices"
 
         /**
-         * Default espeak voice for the load-time `EspeakPhonemizer`
-         * constructor + the fallback when callers pass null
-         * `phonemizationLanguage`. Kitten is English-only at the model
-         * level; non-English overrides will produce out-of-vocab IPA.
+         * The only espeak voice this engine ever uses — at load time for
+         * the `EspeakPhonemizer` constructor and for every phonemize
+         * call. Kitten is English-only at the model level, so a caller's
+         * `phonemizationLanguage` is ignored rather than honoured: any
+         * other language yields IPA the model was never trained on.
          */
         private const val KITTEN_DEFAULT_ESPEAK_VOICE = "en-us"
     }

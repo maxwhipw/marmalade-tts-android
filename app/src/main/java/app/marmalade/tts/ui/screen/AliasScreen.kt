@@ -81,6 +81,7 @@ import app.marmalade.tts.R
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
@@ -735,12 +736,15 @@ private fun AliasEditorSheet(
                 onPick = onEffectChange,
             )
 
-            // Phonemization is an on-device concept: the text is turned
-            // into phonemes locally by espeak before inference. A cloud
-            // provider does its own text processing server-side and the
-            // engine never sends this field, so offering it would be a
-            // control that silently does nothing.
-            if (voicePath?.isCloud != true) {
+            // Kokoro Direct is the only engine the override actually
+            // reaches: it is multilingual and phonemizes through espeak,
+            // so changing the language changes the audio. Kitten is
+            // English-only at the model level, Pocket doesn't phonemize
+            // through espeak at all, and cloud providers do their own
+            // text processing server-side — for all of those the control
+            // would either do nothing or produce garbage, so it isn't
+            // offered.
+            if (state.engine == KokoroDirectVoiceCatalog.ENGINE) {
                 PhonemizationLanguageDropdown(
                     selected = state.phonemizationLanguage,
                     onPick = onPhonemizationLanguageChange,
@@ -945,13 +949,16 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Per-alias espeak language override. Null = "Auto" (engine decides:
- * KokoroDirect picks per voice prefix; others ignore). Non-null forces
- * espeak's language for the synthesis call.
+ * Per-alias espeak language override, shown for Kokoro Direct aliases
+ * only. Null = "Auto", which lets `KokoroDirectVoiceCatalog
+ * .espeakVoiceFor()` derive the language from the voice's key prefix.
+ * Non-null forces espeak's language for every synthesis call on the
+ * alias, whatever the voice.
  *
- * Languages match what `KokoroDirectVoiceCatalog.espeakVoiceFor()` can
- * emit — adding more requires bundling the corresponding espeak-ng-data
- * subdirectory (which we already do, since we ship the full data tree).
+ * The offered codes are the espeak languages Kokoro's voice set covers,
+ * which is not the same list `espeakVoiceFor()` returns. Adding a
+ * language requires the matching espeak-ng-data subdirectory, which we
+ * always have — we ship the full data tree.
  */
 @Composable
 private fun PhonemizationLanguageDropdown(
@@ -996,8 +1003,8 @@ private fun PhonemizationLanguageDropdown(
 
 /**
  * Code-to-label pairs. The first entry's code is `null` — that's the
- * "Auto" sentinel that clears any user override and lets the engine
- * pick (KokoroDirect derives from voice prefix; others ignore).
+ * "Auto" sentinel that clears any user override and lets KokoroDirect
+ * derive the language from the voice's key prefix.
  *
  * Espeak codes follow espeak-ng-data's directory naming (`af_dict`,
  * `en-us`, `cmn`, etc.) — no abstraction layer here, the strings are
