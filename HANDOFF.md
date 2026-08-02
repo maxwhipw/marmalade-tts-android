@@ -12,6 +12,37 @@ at `docs/release/fdroid-lab.html` (http://marmalade:8095/marmalade-tts-release/f
 with the verified fdroiddata recipe + MR text; gate = Max tags/pushes
 v1.0.0-beta.1 and does the GitLab fork/MR.
 
+## 2026-08-02 addendum — synthesis-language audit fixes (5 commits, UNPUSHED)
+
+Head `dd7d06b` (5 commits past `bcac168`, all unpushed). Audit found the alias
+"Phonemization language" dropdown was offered for engines that can't use it;
+fixes landed as lettered atoms, 401 JVM unit tests green, `assembleFdroidDebug`
+clean:
+
+- A `fa57005` — dropdown now Kokoro-only (was gated only on !isCloud); Kitten
+  no longer forwards language overrides to espeak (English-only model made
+  non-EN picks produce garbage IPA).
+- B `8b4c38a` — `cmn` removed from the option list (unproducible: zh goes via
+  LexiconZh, espeak-cmn breaks Latin fragments).
+- C `e051e75` — stale "Hindi has no espeak entry" comment fixed; D11 status
+  updated in docs/LANGUAGE-AUDIT-2026-07.md.
+- D `3eb31cc` — MarmaladeSynthService silently routed cloud + PocketDev
+  voices through Kokoro (two drifted engine lists); collapsed into
+  `knownEngineOrDefault()` + Robolectric test.
+- G `dd7d06b` — Synthesizer.kt per-engine language comment corrected.
+
+**Open decision for Max (do NOT implement without his pick):** system TTS
+contradiction — CheckVoiceDataActivity advertises 8 non-EN locales while
+`MarmaladeTtsService.onIsLanguageAvailable` (:228) rejects all non-English and
+`onSynthesizeText` never reads `request.language`. Option (i) accept the 9
+Kokoro locales + implement `onGetVoices()` + honor request locale
+(recommended; only way external apps reach non-EN Kokoro); option (ii) narrow
+CheckVoiceDataActivity to English. Note the unit test asserting
+fr-FR → LANG_NOT_SUPPORTED (MarmaladeTtsServiceTest:478) locks in current
+behavior. Still-open non-EN quality defects: D3-D8 in
+docs/LANGUAGE-AUDIT-2026-07.md. Device smoke of A/D pending (adb port — ask
+Max).
+
 ## Task: apply the Kokoro QDQ recipe to Pocket ("Pocket parity")
 
 Goal: static QDQ per-channel int8 (the format that hits ORT's fast ARM
