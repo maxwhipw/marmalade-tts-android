@@ -250,6 +250,40 @@ class BenchmarkViewModel @Inject constructor(
         if (persisted.isNotEmpty()) {
             _state.update { it.copy(quantResults = persisted) }
         }
+        val pocketPersisted = PocketQuantBench.loadPersisted(appContext)
+        if (pocketPersisted.isNotEmpty()) {
+            _state.update { it.copy(pocketQuantResults = pocketPersisted) }
+        }
+    }
+
+    fun runPocketQuantBench() {
+        if (_state.value.pocketQuantRunning) return
+        _state.update {
+            it.copy(
+                pocketQuantRunning = true,
+                pocketQuantResults = emptyList(),
+                pocketQuantError = null,
+                pocketQuantStatus = appContext.getString(R.string.bench_quant_starting),
+            )
+        }
+        viewModelScope.launch {
+            // Free the engine-held Pocket sessions first — the fp32 variant
+            // alone is ~300 MB; doubling the resident footprint would bench
+            // a zram-thrashing phone instead of the model.
+            runCatching { pocket.release() }
+            val out = ArrayList<PocketQuantBench.VariantResult>()
+            val fatal = PocketQuantBench.run(
+                ctx = appContext,
+                onProgress = { s -> _state.update { it.copy(pocketQuantStatus = s) } },
+                onVariant = { r ->
+                    out.add(r)
+                    _state.update { it.copy(pocketQuantResults = out.toList()) }
+                },
+            )
+            _state.update {
+                it.copy(pocketQuantRunning = false, pocketQuantStatus = null, pocketQuantError = fatal)
+            }
+        }
     }
 
     fun runQuantBench() {
@@ -309,6 +343,12 @@ data class BenchmarkState(
     val quantResults: List<KokoroQuantBench.VariantResult> = emptyList(),
     /** Set when the bench couldn't start at all (Kokoro Direct not installed). */
     val quantError: String? = null,
+    // -- Pocket quant bench (independent section on the same screen) -----------
+    val pocketQuantRunning: Boolean = false,
+    val pocketQuantStatus: String? = null,
+    val pocketQuantResults: List<PocketQuantBench.VariantResult> = emptyList(),
+    /** Set when the bench couldn't start at all (no bundle.json found). */
+    val pocketQuantError: String? = null,
 )
 
 /** Per-engine outcome of one benchmark run. */

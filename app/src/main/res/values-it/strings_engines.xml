@@ -130,4 +130,11 @@
     <string name="bench_quant_timing_detail">%1$.2f s di audio  ·  RTF %2$.3f</string>
     <string name="bench_quant_already_running">un benchmark di quantizzazione è già in corso (avviato in una visita precedente) — attendi che finisca</string>
     <string name="bench_quant_not_installed">Kokoro Direct non è installato (manca %1$s)</string>
+
+    <string name="pocket_bench_title">Banco di quantizzazione Pocket</string>
+    <string name="pocket_bench_desc">Misura i passi AR di flow_lm_main con le varianti di precisione caricate in files/pocket-quant/. I file assenti vengono saltati. Dettagli completi in logcat, tag PocketQuantBench.</string>
+    <string name="pocket_bench_run">Esegui banco Pocket</string>
+    <string name="pocket_bench_ar_ms">Passo AR %1$.1f ms</string>
+    <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d passi  ·  cond %3$d ms</string>
+    <string name="pocket_bench_no_bundle">bundle.json non trovato — installa il motore Pocket o copialo in files/pocket-quant/</string>
 </resources>

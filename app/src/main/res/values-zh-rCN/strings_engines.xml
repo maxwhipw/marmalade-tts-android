@@ -129,4 +129,11 @@
     <string name="bench_quant_timing_detail">%1$.2f 秒音频  ·  RTF %2$.3f</string>
     <string name="bench_quant_already_running">已有一次量化测试正在运行（来自上次进入本页面）— 请等待其结束</string>
     <string name="bench_quant_not_installed">未安装 Kokoro Direct（缺少 %1$s）</string>
+
+    <string name="pocket_bench_title">Pocket 量化基准测试</string>
+    <string name="pocket_bench_desc">使用 files/pocket-quant/ 中旁加载的各精度变体测量 flow_lm_main 的 AR 步耗时。缺失的文件将被跳过。完整详情见 logcat 的 PocketQuantBench 标签。</string>
+    <string name="pocket_bench_run">运行 Pocket 量化基准</string>
+    <string name="pocket_bench_ar_ms">AR 步 %1$.1f ms</string>
+    <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d 步  ·  条件化 %3$d ms</string>
+    <string name="pocket_bench_no_bundle">未找到 bundle.json — 请安装 Pocket 引擎或将其推送到 files/pocket-quant/</string>
 </resources>

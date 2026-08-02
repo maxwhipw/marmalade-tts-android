@@ -130,4 +130,11 @@
     <string name="bench_quant_timing_detail">%1$.2f s ऑडियो  ·  RTF %2$.3f</string>
     <string name="bench_quant_already_running">एक क्वांट बेंच पहले से चल रहा है (पिछली बार स्क्रीन खोलने से) — उसके पूरा होने का इंतज़ार करें</string>
     <string name="bench_quant_not_installed">Kokoro Direct इंस्टॉल नहीं है (%1$s नहीं मिली)</string>
+
+    <string name="pocket_bench_title">Pocket क्वांटीकरण बेंच</string>
+    <string name="pocket_bench_desc">files/pocket-quant/ में साइड-लोड किए गए प्रिसिज़न वेरिएंट के साथ flow_lm_main के AR चरणों को मापता है। अनुपस्थित फ़ाइलें छोड़ दी जाती हैं। पूरा विवरण logcat में PocketQuantBench टैग के अंतर्गत।</string>
+    <string name="pocket_bench_run">Pocket बेंच चलाएँ</string>
+    <string name="pocket_bench_ar_ms">AR चरण %1$.1f ms</string>
+    <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d चरण  ·  कंडीशनिंग %3$d ms</string>
+    <string name="pocket_bench_no_bundle">bundle.json नहीं मिला — Pocket इंजन इंस्टॉल करें या उसे files/pocket-quant/ में डालें</string>
 </resources>

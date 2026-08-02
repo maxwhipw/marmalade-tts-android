@@ -129,4 +129,11 @@
     <string name="bench_quant_timing_detail">音声 %1$.2f 秒  ·  RTF %2$.3f</string>
     <string name="bench_quant_already_running">量子化ベンチはすでに実行中です（前回この画面を開いたときの処理）。終了までお待ちください</string>
     <string name="bench_quant_not_installed">Kokoro Direct がインストールされていません（%1$s が見つかりません）</string>
+
+    <string name="pocket_bench_title">Pocket 量子化ベンチ</string>
+    <string name="pocket_bench_desc">files/pocket-quant/ にサイドロードした精度別モデルで flow_lm_main の AR ステップを計測します。存在しないファイルはスキップされます。詳細は logcat の PocketQuantBench タグに出力されます。</string>
+    <string name="pocket_bench_run">Pocket 量子化ベンチを実行</string>
+    <string name="pocket_bench_ar_ms">AR ステップ %1$.1f ms</string>
+    <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d ステップ  ·  条件付け %3$d ms</string>
+    <string name="pocket_bench_no_bundle">bundle.json が見つかりません — Pocket エンジンをインストールするか files/pocket-quant/ に配置してください</string>
 </resources>

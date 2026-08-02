@@ -130,4 +130,11 @@
     <string name="bench_quant_timing_detail">%1$.2f s audio  ·  RTF %2$.3f</string>
     <string name="bench_quant_already_running">a quant bench is already running (from a previous screen visit) — wait for it to finish</string>
     <string name="bench_quant_not_installed">Kokoro Direct not installed (%1$s missing)</string>
+
+    <string name="pocket_bench_title">Pocket quant bench</string>
+    <string name="pocket_bench_desc">Times flow_lm_main AR steps across precision variants side-loaded into files/pocket-quant/. Missing files are skipped. Full detail in logcat under tag PocketQuantBench.</string>
+    <string name="pocket_bench_run">Run Pocket quant bench</string>
+    <string name="pocket_bench_ar_ms">AR step %1$.1f ms</string>
+    <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d steps  ·  cond %3$d ms</string>
+    <string name="pocket_bench_no_bundle">bundle.json not found — install the Pocket engine or push it to files/pocket-quant/</string>
 </resources>

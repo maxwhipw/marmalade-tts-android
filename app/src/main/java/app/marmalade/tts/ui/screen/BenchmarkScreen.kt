@@ -165,6 +165,125 @@ fun BenchmarkScreen(
                 error = state.quantError,
                 onRun = viewModel::runQuantBench,
             )
+
+            HorizontalDivider()
+
+            PocketQuantSection(
+                running = state.pocketQuantRunning,
+                status = state.pocketQuantStatus,
+                results = state.pocketQuantResults,
+                error = state.pocketQuantError,
+                onRun = viewModel::runPocketQuantBench,
+            )
+        }
+    }
+}
+
+/**
+ * Pocket flow_lm_main precision-variant bench. Same independent side-load
+ * pattern as [KokoroQuantSection]; see [PocketQuantBench] for paths and
+ * what the AR-step timing isolates.
+ */
+@Composable
+private fun PocketQuantSection(
+    running: Boolean,
+    status: String?,
+    results: List<PocketQuantBench.VariantResult>,
+    error: String?,
+    onRun: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.pocket_bench_title),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            text = stringResource(R.string.pocket_bench_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = onRun,
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (running) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(status ?: stringResource(R.string.bench_quant_running))
+            } else {
+                Text(stringResource(R.string.pocket_bench_run))
+            }
+        }
+        if (error != null) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        for (r in results) {
+            PocketQuantResultCard(r)
+        }
+    }
+}
+
+@Composable
+private fun PocketQuantResultCard(result: PocketQuantBench.VariantResult) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(result.label, style = MaterialTheme.typography.titleMedium)
+                Box(modifier = Modifier.weight(1f))
+                if (result.status == "ok") {
+                    Text(
+                        text = stringResource(R.string.pocket_bench_ar_ms, result.arMedianMs),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Text(
+                text = if (result.sizeMb > 0) {
+                    stringResource(R.string.bench_quant_file_size, result.fileName, result.sizeMb)
+                } else {
+                    result.fileName
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (result.status != "ok") {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = result.status,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (result.status.startsWith("FAILED")) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            } else {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(
+                        R.string.pocket_bench_detail,
+                        result.arP90Ms, result.arSteps, result.condMs,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
