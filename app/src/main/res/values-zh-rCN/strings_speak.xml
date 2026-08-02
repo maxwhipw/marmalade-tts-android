@@ -18,7 +18,7 @@
     <string name="speak_persona_unresolved">—</string>
     <string name="speak_cloud_voice_desc">云端语音 — 需要联网</string>
 
-    <!-- Persona sheet -->
+    <!-- Alias sheet -->
     <string name="speak_sheet_title">语音</string>
     <string name="speak_persona_primary">主别名</string>
     <string name="speak_persona_selected">已选择</string>

@@ -18,12 +18,12 @@
     <string name="speak_persona_unresolved">—</string>
     <string name="speak_cloud_voice_desc">クラウドボイス — ネットワーク接続が必要です</string>
 
-    <!-- Persona sheet -->
+    <!-- Alias sheet -->
     <string name="speak_sheet_title">ボイス</string>
     <string name="speak_persona_primary">メイン</string>
     <string name="speak_persona_selected">選択中</string>
     <string name="speak_pick_voice_directly">ボイスを直接選ぶ</string>
-    <string name="speak_new_persona">新しいペルソナ</string>
+    <string name="speak_new_persona">新しいエイリアス</string>
 
     <!-- Playback errors -->
     <string name="speak_error_synthesis_failed">音声合成に失敗しました</string>

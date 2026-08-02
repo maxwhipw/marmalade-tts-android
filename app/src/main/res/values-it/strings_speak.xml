@@ -23,7 +23,7 @@
     <string name="speak_persona_primary">Principale</string>
     <string name="speak_persona_selected">Selezionato</string>
     <string name="speak_pick_voice_directly">Scegli direttamente una voce</string>
-    <string name="speak_new_persona">Nuovo profilo</string>
+    <string name="speak_new_persona">Nuovo alias</string>
 
     <!-- Errori di riproduzione -->
     <string name="speak_error_synthesis_failed">Sintesi non riuscita</string>

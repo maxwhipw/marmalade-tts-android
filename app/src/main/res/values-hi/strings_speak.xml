@@ -18,12 +18,12 @@
     <string name="speak_persona_unresolved">—</string>
     <string name="speak_cloud_voice_desc">क्लाउड वॉइस — इंटरनेट ज़रूरी है</string>
 
-    <!-- Persona sheet -->
+    <!-- Alias sheet -->
     <string name="speak_sheet_title">वॉइस</string>
     <string name="speak_persona_primary">प्राथमिक</string>
     <string name="speak_persona_selected">चुनी गई</string>
     <string name="speak_pick_voice_directly">सीधे कोई वॉइस चुनें</string>
-    <string name="speak_new_persona">नया पर्सोना</string>
+    <string name="speak_new_persona">नया उपनाम</string>
 
     <!-- Playback errors -->
     <string name="speak_error_synthesis_failed">सिंथेसिस नहीं हो सका</string>

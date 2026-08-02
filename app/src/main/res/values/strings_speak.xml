@@ -19,12 +19,12 @@
     <string name="speak_persona_unresolved">—</string>
     <string name="speak_cloud_voice_desc">Cloud voice — needs the network</string>
 
-    <!-- Persona sheet -->
+    <!-- Alias sheet -->
     <string name="speak_sheet_title">Voice</string>
     <string name="speak_persona_primary">Primary</string>
     <string name="speak_persona_selected">Selected</string>
     <string name="speak_pick_voice_directly">Pick a voice directly</string>
-    <string name="speak_new_persona">New persona</string>
+    <string name="speak_new_persona">New alias</string>
 
     <!-- Playback errors -->
     <string name="speak_error_synthesis_failed">Synthesis failed</string>

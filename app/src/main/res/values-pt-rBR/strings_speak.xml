@@ -23,7 +23,7 @@
     <string name="speak_persona_primary">Principal</string>
     <string name="speak_persona_selected">Selecionada</string>
     <string name="speak_pick_voice_directly">Escolher uma voz diretamente</string>
-    <string name="speak_new_persona">Nova persona</string>
+    <string name="speak_new_persona">Novo apelido</string>
 
     <!-- Erros de reprodução -->
     <string name="speak_error_synthesis_failed">Falha na síntese</string>
