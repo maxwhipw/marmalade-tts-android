@@ -120,10 +120,14 @@ interface SpeechPlayer {
         speed: Float = 1.0f,
         effectBlocks: List<EffectBlock> = emptyList(),
         /**
-         * Optional espeak language override (e.g. `"en-us"`, `"ja"`,
-         * `"cmn"`). When null, KokoroDirect picks the voice's natural
-         * language; KittenDirect stays on its load-time default. Other
-         * engines ignore.
+         * Optional espeak language override (e.g. `"en-us"`, `"ja"`).
+         * KokoroDirect is the only engine that reads it: null means
+         * "derive from the voice's key prefix", non-null forces the
+         * espeak language. KittenDirect always phonemizes as `en-us`
+         * (English-only model), and Pocket and the cloud engine don't
+         * phonemize through espeak at all — for those three the value
+         * has no effect. The alias editor only offers the control for
+         * Kokoro voices for that reason.
          */
         phonemizationLanguage: String? = null,
     ): Result<Unit>
