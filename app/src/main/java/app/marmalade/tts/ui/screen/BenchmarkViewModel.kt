@@ -242,6 +242,15 @@ class BenchmarkViewModel @Inject constructor(
      * (the last variant can take the process down by design — see the q8f16
      * crash guard), so each one is published the moment it lands.
      */
+    init {
+        // Surface the previous quant-bench run — a native crash mid-bench
+        // kills the process, so the disk copy is the only surviving record.
+        val persisted = KokoroQuantBench.loadPersisted(appContext)
+        if (persisted.isNotEmpty()) {
+            _state.update { it.copy(quantResults = persisted) }
+        }
+    }
+
     fun runQuantBench() {
         if (_state.value.quantRunning) return
         _state.update {

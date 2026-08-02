@@ -59,6 +59,7 @@ object KokoroQuantBench {
 
     private const val ENGINE_DIR = "engines/kokoro-direct-v1_0"
     private const val QUANT_DIR = "kokoro-quant"
+    private const val RESULTS_FILE = "results.json"
 
     // -------------------------------------------------------------------------
     // Bench inputs
@@ -119,6 +120,13 @@ object KokoroQuantBench {
         /** Null → the installed engine's own model dir (the fp32 baseline). */
         val quantFile: Boolean,
         val optLevel: OrtSession.SessionOptions.OptLevel,
+        /**
+         * ORT-Android 1.26 SIGSEGVs in native session setup when the XNNPACK
+         * EP is registered for our QDQ graphs (even at BASIC_OPT; desktop CPU
+         * EP runs them fine — measured 2026-08-01). XNNPACK is float-oriented
+         * anyway; quantized variants bench on the CPU EP.
+         */
+        val useXnnpack: Boolean = true,
     )
 
     private val VARIANTS = listOf(
@@ -132,8 +140,17 @@ object KokoroQuantBench {
         Variant("quantized", "model_quantized.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
         // Round 2: self-quantized from the fast graph (static QDQ, per-channel,
         // 118-node exclusion list from the mel-loss sensitivity sweep).
-        Variant("our-qdq", "model_our_qdq.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
-        Variant("our-qdq-x7", "model_our_qdq_x7.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
+        // Round 4 (2026-08-01, crash diagnosis complete): XNNPACK EP + QDQ
+        // graph = native SIGSEGV in ORT-Android 1.26 session setup, at every
+        // opt level, pre-fused or not — those configs are permanently OUT of
+        // the variant list. Measured winners: our-qdq on the plain CPU EP =
+        // mean RTF 0.616 vs fp32+XNNPACK 0.970 same-run (36% faster);
+        // desktop pre-fusion HURT on ARM (0.797) and is dropped.
+        // q0-fp32-cpu decides the engine fix: if fp32 without XNNPACK is
+        // ~free, KokoroDirectEngine can drop XNNPACK unconditionally instead
+        // of sniffing the model type.
+        Variant("q0-fp32-cpu", "model.onnx", quantFile = false, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT, useXnnpack = false),
+        Variant("our-qdq-cpu", "model_our_qdq.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT, useXnnpack = false),
         Variant("q8f16-basic", "model_q8f16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.BASIC_OPT),
         // Crash guard: ALL_OPT q8f16 runs dead last, on purpose.
         Variant("q8f16-all", "model_q8f16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
@@ -171,19 +188,52 @@ object KokoroQuantBench {
      * Returns a fatal error string when the bench can't start at all
      * (Kokoro Direct not installed), else null.
      */
+    /**
+     * Cross-instance run guard. The ViewModel's own `quantRunning` flag dies
+     * with the screen, but this coroutine has no suspension points, so a run
+     * survives the screen being re-entered — two live runs then race the same
+     * session memory (observed 2026-08-01: doubled "bench start", garbage
+     * timings).
+     */
+    private val running = java.util.concurrent.atomic.AtomicBoolean(false)
+
     suspend fun run(
         ctx: Context,
         onProgress: (String) -> Unit,
         onVariant: (VariantResult) -> Unit,
     ): String? = withContext(Dispatchers.Default) {
+        if (!running.compareAndSet(false, true)) {
+            return@withContext "a quant bench is already running (from a previous screen visit) — wait for it to finish"
+        }
+        try {
+            runLocked(ctx, onProgress, onVariant)
+        } finally {
+            running.set(false)
+        }
+    }
+
+    private fun runLocked(
+        ctx: Context,
+        onProgress: (String) -> Unit,
+        onVariant: (VariantResult) -> Unit,
+    ): String? {
         val engineDir = File(ctx.filesDir, ENGINE_DIR)
         val voicesFile = File(engineDir, "voices.bin")
         if (!voicesFile.isFile) {
             val msg = "Kokoro Direct not installed (${voicesFile.absolutePath} missing)"
             Log.w(TAG, msg)
-            return@withContext msg
+            return msg
         }
         val quantDir = File(ctx.filesDir, QUANT_DIR).apply { mkdirs() }
+
+        // Persist every finished variant immediately — a native crash later in
+        // the run (or an app death for any reason) must never lose results.
+        val completed = ArrayList<VariantResult>()
+        val emit: (VariantResult) -> Unit = { r ->
+            completed.add(r)
+            runCatching { persist(File(quantDir, RESULTS_FILE), completed) }
+            onVariant(r)
+        }
 
         val threads = CpuClusterDetector.detectPerfCoreCount()
         val ort = OrtEnvironment.getEnvironment()
@@ -202,7 +252,7 @@ object KokoroQuantBench {
             if (!modelFile.isFile) {
                 val r = VariantResult(variant.label, variant.fileName, 0.0, "not side-loaded")
                 Log.w(TAG, "${variant.label}: ${modelFile.absolutePath} absent — skipped")
-                onVariant(r)
+                emit(r)
                 continue
             }
             val sizeMb = modelFile.length() / 1_048_576.0
@@ -211,7 +261,7 @@ object KokoroQuantBench {
 
             var session: OrtSession? = null
             try {
-                session = ort.createSession(modelFile.absolutePath, buildOptions(threads, variant.optLevel))
+                session = ort.createSession(modelFile.absolutePath, buildOptions(threads, variant.optLevel, variant.useXnnpack))
                 val timings = ArrayList<TextTiming>(encoded.size)
                 for ((name, ids) in encoded) {
                     onProgress("${variant.label} · $name")
@@ -241,18 +291,18 @@ object KokoroQuantBench {
                 }
                 val meanRtf = timings.map { it.rtf }.average()
                 Log.i(TAG, "${variant.label}: mean RTF ${"%.3f".format(meanRtf)}")
-                onVariant(VariantResult(variant.label, variant.fileName, sizeMb, "ok", timings, meanRtf))
+                emit(VariantResult(variant.label, variant.fileName, sizeMb, "ok", timings, meanRtf))
             } catch (t: Throwable) {
                 val msg = t.message ?: t::class.java.simpleName
                 Log.e(TAG, "${variant.label} FAILED: $msg", t)
-                onVariant(VariantResult(variant.label, variant.fileName, sizeMb, "FAILED: $msg"))
+                emit(VariantResult(variant.label, variant.fileName, sizeMb, "FAILED: $msg"))
             } finally {
                 // fp32 alone is ~310 MB resident — never hold two at once.
                 runCatching { session?.close() }
             }
         }
         Log.i(TAG, "bench done")
-        null
+        return null
     }
 
     /**
@@ -264,11 +314,12 @@ object KokoroQuantBench {
     private fun buildOptions(
         threads: Int,
         level: OrtSession.SessionOptions.OptLevel,
+        useXnnpack: Boolean,
     ): OrtSession.SessionOptions = OrtSession.SessionOptions().apply {
         setIntraOpNumThreads(threads)
         setOptimizationLevel(level)
         setMemoryPatternOptimization(true)
-        try {
+        if (useXnnpack) try {
             addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
             addConfigEntry("session.intra_op.allow_spinning", "0")
         } catch (t: Throwable) {
@@ -355,6 +406,61 @@ object KokoroQuantBench {
         val mbb = raf.use { it.channel.map(FileChannel.MapMode.READ_ONLY, 0, file.length()) }
         mbb.order(ByteOrder.LITTLE_ENDIAN)
         return mbb.asFloatBuffer()
+    }
+
+    /** Results of the previous run, if any — shown when the screen (re)opens. */
+    fun loadPersisted(ctx: Context): List<VariantResult> = runCatching {
+        val f = File(File(ctx.filesDir, QUANT_DIR), RESULTS_FILE)
+        if (!f.isFile) return emptyList()
+        val arr = org.json.JSONArray(f.readText())
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            val ts = o.getJSONArray("timings")
+            VariantResult(
+                label = o.getString("label"),
+                fileName = o.getString("fileName"),
+                sizeMb = o.getDouble("sizeMb"),
+                status = o.getString("status"),
+                timings = (0 until ts.length()).map { j ->
+                    val t = ts.getJSONObject(j)
+                    TextTiming(
+                        textName = t.getString("textName"),
+                        tokenCount = t.getInt("tokenCount"),
+                        medianMs = t.getLong("medianMs"),
+                        audioSeconds = t.getDouble("audioSeconds"),
+                        rtf = t.getDouble("rtf"),
+                    )
+                },
+                meanRtf = o.getDouble("meanRtf"),
+            )
+        }
+    }.getOrElse { emptyList() }
+
+    private fun persist(file: File, results: List<VariantResult>) {
+        val arr = org.json.JSONArray()
+        for (r in results) {
+            val ts = org.json.JSONArray()
+            for (t in r.timings) {
+                ts.put(
+                    org.json.JSONObject()
+                        .put("textName", t.textName)
+                        .put("tokenCount", t.tokenCount)
+                        .put("medianMs", t.medianMs)
+                        .put("audioSeconds", t.audioSeconds)
+                        .put("rtf", t.rtf),
+                )
+            }
+            arr.put(
+                org.json.JSONObject()
+                    .put("label", r.label)
+                    .put("fileName", r.fileName)
+                    .put("sizeMb", r.sizeMb)
+                    .put("status", r.status)
+                    .put("timings", ts)
+                    .put("meanRtf", r.meanRtf),
+            )
+        }
+        file.writeText(arr.toString())
     }
 
     /** 16-bit PCM mono WAV at [SAMPLE_RATE], for `adb pull` + listening. */

@@ -124,7 +124,7 @@ object EngineCatalog {
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
     private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 99_919_078L
-    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_864L
+    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_873L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
     // The clean-reference dev engine still pins the older 8-voice v10 archive
@@ -230,7 +230,7 @@ object EngineCatalog {
             "most people. Runs fully on your device; Japanese and Mandarin use " +
             "bundled pronunciation data and the other languages use espeak-ng, " +
             "all loaded at runtime.",
-        downloadSizeBytes = 194_352_951L,
+        downloadSizeBytes = 194_353_174L,
         installedSizeBytes = KOKORO_DIRECT_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
@@ -239,8 +239,8 @@ object EngineCatalog {
             // the 1.52.0 tag (see KITTEN_DIRECT). v18 added openjtalk_dic/
             // (Japanese G2P); v17 added lexicon-zh.txt (Mandarin).
             url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v23/kokoro-direct-v1_0.tar.gz",
-            sha256 = "47584007f7d7a0b2c4d0d3ec5389744b20d2691a49e0bb12d08d1126b55310a5",
-            sizeBytes = 194_352_951L,
+            sha256 = "8e8752c9ec937dd2842510b65a195ee48f2e2ddc7a2c69a478d281fefdd64770",
+            sizeBytes = 194_353_174L,
             archiveRoot = "kokoro-direct-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-direct.md",

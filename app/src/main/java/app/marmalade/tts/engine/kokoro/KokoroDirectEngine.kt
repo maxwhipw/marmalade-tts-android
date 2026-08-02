@@ -337,15 +337,29 @@ open class KokoroDirectEngine @Inject constructor(
             setIntraOpNumThreads(intraOpThreads)
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             setMemoryPatternOptimization(true)
-            try {
+            addConfigEntry("session.intra_op.allow_spinning", "0")
+            // The v23+ bundle ships a quantized (static QDQ int8) model and
+            // marks it with a model-format file. Registering the XNNPACK EP
+            // for that graph SIGSEGVs inside ORT-Android 1.26 session setup
+            // (measured Pixel 8a, 2026-08-01) — and the CPU EP's own int8
+            // kernels are what make the quantized model fast anyway (bench:
+            // QDQ/CPU 0.77 vs fp32/XNNPACK 1.01 mean RTF, same run). fp32
+            // bundles (≤v22, no marker) keep XNNPACK: it's worth ~18% there
+            // (fp32/CPU measured 1.22).
+            if (isQuantizedBundle()) {
+                Log.i(TAG, "quantized model bundle — CPU EP (intraOpThreads=$intraOpThreads)")
+            } else try {
                 addXnnpack(mapOf("intra_op_num_threads" to intraOpThreads.toString()))
-                addConfigEntry("session.intra_op.allow_spinning", "0")
                 Log.i(TAG, "XNNPACK EP enabled (intraOpThreads=$intraOpThreads)")
             } catch (t: Throwable) {
                 Log.w(TAG, "XNNPACK EP unavailable; CPU EP only", t)
             }
         }
     }
+
+    private fun isQuantizedBundle(): Boolean =
+        runCatching { File(engineDir, "model-format.txt").readText().trim().startsWith("qdq") }
+            .getOrDefault(false)
 
     /**
      * Touch the session with a 1-character synth so ORT's first-call
