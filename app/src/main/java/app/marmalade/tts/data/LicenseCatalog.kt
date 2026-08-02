@@ -213,10 +213,13 @@ object LicenseCatalog {
             shipsIn = "Engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) hexgrad and contributors"),
+            textAsset = "Apache-2.0.txt",
             note = "The shipped model is Marmalade's selectively int8-" +
                 "quantized build of the ONNX export from " +
                 "github.com/thewh1teagle/kokoro-onnx, as packaged for " +
-                "multilingual use by k2-fsa/sherpa-onnx.",
+                "multilingual use by k2-fsa/sherpa-onnx. The per-node " +
+                "quantization-sensitivity method follows Adrian Lyjak's " +
+                "Kokoro quantization write-up (adrianlyjak.com).",
         ),
         Component(
             key = "kittentts",
