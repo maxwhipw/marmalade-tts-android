@@ -142,11 +142,18 @@ const EYES_SMILE = [
   ["M59.3,60.5 Q63.4,56.8 67.5,60.5",null,"#3D2B1F",1.5,1,"round"],
 ];
 const MOUTH_BIGSMILE = [["M46.5,67.5 Q54.0,73.5 61.5,67.5",null,"#3D2B1F",1.2,1,"round"]];
+// Flat-top :D mouths (half-ellipse, no tongue) in three sizes
+const MOUTH_FLAT_S = [["M49.5,68.0 A4.5,5.0 0 0 0 58.5,68.0 Z","#3D2B1F"]];
+const MOUTH_FLAT_M = [["M47.0,68.0 A7.0,7.5 0 0 0 61.0,68.0 Z","#3D2B1F"]];
+const MOUTH_FLAT_L = [["M45.0,68.0 A9.0,10.5 0 0 0 63.0,68.0 Z","#3D2B1F"]];
 const FACE_HAPPY = [...EYES, ...MOUTH_HAPPY, ...BLUSH];
 const FACE_SPEAK = [...EYES, ...MOUTH_SPEAK, ...BLUSH];
 const FACE_GRIN     = [...EYES, ...MOUTH_GRIN, ...BLUSH];
 const FACE_GRIN_UWU = [...EYES_SMILE, ...MOUTH_GRIN, ...BLUSH];
 const FACE_BIGSMILE = [...EYES, ...MOUTH_BIGSMILE, ...BLUSH];
+const FACE_FLAT_S = [...EYES, ...MOUTH_FLAT_S, ...BLUSH];
+const FACE_FLAT_M = [...EYES, ...MOUTH_FLAT_M, ...BLUSH];
+const FACE_FLAT_L = [...EYES, ...MOUTH_FLAT_L, ...BLUSH];
 
 // Add-ons in jar space (scale with the jar)
 const SPEAK_ARCS = [
@@ -227,6 +234,15 @@ const VARIANTS = [
   {id:"V5c", name:"Speech bubble — big smile", t:"translate(45,64) scale(0.72) translate(-54,-60)",
    desc:"Closed but wider, deeper smile than the standard happy face — cheerful without an open mouth.",
    jar:[...JAR, ...FACE_BIGSMILE], post:BUBBLE},
+  {id:"V5d", name:"Speech bubble — flat :D, small", t:"translate(45,64) scale(0.72) translate(-54,-60)",
+   desc:"Flat-top half-ellipse grin, no tongue, small (9 wide).",
+   jar:[...JAR, ...FACE_FLAT_S], post:BUBBLE},
+  {id:"V5e", name:"Speech bubble — flat :D, medium", t:"translate(45,64) scale(0.72) translate(-54,-60)",
+   desc:"Flat-top grin, no tongue, medium (14 wide).",
+   jar:[...JAR, ...FACE_FLAT_M], post:BUBBLE},
+  {id:"V5f", name:"Speech bubble — flat :D, large", t:"translate(45,64) scale(0.72) translate(-54,-60)",
+   desc:"Flat-top grin, no tongue, large (18 wide — full :D).",
+   jar:[...JAR, ...FACE_FLAT_L], post:BUBBLE},
   {id:"V6", name:"Singing", t:"translate(47,56) scale(0.80) translate(-54,-60)",
    desc:"Speaking face plus a beamed pair of notes. Warmer/cuter than waves; slightly more \"music player\" than \"TTS\".",
    jar:[...JAR, ...FACE_SPEAK], post:NOTES},
