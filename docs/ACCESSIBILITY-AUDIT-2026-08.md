@@ -129,6 +129,18 @@ Deferred by Max (visual): **6.1**, **6.2**, **6.3** (contrast), **7.1**
 Visual changes deferred at Max's request 2026-08-01 — revisit deliberately,
 don't fold into unrelated work.
 
+**Max's ruling on the contrast items (2026-08-01): the light theme's
+white-on-orange stays — it's the brand.** The accessibility answer is the
+existing escape hatch, not a default change: Settings → Appearance already
+offers mode (system/light/dark, default "system") and color presets, the
+dark scheme passes AA (≈7:1), and the Settings path is TalkBack-accessible
+as of batch C. Users on system dark mode get the conforming theme with zero
+extra steps; light-mode users can switch in Settings. This is the WCAG
+"conforming alternate version" pattern — defensible for calling the app
+accessible, though not AA-conformant-by-default; don't claim the latter.
+No theme step is to be added to onboarding (Max: don't add a step, and
+encourage the orange default).
+
 ## What's already good
 
 - Registered system TTS engine — genuinely valuable to blind users.
