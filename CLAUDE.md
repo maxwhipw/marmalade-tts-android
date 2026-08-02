@@ -26,7 +26,7 @@ privacy policy is served from it).
 
 ```
 github   https://github.com/maxwhipw/marmalade-tts-android.git   (public, authoritative)
-origin   http://claude-agent@george:3000/claude-agent/marmalade-tts-android.git   (Forgejo, local)
+origin   <local-forgejo>/marmalade-tts-android.git   (Forgejo, local)
 ```
 
 Push posture (Max, 2026-07-27): **Forgejo (`origin`) may be pushed

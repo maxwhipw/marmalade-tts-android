@@ -31,7 +31,7 @@ Desktop spike complete — full report:
    ×7 locales. Unit tests green, APK built
    (`app/build/outputs/apk/fdroid/debug/`).
 5. **Ear lab UP** (Max verdict pending):
-   http://marmalade:8095/pocket-qdq/pocket-qdq-lab.html — fp32 vs int8_dyn
+   http://<labs-server>/pocket-qdq/pocket-qdq-lab.html — fp32 vs int8_dyn
    vs qdq_X1, same seed, 8 texts, voice marius.
 
 ## Next steps (in order)
@@ -63,7 +63,7 @@ icon). Kokoro now ships quantized (v23 bundle, RTF 0.62–0.77 on Pixel 8a) —
 the next optimization target.
 
 Separate track (2026-08-02, `d1562cc`): F-Droid submission now has its own lab
-at `docs/release/fdroid-lab.html` (http://marmalade:8095/marmalade-tts-release/fdroid-lab.html)
+at `docs/release/fdroid-lab.html` (http://<labs-server>/marmalade-tts-release/fdroid-lab.html)
 with the verified fdroiddata recipe + MR text; gate = Max tags/pushes
 v1.0.0-beta.1 and does the GitLab fork/MR.
 
@@ -318,7 +318,7 @@ except pre-existing untracked `app/schemas/.../10.json`. NOT pushed
    fp32 our-export fastest, mean RTF 0.705; uint8f16 0.831 @ 109 MB
    (2.9× smaller); uniform int8 1.098; q8f16 pathological (~10×);
    onnx-community fp32 export ~1.28× slower than ours. Max approved ALL
-   variants on quality (lab: http://marmalade:8095/kokoro-quant/
+   variants on quality (lab: http://<labs-server>/kokoro-quant/
    kokoro-quant-lab.html, includes device-pulled wavs).
    "Smaller = faster from bandwidth" refuted for ORT-CPU int8.
 3. Bench tool now in-app (debug): Settings → Advanced → Benchmark →
@@ -345,7 +345,7 @@ except pre-existing untracked `app/schemas/.../10.json`. NOT pushed
   session's debug-only code).
 - NEVER `connectedAndroidTest` against Max's daily debug app (wipes data).
 - Device: Pixel 8a wireless ADB, port rotates — ask Max, or scan
-  30000–49999 on 100.114.195.29 (worked 2026-08-01).
+  30000–49999 on <phone-ip> (worked 2026-08-01).
 
 ---
 
@@ -505,7 +505,7 @@ espeak output for `en*` voices (no right-hand boundary — "yeah's" is
 **Diagnosis confirmed by Max (2026-07-27): Kokoro renders every "yeah"
 candidate nearly identically — the model is robust; Kitten is the weak
 renderer.** Per-model targets, ear-picked by Max in the A/B lab
-(http://marmalade:8095/yeah-fix/, symlink → `~/coding/scratch/yeah/`):
+(http://<labs-server>/yeah-fix/, symlink → `~/coding/scratch/yeah/`):
 Kitten renders misaki's `jˈɛə` poorly at every size (mini glitched
 outright; Max: mini is not better than nano), so **Kitten → flat `jæ`**
 ("ya", won bar none); **Kokoro → `jˈɛə`** (misaki gold — its own
@@ -554,7 +554,7 @@ From Max's first on-device pass of the whole batch:
       has run on hardware. Highest value: the new Speak row + sheet, and
       an English/Japanese listen for the `ᵻ`/`ɯ`/`ʔ` fix, which should be
       audible. Plus the "yeah" fix: pre-listen at
-      http://marmalade:8095/yeah-fix/, then say "Yeah, sure." on device
+      http://<labs-server>/yeah-fix/, then say "Yeah, sure." on device
       with Kitten and Kokoro voices.
 - [ ] **Four language defects deliberately NOT fixed** — see
       `docs/LANGUAGE-AUDIT-2026-07.md`. All are prosody changes with

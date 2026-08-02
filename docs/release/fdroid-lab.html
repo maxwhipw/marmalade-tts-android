@@ -251,7 +251,7 @@ function updatePrompt(){
     .filter(cb => !cb.checked)
     .map(cb => cb.closest('label').querySelector('.t b').textContent);
   let s = 'Working in ~/coding/marmalade-tts-android on branch main. Read ' +
-    'docs/release/fdroid-lab.html (served at http://marmalade:8095/marmalade-tts-release/fdroid-lab.html) ' +
+    'docs/release/fdroid-lab.html (served at http://<labs-server>/marmalade-tts-release/fdroid-lab.html) ' +
     'and docs/release/FDROID-RELEASE-PLAN.md first.\n\n';
   s += open.length
     ? 'Next unchecked F-Droid steps:\n' + open.slice(0, 6).map((t, i) => `${i + 1}. ${t}`).join('\n')

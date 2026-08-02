@@ -65,7 +65,7 @@ individually compiled — only the final tree is).
 Started Opus 4.7 driving the device against the new release APK. What
 got done:
 
-- ✅ ADB connected (`100.114.195.29:42377`), release APK installed
+- ✅ ADB connected (`<phone-ip>`), release APK installed
   fresh as `app.marmalade.tts` (your daily `.debug` app is untouched).
 - ✅ Onboarding loaded with the new "phonemized by the app's built-in
   espeak-ng" copy live. Started installing **all four engines** in the
@@ -88,7 +88,7 @@ got done:
 
 1. **Install + smoke test** — wireless ADB pair fresh, then:
    ```
-   adb -s 100.114.195.29:<port> install -r \
+   adb -s <phone-ip>:<port> install -r \
      app/build/outputs/apk/release/app-release-debugsigned.apk
    ```
    The APK already contains the fix above. The daily `.debug` app is

@@ -85,7 +85,7 @@ keyPassword=…<button class="mini" onclick="cp(this)">copy</button></pre></div>
   <div class="body"><p>CI already attaches APKs on tag. Add an "Install via Obtainium" section to the README (deep link) so the no-Play crowd has a first-class path. <b>Engine-bundle URLs must stay stable forever</b> — the catalog pins exact release assets by SHA-256; moving or re-tagging breaks installs for existing users.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">M9</span><span class="t">Open items</span><span class="tag claude">open</span><span class="chev">▸</span></div>
-  <div class="body"><p><b>Kitten "Yeah" mispronunciation</b> — <b>fixed (178b789), device check pending.</b> Root cause: espeak-ng has no dictionary entry for "yeah" (not even upstream master); letter-to-sound emits /jɛh/ with a literal aspirated H. Ear-picked per-model targets via the <a href="http://marmalade:8095/yeah-fix/">yeah-fix lab</a>: Kitten gets flat /jæ/ (it renders misaki's /jɛə/ poorly at every model size), Kokoro Direct gets the training-faithful /jɛə/. CLI kitten daemon matches (0b00468). Remaining: fresh debug build on the Pixel, confirm by ear in-app. <b>Two flavors</b> — play/fdroid now differ only in the Sponsors link; collapsing to one is small whenever wanted.</p></div></div>
+  <div class="body"><p><b>Kitten "Yeah" mispronunciation</b> — <b>fixed (178b789), device check pending.</b> Root cause: espeak-ng has no dictionary entry for "yeah" (not even upstream master); letter-to-sound emits /jɛh/ with a literal aspirated H. Ear-picked per-model targets via the <a href="http://<labs-server>/yeah-fix/">yeah-fix lab</a>: Kitten gets flat /jæ/ (it renders misaki's /jɛə/ poorly at every model size), Kokoro Direct gets the training-faithful /jɛə/. CLI kitten daemon matches (0b00468). Remaining: fresh debug build on the Pixel, confirm by ear in-app. <b>Two flavors</b> — play/fdroid now differ only in the Sponsors link; collapsing to one is small whenever wanted.</p></div></div>
 
 <!-- ════════════════ CAMPAIGN ════════════════ -->
 
@@ -397,7 +397,7 @@ function updatePrompt(){
     .filter(cb => !cb.checked)
     .map(cb => cb.closest('label').querySelector('.t b').textContent);
   let s = 'Working in ~/coding/marmalade-tts-android on branch main. Read ' +
-    'docs/release/launch-lab.html (served at http://marmalade:8095/marmalade-tts-release/launch-lab.html), ' +
+    'docs/release/launch-lab.html (served at http://<labs-server>/marmalade-tts-release/launch-lab.html), ' +
     'docs/release/PLAY-CONSOLE-RESPONSES.md, and agent-wiki tech/coding/android-app-publishing.md first.\n\n';
   s += open.length
     ? 'Next unchecked campaign steps:\n' + open.slice(0, 6).map((t, i) => `${i + 1}. ${t}`).join('\n')
