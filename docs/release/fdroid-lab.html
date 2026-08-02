@@ -98,7 +98,7 @@ block R1, every field already verified against the repo (versionCode 33, ndk r26
 <summary><h2><span class="id">S3</span> Merge request + review</h2><span class="prog"></span></summary>
 <div class="inner">
 <p class="why">Reviewers respond best when the awkward facts are stated up front: MIT source but
-GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI-assisted development
+GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI tooling in the workflow
 (F-Droid has no policy against it — unlike IzzyOnDroid, which is out per the 2026-07-26 decision).</p>
 <label class="step"><input type="checkbox" data-k="s3-mr"><span class="t"><b>MR OPENED 2026-08-02: <a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636">fdroiddata!44636</a></b> <small>Title "New app: Marmalade TTS", description = copy M1, via API.</small></span></label>
 <label class="step"><input type="checkbox" data-k="s3-ci"><span class="t"><b>MR pipeline green — currently BLOCKED on identity verification</b> <small>First pipelines failed with zero jobs: new gitlab.com accounts must verify identity (phone/card) before shared runners work. Max: gitlab.com → the verification banner (or https://gitlab.com/-/identity_verification), then Claude retries the pipeline via API.</small></span></label>
@@ -176,8 +176,10 @@ Stating the review-relevant facts up front:
   CMake with no network access at build time (upstream's FetchContent
   clone of libsonic is deliberately not used). NDK pinned to r26d to match
   `ndkVersion` in app/build.gradle.kts.
-- **Transparency:** solo developer, built openly with heavy AI assistance
-  (the git history shows it); every release is tested on real devices.
+- **Transparency:** solo developer. I build with AI coding tools in my
+  workflow — several hundred hands-on sessions of directed, reviewed work;
+  every change is reviewed by me and every release is tested on real
+  devices. The full git history is public.
 
 Fastlane metadata (title, descriptions, icon, screenshots, changelogs) is
 maintained in-repo at fastlane/metadata/android/en-US/.</pre></div>
