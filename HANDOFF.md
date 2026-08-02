@@ -1,3 +1,254 @@
+# HANDOFF — Pocket QDQ parity, 2026-08-02 (branch `main`, PUSHED through `bcac168`)
+
+## State
+
+`main` is pushed to github (65 commits: Kokoro QDQ quant work + a11y + i18n +
+icon). Kokoro now ships quantized (v23 bundle, RTF 0.62–0.77 on Pixel 8a) —
+**Pocket is now the slowest engine** (shipping ~1.19 whole-pipeline RTF) and
+the next optimization target.
+
+## Task: apply the Kokoro QDQ recipe to Pocket ("Pocket parity")
+
+Goal: static QDQ per-channel int8 (the format that hits ORT's fast ARM
+kernels) for Pocket's flow graphs, replacing the current upstream-style int8.
+
+Read first:
+- docs/HARDWARE-ACCELERATION-2026-07.md (measured results + constraints)
+- ~/coding/scratch/kokoro-quant-experiments/REPORT.md (the recipe: metric,
+  sweep, calibration, exclusion anatomy) + its scripts (common.py,
+  quant_qdq.py, sweep_e3.py)
+- Memory kokoro-quant-bench-results (hard-won constraints)
+- Memory project_pocket_chunk_start_bitcrush_bug + ORT footguns in
+  PocketEngine.kt (read the in-code docs before touching Pocket)
+
+Facts to build on:
+- Pocket graphs (bundle v21, scratch/pocket-bundle-v21/pocket-tts-en/):
+  flow_lm_main_int8 (72MB, 52 int8 tensors — upstream-selective, format
+  UNKNOWN: first step is checking whether it's dynamic (ConvInteger/
+  MatMulInteger = slow path) or already QDQ. If dynamic, re-quantizing
+  static-QDQ is exactly the Kokoro win.); flow_lm_flow fp32 (4×/frame);
+  mimi_decoder fp32 (KEEP fp32 — T-Mimi + our Kokoro sweep both say
+  output-adjacent convs are the quality killers, and it's only ~19ms/frame);
+  text_conditioner/encoder fp32 (cold-path, size-only).
+- fp32 flow_lm sources for re-quantization: NOT in the bundle — locate
+  KevinAHM's fp32 export (HF) or re-export from upstream kyutai-labs/
+  pocket-tts (MIT; venv notes in memory executorch-target).
+- Upstream's own selective recipe (pocket_tts/quantization.py): ONLY FlowLM
+  attention QKV/out + FFN linears int8; AdaLN MLP + mimi + norms fp32.
+  Static-QDQ the same node set first; sweep only if quality fails.
+
+Guardrails (non-negotiable):
+- **XNNPACK EP + QDQ graph = native SIGSEGV on ORT-Android 1.26.** Check
+  PocketEngine's session options; QDQ graphs must run CPU EP (see
+  KokoroDirectEngine's model-format.txt marker pattern, commit 2669852).
+- **Pocket sampling is stochastic** — output-comparison gates need a fixed
+  seed/greedy mode or statistical mel comparison + Max's ear (the Kokoro
+  mel-DTW yardstick trick needs adaptation; fp32-rerun noise floor will be
+  much higher than Kokoro's 0.35dB).
+- Never quantize blindly past the quality gate: desktop mel check → Max
+  listens (lab, serve-locally rule) → device bench → only then bundle.
+- Device bench: extend the debug quant-bench pattern or bench Pocket
+  end-to-end via the Benchmark screen (PocketEngine logs arMs/decodeMs).
+  Within-run comparisons only (thermals). Never connectedAndroidTest vs
+  Max's daily app. ADB port rotates — ask Max.
+- Bundle changes ship as a new engines-repo release tag (v24), catalog
+  sha/size updates, github push only with Max's all-clear.
+
+Success criteria: AR-step ms measurably down on Pixel 8a same-run, audio
+quality Max-approved, no crash. If static QDQ shows nothing for Pocket
+(possible — M=1 AR is bandwidth-bound, and upstream int8 may already be
+near-optimal), record the numbers in docs/HARDWARE-ACCELERATION-2026-07.md
+and close the parity question with data.
+
+Build: ./gradlew assembleFdroidDebug · tests: :app:testFdroidDebugUnitTest
+
+---
+
+# HANDOFF — full UI i18n SHIPPED (7 locales), 2026-08-01 late (branch `main`)
+
+## 2026-08-02 addendum — persona→alias + EMULATOR-VERIFIED
+
+Head **`bf68b31`** (4 more commits). `ed32713` persona→alias in EN + all
+7 locales (Max's call). `61b84da` debug APKs carry x86_64 (release stays
+arm-only) — emulator testing now works. Verified on the `marmalade-test`
+AVD (API 35 x86_64): per-app language switching via
+`adb shell cmd locale set-app-locales app.marmalade.tts.debug --user 0
+--locales ja`; walked ja onboarding→Speak→Aliases→Settings + alias
+screens in zh/hi/pt-BR/fr/it/es. Screenshots:
+`~/coding/scratch/i18n-emulator/`. Two layout breaks found+fixed
+(`bf68b31`): it/pt-BR settings nav labels wrapped → Opzioni/Ajustes.
+Still pending: physical-device pass (TalkBack ja, real synthesis —
+emulator has no engines installed) and Max's translation-tone review.
+KNOWN mixed-language surface: engine catalog descriptions/license notes
+(onboarding + engine screens) are English-only by design; theme scheme
+names (System/Midnight/Forest/Berry) also stay English.
+
+## 2026-08-02 addendum — licenses row icon + Kokoro export-chain credit
+
+`d089319` Settings → About → Open-source licenses row now has a leading
+document glyph (`MarmaladeIcons.LicenseDoc`, drawn in-tree) and renders
+via `AboutRow` like its neighbours. `0f30367` (+ engines repo `5ff9b2f`)
+credit the quantized Kokoro model's provenance — hexgrad/Kokoro-82M →
+thewh1teagle/kokoro-onnx (`model-files`) → k2-fsa/sherpa-onnx
+`kokoro-multi-lang-v1_0` → our selective int8 quant — in the in-app
+`LicenseCatalog` note, `LICENSES/kokoro-direct.md`, and the engines
+README (chain read from model.onnx's embedded metadata). No new string
+resources (reused `settings_licenses*`; catalog data is English-only by
+design). Compile-verified (`compileFdroidDebugKotlin`); device look
+pending with the other checks below. Still UNPUSHED with the rest.
+
+## Branch state
+
+`main`, head **`624af08`** (8 i18n commits `cb9dc1f..624af08` on top of the
+QDQ session below). `assembleFdroidDebug` + full unit suite green; aapt2
+confirms es/fr/hi/it/ja/pt-rBR/zh-rCN in the APK. **UNPUSHED** (with the
+19+ commits already awaiting Max's github all-clear).
+
+## What shipped
+
+- `cb9dc1f` — ~470 hardcoded UI strings (Compose screens, onboarding,
+  services/notifications, ALL a11y semantics) extracted into namespaced
+  `res/values/strings_*.xml` (speak/voices/alias/effects/settings/engines/
+  onboarding/service). ViewModels expose `@StringRes` ids instead of
+  formatted text so plain-JVM VM tests stay Context-free.
+- `7c14696` — Android 13+ per-app language: `res/xml/locales_config.xml`
+  + `android:localeConfig` + `androidResources.localeFilters`.
+- `39d2422` — leftovers: voice preview phrase + effect preview sentence are
+  resources passed from screens (VM default args keep tests compiling),
+  LatencyBucket labels `@StringRes`, onboarding install-failure fallback
+  localized at the screen (`reason.ifBlank { … }`).
+- `ae09432` — BUGFIX: routing sheet showed alias UUIDs, not names (title +
+  "Routed to X" hint); wired the previously-unused `RoutingSheetState.
+  aliasName` / `AppRoutingViewModel.aliasNames`.
+- `43a6224` — BUGFIX: effects empty-chain hint said the opposite of the
+  behavior (empty = dry); 3 translation agents independently caught it.
+- `624af08` — ja/es/fr/hi/it/pt-BR/zh-CN translations (471 strings per
+  locale). Placeholder parity + XML validity machine-checked per locale.
+  Spoken samples/pangrams are natural per-language sentences, not calques.
+
+## Open (needs Max / device)
+
+1. **Device verify**: per-app language switch (Settings → Apps → Marmalade
+   TTS → Language), a locale spot-check for layout (zh/hi chips, pt-BR
+   "+ todos sem direcionamento" strip chip flagged as long), TalkBack in
+   ja. Plus the QDQ + a11y device checks below still pending.
+2. **Terminology call for Max**: Speak sheet says "persona" where the
+   feature is "alias" — translators unified (zh 别名, it "profilo");
+   decide whether English should too.
+3. `EngineInstaller` failure reasons stay raw exception text (English);
+   full localization = `InstallState.Failed(@StringRes, args)` refactor
+   (5 test files subclass the installer). Deliberately not done.
+4. Translation tone review is Max's whenever he likes — each locale's
+   judgment calls are in the 2026-08-01 journal/session notes.
+
+# HANDOFF (prior same-day) — Kokoro QDQ int8 SHIPPED to v23, 2026-08-01 late (branch `main`)
+
+## State
+
+Head = `docs: on-device result...` on top of `2669852` (engine fix), plus the
+earlier quant-bench/catalog commits and a concurrent a11y session's commits
+(`0c61516` etc.). Unit tests green (`:app:testFdroidDebugUnitTest`).
+**UNPUSHED — awaiting Max's github all-clear.** The engines-repo release
+IS live: v23 asset re-uploaded WITH `model-format.txt` marker
+(sha `8e8752c9…`, 194 MB).
+
+## The result
+
+Our own selectively-quantized Kokoro (static QDQ per-channel int8, 118-node
+mel-loss-sweep exclusion list) is **24–36% FASTER than fp32 on the Pixel 8a**
+(same-run mean RTF 0.62–0.77 vs 0.97–1.01), 150 MB model (was 326), Max
+ear-verified lossless. Recipe + artifacts:
+`~/coding/scratch/kokoro-quant-experiments/REPORT.md`.
+
+Constraints (documented in code + docs/HARDWARE-ACCELERATION-2026-07.md):
+- XNNPACK EP + QDQ graph = native SIGSEGV, ORT-Android 1.26, every opt level
+  → KokoroDirectEngine skips XNNPACK when `engines/kokoro-direct-v1_0/
+  model-format.txt` starts with "qdq"; fp32 bundles keep XNNPACK (~18% win).
+- Desktop pre-fused QDQ hurts on ARM — ship the raw QDQ graph.
+
+## Remaining (updated end of session, 2026-08-01)
+
+1. ~~In-app end-to-end~~ **DONE — Max installed v23 in-app and verified:
+   "sounded good".**
+2. **Github push STILL PENDING Max's explicit all-clear** →
+   `git push github main` (includes this session's commits + a concurrent
+   a11y session's + an i18n session's — review `git log` before pushing).
+3. **DECIDED (Max): Apache-2.0** for standalone component releases;
+   **donations NOW** (GitHub Sponsors + FUNDING.yml — Max does the
+   Stripe/bank part, agent preps files/copy); monetization direction =
+   cloud (app already has the multi-provider api-engine work; future
+   option once adoption grows = resell cloud inference for premium
+   voices, discoverable in-app). NC/copyleft dual-licensing REJECTED.
+4. Next concrete build tasks, in rough priority:
+   a. GitHub Sponsors setup + FUNDING.yml across repos (blocked on Max's
+      Stripe onboarding; prep everything else).
+   b. Standalone quant-recipe repo (Apache-2.0 + NOTICE, proper upstream
+      attribution per the copyright-licensing conventions; source =
+      ~/coding/scratch/kokoro-quant-experiments/, REPORT.md is the story).
+      Max reviews before anything goes public.
+   c. Same quant recipe for Kitten nano (54 MB fp32 + 5 LSTMs — same
+      sweep tooling applies).
+   d. api-engine branch revisit (device-verify pending since 2026-07-24).
+
+## Bench tool (debug screen)
+
+Results persist to `files/kokoro-quant/results.json` and reload on screen
+open; known-crash configs are excluded from the variant list; cross-instance
+run guard. Side-load dir: `files/kokoro-quant/` via adb + run-as.
+
+---
+
+# HANDOFF — Kokoro quant bench + HW-accel assessment, 2026-08-01 (branch `main`)
+
+## State
+
+Head **`9cf20d8`** (2 new commits on `0ccb79e`): `fec6e16` debug-only
+Kokoro quant bench in the Benchmark screen; `9cf20d8` measured-results
+addendum to `docs/HARDWARE-ACCELERATION-2026-07.md`. Working tree clean
+except pre-existing untracked `app/schemas/.../10.json`. NOT pushed
+(github is authoritative; needs Max's all-clear).
+
+## What this session settled
+
+1. **Hardware acceleration** — read `docs/HARDWARE-ACCELERATION-2026-07.md`
+   first. Verdict: stay single-runtime ORT-CPU; no GPU/NPU path beats it
+   for our models; LiteRT Tensor-NPU SDK is G5-only (8a unreachable);
+   ExecuTorch parked, dev-branch-only revisits (Max).
+2. **Kokoro quantization, measured on the Pixel 8a** (table in the doc):
+   fp32 our-export fastest, mean RTF 0.705; uint8f16 0.831 @ 109 MB
+   (2.9× smaller); uniform int8 1.098; q8f16 pathological (~10×);
+   onnx-community fp32 export ~1.28× slower than ours. Max approved ALL
+   variants on quality (lab: http://marmalade:8095/kokoro-quant/
+   kokoro-quant-lab.html, includes device-pulled wavs).
+   "Smaller = faster from bandwidth" refuted for ORT-CPU int8.
+3. Bench tool now in-app (debug): Settings → Advanced → Benchmark →
+   "Kokoro quant bench"; side-load models to `files/kokoro-quant/` via
+   adb + run-as (commands in KokoroQuantBench.kt header). Gotchas:
+   leaving the screen cancels the run; `adb logcat -G 16M` before long
+   benches (main buffer evicts fast); thermal variance is huge
+   (fp32 measured 1.24 hot vs 0.71 cool) — within-run comparisons only.
+4. Phone left clean: all side-loaded models removed. Note Kokoro Direct
+   is NOT installed on Max's Pixel (only kitten-direct-v0_8).
+
+## Decisions
+
+- **uint8f16: NOTED for a potential future optional download (Max,
+  2026-08-01). Not adopted now — no bundle work.** fp32 ships as-is.
+- Still-open speed idea: our OWN static QDQ int8 quantization (per-channel,
+  arm64, selective exclusions) might hit ORT's fast ARM QGEMM kernels that
+  the pre-made ConvInteger exports miss. Unproven; bench tool exists.
+
+## Build/test
+
+- `./gradlew assembleFdroidDebug` (bench device-verified 2026-08-01);
+  unit tests `./gradlew :app:testFdroidDebugUnitTest` (untouched by this
+  session's debug-only code).
+- NEVER `connectedAndroidTest` against Max's daily debug app (wipes data).
+- Device: Pixel 8a wireless ADB, port rotates — ask Max, or scan
+  30000–49999 on 100.114.195.29 (worked 2026-08-01).
+
+---
+
 # HANDOFF — R16 mirror: per-sentence rows + trims + gaps, 2026-07-31 (branch `main`)
 
 ## State
