@@ -157,7 +157,17 @@ baseline measured 1.24 hot vs 0.71 cool; only within-run comparisons are valid):
 | int8 uniform ("quantized") | 88 MB | 1.098 | 1.56× slower |
 | q8f16 | 86 MB | DNF — ~10× slower class, first text alone took 7+ min | disqualified |
 
-Conclusions: **no quantized variant is faster on ARM** — the research prediction held
+**UPDATE (later 2026-08-01): our OWN quantization beat this table.** Selective
+static QDQ int8 on the fast graph (per-channel, 118-node mel-loss-sweep
+exclusion list, `scratch/kokoro-quant-experiments/REPORT.md`) measured **mean
+RTF 0.77 vs fp32 1.01 same-run on the Pixel 8a (24–36% faster) at 150 MB**,
+ear-verified lossless — ships as the v23 bundle. Two constraints discovered:
+XNNPACK EP + QDQ graph = native SIGSEGV on ORT-Android 1.26 (engine now skips
+XNNPACK for marked quantized bundles), and desktop pre-fusing the QDQ graph
+*hurts* on ARM (0.80) — ship the raw QDQ graph. The pre-made-variant
+conclusions below still stand for the onnx-community artifacts:
+
+Conclusions on the pre-made variants: **no PRE-MADE quantized variant is faster on ARM** — the research prediction held
 (ORT's ConvInteger/MatMulInteger path doesn't hit i8mm kernels), so "smaller = faster
 from bandwidth" is refuted for this stack. fp32 stays the speed champion and remains
 the shipping default. **uint8f16 is the one interesting trade**: 2.9× smaller download
