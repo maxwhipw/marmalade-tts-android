@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — F-Droid Release Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+  /* page-specific only — shell comes from /_assets/lab.css */
+  .out{position:sticky;bottom:0;margin-top:26px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:16px 18px;z-index:2}
+  .out h3{margin:0 0 9px;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--dimmer)}
+  #prompt{font-family:var(--mono);font-size:13px;color:var(--toast);white-space:pre-wrap;
+    background:#0d0b09;border:1px solid var(--line);border-radius:7px;padding:12px;
+    max-height:200px;overflow:auto}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>F-Droid Release Lab</span></h1>
+    <div class="sub">Step-by-step tracker for the official F-Droid listing. Source of truth:
+    <code>docs/release/FDROID-RELEASE-PLAN.md</code>. Sister lab:
+    <a href="launch-lab.html">Launch Lab</a> (Play + campaign). Checkboxes persist in this browser.</div>
+  </div>
+  <div class="meta">
+    <b>1.0.0-beta.1</b> · versionCode <b>33</b> · ndk <b>r26d</b><br>
+    APK license <b>GPL-3.0-or-later</b> · source <b>MIT</b><br>
+    expect anti-feature: <b>NonFreeNet</b> (accept it)
+  </div>
+</header>
+
+<main>
+
+<div class="note"><b>How F-Droid works.</b> F-Droid builds and signs the APK <em>themselves</em>, on
+their buildserver, from a signed git tag on the public GitHub repo — no keystore, no AAB, no upload.
+Our side is: (1) tag and push, (2) write a build recipe into their
+<a href="https://gitlab.com/fdroid/fdroiddata">fdroiddata</a> repo via merge request, (3) answer
+reviewer feedback. Review latency is days→months, which is exactly why this files <b>in parallel</b>
+with the Play closed test, not after it. F-Droid signs with their own key, so Play↔F-Droid installs
+can never cross-update — same applicationId, coordinated versionCodes, reinstall required to switch.</div>
+
+<h2 class="sec">State check — verified 2026-08-02</h2>
+<p class="lede">Everything below was re-verified against the repo today, not copied from the plan.</p>
+
+<div class="wstep done"><div class="hd"><span class="n">F0</span><span class="t">Code + repo prerequisites — all clear</span><span class="tag done">done</span><span class="chev">▸</span></div>
+  <div class="body"><p><b>Repo hygiene passes:</b> no prebuilt <code>.aar/.so/.onnx/.bin</code> in
+  <code>git ls-files</code> (only the standard <code>gradle-wrapper.jar</code>, which fdroidserver
+  validates). Vendored Open JTalk/MeCab C is source (BSD-3); espeak-ng compiles from the pinned
+  <code>third_party/espeak-ng</code> submodule (<code>4870adf</code>, the 1.52.0 tag) with CMake glue that
+  avoids upstream's FetchContent network clone — build is fully offline after dependency resolution.
+  <code>org.gradle.java.home</code> is out of the repo's <code>gradle.properties</code>.</p>
+  <p><b>GPL §6 gap closed 2026-07-11:</b> engines release v22 removed the legacy
+  <code>libttsespeak.so</code> from all bundles; bundles carry no executable code at rest; engines-repo
+  README carries the full provenance block. <b>Runtime model downloads are fine</b> with the opt-in
+  Install screen — precedent SherpaTTS (listed, NonFreeNet) and Termux (listed, no flag).</p>
+  <p><b>Fastlane metadata complete</b> at <code>fastlane/metadata/android/en-US/</code>: title, short +
+  full description (opt-in GitHub download disclosed), <code>changelogs/33.txt</code>, 512×512
+  <code>images/icon.png</code>, 5 phoneScreenshots (2026-07-11 set — F-Droid reads these directly).
+  <b>GitHub main is current</b> (<code>f5a2397</code> pushed). <code>CHANGELOG.md</code>,
+  <code>PRIVACY.md</code>, <code>CREDITS.md</code> all present at repo root.</p></div></div>
+
+<div class="wstep max"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 and push it — needs your all-clear</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
+  <div class="body"><p>No release tag exists yet (tags stop at <code>v0.1.9</code>). F-Droid builds from
+  the tag, so this is the gate for everything below. I can create the annotated tag and push it the
+  moment you say go — GitHub is public, so per standing policy the push itself waits for your explicit
+  all-clear. Coordinate with the Play timeline only insofar as the tag should point at the same commit
+  the closed-test AAB is built from, so both stores ship identical code at versionCode 33.</p>
+  <pre>git tag -a v1.0.0-beta.1 -m "1.0.0-beta.1 (versionCode 33)" &amp;&amp; git push github v1.0.0-beta.1</pre></div></div>
+
+<h2 class="sec">Submission — who does what</h2>
+<p class="lede">Green = done · amber = I can do when asked · red = needs you (account/browser work I
+can't do for you). The recipe and MR text are pre-written in the copy deck below — you transcribe,
+not compose.</p>
+
+<details class="phase" open>
+<summary><h2><span class="id">S1</span> GitLab side — fork + branch (you)</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">fdroiddata lives on gitlab.com, so this needs a GitLab account — account creation and
+the web fork are yours; everything inside the fork I can prepare as files for you to paste.</p>
+<label class="step"><input type="checkbox" data-k="s1-account"><span class="t"><b>GitLab account ready</b> <small>Sign in (or create) at gitlab.com. Free tier is fine.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s1-fork"><span class="t"><b>Fork <a href="https://gitlab.com/fdroid/fdroiddata">fdroid/fdroiddata</a></b> <small>Fork button, default options. It's a big repo — the web UI fork is instant; you never need a full local clone (the web editor is enough for a one-file MR).</small></span></label>
+<label class="step"><input type="checkbox" data-k="s1-branch"><span class="t"><b>Create branch <code>marmalade-tts</code> in your fork</b> <small>Web UI: Repository → Branches → New branch, from master.</small></span></label>
+</div>
+</details>
+
+<details class="phase" open>
+<summary><h2><span class="id">S2</span> The recipe file</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">One new file in the fork: <code>metadata/app.marmalade.tts.yml</code> — contents in copy
+block R1, every field already verified against the repo (versionCode 33, ndk r26d matching
+<code>ndkVersion 26.3.11579264</code>, <code>gradle: [fdroid]</code> flavor, <code>submodules: yes</code>).</p>
+<label class="step"><input type="checkbox" data-k="s2-file"><span class="t"><b>Add <code>metadata/app.marmalade.tts.yml</code> with copy R1</b> <small>Web IDE on the <code>marmalade-tts</code> branch → New file → paste → commit "New app: Marmalade TTS".</small></span></label>
+<label class="step"><input type="checkbox" data-k="s2-lint"><span class="t"><b>Optional: local recipe check</b> <small>I can run <code>fdroid lint</code> / <code>fdroid build</code> in a local fdroidserver checkout if you want pre-MR confidence; their CI runs the same checks on the MR anyway, so skipping is legitimate.</small></span></label>
+</div>
+</details>
+
+<details class="phase" open>
+<summary><h2><span class="id">S3</span> Merge request + review</h2><span class="prog"></span></summary>
+<div class="inner">
+<p class="why">Reviewers respond best when the awkward facts are stated up front: MIT source but
+GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI-assisted development
+(F-Droid has no policy against it — unlike IzzyOnDroid, which is out per the 2026-07-26 decision).</p>
+<label class="step"><input type="checkbox" data-k="s3-mr"><span class="t"><b>Open the MR against fdroid/fdroiddata master</b> <small>Title: <code>New app: Marmalade TTS</code>. Description = copy M1.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-ci"><span class="t"><b>MR pipeline green</b> <small>Their CI lints the recipe and attempts the build. If it fails, paste me the log — typical fixes are recipe nits, not code.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-review"><span class="t"><b>Respond to reviewer feedback</b> <small>Typical round-trips: anti-feature wording, NDK pinning, reproducibility nits. Paste comments to me; I draft replies and any repo-side fixes.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-merged"><span class="t"><b>MR merged — listing appears after their next build cycle</b> <small>No further action; index publication is automatic (can take a few days post-merge).</small></span></label>
+<b style="font-size:14px;color:var(--toast)">Review tracker</b> <span style="font-size:13px;color:var(--dimmer)">(persists here — date · reviewer ask · resolution)</span>
+<textarea class="tracker" data-k="s3-tracker" placeholder="2026-08-.. · MR opened: [URL]
+…log each reviewer round-trip so the next session has the thread state."></textarea>
+</div>
+</details>
+
+<details class="phase">
+<summary><h2><span class="id">S4</span> After the listing — maintenance rules</h2><span class="prog"></span></summary>
+<div class="inner">
+<label class="step"><input type="checkbox" data-k="s4-readme"><span class="t"><b>Add the F-Droid badge/link to README + fill <code>[LINK]</code> in the launch-lab copy deck</b> <small>T4 (r/fossdroid) and T8 (Show HN) both carry F-Droid placeholders.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s4-verify"><span class="t"><b>Install from F-Droid on a device, smoke-test</b> <small>Their build, their signature — verify engine install + TTS output once the listing is live.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s4-standing"><span class="t"><b>Standing rules acknowledged</b> <small>Future releases: bump versionCode/versionName, tag, push — <code>AutoUpdateMode: Version</code> picks it up with no new MR. Engines-repo releases stay immutable (catalog pins SHA-256 per asset; replacing an asset breaks installs and F-Droid users' trust). Keep Play/F-Droid versionCodes coordinated forever.</small></span></label>
+</div>
+</details>
+
+<h2 class="sec">Copy deck</h2>
+<p class="lede">R1 is the recipe file verbatim; M1 is the MR description. Both reflect repo state as
+of 2026-08-02 — if versionCode moves before submission, tell me and I'll regenerate.</p>
+
+<div class="copyblock"><div class="ch"><span class="id">R1</span><b>metadata/app.marmalade.tts.yml</b><button class="cp">Copy</button></div>
+<pre>Categories:
+  - Multimedia
+  - Reading
+License: GPL-3.0-or-later
+AuthorName: Max
+SourceCode: https://github.com/maxwhipw/marmalade-tts-android
+IssueTracker: https://github.com/maxwhipw/marmalade-tts-android/issues
+Changelog: https://github.com/maxwhipw/marmalade-tts-android/blob/main/CHANGELOG.md
+
+AntiFeatures:
+  - NonFreeNet
+
+RepoType: git
+Repo: https://github.com/maxwhipw/marmalade-tts-android.git
+
+Builds:
+  - versionName: 1.0.0-beta.1
+    versionCode: 33
+    commit: v1.0.0-beta.1
+    subdir: app
+    submodules: yes
+    gradle:
+      - fdroid
+    ndk: r26d
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0-beta.1
+CurrentVersionCode: 33</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">M1</span><b>MR description — "New app: Marmalade TTS"</b><button class="cp">Copy</button></div>
+<pre>New app: Marmalade TTS (app.marmalade.tts) — a free, open-source neural
+text-to-speech ENGINE for Android (registers via TextToSpeechService, so
+TalkBack and reader apps speak through it). 60+ on-device voices, offline,
+no ads/analytics/accounts.
+
+Stating the review-relevant facts up front:
+
+- **Licensing:** source files are MIT, but the built APK compiles espeak-ng
+  (GPL-3.0-or-later) from the pinned `third_party/espeak-ng` submodule, so
+  the recipe declares `License: GPL-3.0-or-later` and needs
+  `submodules: yes`. Full per-component licensing is in CREDITS.md and
+  shown in-app.
+- **NonFreeNet pre-tagged:** voice-model bundles (ONNX models + data only —
+  no executable code) download from GitHub Releases on explicit per-engine
+  opt-in via the in-app Install screen. Assets are pinned by SHA-256 in a
+  versioned catalog. Precedent: org.woheller69.ttsengine (SherpaTTS).
+- **Build:** `gradle: [fdroid]` product flavor (differs from Play only by a
+  GitHub Sponsors link in About). espeak-ng builds from source in-tree via
+  CMake with no network access at build time (upstream's FetchContent
+  clone of libsonic is deliberately not used). NDK pinned to r26d to match
+  `ndkVersion` in app/build.gradle.kts.
+- **Transparency:** solo developer, built openly with heavy AI assistance
+  (the git history shows it); every release is tested on real devices.
+
+Fastlane metadata (title, descriptions, icon, screenshots, changelogs) is
+maintained in-repo at fastlane/metadata/android/en-US/.</pre></div>
+
+<div class="copyblock"><div class="ch"><span class="id">M2</span><b>Reviewer-reply cheat sheet (for me, next session)</b><button class="cp">Copy</button></div>
+<pre>Likely reviewer asks and the honest answers:
+
+- "Why GPL license field on an MIT repo?" → the DISTRIBUTED APK is a GPL
+  derivative via from-source espeak-ng; License: field describes the build
+  product. CREDITS.md carries the full breakdown.
+- "What exactly is downloaded at runtime?" → model weights + voice data
+  only, opt-in per engine, SHA-256-pinned catalog, GitHub Releases. No
+  .so/.dex/executable code at rest in any bundle (verified: engines
+  release v22, 2026-07-11).
+- "Reproducible?" → we don't claim reproducible builds (F-Droid signs with
+  their key); build is deterministic-friendly: pinned submodule, pinned
+  NDK, no network at build time.
+- "Anti-feature scope?" → NonFreeNet accepted as pre-tagged. If they also
+  want Tracking/NonFreeDep review: there are none — no analytics, no
+  proprietary deps, deps resolve from Maven Central/Google only.
+- NDK nit → ndkVersion 26.3.11579264 == r26d exactly.</pre></div>
+
+<div class="out">
+  <h3>Prompt — paste back to me</h3>
+  <div id="prompt"></div>
+  <button class="cp" onclick="copyPrompt()" style="margin-top:10px">Copy prompt</button>
+</div>
+
+</main>
+
+<script>
+const LS = 'marmalade-fdroid-lab:';
+document.querySelectorAll('.wstep .hd').forEach(h =>
+  h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+document.querySelectorAll('label.step input').forEach(cb => {
+  const k = LS + cb.dataset.k;
+  cb.checked = localStorage.getItem(k) === '1';
+  cb.closest('label').classList.toggle('checked', cb.checked);
+  cb.addEventListener('change', () => {
+    localStorage.setItem(k, cb.checked ? '1' : '0');
+    cb.closest('label').classList.toggle('checked', cb.checked);
+    progress(); updatePrompt();
+  });
+});
+document.querySelectorAll('textarea.tracker').forEach(t => {
+  const k = LS + t.dataset.k;
+  t.value = localStorage.getItem(k) || '';
+  t.addEventListener('input', () => localStorage.setItem(k, t.value));
+});
+function progress(){
+  document.querySelectorAll('details.phase').forEach(ph => {
+    const boxes = ph.querySelectorAll('input[type=checkbox]');
+    const done = [...boxes].filter(b => b.checked).length;
+    const el = ph.querySelector('.prog');
+    el.textContent = done + ' / ' + boxes.length;
+    el.classList.toggle('done', done === boxes.length && boxes.length > 0);
+  });
+}
+document.querySelectorAll('.copyblock').forEach(b => {
+  const btn = b.querySelector('button.cp');
+  btn.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(b.querySelector('pre').textContent);
+    btn.textContent = 'Copied ✓'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1500);
+  });
+});
+function updatePrompt(){
+  const open = [...document.querySelectorAll('label.step input')]
+    .filter(cb => !cb.checked)
+    .map(cb => cb.closest('label').querySelector('.t b').textContent);
+  let s = 'Working in ~/coding/marmalade-tts-android on branch main. Read ' +
+    'docs/release/fdroid-lab.html (served at http://marmalade:8095/marmalade-tts-release/fdroid-lab.html) ' +
+    'and docs/release/FDROID-RELEASE-PLAN.md first.\n\n';
+  s += open.length
+    ? 'Next unchecked F-Droid steps:\n' + open.slice(0, 6).map((t, i) => `${i + 1}. ${t}`).join('\n')
+    : 'F-Droid checklist fully checked — verify the listing is live and update the launch-lab copy deck links.';
+  s += '\n\nGuardrails: tag v1.0.0-beta.1 must point at the exact commit the Play closed-test build ' +
+    'ships (versionCode 33); no GitHub push without an explicit all-clear from Max; engines-repo ' +
+    'release assets are immutable; do NOT submit to IzzyOnDroid (decided 2026-07-26).';
+  document.getElementById('prompt').textContent = s;
+}
+function copyPrompt(){
+  navigator.clipboard.writeText(document.getElementById('prompt').textContent);
+}
+progress(); updatePrompt();
+</script>
+</body>
+</html>
