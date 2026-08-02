@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +37,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -379,7 +381,11 @@ private fun PreprocessingSection(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onToggle(rule.name, !isOn) }
+                        .toggleable(
+                            value = isOn,
+                            role = Role.Switch,
+                            onValueChange = { onToggle(rule.name, it) },
+                        )
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -396,7 +402,7 @@ private fun PreprocessingSection(
                     }
                     Switch(
                         checked = isOn,
-                        onCheckedChange = { onToggle(rule.name, it) },
+                        onCheckedChange = null,
                     )
                 }
             }
