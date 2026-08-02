@@ -6,6 +6,7 @@ import android.speech.tts.SynthesisCallback
 import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
+import android.speech.tts.Voice
 import android.util.Log
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
@@ -15,6 +16,7 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
@@ -102,9 +104,15 @@ import kotlinx.coroutines.runBlocking
 //      ▼
 //   callback.done()   (or callback.error() on any exception)
 //
-//   Voice negotiation (onLoadVoice / onIsLanguageAvailable) accepts any
-//   voice belonging to a known engine (kitten or kokoro) so the system
-//   can enumerate both catalogs through Settings → Languages → TTS.
+//   Voice negotiation (onLoadVoice / onGetVoices) accepts any voice
+//   belonging to a known engine so the system can enumerate every
+//   catalog through Settings → Languages → TTS.
+//
+//   Language negotiation (onIsLanguageAvailable / onGetDefaultVoiceNameFor)
+//   answers from the languages of the *installed* voices — English always,
+//   plus whatever else is on disk (Kokoro's eight non-English locales).
+//   A request that names no voice but does name a non-English language is
+//   redirected to a voice of that language by applyRequestLanguage.
 //
 //   onLoadLanguage additionally fires a background warm-up — calling
 //   ensureModelLoaded() on both engines off-thread — so that the first
@@ -128,9 +136,10 @@ import kotlinx.coroutines.runBlocking
  * 1. `onSynthesizeText` resolves the requested voice against [VoiceMetaDao],
  *    picks the engine from `voice.engine`, asks that engine for PCM, and
  *    streams it through the callback in `callback.maxBufferSize` chunks.
- * 2. `onIsLanguageAvailable` / `onLoadLanguage` honour English variants
- *    only — both installable engines are English-only today.
- * 3. `onLoadVoice` accepts any voice ID seeded for either engine.
+ * 2. `onIsLanguageAvailable` / `onLoadLanguage` answer for English plus
+ *    every language an installed engine ships a voice for.
+ * 3. `onLoadVoice` accepts any voice ID seeded for a known engine, and
+ *    `onGetVoices` enumerates them all.
  *
  * Failures (missing model, JNI crash, etc.) surface as `callback.error()`
  * with a logged reason. The system retries or falls back to its default
@@ -188,6 +197,25 @@ class MarmaladeTtsService : TextToSpeechService() {
     /** What the hot path needs to know about a voice before synthesizing. */
     private data class VoiceRouting(val engine: String, val sampleRate: Int)
 
+    /**
+     * Last catalog snapshot, kept alongside [voiceEngineCache] because
+     * the language-negotiation callbacks need each voice's *language*,
+     * which the routing cache deliberately doesn't carry. Empty until the
+     * onCreate collector runs — see [installedVoices], which falls back to
+     * a blocking read for the binder-thread calls that can beat it.
+     */
+    @Volatile
+    private var voiceSnapshot: List<VoiceMeta> = emptyList()
+
+    /**
+     * The `[language, country, variant]` triple last loaded through
+     * [onLoadLanguage], reported back by [onGetLanguage]. Defaults to
+     * en-US: it's the engine's baseline language and what we answered
+     * unconditionally before locale negotiation existed.
+     */
+    @Volatile
+    private var loadedLanguage: Array<String> = DEFAULT_LANGUAGE
+
     // engineName → enabled preprocessing rules. Populated lazily from
     // onLoadLanguage (the framework's documented warm-up hook). Reads in
     // onSynthesizeText fall back to the default set if the cache hasn't
@@ -219,30 +247,32 @@ class MarmaladeTtsService : TextToSpeechService() {
                 for (v in voices) {
                     voiceEngineCache[v.id] = VoiceRouting(v.engine, v.sampleRate)
                 }
+                voiceSnapshot = voices
             }
         }
     }
 
-    // Widened to public so MarmaladeTtsServiceTest can exercise the
-    // language-negotiation logic without subclassing the framework type.
+    /**
+     * Language negotiation, answered from what is actually installed.
+     *
+     * English is always available — every engine speaks it, and the
+     * framework asks before the user has installed anything. Every other
+     * language is available exactly when an installed engine ships a
+     * voice for it (Kokoro's eight non-English locales in practice), so
+     * this can no longer contradict what [CheckVoiceDataActivity]
+     * advertises through CHECK_TTS_DATA.
+     *
+     * Both ISO-639-1 ("es") and -3 ("spa") arrive here depending on the
+     * caller; [TtsLocales] handles both.
+     *
+     * Widened to public so MarmaladeTtsServiceTest can exercise the
+     * negotiation logic without subclassing the framework type.
+     */
     public override fun onIsLanguageAvailable(
         lang: String?,
         country: String?,
         variant: String?,
-    ): Int {
-        val l = lang?.lowercase()
-        val c = country?.uppercase()
-        return when {
-            // Match ISO-639-1 ("en") and -3 ("eng"); the system uses both in
-            // different paths.
-            l == "en" || l == "eng" -> when (c) {
-                null, "" -> TextToSpeech.LANG_AVAILABLE
-                "US", "USA" -> TextToSpeech.LANG_COUNTRY_AVAILABLE
-                else -> TextToSpeech.LANG_AVAILABLE
-            }
-            else -> TextToSpeech.LANG_NOT_SUPPORTED
-        }
-    }
+    ): Int = TtsLocales.availability(lang, country, installedVoices().map { it.languageCode })
 
     /**
      * Called by the framework when the user selects this engine in
@@ -255,8 +285,11 @@ class MarmaladeTtsService : TextToSpeechService() {
      * ~25 MB of model + 19 MB of espeak-ng-data via JNI. Some clients
      * (screen readers especially) treat a slow `callback.start()` as an
      * engine fault.
+     *
+     * Widened to public for MarmaladeTtsServiceTest, like
+     * [onIsLanguageAvailable].
      */
-    override fun onLoadLanguage(
+    public override fun onLoadLanguage(
         lang: String?,
         country: String?,
         variant: String?,
@@ -266,6 +299,12 @@ class MarmaladeTtsService : TextToSpeechService() {
             result == TextToSpeech.LANG_COUNTRY_AVAILABLE ||
             result == TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE
         if (supported) {
+            // Report back whatever we'd actually speak this request with,
+            // so onGetLanguage stops claiming en-US for a Japanese load.
+            loadedLanguage = TtsLocales
+                .defaultVoiceFor(lang, country, installedVoices())
+                ?.let { TtsLocales.iso3TripleFor(it.languageCode) }
+                ?: DEFAULT_LANGUAGE
             warmUpEngine()
         }
         return result
@@ -322,7 +361,34 @@ class MarmaladeTtsService : TextToSpeechService() {
         engineWarmup.warmInstalledAsync()
     }
 
-    override fun onGetLanguage(): Array<String> = arrayOf("eng", "USA", "")
+    /** Widened to public for MarmaladeTtsServiceTest. */
+    public override fun onGetLanguage(): Array<String> = loadedLanguage
+
+    /**
+     * Every voice of every installed engine, so clients that enumerate
+     * voices (`TextToSpeech.getVoices`, the system's per-language voice
+     * picker) see the same catalog Marmalade shows in-app. Without this
+     * override the framework synthesises a single voice per advertised
+     * locale and no caller can reach a specific one.
+     *
+     * Cloud voices declare `requiresNetworkConnection` and the higher
+     * latency band — they are a round trip to a provider, and a client
+     * choosing a voice for a screen reader deserves to know that.
+     *
+     * Widened to public for MarmaladeTtsServiceTest.
+     */
+    public override fun onGetVoices(): MutableList<Voice> =
+        installedVoices().map { meta ->
+            val network = meta.engine == CloudApiVoiceCatalog.ENGINE
+            Voice(
+                meta.id,
+                TtsLocales.localeFor(meta.languageCode),
+                Voice.QUALITY_NORMAL,
+                if (network) Voice.LATENCY_HIGH else Voice.LATENCY_NORMAL,
+                network,
+                emptySet(),
+            )
+        }.toMutableList()
 
     /**
      * Called by the system when a voice is selected. Accept any voice ID
@@ -348,11 +414,22 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     override fun onIsValidVoiceName(voiceName: String?): Int = onLoadVoice(voiceName)
 
-    override fun onGetDefaultVoiceNameFor(
+    public override fun onGetDefaultVoiceNameFor(
         lang: String?,
         country: String?,
         variant: String?,
     ): String {
+        if (onIsLanguageAvailable(lang, country, variant) == TextToSpeech.LANG_NOT_SUPPORTED) {
+            return ""
+        }
+        // Non-English request → answer from the catalog. The alias set is
+        // the user's English-shaped setup (primary alias, per-app
+        // mappings); handing a French request an English alias voice is
+        // how the engine ends up reading French with an American voice.
+        if (TtsLocales.toIso2Language(lang) != TtsLocales.BASELINE_LANGUAGE) {
+            TtsLocales.defaultVoiceFor(lang, country, installedVoices())
+                ?.let { return it.id }
+        }
         // English request → the user's primary alias voice when one is
         // set, falling back to the catalog-recommended default. Clients
         // auto-fill SynthesisRequest.voiceName from this answer, so
@@ -361,14 +438,8 @@ class MarmaladeTtsService : TextToSpeechService() {
         // pre-stamped with Kokoro Bella — and the primary never fired.
         // runBlocking is fine: this is a rare negotiation callback on a
         // binder thread, not the per-utterance synthesis hot path.
-        return if (onIsLanguageAvailable(lang, country, variant)
-            != TextToSpeech.LANG_NOT_SUPPORTED
-        ) {
-            runBlocking { router.resolveAlias(null)?.voiceId }
-                ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
-        } else {
-            ""
-        }
+        return runBlocking { router.resolveAlias(null)?.voiceId }
+            ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
     }
 
     // Widened to public so MarmaladeTtsServiceTest can exercise the
@@ -382,7 +453,9 @@ class MarmaladeTtsService : TextToSpeechService() {
         //   3. Primary alias.
         //   4. Engine default voice (current behaviour).
         // resolveSynthParams encodes this; see the helper kdoc.
-        val params = resolveSynthParams(request)
+        // applyRequestLanguage then redirects the no-voice-named case to a
+        // voice of the requested language when that language isn't English.
+        val params = applyRequestLanguage(request, resolveSynthParams(request))
         val voiceId = params.voiceId
         val engineName = engineNameFor(voiceId)
         val activeSampleRate = sampleRateFor(voiceId, engineName)
@@ -770,6 +843,94 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
+     * Honour `SynthesisRequest`'s language when the caller named no voice
+     * of its own.
+     *
+     * A client that says "speak this in Japanese" and leaves the voice to
+     * us used to get the user's (English) primary alias reading Japanese
+     * text through an English phonemizer. Now the request's language picks
+     * an installed voice for that language — Kokoro's, in practice — and
+     * sets the espeak language to match.
+     *
+     * Deliberately narrow:
+     * - A caller-named voice we know always wins. It out-specifies a
+     *   locale, and the voice carries its own language.
+     * - English (and any language we have nothing installed for) is left
+     *   completely alone, so the alias / per-app routing that Marmalade's
+     *   daily English use is built on behaves exactly as before.
+     *
+     * Speed and effects still come from the alias — those are the user's
+     * preferences, not English-specific. The alias's offline fallback is
+     * dropped: it points at another alias, which would speak the wrong
+     * language.
+     */
+    internal fun applyRequestLanguage(
+        request: SynthesisRequest,
+        params: SynthParams,
+    ): SynthParams {
+        val requested = request.voiceName?.takeIf { it.isNotBlank() }
+        if (requested != null && onIsValidVoiceName(requested) == TextToSpeech.SUCCESS) {
+            return params
+        }
+        val language = TtsLocales.toIso2Language(request.language) ?: return params
+        if (language == TtsLocales.BASELINE_LANGUAGE) return params
+        val voice = TtsLocales.defaultVoiceFor(
+            request.language,
+            request.country,
+            installedVoices(),
+        ) ?: return params
+        // espeakVoiceFor is the per-voice source of truth for the espeak
+        // code; for non-Kokoro engines the field is ignored anyway.
+        val espeak = if (voice.engine == KokoroDirectVoiceCatalog.ENGINE) {
+            KokoroDirectVoiceCatalog.espeakVoiceFor(voice.displayName)
+        } else {
+            params.phonemizationLanguage
+        }
+        Log.d(
+            TAG,
+            "request language ${request.language}-${request.country} → " +
+                "voice=${voice.id} phonemization=$espeak",
+        )
+        return params.copy(
+            voiceId = voice.id,
+            phonemizationLanguage = espeak,
+            fallbackVoiceId = null,
+        )
+    }
+
+    /**
+     * Catalog rows whose engine is really on disk.
+     *
+     * `isInstalled()` on the engine — the same signal
+     * [CheckVoiceDataActivity] classifies with, and the one the rest of
+     * the app trusts; `VoiceMeta.isInstalled` is never flipped in
+     * production.
+     *
+     * Negotiation callbacks can arrive on a binder thread before the
+     * onCreate collector has filled [voiceSnapshot], so an empty snapshot
+     * falls back to one blocking DAO read — the same defensive pattern
+     * [onLoadVoice] uses, and never on the synthesis hot path.
+     */
+    private fun installedVoices(): List<VoiceMeta> {
+        val all = voiceSnapshot.ifEmpty {
+            runBlocking { voiceDao.getAll().first() }.also { voiceSnapshot = it }
+        }
+        return all.filter { isEngineInstalled(it.engine) }
+    }
+
+    /** On-disk install state of the engine named [engineName]. */
+    private fun isEngineInstalled(engineName: String): Boolean = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.isInstalled()
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.isInstalled()
+        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.isInstalled()
+        PocketVoiceCatalog.ENGINE -> pocket.isInstalled()
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.isInstalled()
+        // Developer-only rows (Pocket dev) and anything else unknown are
+        // never advertised to the system.
+        else -> false
+    }
+
+    /**
      * Look up the calling app's package name from
      * [SynthesisRequest.getCallerUid]. Returns null when the UID is
      * shared between multiple apps (PackageManager returns null in that
@@ -957,6 +1118,9 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     companion object {
         private const val TAG = "MarmaladeTtsService"
+
+        /** What [onGetLanguage] reports until a language is loaded. */
+        private val DEFAULT_LANGUAGE = arrayOf("eng", "USA", "")
 
         /**
          * Bounds for the alias-speed × client-rate product. The framework

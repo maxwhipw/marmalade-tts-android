@@ -86,17 +86,26 @@ clean:
   `knownEngineOrDefault()` + Robolectric test.
 - G `dd7d06b` — Synthesizer.kt per-engine language comment corrected.
 
-**Open decision for Max (do NOT implement without his pick):** system TTS
-contradiction — CheckVoiceDataActivity advertises 8 non-EN locales while
-`MarmaladeTtsService.onIsLanguageAvailable` (:228) rejects all non-English and
-`onSynthesizeText` never reads `request.language`. Option (i) accept the 9
-Kokoro locales + implement `onGetVoices()` + honor request locale
-(recommended; only way external apps reach non-EN Kokoro); option (ii) narrow
-CheckVoiceDataActivity to English. Note the unit test asserting
-fr-FR → LANG_NOT_SUPPORTED (MarmaladeTtsServiceTest:478) locks in current
-behavior. Still-open non-EN quality defects: D3-D8 in
-docs/LANGUAGE-AUDIT-2026-07.md. Device smoke of A/D pending (adb port — ask
-Max).
+Follow-ups Max decided after the audit (420 JVM unit tests green):
+
+- E `dd2c9a4` — revises A: the dropdown is *shown disabled at English (US)*
+  for the on-device English-only engines (Kitten, Kitten Mini, Pocket, Pocket
+  dev) instead of hidden; Kokoro unchanged (enabled, full list); cloud still
+  has no field. New string `alias_lang_engine_english_only` ×8 locales.
+- F — **the system-TTS locale decision is taken: option (i), implemented.**
+  `MarmaladeTtsService` now answers language negotiation from the languages of
+  the *installed* voices (English always, plus Kokoro's eight), implements
+  `onGetVoices()`, returns a locale-appropriate `onGetDefaultVoiceNameFor`,
+  reports the loaded language from `onGetLanguage`, and — when a request names
+  no voice but does name a non-English language — speaks it with a voice of
+  that language and the matching espeak code (`applyRequestLanguage`). English
+  requests, aliases and per-app routing are untouched by design. The BCP-47 ↔
+  framework mapping now lives once in `service/TtsLocales.kt`, shared with
+  CheckVoiceDataActivity, so the two can't drift apart again.
+
+Still-open non-EN quality defects: D3-D8 in docs/LANGUAGE-AUDIT-2026-07.md
+(they bite harder now that external apps can actually reach the non-EN
+voices). Device smoke of A/D/E/F pending (adb port — ask Max).
 
 ## Task: apply the Kokoro QDQ recipe to Pocket ("Pocket parity")
 

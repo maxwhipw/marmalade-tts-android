@@ -110,7 +110,7 @@ class CheckVoiceDataActivity : ComponentActivity() {
             val available = ArrayList<String>()
             val unavailable = ArrayList<String>()
             for (v in voices) {
-                val tag = bcp47ToTtsTag(v.languageCode) ?: continue
+                val tag = TtsLocales.bcp47ToTtsTag(v.languageCode) ?: continue
                 if (v.engine in installedEngines) {
                     if (!available.contains(tag)) available.add(tag)
                 } else {
@@ -131,55 +131,5 @@ class CheckVoiceDataActivity : ComponentActivity() {
             }
             return available to unavailable
         }
-
-        /**
-         * Convert a BCP-47 tag like `"en-US"` to the TTS engine's
-         * ISO-639-3 + ISO-3166-1-alpha-3 form (`"eng-USA"`). Variant
-         * (third component) is empty for everything we ship.
-         *
-         * Returns null on inputs we can't parse — those voices are
-         * silently dropped from the report rather than crashing the
-         * check.
-         */
-        internal fun bcp47ToTtsTag(bcp47: String): String? {
-            val parts = bcp47.split('-', '_')
-            val lang2 = parts.getOrNull(0)?.lowercase() ?: return null
-            val region2 = parts.getOrNull(1)?.uppercase()
-            val lang3 = LANG_2_TO_3[lang2] ?: return null
-            val region3 = region2?.let { REGION_2_TO_3[it] ?: it }
-            return if (region3 != null) "$lang3-$region3" else lang3
-        }
-
-        // Compact lookup tables for the codes Marmalade actually ships
-        // today. We can grow these as new engines/voices land — keep the
-        // map small + obviously correct rather than pulling in
-        // `Locale.getISO3Language()` which depends on the device's ICU
-        // tables and has been known to disagree across OEMs.
-        //
-        // v0.1.19: expanded for the multi-lang Kokoro upgrade. Every code
-        // pair below is exercised by at least one shipped Kokoro voice
-        // (see KokoroVoiceCatalog.languageFor).
-        private val LANG_2_TO_3: Map<String, String> = mapOf(
-            "en" to "eng",
-            "es" to "spa",
-            "fr" to "fra",
-            "hi" to "hin",
-            "it" to "ita",
-            "ja" to "jpn",
-            "pt" to "por",
-            "zh" to "zho",
-        )
-
-        private val REGION_2_TO_3: Map<String, String> = mapOf(
-            "US" to "USA",
-            "GB" to "GBR",
-            "ES" to "ESP",
-            "FR" to "FRA",
-            "IN" to "IND",
-            "IT" to "ITA",
-            "JP" to "JPN",
-            "BR" to "BRA",
-            "CN" to "CHN",
-        )
     }
 }

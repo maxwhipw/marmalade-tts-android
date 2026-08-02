@@ -16,7 +16,9 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
+import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -111,6 +114,15 @@ class MarmaladeTtsServiceTest {
             mappingDao = EmptyMappingDao,
             aliasDao = EmptyAliasDao,
             settings = fakeSettings,
+        ))
+        // onLoadLanguage fires the background warm-up. The two real engines
+        // here have nothing installed, so ensureModelLoaded throws
+        // EngineNotInstalledException inside the warm-up's own catch.
+        setField(service, "engineWarmup", EngineWarmup(
+            kokoroDirect = fakeKokoroDirectEngine,
+            kittenDirect = fakeEngine,
+            kittenDirectMini = KittenDirectMiniEngine(ctx, fakeSettings),
+            pocket = PocketEngine(ctx, fakeSettings),
         ))
     }
 
@@ -474,9 +486,173 @@ class MarmaladeTtsServiceTest {
         val iso3 = service.onIsLanguageAvailable("eng", "USA", "")
         assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, iso3)
 
-        // And a non-English locale must report NOT_SUPPORTED.
-        val notSupported = service.onIsLanguageAvailable("fr", "FR", "")
+        // A language no installed engine ships must report NOT_SUPPORTED —
+        // German is in no catalog.
+        val notSupported = service.onIsLanguageAvailable("deu", "DEU", "")
         assertEquals(TextToSpeech.LANG_NOT_SUPPORTED, notSupported)
+    }
+
+    // -- language negotiation follows what is installed ---------------------
+    //
+    // Kokoro is installed in this fixture (FakeKokoroDirectEngine.isInstalled
+    // is true unless configured to throw), so its eight non-English locales
+    // are available. That is the whole point of atom F: the check activity
+    // advertised them through CHECK_TTS_DATA while the service rejected them.
+
+    @Test
+    fun onIsLanguageAvailable_installedKokoroLocalesAreAvailable() {
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("fr", "FR", ""),
+        )
+        // Android hands us ISO-639-3 / ISO-3166-alpha-3 on most paths.
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("jpn", "JPN", ""),
+        )
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("spa", "ESP", ""),
+        )
+        // Language matches, region doesn't.
+        assertEquals(
+            TextToSpeech.LANG_AVAILABLE,
+            service.onIsLanguageAvailable("fra", "CAN", ""),
+        )
+    }
+
+    @Test
+    fun onIsLanguageAvailable_uninstalledEngineLocalesAreNotSupported() {
+        // Knock Kokoro out; only Kitten (English) remains installed.
+        fakeKokoroDirectEngine.synthesizeException =
+            EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+
+        assertEquals(
+            TextToSpeech.LANG_NOT_SUPPORTED,
+            service.onIsLanguageAvailable("jpn", "JPN", ""),
+        )
+        // English stays available regardless — it is the engine's baseline
+        // and the framework asks before anything is installed.
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("eng", "USA", ""),
+        )
+    }
+
+    @Test
+    fun onGetVoices_listsEveryInstalledVoiceWithItsLocale() {
+        val voices = service.onGetVoices()
+        assertEquals(
+            KittenDirectVoiceCatalog.voices.size + KokoroDirectVoiceCatalog.voices.size,
+            voices.size,
+        )
+        val japanese = voices.single { it.name == "kokoro-direct-v1_0:jf_alpha" }
+        assertEquals("ja", japanese.locale.language)
+        assertEquals("JP", japanese.locale.country)
+        // On-device engines never need the network.
+        assertTrue(voices.none { it.isNetworkConnectionRequired })
+    }
+
+    @Test
+    fun onGetVoices_skipsUninstalledEngines() {
+        fakeKokoroDirectEngine.synthesizeException =
+            EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+
+        val voices = service.onGetVoices()
+        assertEquals(KittenDirectVoiceCatalog.voices.size, voices.size)
+        assertTrue(voices.all { it.name.startsWith("kitten-direct-v0_8:") })
+    }
+
+    @Test
+    fun onGetDefaultVoiceNameFor_nonEnglishLocalePicksAVoiceOfThatLanguage() {
+        // The primary alias is English; a Japanese request must not get it.
+        installKittenPrimary()
+
+        assertEquals(
+            "kokoro-direct-v1_0:jf_alpha",
+            service.onGetDefaultVoiceNameFor("jpn", "JPN", ""),
+        )
+        assertEquals(
+            "kokoro-direct-v1_0:ff_siwis",
+            service.onGetDefaultVoiceNameFor("fr", "FR", ""),
+        )
+        // English is unchanged: the user's primary alias.
+        assertEquals(
+            "kitten-direct-v0_8:Bella",
+            service.onGetDefaultVoiceNameFor("eng", "USA", ""),
+        )
+        // Nothing installed speaks German.
+        assertEquals("", service.onGetDefaultVoiceNameFor("deu", "DEU", ""))
+    }
+
+    @Test
+    fun onLoadLanguage_reportsTheLoadedLanguageBack() {
+        assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, service.onLoadLanguage("jpn", "JPN", ""))
+        assertEquals(listOf("jpn", "JPN", ""), service.onGetLanguage().toList())
+
+        service.onLoadLanguage("eng", "USA", "")
+        assertEquals(listOf("eng", "USA", ""), service.onGetLanguage().toList())
+    }
+
+    // -- request language selects the voice + phonemization -----------------
+
+    @Test
+    fun onSynthesizeText_nonEnglishRequestWithoutVoiceSelectsThatLanguage() {
+        // An English primary alias is set, exactly as on Max's phone.
+        installKittenPrimary()
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = newRequestWithLanguage("こんにちは", "jpn", "JPN")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("the English primary must not speak Japanese", 0, fakeEngine.calls.size)
+        assertEquals("kokoro-direct-v1_0:jf_alpha", fakeKokoroDirectEngine.calls.single().second)
+        // espeak has to be told, or the Japanese voice reads Japanese text
+        // through an English phonemizer.
+        assertEquals("ja", fakeKokoroDirectEngine.languages.single())
+        // The alias's speed still rides along — it's a user preference, not
+        // an English one.
+        assertEquals(1.5f, fakeKokoroDirectEngine.calls.single().third)
+    }
+
+    @Test
+    fun onSynthesizeText_englishRequestIsUntouchedByLanguageSelection() {
+        installKittenPrimary()
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        val request = newRequestWithLanguage("hello", "eng", "USA")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // Unchanged: primary alias wins, no language redirect.
+        assertEquals(1, fakeEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+    }
+
+    @Test
+    fun onSynthesizeText_namedVoiceOutranksTheRequestLanguage() {
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        // A caller that names a voice has out-specified the locale.
+        val request = newRequestWithVoice("hello", "kokoro-direct-v1_0:bm_lewis")
+        setLanguage(request, "jpn", "JPN")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("kokoro-direct-v1_0:bm_lewis", fakeKokoroDirectEngine.calls.single().second)
+        assertNull(fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_unsupportedRequestLanguageKeepsTheDefaultVoice() {
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = newRequestWithLanguage("guten Tag", "deu", "DEU")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // No German voice exists → the engine default speaks, as before.
+        assertEquals(
+            KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
+            fakeKokoroDirectEngine.calls.single().second,
+        )
     }
 
     // ----------------------------------------------------------------------
@@ -499,6 +675,34 @@ class MarmaladeTtsServiceTest {
         field.isAccessible = true
         field.set(req, voiceName)
         return req
+    }
+
+    /**
+     * Build a SynthesisRequest carrying a language but no voice name —
+     * the shape a client produces when it asks for a locale and leaves
+     * the voice to the engine.
+     */
+    private fun newRequestWithLanguage(
+        text: String,
+        language: String,
+        country: String,
+    ): SynthesisRequest = SynthesisRequest(text, Bundle()).also {
+        setLanguage(it, language, country)
+    }
+
+    /**
+     * `SynthesisRequest.setLanguage` is package-private (the framework
+     * fills it in for real requests), so reflect into it.
+     */
+    private fun setLanguage(request: SynthesisRequest, language: String, country: String) {
+        val method = SynthesisRequest::class.java.getDeclaredMethod(
+            "setLanguage",
+            String::class.java,
+            String::class.java,
+            String::class.java,
+        )
+        method.isAccessible = true
+        method.invoke(request, language, country, "")
     }
 
     /** Set a (possibly private/lateinit) field by reflection. */
@@ -591,6 +795,9 @@ internal class FakeKittenDirectEngine(
     /** Track invocations for any test that wants to assert how synthesize was called. */
     val calls: MutableList<Triple<String, String, Float>> = mutableListOf()
 
+    /** phonemizationLanguage of each call, index-aligned with [calls]. */
+    val languages: MutableList<String?> = mutableListOf()
+
     override val sampleRate: Int get() = 24_000
 
     override fun isInstalled(): Boolean = synthesizeException !is EngineNotInstalledException
@@ -602,6 +809,7 @@ internal class FakeKittenDirectEngine(
         phonemizationLanguage: String?,
     ): SynthAudio {
         calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
     }
@@ -616,6 +824,7 @@ internal class FakeKittenDirectEngine(
         phonemizationLanguage: String?,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
         calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
         synthesizeException?.let { throw it }
         emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
     }
@@ -641,6 +850,9 @@ internal class FakeKokoroDirectEngine(
     /** Track invocations for any test that wants to assert how synthesize was called. */
     val calls: MutableList<Triple<String, String, Float>> = mutableListOf()
 
+    /** phonemizationLanguage of each call, index-aligned with [calls]. */
+    val languages: MutableList<String?> = mutableListOf()
+
     override val sampleRate: Int get() = 24_000
 
     override fun isInstalled(): Boolean = synthesizeException !is EngineNotInstalledException
@@ -652,6 +864,7 @@ internal class FakeKokoroDirectEngine(
         phonemizationLanguage: String?,
     ): SynthAudio {
         calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
     }
@@ -671,6 +884,7 @@ internal class FakeKokoroDirectEngine(
         phonemizationLanguage: String?,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
         calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
         synthesizeException?.let { throw it }
         if (streamForever) {
             while (true) {
