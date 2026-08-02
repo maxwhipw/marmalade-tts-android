@@ -1,0 +1,10 @@
+[
+  {
+    "slug": "icon-lab",
+    "title": "App Icon Lab",
+    "status": "archived",
+    "date": "2026-08-01",
+    "summary": "Differentiate the TTS launcher icon from the marmalade agent app icon (identical jar + orange field). 9 mark variants x 5 background fields.",
+    "decision": "V5-e5 on B0: jar lower-left with rounded-corner flat-top :D grin (no tongue, no orange-slice decoration), cream speech bubble with amber waveform, on the existing #F97316 field. Shipped to ic_launcher_foreground.xml, play-assets/icon-512.png, and fastlane icon. Runner-up: V2 sound waves."
+  }
+]
