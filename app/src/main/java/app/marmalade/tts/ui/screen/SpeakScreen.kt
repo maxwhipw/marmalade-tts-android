@@ -201,7 +201,9 @@ fun SpeakScreen(
             val mascotRes = if (isSpeaking) R.drawable.mascot_speaking else R.drawable.mascot_happy
             Image(
                 painter = painterResource(id = mascotRes),
-                contentDescription = if (isSpeaking) "Mascot speaking" else "Mascot",
+                // Decorative: the status line below says whether we're
+                // speaking, so the mascot is a redundant first swipe stop.
+                contentDescription = null,
                 modifier = Modifier.size(64.dp),
             )
 
@@ -371,10 +373,12 @@ private fun CurrentVoiceRow(
 fun CloudMark(
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** Null where neighbouring text already says "Cloud". */
+    contentDescription: String? = "Cloud voice — needs the network",
 ) {
     Icon(
         imageVector = MarmaladeIcons.Cloud,
-        contentDescription = "Cloud voice — needs the network",
+        contentDescription = contentDescription,
         tint = tint,
         modifier = modifier.size(14.dp),
     )

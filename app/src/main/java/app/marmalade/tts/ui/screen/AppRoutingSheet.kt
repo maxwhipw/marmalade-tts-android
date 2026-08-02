@@ -253,6 +253,28 @@ fun AppIcon(packageName: String, size: Dp) {
 }
 
 /**
+ * Launcher labels for [packageNames], in the same order.
+ *
+ * Icons alone are meaningless to a screen reader, so anywhere a row of app
+ * icons stands in for "these apps" the labels carry the meaning instead.
+ * A package that's gone falls back to its own name.
+ */
+@Composable
+fun rememberAppLabels(packageNames: List<String>): List<String> {
+    val pm = LocalContext.current.packageManager
+    val labels by produceState(initialValue = packageNames, packageNames) {
+        value = packageNames.map { name ->
+            try {
+                pm.getApplicationLabel(pm.getApplicationInfo(name, 0)).toString()
+            } catch (_: PackageManager.NameNotFoundException) {
+                name
+            }
+        }
+    }
+    return labels
+}
+
+/**
  * The one launcher-tile look every app icon in this feature wears: rounded
  * square, soft shadow, icon bled to the edges.
  *

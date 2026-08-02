@@ -484,6 +484,16 @@ private fun RoutingStrip(
         return
     }
 
+    // Which apps are routed is otherwise conveyed by launcher icons alone —
+    // nothing a screen reader can read. The names replace the icon row and
+    // the "3 apps" count in a single announcement.
+    val appNames = rememberAppLabels(routedApps.map { it.packageName })
+    val routingSummary = when {
+        appNames.isEmpty() -> "Routed apps: all unrouted apps"
+        isPrimary -> "Routed apps: ${appNames.joinToString(", ")}, plus all unrouted apps"
+        else -> "Routed apps: ${appNames.joinToString(", ")}"
+    }
+
     // The primary's strip is a statement, not a control. Routing an app to
     // the primary changes nothing — it is already the fallback for every app
     // the user hasn't routed elsewhere — so opening the app picker from here
@@ -495,7 +505,8 @@ private fun RoutingStrip(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .then(if (isPrimary) Modifier else Modifier.clickable(onClick = onClick)),
+            .then(if (isPrimary) Modifier else Modifier.clickable(onClick = onClick))
+            .semantics(mergeDescendants = true) { contentDescription = routingSummary },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1087,7 +1098,7 @@ private fun MetaChip(
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
         ) {
             if (leadingCloud) {
-                CloudMark(tint = ink)
+                CloudMark(tint = ink, contentDescription = null)
                 Spacer(Modifier.width(5.dp))
             }
             Text(
