@@ -47,7 +47,7 @@
     <string name="effects_name_error">Give the effect a name.</string>
     <string name="effects_chain">Chain</string>
     <string name="effects_chain_help">Blocks run top → bottom: each one processes the audio the block above it produced.</string>
-    <string name="effects_chain_empty">No blocks yet — add one below for a dry (unprocessed) effect, or stack several to shape the sound.</string>
+    <string name="effects_chain_empty">No blocks yet — leave it empty for a dry (unprocessed) effect, or add blocks below to shape the sound.</string>
     <string name="effects_move_up">Move up</string>
     <string name="effects_move_down">Move down</string>
     <string name="effects_remove_block">Remove block</string>
