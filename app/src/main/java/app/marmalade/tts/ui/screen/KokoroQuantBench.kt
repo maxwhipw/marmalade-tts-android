@@ -130,6 +130,10 @@ object KokoroQuantBench {
         Variant("fp16", "model_fp16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
         Variant("uint8f16", "model_uint8f16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
         Variant("quantized", "model_quantized.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
+        // Round 2: self-quantized from the fast graph (static QDQ, per-channel,
+        // 118-node exclusion list from the mel-loss sensitivity sweep).
+        Variant("our-qdq", "model_our_qdq.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
+        Variant("our-qdq-x7", "model_our_qdq_x7.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
         Variant("q8f16-basic", "model_q8f16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.BASIC_OPT),
         // Crash guard: ALL_OPT q8f16 runs dead last, on purpose.
         Variant("q8f16-all", "model_q8f16.onnx", quantFile = true, optLevel = OrtSession.SessionOptions.OptLevel.ALL_OPT),
