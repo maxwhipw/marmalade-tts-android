@@ -62,7 +62,6 @@
     <string name="alias_lang_it">イタリア語</string>
     <string name="alias_lang_ja">日本語</string>
     <string name="alias_lang_pt_br">ポルトガル語（ブラジル）</string>
-    <string name="alias_lang_cmn">中国語（普通話）</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s を使うアプリ</string>

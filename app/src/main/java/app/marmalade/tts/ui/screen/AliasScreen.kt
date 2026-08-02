@@ -1006,9 +1006,13 @@ private fun PhonemizationLanguageDropdown(
  * "Auto" sentinel that clears any user override and lets KokoroDirect
  * derive the language from the voice's key prefix.
  *
- * Espeak codes follow espeak-ng-data's directory naming (`af_dict`,
- * `en-us`, `cmn`, etc.) — no abstraction layer here, the strings are
- * what espeak's `SetVoiceByName` expects.
+ * Espeak codes follow espeak-ng-data's directory naming (`en-us`,
+ * `pt-br`, etc.) — no abstraction layer here, the strings are what
+ * espeak's `SetVoiceByName` expects.
+ *
+ * Kokoro's Mandarin voices are absent on purpose: they phonemize Han
+ * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces
+ * IPA the model can't read (see KokoroDirectVoiceCatalog.espeakVoiceFor).
  */
 private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     null to R.string.alias_lang_auto,
@@ -1020,7 +1024,6 @@ private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     "it" to R.string.alias_lang_it,
     "ja" to R.string.alias_lang_ja,
     "pt-br" to R.string.alias_lang_pt_br,
-    "cmn" to R.string.alias_lang_cmn,
 )
 
 @Composable

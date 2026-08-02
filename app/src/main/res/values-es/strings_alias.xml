@@ -63,7 +63,6 @@
     <string name="alias_lang_it">Italiano</string>
     <string name="alias_lang_ja">Japonés</string>
     <string name="alias_lang_pt_br">Portugués (BR)</string>
-    <string name="alias_lang_cmn">Chino mandarín</string>
 
     <!-- Hoja de enrutamiento de apps por alias -->
     <string name="alias_routing_title">Apps que usan %1$s</string>

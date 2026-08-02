@@ -63,7 +63,6 @@
     <string name="alias_lang_it">इतालवी</string>
     <string name="alias_lang_ja">जापानी</string>
     <string name="alias_lang_pt_br">पुर्तगाली (ब्राज़ील)</string>
-    <string name="alias_lang_cmn">मैंडरिन चीनी</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s इस्तेमाल करने वाले ऐप्स</string>
