@@ -81,7 +81,11 @@ import app.marmalade.tts.R
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.PocketDevVoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
@@ -738,16 +742,24 @@ private fun AliasEditorSheet(
 
             // Kokoro Direct is the only engine the override actually
             // reaches: it is multilingual and phonemizes through espeak,
-            // so changing the language changes the audio. Kitten is
-            // English-only at the model level, Pocket doesn't phonemize
-            // through espeak at all, and cloud providers do their own
-            // text processing server-side — for all of those the control
-            // would either do nothing or produce garbage, so it isn't
-            // offered.
-            if (state.engine == KokoroDirectVoiceCatalog.ENGINE) {
+            // so changing the language changes the audio.
+            //
+            // The other on-device engines are English-only — Kitten's
+            // model can only read en-us IPA, Pocket doesn't phonemize
+            // through espeak at all — so they get the control disabled at
+            // English rather than removed: the fact that the language is
+            // fixed is itself worth showing, and a control that vanishes
+            // between voices reads as a missing feature.
+            //
+            // Cloud voices have no control at all: the provider does its
+            // own text processing server-side, so there is no language of
+            // ours to state.
+            if (state.engine in PHONEMIZATION_ENGINES) {
+                val kokoro = state.engine == KokoroDirectVoiceCatalog.ENGINE
                 PhonemizationLanguageDropdown(
-                    selected = state.phonemizationLanguage,
+                    selected = if (kokoro) state.phonemizationLanguage else "en-us",
                     onPick = onPhonemizationLanguageChange,
+                    enabled = kokoro,
                 )
             }
 
@@ -949,11 +961,16 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Per-alias espeak language override, shown for Kokoro Direct aliases
- * only. Null = "Auto", which lets `KokoroDirectVoiceCatalog
- * .espeakVoiceFor()` derive the language from the voice's key prefix.
- * Non-null forces espeak's language for every synthesis call on the
- * alias, whatever the voice.
+ * Per-alias espeak language override. Null = "Auto", which lets
+ * `KokoroDirectVoiceCatalog.espeakVoiceFor()` derive the language from
+ * the voice's key prefix. Non-null forces espeak's language for every
+ * synthesis call on the alias, whatever the voice — a Japanese voice
+ * reading en-us is accented English, which is a legitimate thing to ask
+ * for, so the list is never filtered by the voice's own language.
+ *
+ * [enabled] false renders the standard disabled field: greyed, no focus,
+ * menu unreachable. That's the English-only engines, which are pinned to
+ * English (US).
  *
  * The offered codes are the espeak languages Kokoro's voice set covers,
  * which is not the same list `espeakVoiceFor()` returns. Adding a
@@ -964,6 +981,7 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
 private fun PhonemizationLanguageDropdown(
     selected: String?,
     onPick: (String?) -> Unit,
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -971,9 +989,18 @@ private fun PhonemizationLanguageDropdown(
             value = phonemizationLanguageDisplayName(selected),
             onValueChange = { /* read-only */ },
             readOnly = true,
+            enabled = enabled,
             label = { Text(stringResource(R.string.alias_phonemization_language)) },
+            supportingText = if (enabled) {
+                null
+            } else {
+                { Text(stringResource(R.string.alias_lang_engine_english_only)) }
+            },
             trailingIcon = {
-                IconButton(onClick = { expanded = true }) {
+                // The text field's `enabled` does not reach its slots, so
+                // the icon has to be disabled in its own right or a greyed
+                // field would still open the menu.
+                IconButton(onClick = { expanded = true }, enabled = enabled) {
                     Icon(
                         Icons.Filled.ArrowDropDown,
                         contentDescription = stringResource(
@@ -1014,6 +1041,19 @@ private fun PhonemizationLanguageDropdown(
  * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces
  * IPA the model can't read (see KokoroDirectVoiceCatalog.espeakVoiceFor).
  */
+/**
+ * Engines that get a phonemization-language field at all. Kokoro is the
+ * only one that can act on it; the rest show it disabled at English.
+ * Cloud is absent on purpose — see the call site.
+ */
+private val PHONEMIZATION_ENGINES: Set<String> = setOf(
+    KokoroDirectVoiceCatalog.ENGINE,
+    KittenDirectVoiceCatalog.ENGINE,
+    KittenDirectMiniVoiceCatalog.ENGINE,
+    PocketVoiceCatalog.ENGINE,
+    PocketDevVoiceCatalog.ENGINE,
+)
+
 private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     null to R.string.alias_lang_auto,
     "en-us" to R.string.alias_lang_en_us,

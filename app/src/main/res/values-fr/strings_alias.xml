@@ -63,6 +63,7 @@
     <string name="alias_lang_it">Italien</string>
     <string name="alias_lang_ja">Japonais</string>
     <string name="alias_lang_pt_br">Portugais (BR)</string>
+    <string name="alias_lang_engine_english_only">Ce moteur ne parle qu’anglais.</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">Applis qui utilisent %1$s</string>
