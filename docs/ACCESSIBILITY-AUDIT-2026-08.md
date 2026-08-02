@@ -101,6 +101,34 @@ Dark scheme verified fine (≈7:1; onPrimary is dark ink — correct).
 5. Engine-card merge + "Show more" target (2.1, 4.1), CurrentVoiceRow
    heightIn (5.1), routing-strip descriptions (7.2).
 
+## Status (2026-08-01)
+
+Applied (non-visual only — nothing changes at default font scale):
+
+| Batch | Commit | Findings | What landed |
+|-------|--------|----------|-------------|
+| A | `73543a5` | 3.1, 3.2 | `liveRegion = Polite` on the Speak status line, the missing-engine CTA, and the engine card's download / install / failure text. |
+| B | `a910563` | 1.1, 1.2 | `contentDescription` + `stateDescription` on `LabeledSlider` and both speed sliders — TalkBack reads "Mix, 40%" / "Speed, 1.25×". |
+| C | `562280c` | 1.3 | `Modifier.toggleable` + `Role.Switch`/`Role.Checkbox` on the rows in AdvancedSettingsScreen, EngineDetailScreen, AppRoutingSheet and OnboardingScreen; inner controls take `onCheckedChange = null`. |
+| D | `8e8f072` | 2.1, 2.2, 1.4, 1.5, 1.7, 7.2 | Engine card info block merged to one stop carrying the expand action; routing strip announces routed apps by name (`rememberAppLabels`); mascot and in-chip CloudMark descriptions nulled. |
+| E | `acfb348` | 5.1, 5.2 | `heightIn(min = …)` on CurrentVoiceRow and the text field (the row's inner `fillMaxSize` became `fillMaxWidth` so a minimum height doesn't stretch it). |
+
+Not applied:
+
+- **3.4** — both preview buttons (EffectsScreen, VoicePickerScreen) already
+  flip their `contentDescription` between "Preview X" and "Stop X" /
+  "Previewing X", so a `stateDescription` would only duplicate it.
+- **1.4's second half** — the description Text keeps its `clickable`. It is no
+  longer a separate swipe stop (D merges it), and removing it would take a tap
+  target away from sighted users.
+
+Deferred by Max (visual): **6.1**, **6.2**, **6.3** (contrast), **7.1**
+(FilterChip check icon), **4.1** sizing ("Show more" 48 dp target), **1.6**
+(gender emoji), **3.3** (Snackbar adoption).
+
+Visual changes deferred at Max's request 2026-08-01 — revisit deliberately,
+don't fold into unrelated work.
+
 ## What's already good
 
 - Registered system TTS engine — genuinely valuable to blind users.
