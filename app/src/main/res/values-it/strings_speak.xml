@@ -5,7 +5,7 @@
     <string name="speak_nav_aliases">Alias</string>
     <string name="speak_nav_effects">Effetti</string>
     <string name="speak_nav_engines">Motori</string>
-    <string name="speak_nav_settings">Impostazioni</string>
+    <string name="speak_nav_settings">Opzioni</string>
 
     <!-- Schermata Leggi -->
     <string name="speak_text_field_label">Testo da leggere</string>

@@ -5,7 +5,7 @@
     <string name="speak_nav_aliases">Apelidos</string>
     <string name="speak_nav_effects">Efeitos</string>
     <string name="speak_nav_engines">Motores</string>
-    <string name="speak_nav_settings">Configurações</string>
+    <string name="speak_nav_settings">Ajustes</string>
 
     <!-- Tela Falar -->
     <string name="speak_text_field_label">Texto a falar</string>
