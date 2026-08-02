@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
@@ -254,7 +255,12 @@ class BenchmarkViewModel @Inject constructor(
     fun runQuantBench() {
         if (_state.value.quantRunning) return
         _state.update {
-            it.copy(quantRunning = true, quantResults = emptyList(), quantError = null, quantStatus = "starting…")
+            it.copy(
+                quantRunning = true,
+                quantResults = emptyList(),
+                quantError = null,
+                quantStatus = appContext.getString(R.string.bench_quant_starting),
+            )
         }
         viewModelScope.launch {
             // Free the engine-held Kokoro session first — otherwise the bench's

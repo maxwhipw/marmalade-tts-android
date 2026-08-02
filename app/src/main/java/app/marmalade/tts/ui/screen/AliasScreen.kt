@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -73,6 +76,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
@@ -177,7 +181,7 @@ fun AliasScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Voice aliases") },
+                title = { Text(stringResource(R.string.alias_title)) },
                 windowInsets = WindowInsets(0),
             )
         },
@@ -187,7 +191,7 @@ fun AliasScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Create alias")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.alias_create))
             }
         },
     ) { innerPadding ->
@@ -216,7 +220,7 @@ fun AliasScreen(
                             alias = alias,
                             isPrimary = alias.id == primaryAliasId,
                             effectName = effects.firstOrNull { it.id == alias.effectId }?.name
-                                ?: "No effect",
+                                ?: stringResource(R.string.alias_no_effect),
                             voicePath = viewModel.voicePathFor(alias),
                             routedApps = mappings.filter { it.aliasId == alias.id },
                             onOpenEditor = { viewModel.openEditor(alias) },
@@ -293,8 +297,8 @@ fun AliasScreen(
     pendingDelete?.let { alias ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete ${alias.name}?") },
-            text = { Text("This removes the alias. The underlying voice stays installed.") },
+            title = { Text(stringResource(R.string.alias_delete_title, alias.name)) },
+            text = { Text(stringResource(R.string.alias_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -308,10 +312,12 @@ fun AliasScreen(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.alias_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.alias_cancel))
+                }
             },
         )
     }
@@ -327,13 +333,12 @@ private fun EmptyState() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "No aliases yet",
+            text = stringResource(R.string.alias_empty_title),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Aliases save a voice + speed + effect under a name like " +
-                "\"narrator\" or \"dramatic\". Tap + to create one.",
+            text = stringResource(R.string.alias_empty_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -405,11 +410,17 @@ private fun AliasCard(
                     // which is what makes it readable at a glance in a row
                     // of otherwise identical outlines.
                     MetaChip(
-                        text = if (voicePath.isCloud) "Cloud" else "On device",
+                        text = stringResource(
+                            if (voicePath.isCloud) {
+                                R.string.alias_chip_cloud
+                            } else {
+                                R.string.alias_chip_on_device
+                            },
+                        ),
                         filled = true,
                         leadingCloud = voicePath.isCloud,
                     )
-                    MetaChip(text = "%.2f×".format(alias.speed))
+                    MetaChip(text = stringResource(R.string.alias_speed_chip, alias.speed))
                     MetaChip(text = effectName)
                 }
             }
@@ -476,7 +487,7 @@ private fun RoutingStrip(
             )
             Spacer(Modifier.size(8.dp))
             Text(
-                text = "Route apps to $aliasName",
+                text = stringResource(R.string.alias_route_apps_to, aliasName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -489,9 +500,12 @@ private fun RoutingStrip(
     // the "3 apps" count in a single announcement.
     val appNames = rememberAppLabels(routedApps.map { it.packageName })
     val routingSummary = when {
-        appNames.isEmpty() -> "Routed apps: all unrouted apps"
-        isPrimary -> "Routed apps: ${appNames.joinToString(", ")}, plus all unrouted apps"
-        else -> "Routed apps: ${appNames.joinToString(", ")}"
+        appNames.isEmpty() -> stringResource(R.string.alias_routed_apps_unrouted_only)
+        isPrimary -> stringResource(
+            R.string.alias_routed_apps_with_unrouted,
+            appNames.joinToString(", "),
+        )
+        else -> stringResource(R.string.alias_routed_apps, appNames.joinToString(", "))
     }
 
     // The primary's strip is a statement, not a control. Routing an app to
@@ -531,17 +545,21 @@ private fun RoutingStrip(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when {
-                        routedApps.isEmpty() -> "All unrouted apps"
-                        routedApps.size == 1 -> "1 app"
-                        else -> "${routedApps.size} apps"
+                    text = if (routedApps.isEmpty()) {
+                        stringResource(R.string.alias_all_unrouted_apps)
+                    } else {
+                        pluralStringResource(
+                            R.plurals.alias_app_count,
+                            routedApps.size,
+                            routedApps.size,
+                        )
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 if (isPrimary && routedApps.isNotEmpty()) {
                     Text(
-                        text = "+ all unrouted",
+                        text = stringResource(R.string.alias_plus_all_unrouted),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -553,7 +571,10 @@ private fun RoutingStrip(
             if (routedApps.isNotEmpty() && !isPrimary) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Choose apps for $aliasName",
+                    contentDescription = stringResource(
+                        R.string.alias_choose_apps_for,
+                        aliasName,
+                    ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -629,7 +650,11 @@ private fun AliasEditorSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = if (state.isNew) "Create alias" else "Edit ${state.originalName}",
+                text = if (state.isNew) {
+                    stringResource(R.string.alias_create)
+                } else {
+                    stringResource(R.string.alias_edit_title, state.originalName.orEmpty())
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -637,12 +662,13 @@ private fun AliasEditorSheet(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = onNameChange,
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.alias_name_label)) },
                 singleLine = true,
                 supportingText = {
                     Text(
-                        text = errorTextFor(state.error)
-                            ?: "Letters, digits, spaces, dashes — up to 50 characters.",
+                        text = stringResource(
+                            errorTextFor(state.error) ?: R.string.alias_name_help,
+                        ),
                         color = if (state.error != null) {
                             MaterialTheme.colorScheme.error
                         } else {
@@ -679,9 +705,10 @@ private fun AliasEditorSheet(
             }
 
             Column {
-                val speedText = "%.2f×".format(state.speed)
+                val speedText = stringResource(R.string.alias_speed_chip, state.speed)
+                val speedLabel = stringResource(R.string.alias_speed)
                 Text(
-                    text = "Speed: $speedText",
+                    text = stringResource(R.string.alias_speed_label, speedText),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -692,7 +719,7 @@ private fun AliasEditorSheet(
                     // (Slider's `steps` excludes the endpoints).
                     steps = 14,
                     modifier = Modifier.semantics {
-                        contentDescription = "Speed"
+                        contentDescription = speedLabel
                         stateDescription = speedText
                     },
                 )
@@ -728,14 +755,16 @@ private fun AliasEditorSheet(
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),
-                    ) { Text("Delete") }
+                    ) { Text(stringResource(R.string.alias_delete)) }
                 }
                 Spacer(Modifier.weight(1f))
                 if (canSetPrimary) {
-                    TextButton(onClick = onSetPrimary) { Text("Make primary") }
+                    TextButton(onClick = onSetPrimary) {
+                        Text(stringResource(R.string.alias_make_primary))
+                    }
                 }
                 Spacer(Modifier.size(8.dp))
-                Button(onClick = onSave) { Text("Save") }
+                Button(onClick = onSave) { Text(stringResource(R.string.alias_save)) }
             }
         }
     }
@@ -757,12 +786,12 @@ private fun VoiceRowField(
     onClick: () -> Unit,
 ) {
     PickerField(
-        label = "Voice",
-        value = path?.voice ?: "Choose a voice",
+        label = stringResource(R.string.alias_voice_label),
+        value = path?.voice ?: stringResource(R.string.alias_voice_placeholder),
         supporting = path?.collapsed,
         isPlaceholder = path == null,
         isError = isError,
-        errorText = "Pick a voice for this alias",
+        errorText = stringResource(R.string.alias_voice_error),
         onClick = onClick,
     )
 }
@@ -863,9 +892,10 @@ private fun EffectPicker(
     // its container and hid items like Walkie-talkie. AlertDialog's
     // scrollable content surface handles arbitrary list length reliably.
     var showPicker by remember { mutableStateOf(false) }
-    val selectedLabel = effects.firstOrNull { it.id == selectedId }?.name ?: "No effect"
+    val noEffect = stringResource(R.string.alias_no_effect)
+    val selectedLabel = effects.firstOrNull { it.id == selectedId }?.name ?: noEffect
     PickerField(
-        label = "Effect",
+        label = stringResource(R.string.alias_effect_label),
         value = selectedLabel,
         isPlaceholder = selectedId == null,
         onClick = { showPicker = true },
@@ -873,10 +903,10 @@ private fun EffectPicker(
     if (showPicker) {
         AlertDialog(
             onDismissRequest = { showPicker = false },
-            title = { Text("Pick effect") },
+            title = { Text(stringResource(R.string.alias_pick_effect)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    EffectPickerRow("No effect") { onPick(null); showPicker = false }
+                    EffectPickerRow(noEffect) { onPick(null); showPicker = false }
                     for (effect in effects) {
                         EffectPickerRow(effect.name) { onPick(effect.id); showPicker = false }
                     }
@@ -884,7 +914,9 @@ private fun EffectPicker(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.alias_cancel))
+                }
             },
         )
     }
@@ -922,12 +954,14 @@ private fun PhonemizationLanguageDropdown(
             value = phonemizationLanguageDisplayName(selected),
             onValueChange = { /* read-only */ },
             readOnly = true,
-            label = { Text("Phonemization language") },
+            label = { Text(stringResource(R.string.alias_phonemization_language)) },
             trailingIcon = {
                 IconButton(onClick = { expanded = true }) {
                     Icon(
                         Icons.Filled.ArrowDropDown,
-                        contentDescription = "Pick phonemization language",
+                        contentDescription = stringResource(
+                            R.string.alias_pick_phonemization_language,
+                        ),
                     )
                 }
             },
@@ -937,9 +971,9 @@ private fun PhonemizationLanguageDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            for ((code, label) in PHONEMIZATION_LANGUAGES) {
+            for ((code, labelRes) in PHONEMIZATION_LANGUAGES) {
                 DropdownMenuItem(
-                    text = { Text(label) },
+                    text = { Text(stringResource(labelRes)) },
                     onClick = {
                         onPick(code)
                         expanded = false
@@ -959,28 +993,30 @@ private fun PhonemizationLanguageDropdown(
  * `en-us`, `cmn`, etc.) — no abstraction layer here, the strings are
  * what espeak's `SetVoiceByName` expects.
  */
-private val PHONEMIZATION_LANGUAGES: List<Pair<String?, String>> = listOf(
-    null to "Auto (engine decides)",
-    "en-us" to "English (US)",
-    "en-gb" to "English (UK)",
-    "es" to "Spanish",
-    "fr-fr" to "French",
-    "hi" to "Hindi",
-    "it" to "Italian",
-    "ja" to "Japanese",
-    "pt-br" to "Portuguese (BR)",
-    "cmn" to "Mandarin Chinese",
+private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
+    null to R.string.alias_lang_auto,
+    "en-us" to R.string.alias_lang_en_us,
+    "en-gb" to R.string.alias_lang_en_gb,
+    "es" to R.string.alias_lang_es,
+    "fr-fr" to R.string.alias_lang_fr_fr,
+    "hi" to R.string.alias_lang_hi,
+    "it" to R.string.alias_lang_it,
+    "ja" to R.string.alias_lang_ja,
+    "pt-br" to R.string.alias_lang_pt_br,
+    "cmn" to R.string.alias_lang_cmn,
 )
 
+@Composable
 private fun phonemizationLanguageDisplayName(code: String?): String =
-    PHONEMIZATION_LANGUAGES.firstOrNull { it.first == code }?.second
+    PHONEMIZATION_LANGUAGES.firstOrNull { it.first == code }?.second?.let { stringResource(it) }
         ?: code // unrecognised override — show the raw code rather than hide it
-        ?: "Auto (engine decides)"
+        ?: stringResource(R.string.alias_lang_auto)
 
-private fun errorTextFor(error: SaveError?): String? = when (error) {
-    SaveError.InvalidName -> "Letters, digits, spaces, dashes — up to 50 characters."
-    SaveError.NameTaken -> "That name is already in use."
-    SaveError.MissingVoice -> "Pick a voice for this alias."
+@StringRes
+private fun errorTextFor(error: SaveError?): Int? = when (error) {
+    SaveError.InvalidName -> R.string.alias_name_help
+    SaveError.NameTaken -> R.string.alias_error_name_taken
+    SaveError.MissingVoice -> R.string.alias_error_missing_voice
     null -> null
 }
 
@@ -1003,7 +1039,7 @@ private fun FallbackPicker(
     Column {
         if (candidates.isEmpty()) {
             Text(
-                text = "No on-device alias to fall back to.",
+                text = stringResource(R.string.alias_no_fallback_candidates),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1014,10 +1050,10 @@ private fun FallbackPicker(
             onExpandedChange = { expanded = it },
         ) {
             OutlinedTextField(
-                value = selected ?: "None",
+                value = selected ?: stringResource(R.string.alias_fallback_none),
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Offline fallback") },
+                label = { Text(stringResource(R.string.alias_offline_fallback)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -1031,7 +1067,7 @@ private fun FallbackPicker(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("None") },
+                    text = { Text(stringResource(R.string.alias_fallback_none)) },
                     onClick = { onPick(null); expanded = false },
                 )
             }
@@ -1051,7 +1087,7 @@ private fun PrimaryPill() {
         color = MaterialTheme.colorScheme.primary,
     ) {
         Text(
-            text = "PRIMARY",
+            text = stringResource(R.string.alias_primary_pill),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,

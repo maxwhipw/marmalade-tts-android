@@ -42,11 +42,13 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.ui.onboarding.formatBytes
@@ -115,7 +117,7 @@ fun EnginesScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 // Top-level tab — no back arrow; the bottom bar is the way out.
-                title = { Text("Engines") },
+                title = { Text(stringResource(R.string.engines_title)) },
                 windowInsets = WindowInsets(0),
             )
         },
@@ -195,11 +197,14 @@ private fun EngineCard(
             // they're one accessibility stop rather than six. The expand
             // toggle rides along as that stop's action — the inner Texts stay
             // tappable for sighted users but no longer focus individually.
+            val expandLabel = stringResource(
+                if (expanded) R.string.engines_show_less else R.string.engines_show_more,
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) {
-                        onClick(label = if (expanded) "Show less" else "Show more") {
+                        onClick(label = expandLabel) {
                             expanded = !expanded
                             true
                         }
@@ -236,7 +241,7 @@ private fun EngineCard(
                         .clickable { expanded = !expanded },
                 )
                 Text(
-                    text = if (expanded) "Show less" else "Show more",
+                    text = expandLabel,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -247,8 +252,11 @@ private fun EngineCard(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = "${formatBytes(engine.downloadSizeBytes)} download · " +
-                        "${formatBytes(engine.installedSizeBytes)} installed",
+                    text = stringResource(
+                        R.string.engines_size_summary,
+                        formatBytes(engine.downloadSizeBytes),
+                        formatBytes(engine.installedSizeBytes),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -280,7 +288,11 @@ private fun EngineCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Downloading · ${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
+                    text = stringResource(
+                        R.string.engines_downloading_progress,
+                        formatBytes(state.bytesFetched),
+                        formatBytes(state.totalBytes),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -299,7 +311,11 @@ private fun EngineCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Installing · ${formatBytes(state.bytesExtracted)} / ${formatBytes(state.totalBytes)}",
+                    text = stringResource(
+                        R.string.engines_installing_progress,
+                        formatBytes(state.bytesExtracted),
+                        formatBytes(state.totalBytes),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -342,7 +358,7 @@ private fun DeveloperBadge() {
     AssistChip(
         onClick = { /* informational only */ },
         enabled = false,
-        label = { Text("Developer") },
+        label = { Text(stringResource(R.string.engines_developer_badge)) },
         colors = AssistChipDefaults.assistChipColors(
             labelColor = MaterialTheme.colorScheme.tertiary,
         ),
@@ -364,7 +380,7 @@ private fun ActionRow(
     ) {
         when (state) {
             InstallState.NotInstalled -> {
-                Button(onClick = onInstall) { Text("Install") }
+                Button(onClick = onInstall) { Text(stringResource(R.string.engines_install)) }
             }
             is InstallState.Downloading, is InstallState.Extracting -> {
                 // No buttons during install — the action area is
@@ -385,24 +401,24 @@ private fun ActionRow(
                 }
             }
             InstallState.Installed -> {
-                OutlinedButton(onClick = onUninstall) { Text("Uninstall") }
+                OutlinedButton(onClick = onUninstall) { Text(stringResource(R.string.engines_uninstall)) }
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = onEngineSettings) { Text("Engine settings") }
+                Button(onClick = onEngineSettings) { Text(stringResource(R.string.engines_engine_settings)) }
             }
             is InstallState.Failed -> {
-                Button(onClick = onRetry) { Text("Retry") }
+                Button(onClick = onRetry) { Text(stringResource(R.string.engines_retry)) }
             }
             InstallState.Corrupt -> {
-                Button(onClick = onRetry) { Text("Reinstall") }
+                Button(onClick = onRetry) { Text(stringResource(R.string.engines_reinstall)) }
             }
             is InstallState.Outdated -> {
                 // The current install still works; the user can keep using
                 // it while the new bundle downloads. We surface Update as
                 // the primary action and leave Engine settings reachable
                 // so they don't lose access to alias management.
-                OutlinedButton(onClick = onEngineSettings) { Text("Engine settings") }
+                OutlinedButton(onClick = onEngineSettings) { Text(stringResource(R.string.engines_engine_settings)) }
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = onInstall) { Text("Update") }
+                Button(onClick = onInstall) { Text(stringResource(R.string.engines_update)) }
             }
         }
     }
@@ -425,7 +441,7 @@ private fun CloudApiCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Cloud voices",
+                    text = stringResource(R.string.engines_cloud_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
@@ -436,11 +452,7 @@ private fun CloudApiCard(
 
             var expanded by remember { mutableStateOf(false) }
             Text(
-                text = "Hosted voices over the network — nothing to download, " +
-                    "but each request sends your text to the provider you " +
-                    "configure (Venice, OpenAI, …) and needs that provider's " +
-                    "API key. Fast to start speaking; the provider's full " +
-                    "voice lineup at your fingertips.",
+                text = stringResource(R.string.engines_cloud_card_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
@@ -450,7 +462,9 @@ private fun CloudApiCard(
                     .clickable { expanded = !expanded },
             )
             Text(
-                text = if (expanded) "Show less" else "Show more",
+                text = stringResource(
+                    if (expanded) R.string.engines_show_less else R.string.engines_show_more,
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -461,11 +475,13 @@ private fun CloudApiCard(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = if (keySet) {
-                    "Configured — cloud voices are available."
-                } else {
-                    "Not configured — add a provider API key to enable."
-                },
+                text = stringResource(
+                    if (keySet) {
+                        R.string.engines_cloud_configured
+                    } else {
+                        R.string.engines_cloud_not_configured
+                    },
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -478,11 +494,11 @@ private fun CloudApiCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (keySet) {
-                    OutlinedButton(onClick = onConfigure) { Text("Configure") }
+                    OutlinedButton(onClick = onConfigure) { Text(stringResource(R.string.engines_configure)) }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = onShowVoices) { Text("Voices") }
+                    Button(onClick = onShowVoices) { Text(stringResource(R.string.engines_voices)) }
                 } else {
-                    Button(onClick = onConfigure) { Text("Configure") }
+                    Button(onClick = onConfigure) { Text(stringResource(R.string.engines_configure)) }
                 }
             }
         }
@@ -497,13 +513,13 @@ private fun InstallConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Install ${engine.displayName}?") },
+        title = { Text(stringResource(R.string.engines_install_confirm_title, engine.displayName)) },
         text = {
             Column {
                 Text(engine.description)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Download: ${formatBytes(engine.downloadSizeBytes)}",
+                    text = stringResource(R.string.engines_install_download_size, formatBytes(engine.downloadSizeBytes)),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -515,10 +531,10 @@ private fun InstallConfirmDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm) { Text("Install") }
+            Button(onClick = onConfirm) { Text(stringResource(R.string.engines_install)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.engines_cancel)) }
         },
     )
 }
@@ -531,12 +547,9 @@ private fun UninstallConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Uninstall ${engine.displayName}?") },
+        title = { Text(stringResource(R.string.engines_uninstall_confirm_title, engine.displayName)) },
         text = {
-            Text(
-                "This will delete the engine's files from your device. " +
-                    "You can reinstall any time.",
-            )
+            Text(stringResource(R.string.engines_uninstall_confirm_body))
         },
         confirmButton = {
             Button(
@@ -544,10 +557,10 @@ private fun UninstallConfirmDialog(
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                 ),
-            ) { Text("Uninstall") }
+            ) { Text(stringResource(R.string.engines_uninstall)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.engines_cancel)) }
         },
     )
 }

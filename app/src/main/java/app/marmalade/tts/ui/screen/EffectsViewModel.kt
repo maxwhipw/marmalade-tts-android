@@ -1,7 +1,9 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectBlockJson
 import app.marmalade.tts.audio.SpeechPlayer
@@ -19,17 +21,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * One effect rendered as a card on [EffectsScreen]. [blocks] is the chain
- * decoded to one short label per block (e.g. ["Reverb 80", "Echo"]) for chip
- * display, and [chain] is the same decode kept in block form so the card's
- * play button can preview it. Decoded once in the ViewModel so the composable
- * doesn't re-parse JSON on every recomposition.
+ * One effect rendered as a card on [EffectsScreen]. [chain] is the decoded
+ * block chain — it drives both the chip row (the screen formats one label per
+ * block) and the card's play button. Decoded once in the ViewModel so the
+ * composable doesn't re-parse JSON on every recomposition.
  */
 data class EffectCard(
     val id: String,
     val name: String,
     val isBuiltin: Boolean,
-    val blocks: List<String>,
     val chain: List<EffectBlock>,
 )
 
@@ -37,11 +37,15 @@ data class EffectCard(
  * Which card is previewing, plus the failure from the last attempt (rendered
  * under the card that raised it). At most one preview runs at a time — starting
  * another stops the first.
+ *
+ * [errorRes] names the failure; [errorDetail] carries the engine's own message
+ * when there is one, which has no resource to come from.
  */
 data class EffectsPreviewState(
     val playingId: String? = null,
     val errorId: String? = null,
-    val errorMessage: String? = null,
+    @StringRes val errorRes: Int? = null,
+    val errorDetail: String? = null,
 )
 
 /**
@@ -90,7 +94,7 @@ class EffectsViewModel @Inject constructor(
                 if (generation != previewGeneration) return@launch
                 _preview.value = EffectsPreviewState(
                     errorId = card.id,
-                    errorMessage = "Pick a default voice on the Speak screen first.",
+                    errorRes = R.string.effects_preview_pick_default_voice,
                 )
                 return@launch
             }
@@ -101,7 +105,8 @@ class EffectsViewModel @Inject constructor(
                 onFailure = {
                     EffectsPreviewState(
                         errorId = card.id,
-                        errorMessage = it.message ?: "Preview failed",
+                        errorRes = R.string.effects_preview_failed,
+                        errorDetail = it.message,
                     )
                 },
             )
@@ -132,39 +137,9 @@ class EffectsViewModel @Inject constructor(
     }
 }
 
-private fun app.marmalade.tts.data.db.Effect.toCard(): EffectCard {
-    val decoded = runCatching { EffectBlockJson.decode(blocksJson) }.getOrDefault(emptyList())
-    val labels = if (decoded.isEmpty()) listOf("No effect") else decoded.map { it.label() }
-    return EffectCard(
-        id = id,
-        name = name,
-        isBuiltin = isBuiltin,
-        blocks = labels,
-        chain = decoded,
-    )
-}
-
-private fun EffectBlock.label(): String = when (this) {
-    is EffectBlock.Reverb -> "Reverb ${reverberance.toInt()}"
-    is EffectBlock.Echo -> "Echo"
-    is EffectBlock.Overdrive -> "Overdrive ${gainDb.toInt()}"
-    is EffectBlock.Pitch -> "Pitch ${if (cents >= 0) "+" else ""}${cents.toInt()}"
-    is EffectBlock.Tempo -> "Tempo ${tempoLabel(factor)}"
-    is EffectBlock.Bandpass -> "Band ${lowHz.toInt()}–${highHz.toInt()}"
-    is EffectBlock.Vol -> "Vol ${"%.1f".format(factor)}×"
-    is EffectBlock.Treble -> "Treble ${if (db >= 0) "+" else ""}${db.toInt()}"
-    is EffectBlock.Bass -> "Bass ${if (db >= 0) "+" else ""}${db.toInt()}"
-    is EffectBlock.Mid -> "Mid ${freqHz.toInt()}Hz ${if (gainDb >= 0) "+" else ""}${gainDb.toInt()}"
-    is EffectBlock.Lowpass -> "LP ${freqHz.toInt()}Hz"
-    is EffectBlock.Highpass -> "HP ${freqHz.toInt()}Hz"
-    is EffectBlock.Tremolo -> "Tremolo ${"%.1f".format(speedHz)}Hz"
-    is EffectBlock.Flanger -> "Flanger ${"%.2f".format(speedHz)}Hz"
-    is EffectBlock.Chorus -> "Chorus ${"%.2f".format(speedHz)}Hz"
-    is EffectBlock.Phaser -> "Phaser ${"%.2f".format(speedHz)}Hz"
-    is EffectBlock.Compressor -> "Comp ${thresholdDb.toInt()}dB ${"%.0f".format(ratio)}:1"
-    is EffectBlock.Bitcrush -> "Crush ${bits.toInt()}-bit ${downsample.toInt()}×"
-    is EffectBlock.RingMod -> "Ring ${freqHz.toInt()}Hz"
-    is EffectBlock.Monotone -> "Monotone ${targetHz.toInt()}Hz"
-}
-
-private fun tempoLabel(factor: Float): String = "%.2f×".format(factor)
+private fun app.marmalade.tts.data.db.Effect.toCard(): EffectCard = EffectCard(
+    id = id,
+    name = name,
+    isBuiltin = isBuiltin,
+    chain = runCatching { EffectBlockJson.decode(blocksJson) }.getOrDefault(emptyList()),
+)

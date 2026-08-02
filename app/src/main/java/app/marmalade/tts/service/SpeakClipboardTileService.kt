@@ -61,7 +61,11 @@ class SpeakClipboardTileService : TileService() {
         val text = readClipboardText()
         when (SpeakDispatcher.dispatch(this, text)) {
             SpeakDispatcher.DispatchResult.Blank -> {
-                Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(R.string.service_clipboard_empty),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
             is SpeakDispatcher.DispatchResult.Dispatched -> {
                 // No-op; the foreground notification is the user-facing

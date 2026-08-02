@@ -47,10 +47,12 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.marmalade.tts.R
 import app.marmalade.tts.data.db.AppAliasMapping
 
 // -----------------------------------------------------------------------------
@@ -113,13 +115,13 @@ fun AppRoutingSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Text(
-                text = "Apps that use ${state.aliasId}",
+                text = stringResource(R.string.alias_routing_title, state.aliasId),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Anything you don't tick here falls back to your primary alias.",
+                text = stringResource(R.string.alias_routing_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -127,7 +129,7 @@ fun AppRoutingSheet(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Search apps") },
+                placeholder = { Text(stringResource(R.string.alias_routing_search)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -140,14 +142,14 @@ fun AppRoutingSheet(
         Box(modifier = Modifier.heightIn(min = 180.dp, max = 420.dp)) {
             if (installedApps.isEmpty()) {
                 Text(
-                    text = "Loading apps…",
+                    text = stringResource(R.string.alias_routing_loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                 )
             } else if (visible.isEmpty()) {
                 Text(
-                    text = "No apps match \"${state.query}\"",
+                    text = stringResource(R.string.alias_routing_no_match, state.query),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
@@ -181,9 +183,9 @@ fun AppRoutingSheet(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.alias_cancel)) }
             Spacer(Modifier.size(8.dp))
-            Button(onClick = onSave) { Text("Save routing") }
+            Button(onClick = onSave) { Text(stringResource(R.string.alias_save_routing)) }
         }
     }
 }
@@ -219,8 +221,9 @@ private fun AppRoutingRow(
             Text(
                 // The owning alias is the more useful subtitle when there is
                 // one — it's what makes ticking this row an informed steal.
-                text = currentOwner?.let { "Routed to $it — un-route it there first" }
-                    ?: app.packageName,
+                text = currentOwner?.let {
+                    stringResource(R.string.alias_routing_owned_elsewhere, it)
+                } ?: app.packageName,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

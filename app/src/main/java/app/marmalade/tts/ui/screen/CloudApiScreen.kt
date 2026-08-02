@@ -43,10 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.data.cloud.CloudProvider
 
 // -----------------------------------------------------------------------------
@@ -95,13 +97,13 @@ fun CloudApiScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Cloud voices") },
+                title = { Text(stringResource(R.string.engines_cloud_title)) },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.engines_back),
                         )
                     }
                 },
@@ -129,10 +131,7 @@ fun CloudApiScreen(
             ) {
                 item(key = "intro") {
                     Text(
-                        text = "Voices synthesized on a provider's servers — your " +
-                            "text is sent over the network per request. Add a key " +
-                            "for any provider to use its voices; each provider " +
-                            "bills through its own account.",
+                        text = stringResource(R.string.engines_cloud_intro),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp),
@@ -192,54 +191,35 @@ private fun CloudDisclaimerGate(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
                 Text(
-                    text = "Before you use cloud voices",
+                    text = stringResource(R.string.engines_cloud_disclaimer_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(16.dp))
 
                 DisclaimerPoint(
-                    title = "Your text leaves this device",
-                    body = "Marmalade's built-in voices run entirely on your " +
-                        "phone and send nothing anywhere. Cloud voices are the " +
-                        "exception: the text you send them to read aloud is " +
-                        "transmitted in full to the provider you choose, along " +
-                        "with the voice, model and speed requested, and your " +
-                        "API key.",
+                    title = stringResource(R.string.engines_cloud_disclaimer_leaves_title),
+                    body = stringResource(R.string.engines_cloud_disclaimer_leaves_body),
                 )
                 DisclaimerPoint(
-                    title = "Their rules apply, not ours",
-                    body = "What that provider logs, how long it keeps your " +
-                        "text, and whether it trains on it are governed by " +
-                        "their privacy policy and terms — which you accept " +
-                        "directly with them when you create an account.",
+                    title = stringResource(R.string.engines_cloud_disclaimer_rules_title),
+                    body = stringResource(R.string.engines_cloud_disclaimer_rules_body),
                 )
                 DisclaimerPoint(
-                    title = "We are not affiliated with them",
-                    body = "Marmalade is independent. We are not endorsed by, " +
-                        "sponsored by, or partnered with any provider, we " +
-                        "receive nothing from them, and we cannot see or act " +
-                        "on your usage — including deletion requests, which " +
-                        "have to go to the provider directly.",
+                    title = stringResource(R.string.engines_cloud_disclaimer_affiliation_title),
+                    body = stringResource(R.string.engines_cloud_disclaimer_affiliation_body),
                 )
                 DisclaimerPoint(
-                    title = "Other apps are affected too",
-                    body = "Marmalade can be your system-wide voice. If you " +
-                        "set a cloud voice as your primary, or route an app to " +
-                        "one, then text from those apps — ebooks, messages, " +
-                        "anything read aloud to you — is also sent to that " +
-                        "provider. On-device voices are unaffected.",
+                    title = stringResource(R.string.engines_cloud_disclaimer_other_apps_title),
+                    body = stringResource(R.string.engines_cloud_disclaimer_other_apps_body),
                 )
                 DisclaimerPoint(
-                    title = "You pay them, not us",
-                    body = "Each provider bills your own account for what you " +
-                        "use. Marmalade itself is free and takes no cut.",
+                    title = stringResource(R.string.engines_cloud_disclaimer_billing_title),
+                    body = stringResource(R.string.engines_cloud_disclaimer_billing_body),
                 )
 
                 Text(
-                    text = "This is also in the privacy policy, linked from " +
-                        "Settings → About, where you can read it again at any " +
-                        "time.",
+                    text = stringResource(R.string.engines_cloud_disclaimer_footer),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -271,12 +251,12 @@ private fun CloudDisclaimerGate(
             Button(
                 onClick = onAgree,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("I understand and agree") }
+            ) { Text(stringResource(R.string.engines_cloud_disclaimer_agree)) }
             Spacer(Modifier.height(4.dp))
             TextButton(
                 onClick = onDecline,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Not now") }
+            ) { Text(stringResource(R.string.engines_cloud_disclaimer_decline)) }
         }
     }
 }
@@ -331,9 +311,9 @@ private fun ProviderCard(
             Text(
                 text = when {
                     keyed && voiceCount > 0 ->
-                        "$voiceCount voices · $modelSummary"
-                    keyed -> "Key configured — syncing voices…"
-                    else -> "API key: ${provider.keyHint}"
+                        stringResource(R.string.engines_cloud_voice_summary, voiceCount, modelSummary)
+                    keyed -> stringResource(R.string.engines_cloud_syncing)
+                    else -> stringResource(R.string.engines_cloud_key_hint, provider.keyHint)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -357,12 +337,20 @@ private fun ProviderCard(
             ) {
                 if (keyed && provider.discoverVoices) {
                     OutlinedButton(onClick = onRefreshVoices, enabled = !busy) {
-                        Text("Refresh voices")
+                        Text(stringResource(R.string.engines_cloud_refresh_voices))
                     }
                     Spacer(Modifier.width(8.dp))
                 }
                 Button(onClick = onSetKey) {
-                    Text(if (keyed) "Change key" else "Set key")
+                    Text(
+                        stringResource(
+                            if (keyed) {
+                                R.string.engines_cloud_change_key
+                            } else {
+                                R.string.engines_cloud_set_key
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -383,12 +371,15 @@ private fun ProviderKeyDialog(
     var draft by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${provider.displayName} API key") },
+        title = { Text(stringResource(R.string.engines_cloud_key_dialog_title, provider.displayName)) },
         text = {
             Column {
                 Text(
-                    "Get a key at ${provider.keyHint}. It is stored only on " +
-                        "this device and sent only to ${provider.displayName}.",
+                    stringResource(
+                        R.string.engines_cloud_key_dialog_body,
+                        provider.keyHint,
+                        provider.displayName,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -396,7 +387,17 @@ private fun ProviderKeyDialog(
                     value = draft,
                     onValueChange = { draft = it },
                     singleLine = true,
-                    label = { Text(if (keySet) "New key (replaces current)" else "API key") },
+                    label = {
+                        Text(
+                            stringResource(
+                                if (keySet) {
+                                    R.string.engines_cloud_key_label_replace
+                                } else {
+                                    R.string.engines_cloud_key_label
+                                },
+                            ),
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -408,7 +409,7 @@ private fun ProviderKeyDialog(
                     onSave(draft)
                     onDismiss()
                 },
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.engines_cloud_save)) }
         },
         dismissButton = {
             Row {
@@ -418,9 +419,9 @@ private fun ProviderKeyDialog(
                             onSave("")
                             onDismiss()
                         },
-                    ) { Text("Remove key") }
+                    ) { Text(stringResource(R.string.engines_cloud_remove_key)) }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.engines_cancel)) }
             }
         },
     )

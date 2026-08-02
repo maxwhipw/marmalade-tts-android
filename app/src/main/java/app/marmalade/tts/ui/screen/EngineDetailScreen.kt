@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,11 +38,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
@@ -124,7 +127,7 @@ fun EngineDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.engines_back),
                         )
                     }
                 },
@@ -192,7 +195,7 @@ private fun VoicesSection(
     enabled: Boolean,
     onShowVoices: () -> Unit,
 ) {
-    DetailSectionHeader("Voices")
+    DetailSectionHeader(stringResource(R.string.engines_voices))
 
     Row(
         modifier = Modifier
@@ -203,7 +206,7 @@ private fun VoicesSection(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Browse voices",
+                text = stringResource(R.string.engines_browse_voices),
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (enabled) {
                     MaterialTheme.colorScheme.onSurface
@@ -212,11 +215,13 @@ private fun VoicesSection(
                 },
             )
             Text(
-                text = if (enabled) {
-                    "Preview this engine's voices and pick a default."
-                } else {
-                    "Install the engine to browse its voices."
-                },
+                text = stringResource(
+                    if (enabled) {
+                        R.string.engines_browse_voices_enabled
+                    } else {
+                        R.string.engines_browse_voices_disabled
+                    },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -236,7 +241,7 @@ private fun StatusSection(
     isInstalling: Boolean,
     onInstall: () -> Unit,
 ) {
-    DetailSectionHeader("Status")
+    DetailSectionHeader(stringResource(R.string.engines_status))
 
     OutlinedCard(
         modifier = Modifier
@@ -246,7 +251,7 @@ private fun StatusSection(
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = state.label(),
+                    text = stringResource(state.labelRes()),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
@@ -266,8 +271,11 @@ private fun StatusSection(
 
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${formatBytes(descriptor.downloadSizeBytes)} download · " +
-                    "${formatBytes(descriptor.installedSizeBytes)} installed",
+                text = stringResource(
+                    R.string.engines_size_summary,
+                    formatBytes(descriptor.downloadSizeBytes),
+                    formatBytes(descriptor.installedSizeBytes),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -285,7 +293,11 @@ private fun StatusSection(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Downloading · ${formatBytes(state.bytesFetched)} / ${formatBytes(state.totalBytes)}",
+                    text = stringResource(
+                        R.string.engines_downloading_progress,
+                        formatBytes(state.bytesFetched),
+                        formatBytes(state.totalBytes),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -303,7 +315,11 @@ private fun StatusSection(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Installing · ${formatBytes(state.bytesExtracted)} / ${formatBytes(state.totalBytes)}",
+                    text = stringResource(
+                        R.string.engines_installing_progress,
+                        formatBytes(state.bytesExtracted),
+                        formatBytes(state.totalBytes),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -327,7 +343,7 @@ private fun StatusSection(
             if (needsInstall) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Install this engine to see its settings.",
+                    text = stringResource(R.string.engines_install_to_see_settings),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -336,12 +352,15 @@ private fun StatusSection(
                     onClick = onInstall,
                     enabled = !isInstalling,
                 ) {
-                    val label = when (state) {
-                        is InstallState.Failed -> "Retry"
-                        InstallState.Corrupt -> "Reinstall"
-                        else -> "Install"
-                    }
-                    Text(label)
+                    Text(
+                        stringResource(
+                            when (state) {
+                                is InstallState.Failed -> R.string.engines_retry
+                                InstallState.Corrupt -> R.string.engines_reinstall
+                                else -> R.string.engines_install
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -355,7 +374,7 @@ private fun PreprocessingSection(
     onToggle: (rule: String, enabled: Boolean) -> Unit,
     onReset: () -> Unit,
 ) {
-    DetailSectionHeader("Text preprocessing")
+    DetailSectionHeader(stringResource(R.string.engines_preprocessing))
 
     // Hint shown above the rule list when the engine isn't installed yet —
     // explains that the choices persist regardless. We still let the user
@@ -363,7 +382,7 @@ private fun PreprocessingSection(
     // effect the moment the engine ships.
     if (deEmphasise) {
         Text(
-            text = "Preferences saved; will take effect once you install this engine.",
+            text = stringResource(R.string.engines_preprocessing_pending),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -414,7 +433,7 @@ private fun PreprocessingSection(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onReset) {
-                    Text("Reset to defaults")
+                    Text(stringResource(R.string.engines_reset_defaults))
                 }
             }
         }
@@ -423,7 +442,7 @@ private fun PreprocessingSection(
 
 @Composable
 private fun AboutEngineSection(descriptor: EngineDescriptor) {
-    DetailSectionHeader("About this engine")
+    DetailSectionHeader(stringResource(R.string.engines_about))
 
     Column(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -452,12 +471,12 @@ private fun UnknownEngineBody(name: String, padding: androidx.compose.foundation
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Engine \"$name\" is not in the catalog.",
+            text = stringResource(R.string.engines_unknown_title, name),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "It may have been removed in a newer version of the app.",
+            text = stringResource(R.string.engines_unknown_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -480,12 +499,13 @@ private fun DetailSectionHeader(label: String) {
 }
 
 /** Human-readable label for the install-state chip / header. */
-private fun InstallState.label(): String = when (this) {
-    InstallState.NotInstalled -> "Not installed"
-    is InstallState.Downloading -> "Downloading"
-    is InstallState.Extracting -> "Installing"
-    InstallState.Installed -> "Installed"
-    is InstallState.Failed -> "Failed"
-    InstallState.Corrupt -> "Corrupt — needs reinstall"
-    is InstallState.Outdated -> "Update available"
+@StringRes
+private fun InstallState.labelRes(): Int = when (this) {
+    InstallState.NotInstalled -> R.string.engines_state_not_installed
+    is InstallState.Downloading -> R.string.engines_state_downloading
+    is InstallState.Extracting -> R.string.engines_state_installing
+    InstallState.Installed -> R.string.engines_state_installed
+    is InstallState.Failed -> R.string.engines_state_failed
+    InstallState.Corrupt -> R.string.engines_state_corrupt
+    is InstallState.Outdated -> R.string.engines_state_outdated
 }

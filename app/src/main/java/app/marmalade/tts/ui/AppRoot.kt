@@ -21,6 +21,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.R
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AdvancedSettingsScreen
@@ -172,7 +175,7 @@ object Routes {
 /** Tabs that show in the bottom NavigationBar. Order = display order. */
 private data class NavTab(
     val route: String,
-    val label: String,
+    @StringRes val label: Int,
     val filledIcon: ImageVector,
     val outlinedIcon: ImageVector,
 )
@@ -186,11 +189,21 @@ private val NAV_TABS = listOf(
     // play triangle read as "play a file" rather than "speak", and a
     // star read as "favourites". Same vector selected or not — the
     // NavigationBar pill already carries the selection.
-    NavTab(Routes.Speak, "Speak", MarmaladeIcons.Speak, MarmaladeIcons.Speak),
-    NavTab(Routes.Aliases, "Aliases", Icons.Filled.Person, Icons.Filled.Person),
-    NavTab(Routes.Effects, "Effects", MarmaladeIcons.Effects, MarmaladeIcons.Effects),
-    NavTab(Routes.Engines, "Engines", Icons.Filled.Build, Icons.Filled.Build),
-    NavTab(Routes.Settings, "Settings", Icons.Filled.Settings, Icons.Filled.Settings),
+    NavTab(Routes.Speak, R.string.speak_nav_speak, MarmaladeIcons.Speak, MarmaladeIcons.Speak),
+    NavTab(Routes.Aliases, R.string.speak_nav_aliases, Icons.Filled.Person, Icons.Filled.Person),
+    NavTab(
+        Routes.Effects,
+        R.string.speak_nav_effects,
+        MarmaladeIcons.Effects,
+        MarmaladeIcons.Effects,
+    ),
+    NavTab(Routes.Engines, R.string.speak_nav_engines, Icons.Filled.Build, Icons.Filled.Build),
+    NavTab(
+        Routes.Settings,
+        R.string.speak_nav_settings,
+        Icons.Filled.Settings,
+        Icons.Filled.Settings,
+    ),
 )
 
 /**
@@ -248,16 +261,17 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                         val selected = backStackEntry?.destination?.hierarchy?.any {
                             it.route == tab.route
                         } == true
+                        val label = stringResource(tab.label)
                         NavigationBarItem(
                             selected = selected,
                             onClick = { navController.navigateToTab(tab.route) },
                             icon = {
                                 Icon(
                                     imageVector = if (selected) tab.filledIcon else tab.outlinedIcon,
-                                    contentDescription = tab.label,
+                                    contentDescription = label,
                                 )
                             },
-                            label = { Text(tab.label) },
+                            label = { Text(label) },
                         )
                     }
                 }

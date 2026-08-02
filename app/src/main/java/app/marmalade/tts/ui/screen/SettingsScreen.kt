@@ -33,10 +33,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.R
 import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.MarmaladeFilterChip
 import app.marmalade.tts.ui.MarmaladeIcons
@@ -126,7 +128,7 @@ fun SettingsScreen(
             // under the bar, and no other screen does that — Settings was the
             // only one whose title background changed colour as you scrolled.
             CenterAlignedTopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 windowInsets = WindowInsets(0),
             )
         },
@@ -176,12 +178,12 @@ private fun AppearanceSection(
     currentMode: String,
     onModeSelected: (String) -> Unit,
 ) {
-    SectionHeader("Appearance")
+    SectionHeader(stringResource(R.string.settings_appearance))
 
     // Light / Dark / System override — independent of preset. Users
     // who want "Marmalade always dark" should be able to set it.
     Text(
-        text = "Mode",
+        text = stringResource(R.string.settings_mode),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
@@ -190,7 +192,12 @@ private fun AppearanceSection(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+        val modes = listOf(
+            "system" to stringResource(R.string.settings_mode_system),
+            "light" to stringResource(R.string.settings_mode_light),
+            "dark" to stringResource(R.string.settings_mode_dark),
+        )
+        modes.forEach { (key, label) ->
             MarmaladeFilterChip(
                 selected = key == currentMode,
                 onClick = { onModeSelected(key) },
@@ -200,7 +207,7 @@ private fun AppearanceSection(
     }
 
     Text(
-        text = "Color",
+        text = stringResource(R.string.settings_color),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
@@ -225,18 +232,15 @@ private fun AppearanceSection(
 
 @Composable
 private fun SystemDefaultSection() {
-    SectionHeader("System integration")
+    SectionHeader(stringResource(R.string.settings_system_integration))
     val context = androidx.compose.ui.platform.LocalContext.current
     ListItem(
         modifier = Modifier.clickable {
             app.marmalade.tts.ui.openSystemTtsSettings(context)
         },
-        headlineContent = { Text("Set as system TTS engine") },
+        headlineContent = { Text(stringResource(R.string.settings_set_system_engine)) },
         supportingContent = {
-            Text(
-                text = "Opens Android's text-to-speech settings so you can pick Marmalade " +
-                    "as the default engine. Required for external apps to route TTS through us.",
-            )
+            Text(text = stringResource(R.string.settings_set_system_engine_desc))
         },
         trailingContent = {
             Icon(
@@ -273,12 +277,12 @@ private fun KeepaliveSection(
     current: KeepaliveMode,
     onSelect: (KeepaliveMode) -> Unit,
 ) {
-    SectionHeader("Keep engine loaded")
+    SectionHeader(stringResource(R.string.settings_keepalive))
 
     val options: List<Pair<KeepaliveMode, String>> = listOf(
-        KeepaliveMode.Off to "Off",
-        KeepaliveMode.Smart to "Smart (10 min)",
-        KeepaliveMode.Persistent to "Always",
+        KeepaliveMode.Off to stringResource(R.string.settings_keepalive_off),
+        KeepaliveMode.Smart to stringResource(R.string.settings_keepalive_smart),
+        KeepaliveMode.Persistent to stringResource(R.string.settings_keepalive_always),
     )
     FlowRow(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -293,21 +297,13 @@ private fun KeepaliveSection(
             )
         }
     }
-    val helper = when (current) {
-        KeepaliveMode.Off ->
-            "The engine reloads from cold each time Android reclaims the " +
-                "app process (usually within a few minutes of leaving). " +
-                "Cheapest on RAM; slowest first-speak."
-        KeepaliveMode.Smart ->
-            "After each speak, Marmalade stays warm for 10 minutes so the " +
-                "next speak is instant. A small notification appears " +
-                "during that window. No long-term cost."
-        KeepaliveMode.Persistent ->
-            "Marmalade stays loaded all the time and shows a permanent " +
-                "notification. Trade-off is RAM use: Pocket ≈ 500 MB, " +
-                "Kokoro ≈ 150 MB, Kitten Nano ≈ 80 MB. Only the " +
-                "engines you actually use stay loaded."
-    }
+    val helper = stringResource(
+        when (current) {
+            KeepaliveMode.Off -> R.string.settings_keepalive_off_desc
+            KeepaliveMode.Smart -> R.string.settings_keepalive_smart_desc
+            KeepaliveMode.Persistent -> R.string.settings_keepalive_persistent_desc
+        },
+    )
     Text(
         text = helper,
         style = MaterialTheme.typography.bodySmall,
@@ -319,13 +315,13 @@ private fun KeepaliveSection(
 /** One chevron row to the Advanced leaf screen (threads, developer, benchmark). */
 @Composable
 private fun AdvancedRow(onClick: () -> Unit) {
-    SectionHeader("Advanced")
+    SectionHeader(stringResource(R.string.settings_advanced))
 
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Advanced settings") },
+        headlineContent = { Text(stringResource(R.string.settings_advanced_row)) },
         supportingContent = {
-            Text("Synthesis threads, developer engines, and other knobs most people never need.")
+            Text(stringResource(R.string.settings_advanced_row_desc))
         },
         trailingContent = {
             Icon(
@@ -339,11 +335,11 @@ private fun AdvancedRow(onClick: () -> Unit) {
 
 @Composable
 private fun AboutSection(onNavigateToLicenses: () -> Unit) {
-    SectionHeader("About")
+    SectionHeader(stringResource(R.string.settings_about))
 
     AboutRow(
-        label = "Marmalade TTS",
-        supporting = "Version ${BuildConfig.VERSION_NAME}",
+        label = stringResource(R.string.app_name),
+        supporting = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
         leading = {
             Icon(imageVector = Icons.Filled.Info, contentDescription = null)
         },
@@ -352,9 +348,9 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
 
     ListItem(
         modifier = Modifier.clickable(onClick = onNavigateToLicenses),
-        headlineContent = { Text("Open-source licenses") },
+        headlineContent = { Text(stringResource(R.string.settings_licenses)) },
         supportingContent = {
-            Text("Licenses for the app, its bundled components, and the downloadable engines.")
+            Text(stringResource(R.string.settings_licenses_desc))
         },
         trailingContent = {
             Icon(
@@ -366,8 +362,8 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     )
 
     AboutLinkRow(
-        label = "Report a bug",
-        supporting = "Something broken or mispronounced? Opens a GitHub issue with the details filled in.",
+        label = stringResource(R.string.settings_report_bug),
+        supporting = stringResource(R.string.settings_report_bug_desc),
         url = app.marmalade.tts.util.BugReportUrl.build(
             versionName = BuildConfig.VERSION_NAME,
             flavor = BuildConfig.FLAVOR,
@@ -380,8 +376,8 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
     )
 
     AboutLinkRow(
-        label = "More Marmalade",
-        supporting = "Other Marmalade apps on GitHub.",
+        label = stringResource(R.string.settings_more_marmalade),
+        supporting = stringResource(R.string.settings_more_marmalade_desc),
         url = "https://github.com/maxwhipw",
         leading = {
             Text(text = "\uD83C\uDF4A", style = MaterialTheme.typography.titleMedium)

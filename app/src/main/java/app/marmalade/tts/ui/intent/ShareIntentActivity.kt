@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import app.marmalade.tts.R
 import app.marmalade.tts.service.SpeakDispatcher
 
 // -----------------------------------------------------------------------------
@@ -54,7 +55,11 @@ class ShareIntentActivity : ComponentActivity() {
         val text = extractSpeakableText(intent)
         when (val result = SpeakDispatcher.dispatch(this, text)) {
             SpeakDispatcher.DispatchResult.Blank -> {
-                Toast.makeText(this, "Nothing to speak", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    R.string.speak_share_nothing_to_speak,
+                    Toast.LENGTH_SHORT,
+                ).show()
                 Log.d(TAG, "Share intent had no usable text; action=${intent?.action}")
             }
             is SpeakDispatcher.DispatchResult.Dispatched -> {

@@ -1,7 +1,9 @@
 package app.marmalade.tts.ui.onboarding
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
@@ -324,6 +326,9 @@ class OnboardingViewModel @Inject constructor(
      * of [app.marmalade.tts.ui.screen.EditorState] — no "isOpen" or
      * "isNew" flags because the step is always in create-new mode and
      * always visible while we're on this step.
+     *
+     * [error] is a string resource id rather than a formatted message so the
+     * VM stays free of a Context and the UI resolves it in the user's locale.
      */
     data class AliasFields(
         val name: String = "default",
@@ -331,7 +336,7 @@ class OnboardingViewModel @Inject constructor(
         val voiceId: String = "",
         val speed: Float = 1.0f,
         val effect: EffectPreset = EffectPreset.NONE,
-        val error: String? = null,
+        @StringRes val error: Int? = null,
     )
 
     private val _aliasEditorState = MutableStateFlow(AliasFields())
@@ -430,16 +435,16 @@ class OnboardingViewModel @Inject constructor(
         val name = s.name.trim()
         if (!VoiceAlias.isValidName(name)) {
             _aliasEditorState.value = s.copy(
-                error = "Letters, digits, spaces, dashes — up to 50 characters.",
+                error = R.string.onboarding_alias_name_helper,
             )
             return false
         }
         if (s.voiceId.isBlank()) {
-            _aliasEditorState.value = s.copy(error = "Pick a voice.")
+            _aliasEditorState.value = s.copy(error = R.string.onboarding_error_pick_voice)
             return false
         }
         if (s.engine.isBlank()) {
-            _aliasEditorState.value = s.copy(error = "Pick an engine.")
+            _aliasEditorState.value = s.copy(error = R.string.onboarding_error_pick_engine)
             return false
         }
         viewModelScope.launch {
@@ -515,7 +520,7 @@ class OnboardingViewModel @Inject constructor(
             // on the editor state so the UI can react.
             if (engine.isBlank() || voiceId.isBlank()) {
                 _aliasEditorState.update {
-                    it.copy(error = "Install an engine before creating an alias.")
+                    it.copy(error = R.string.onboarding_error_install_engine_first)
                 }
                 return@launch
             }

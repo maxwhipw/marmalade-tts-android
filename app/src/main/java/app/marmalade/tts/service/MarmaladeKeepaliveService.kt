@@ -118,21 +118,32 @@ class MarmaladeKeepaliveService : Service() {
         mgr.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Marmalade TTS Keepalive",
+                getString(R.string.service_keepalive_channel_name),
                 NotificationManager.IMPORTANCE_MIN, // silent + collapsed
             ).apply {
-                description = "Shows while Marmalade keeps the TTS engine loaded for faster speak-onset."
+                description = getString(R.string.service_keepalive_channel_description)
                 setShowBadge(false)
             },
         )
     }
 
     private fun buildNotification(persistent: Boolean, lastUsedAt: Long): Notification {
-        val title = if (persistent) "Marmalade TTS — ready" else "Marmalade TTS — recently used"
+        val title = getString(
+            if (persistent) {
+                R.string.service_keepalive_title_ready
+            } else {
+                R.string.service_keepalive_title_recently_used
+            },
+        )
         val text = if (persistent) {
-            "Engine kept loaded for instant speak-onset."
+            getString(R.string.service_keepalive_text_persistent)
         } else {
-            "Engine stays loaded for the next 10 minutes."
+            val minutes = (SMART_TIMEOUT_MS / 60_000L).toInt()
+            resources.getQuantityString(
+                R.plurals.service_keepalive_text_smart,
+                minutes,
+                minutes,
+            )
         }
         val openApp = PendingIntent.getActivity(
             this, 0,

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EnginesScreen -->
+    <string name="engines_title">Engines</string>
+    <string name="engines_back">Back</string>
+    <string name="engines_show_more">Show more</string>
+    <string name="engines_show_less">Show less</string>
+    <string name="engines_developer_badge">Developer</string>
+    <string name="engines_size_summary">%1$s download · %2$s installed</string>
+    <string name="engines_downloading_progress">Downloading · %1$s / %2$s</string>
+    <string name="engines_installing_progress">Installing · %1$s / %2$s</string>
+
+    <string name="engines_install">Install</string>
+    <string name="engines_uninstall">Uninstall</string>
+    <string name="engines_engine_settings">Engine settings</string>
+    <string name="engines_retry">Retry</string>
+    <string name="engines_reinstall">Reinstall</string>
+    <string name="engines_update">Update</string>
+    <string name="engines_cancel">Cancel</string>
+
+    <string name="engines_install_confirm_title">Install %1$s?</string>
+    <string name="engines_install_download_size">Download: %1$s</string>
+    <string name="engines_uninstall_confirm_title">Uninstall %1$s?</string>
+    <string name="engines_uninstall_confirm_body">This will delete the engine\'s files from your device. You can reinstall any time.</string>
+
+    <string name="engines_install_failed">Install failed</string>
+    <string name="engines_uninstall_failed">Uninstall failed</string>
+
+    <!-- Cloud API engine card (EnginesScreen) -->
+    <string name="engines_cloud_title">Cloud voices</string>
+    <string name="engines_cloud_card_desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure (Venice, OpenAI, …) and needs that provider\'s API key. Fast to start speaking; the provider\'s full voice lineup at your fingertips.</string>
+    <string name="engines_cloud_configured">Configured — cloud voices are available.</string>
+    <string name="engines_cloud_not_configured">Not configured — add a provider API key to enable.</string>
+    <string name="engines_configure">Configure</string>
+    <string name="engines_voices">Voices</string>
+
+    <!-- EngineDetailScreen -->
+    <string name="engines_browse_voices">Browse voices</string>
+    <string name="engines_browse_voices_enabled">Preview this engine\'s voices and pick a default.</string>
+    <string name="engines_browse_voices_disabled">Install the engine to browse its voices.</string>
+    <string name="engines_status">Status</string>
+    <string name="engines_install_to_see_settings">Install this engine to see its settings.</string>
+    <string name="engines_preprocessing">Text preprocessing</string>
+    <string name="engines_preprocessing_pending">Preferences saved; will take effect once you install this engine.</string>
+    <string name="engines_reset_defaults">Reset to defaults</string>
+    <string name="engines_about">About this engine</string>
+    <string name="engines_unknown_title">Engine \"%1$s\" is not in the catalog.</string>
+    <string name="engines_unknown_body">It may have been removed in a newer version of the app.</string>
+
+    <string name="engines_state_not_installed">Not installed</string>
+    <string name="engines_state_downloading">Downloading</string>
+    <string name="engines_state_installing">Installing</string>
+    <string name="engines_state_installed">Installed</string>
+    <string name="engines_state_failed">Failed</string>
+    <string name="engines_state_corrupt">Corrupt — needs reinstall</string>
+    <string name="engines_state_outdated">Update available</string>
+
+    <!-- CloudApiScreen -->
+    <string name="engines_cloud_intro">Voices synthesized on a provider\'s servers — your text is sent over the network per request. Add a key for any provider to use its voices; each provider bills through its own account.</string>
+    <string name="engines_cloud_disclaimer_title">Before you use cloud voices</string>
+    <string name="engines_cloud_disclaimer_leaves_title">Your text leaves this device</string>
+    <string name="engines_cloud_disclaimer_leaves_body">Marmalade\'s built-in voices run entirely on your phone and send nothing anywhere. Cloud voices are the exception: the text you send them to read aloud is transmitted in full to the provider you choose, along with the voice, model and speed requested, and your API key.</string>
+    <string name="engines_cloud_disclaimer_rules_title">Their rules apply, not ours</string>
+    <string name="engines_cloud_disclaimer_rules_body">What that provider logs, how long it keeps your text, and whether it trains on it are governed by their privacy policy and terms — which you accept directly with them when you create an account.</string>
+    <string name="engines_cloud_disclaimer_affiliation_title">We are not affiliated with them</string>
+    <string name="engines_cloud_disclaimer_affiliation_body">Marmalade is independent. We are not endorsed by, sponsored by, or partnered with any provider, we receive nothing from them, and we cannot see or act on your usage — including deletion requests, which have to go to the provider directly.</string>
+    <string name="engines_cloud_disclaimer_other_apps_title">Other apps are affected too</string>
+    <string name="engines_cloud_disclaimer_other_apps_body">Marmalade can be your system-wide voice. If you set a cloud voice as your primary, or route an app to one, then text from those apps — ebooks, messages, anything read aloud to you — is also sent to that provider. On-device voices are unaffected.</string>
+    <string name="engines_cloud_disclaimer_billing_title">You pay them, not us</string>
+    <string name="engines_cloud_disclaimer_billing_body">Each provider bills your own account for what you use. Marmalade itself is free and takes no cut.</string>
+    <string name="engines_cloud_disclaimer_footer">This is also in the privacy policy, linked from Settings → About, where you can read it again at any time.</string>
+    <string name="engines_cloud_disclaimer_agree">I understand and agree</string>
+    <string name="engines_cloud_disclaimer_decline">Not now</string>
+
+    <string name="engines_cloud_voice_summary">%1$d voices · %2$s</string>
+    <string name="engines_cloud_syncing">Key configured — syncing voices…</string>
+    <string name="engines_cloud_key_hint">API key: %1$s</string>
+    <string name="engines_cloud_refresh_voices">Refresh voices</string>
+    <string name="engines_cloud_change_key">Change key</string>
+    <string name="engines_cloud_set_key">Set key</string>
+    <string name="engines_cloud_key_dialog_title">%1$s API key</string>
+    <string name="engines_cloud_key_dialog_body">Get a key at %1$s. It is stored only on this device and sent only to %2$s.</string>
+    <string name="engines_cloud_key_label_replace">New key (replaces current)</string>
+    <string name="engines_cloud_key_label">API key</string>
+    <string name="engines_cloud_save">Save</string>
+    <string name="engines_cloud_remove_key">Remove key</string>
+    <string name="engines_cloud_discovery_failed">Voice discovery failed</string>
+
+    <!-- BenchmarkScreen (debug-only) -->
+    <string name="bench_title">Benchmark</string>
+    <string name="bench_running">Running %1$s</string>
+    <string name="bench_run">Run benchmark</string>
+    <string name="bench_input">Input</string>
+    <string name="bench_input_placeholder">Text to synthesize</string>
+    <string name="bench_preset_short">Short</string>
+    <string name="bench_preset_medium">Medium</string>
+    <string name="bench_preset_long">Long</string>
+    <string name="bench_engines">Engines</string>
+    <string name="bench_engines_hint">Uninstalled engines are skipped automatically.</string>
+    <string name="bench_engine_not_installed">%1$s (not installed)</string>
+    <string name="bench_results">Results</string>
+    <string name="bench_failed">FAILED: %1$s</string>
+    <string name="bench_first_audio">First audio: %1$d ms</string>
+    <plurals name="bench_chunk_count">
+        <item quantity="one">(%1$d chunk)</item>
+        <item quantity="other">(%1$d chunks)</item>
+    </plurals>
+    <string name="bench_realtime_ratio">%1$.2fx realtime</string>
+    <string name="bench_model_load">model load</string>
+    <string name="bench_total">total</string>
+    <string name="bench_ms">%1$d ms</string>
+    <string name="bench_audio_duration">→ %1$.2f s audio</string>
+
+    <string name="bench_device_load">Device load (live)</string>
+    <string name="bench_sampling">sampling…</string>
+    <string name="bench_ram">RAM free %1$d / %2$d MB   ·   zram %3$d / %4$d MB used</string>
+    <string name="bench_cpu_busy">CPU %1$d%% busy</string>
+    <string name="bench_thermal">thermal %1$s%2$s%3$s</string>
+    <string name="bench_thermal_headroom">" (headroom %1$s)"</string>
+    <string name="bench_thermal_temps">"  ·  %1$s"</string>
+
+    <string name="bench_quant_title">Kokoro quant bench</string>
+    <string name="bench_quant_desc">Times the fp32 baseline plus any variants side-loaded into files/kokoro-quant/. Missing files are skipped. Full detail in logcat under tag KokoroQuantBench.</string>
+    <string name="bench_quant_run">Run quant bench</string>
+    <string name="bench_quant_running">Running…</string>
+    <string name="bench_quant_starting">starting…</string>
+    <string name="bench_quant_mean_rtf">mean RTF %1$.3f</string>
+    <string name="bench_quant_file_size">%1$s  ·  %2$.1f MB</string>
+    <string name="bench_quant_timing_label">%1$s (%2$d tok)</string>
+    <string name="bench_quant_timing_detail">%1$.2f s audio  ·  RTF %2$.3f</string>
+    <string name="bench_quant_already_running">a quant bench is already running (from a previous screen visit) — wait for it to finish</string>
+    <string name="bench_quant_not_installed">Kokoro Direct not installed (%1$s missing)</string>
+</resources>

@@ -19,9 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.marmalade.tts.R
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.latencyKeyFor
 
@@ -47,15 +50,27 @@ fun VoiceSourceList(
 ) {
     LazyColumn {
         items(items = tree, key = { it.name }) { source ->
+            val kind = stringResource(
+                if (source.isCloud) {
+                    R.string.voices_source_cloud
+                } else {
+                    R.string.voices_source_on_device
+                },
+            )
+            val counted = pluralStringResource(
+                R.plurals.voices_source_voice_count,
+                source.voiceCount,
+                kind,
+                source.voiceCount,
+            )
             VoiceDrillRow(
                 title = source.name,
-                subtitle = buildString {
-                    append(if (source.isCloud) "Cloud" else "On device")
-                    append(" · ${source.voiceCount} voice")
-                    if (source.voiceCount != 1) append("s")
-                    // Only worth naming the model count when there's a
-                    // choice to make at the next level.
-                    if (source.models.size > 1) append(" in ${source.models.size} models")
+                // Only worth naming the model count when there's a choice to
+                // make at the next level.
+                subtitle = if (source.models.size > 1) {
+                    stringResource(R.string.voices_source_with_models, counted, source.models.size)
+                } else {
+                    counted
                 },
                 badge = source.latencyBucket(latency),
                 horizontalPadding = horizontalPadding,
@@ -76,7 +91,11 @@ fun VoiceModelList(
         items(items = source.models, key = { it.name }) { model ->
             VoiceDrillRow(
                 title = model.name,
-                subtitle = "${model.voices.size} voices",
+                subtitle = pluralStringResource(
+                    R.plurals.voices_model_voice_count,
+                    model.voices.size,
+                    model.voices.size,
+                ),
                 badge = model.latencyBucket(latency),
                 horizontalPadding = horizontalPadding,
                 onClick = { onSelect(model.name) },

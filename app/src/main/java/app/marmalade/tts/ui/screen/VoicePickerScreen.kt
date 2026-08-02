@@ -34,11 +34,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.db.VoiceMeta
@@ -142,18 +144,24 @@ fun VoicePickerScreen(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            engineFilter?.let { "${displayNameForEngine(it)} voices" } ?: "Voices",
+                            engineFilter?.let {
+                                stringResource(
+                                    R.string.voices_title_engine,
+                                    displayNameForEngine(it),
+                                )
+                            } ?: stringResource(R.string.voices_title),
                         )
                         // Breadcrumb — always says where in the tree you are,
                         // so two voices with the same name stay distinguishable.
                         // `model` is resolved out of `source`, so a non-null
                         // model implies a non-null source.
                         val crumb = when {
-                            pickerState.searching -> "Searching every voice"
+                            pickerState.searching ->
+                                stringResource(R.string.voices_crumb_searching)
                             model != null && source!!.models.size > 1 ->
-                                "${source.name} › ${model.name}"
+                                stringResource(R.string.voices_crumb_path, source.name, model.name)
                             source != null -> source.name
-                            else -> "All sources"
+                            else -> stringResource(R.string.voices_crumb_all_sources)
                         }
                         Text(
                             text = crumb,
@@ -167,7 +175,7 @@ fun VoicePickerScreen(
                     IconButton(onClick = { if (!viewModel.drillBack()) onBack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.voices_back),
                         )
                     }
                 },
@@ -183,9 +191,9 @@ fun VoicePickerScreen(
             if (modelMissingState != null) {
                 val engineDisplay = EngineCatalog.byName(modelMissingState.engineName)
                     ?.displayName
-                    ?: "TTS"
+                    ?: stringResource(R.string.voices_engine_generic)
                 Text(
-                    text = "$engineDisplay engine not installed yet — install it from the Engines tab to enable previews.",
+                    text = stringResource(R.string.voices_engine_not_installed, engineDisplay),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
@@ -200,7 +208,7 @@ fun VoicePickerScreen(
             // regardless of install state, hiding this condition).
             if (tree.isEmpty() && installedEngines.isEmpty()) {
                 Text(
-                    text = "No engines installed yet. Open the Engines tab to install Kokoro or Kitten — voices will appear here once you do.",
+                    text = stringResource(R.string.voices_no_engines_installed),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
@@ -214,7 +222,7 @@ fun VoicePickerScreen(
             OutlinedTextField(
                 value = pickerState.query,
                 onValueChange = viewModel::onQueryChange,
-                placeholder = { Text("Search all voices") },
+                placeholder = { Text(stringResource(R.string.voices_search_placeholder)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier
@@ -245,7 +253,10 @@ fun VoicePickerScreen(
                     onPick = onPick,
                     onPreview = viewModel::preview,
                 )
-                tree.isEmpty() -> VoicePickerEmpty("No voices installed yet", ScreenGutter)
+                tree.isEmpty() -> VoicePickerEmpty(
+                    stringResource(R.string.voices_empty_none_installed),
+                    ScreenGutter,
+                )
                 model != null -> VoiceList(
                     voices = model.voices,
                     selectedId = selectedId,
@@ -273,7 +284,7 @@ private fun VoiceList(
     onPreview: (VoiceMeta) -> Unit,
 ) {
     if (voices.isEmpty()) {
-        VoicePickerEmpty("This model has no installed voices", ScreenGutter)
+        VoicePickerEmpty(stringResource(R.string.voices_empty_model), ScreenGutter)
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -309,7 +320,7 @@ private fun SearchResults(
     onPreview: (VoiceMeta) -> Unit,
 ) {
     if (hits.isEmpty()) {
-        VoicePickerEmpty("No voices match \"$query\"", ScreenGutter)
+        VoicePickerEmpty(stringResource(R.string.voices_empty_no_match, query), ScreenGutter)
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -383,7 +394,7 @@ private fun VoiceRow(
         if (isSelected) {
             Icon(
                 imageVector = Icons.Filled.Check,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.voices_selected),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .size(24.dp)
@@ -399,9 +410,9 @@ private fun VoiceRow(
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
                 contentDescription = if (isPreviewing) {
-                    "Previewing ${voice.displayName}"
+                    stringResource(R.string.voices_previewing, voice.displayName)
                 } else {
-                    "Preview ${voice.displayName}"
+                    stringResource(R.string.voices_preview, voice.displayName)
                 },
                 tint = if (isPreviewing) {
                     MaterialTheme.colorScheme.primary
@@ -425,8 +436,12 @@ private fun genderGlyph(gender: String?): String = when (gender) {
  * in the breadcrumb above, so this carries only what the drill-down didn't
  * say: gender and language.
  */
-private fun supportingText(voice: VoiceMeta): String =
-    "${voice.gender ?: "—"} · ${voice.languageCode}"
+@Composable
+private fun supportingText(voice: VoiceMeta): String = stringResource(
+    R.string.voices_row_subtitle,
+    voice.gender ?: stringResource(R.string.voices_gender_unknown),
+    voice.languageCode,
+)
 
 /**
  * Engine section-header label — the catalog's user-facing display name

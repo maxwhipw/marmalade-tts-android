@@ -28,10 +28,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
@@ -60,12 +62,12 @@ fun AdvancedSettingsScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Advanced") },
+                title = { Text(stringResource(R.string.settings_advanced)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.settings_back),
                         )
                     }
                 },
@@ -122,10 +124,10 @@ private fun PerformanceSection(
     autoThreads: Int,
     onThreadsSelected: (Int?) -> Unit,
 ) {
-    SectionHeader("Performance")
+    SectionHeader(stringResource(R.string.settings_performance))
 
     Text(
-        text = "ONNX threads",
+        text = stringResource(R.string.settings_onnx_threads),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
@@ -133,8 +135,9 @@ private fun PerformanceSection(
     // Auto + a small ladder of common big-cluster sizes covering Tensor
     // G3 (5), Snapdragon 8 Gen2/Pixel 9 (6), Snapdragon 8 Gen3 (8) and
     // a low fallback for thermal-limited devices.
+    val autoLabel = stringResource(R.string.settings_threads_auto, autoThreads)
     val options: List<Pair<Int?, String>> = listOf(
-        null to "Auto ($autoThreads)",
+        null to autoLabel,
         1 to "1",
         2 to "2",
         4 to "4",
@@ -156,10 +159,7 @@ private fun PerformanceSection(
         }
     }
     Text(
-        text = "Auto matches the fast CPU cores. More threads is not faster: " +
-            "the slow efficiency cores drag every step down to their pace. " +
-            "Takes effect on your next Speak — the engine reloads " +
-            "automatically when you change this.",
+        text = stringResource(R.string.settings_threads_desc),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -179,7 +179,7 @@ private fun DeveloperEnginesSection(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    SectionHeader("Developer")
+    SectionHeader(stringResource(R.string.settings_developer))
 
     ListItem(
         modifier = Modifier.toggleable(
@@ -187,13 +187,9 @@ private fun DeveloperEnginesSection(
             role = Role.Switch,
             onValueChange = onCheckedChange,
         ),
-        headlineContent = { Text("Show developer engines") },
+        headlineContent = { Text(stringResource(R.string.settings_show_developer_engines)) },
         supportingContent = {
-            Text(
-                text = "Reveal the older sherpa-onnx engines (Kokoro v1.0/v1.1, " +
-                    "Kitten Nano/Mini). The direct-ORT engines replaced them; " +
-                    "these are kept for comparison.",
-            )
+            Text(text = stringResource(R.string.settings_show_developer_engines_desc))
         },
         trailingContent = {
             Switch(checked = checked, onCheckedChange = null)
@@ -209,16 +205,13 @@ private fun DeveloperEnginesSection(
  */
 @Composable
 private fun BenchmarkSection(onClick: () -> Unit) {
-    SectionHeader("Debug")
+    SectionHeader(stringResource(R.string.settings_debug))
 
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text("Benchmark") },
+        headlineContent = { Text(stringResource(R.string.settings_benchmark)) },
         supportingContent = {
-            Text(
-                text = "Measure per-engine synth timings. Pocket shows a phase " +
-                    "breakdown; sherpa engines get load + total + realtime ratio.",
-            )
+            Text(text = stringResource(R.string.settings_benchmark_desc))
         },
         trailingContent = {
             Icon(

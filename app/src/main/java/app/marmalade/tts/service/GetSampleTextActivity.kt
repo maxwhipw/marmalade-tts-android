@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import app.marmalade.tts.R
 
 /**
  * Returns the sample sentence Android speaks when the user taps the
@@ -19,7 +20,7 @@ class GetSampleTextActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val sample = "Hello, this is Marmalade speaking."
+        val sample = getString(R.string.service_sample_text)
 
         val data = Intent().apply {
             putExtra(TextToSpeech.Engine.EXTRA_SAMPLE_TEXT, sample)

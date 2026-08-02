@@ -32,8 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import app.marmalade.tts.R
 import app.marmalade.tts.data.LicenseCatalog
 
 // -----------------------------------------------------------------------------
@@ -82,13 +84,13 @@ fun LicensesScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Open-source licenses") },
+                title = { Text(stringResource(R.string.settings_licenses)) },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.settings_back),
                         )
                     }
                 },
@@ -127,7 +129,7 @@ fun LicensesScreen(
 
 @Composable
 private fun PostureSection(onOpenSource: () -> Unit) {
-    SectionHeader("Licensing")
+    SectionHeader(stringResource(R.string.settings_licenses_licensing))
 
     Text(
         text = LicenseCatalog.POSTURE.SOURCE,
@@ -163,7 +165,7 @@ private fun ComponentRow(
         headlineContent = { Text(component.name) },
         supportingContent = {
             Column {
-                Text("${component.role} · ${component.shipsIn}")
+                Text(stringResource(R.string.settings_licenses_component_summary, component.role, component.shipsIn))
                 component.copyright.forEach { line ->
                     Text(
                         text = line,
@@ -179,7 +181,7 @@ private fun ComponentRow(
                     )
                 }
                 Text(
-                    text = "View full license",
+                    text = stringResource(R.string.settings_licenses_view_full),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -208,13 +210,13 @@ fun LicenseTextScreen(
     val body = remember(componentKey) {
         val asset = component?.resolvedAsset()
         if (asset == null) {
-            "License text is not bundled. See the link on the previous screen."
+            context.getString(R.string.settings_license_text_not_bundled)
         } else {
             try {
                 context.assets.open("licenses/$asset").bufferedReader().use { it.readText() }
             } catch (e: Exception) {
                 Log.e("LicenseTextScreen", "Failed to read licenses/$asset", e)
-                "Could not load the license text. See the upstream link on the previous screen."
+                context.getString(R.string.settings_license_text_load_failed)
             }
         }
     }
@@ -223,13 +225,13 @@ fun LicenseTextScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(component?.licenseId ?: "License") },
+                title = { Text(component?.licenseId ?: stringResource(R.string.settings_license_text_title)) },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.settings_back),
                         )
                     }
                 },

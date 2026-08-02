@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alias list -->
+    <string name="alias_title">Voice aliases</string>
+    <string name="alias_create">Create alias</string>
+    <string name="alias_empty_title">No aliases yet</string>
+    <string name="alias_empty_body">Aliases save a voice + speed + effect under a name like \"narrator\" or \"dramatic\". Tap + to create one.</string>
+    <string name="alias_primary_pill">PRIMARY</string>
+    <string name="alias_chip_cloud">Cloud</string>
+    <string name="alias_chip_on_device">On device</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">No effect</string>
+
+    <!-- Routing strip -->
+    <string name="alias_route_apps_to">Route apps to %1$s</string>
+    <string name="alias_routed_apps_unrouted_only">Routed apps: all unrouted apps</string>
+    <string name="alias_routed_apps_with_unrouted">Routed apps: %1$s, plus all unrouted apps</string>
+    <string name="alias_routed_apps">Routed apps: %1$s</string>
+    <string name="alias_all_unrouted_apps">All unrouted apps</string>
+    <string name="alias_plus_all_unrouted">+ all unrouted</string>
+    <string name="alias_choose_apps_for">Choose apps for %1$s</string>
+    <plurals name="alias_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+    <!-- Delete confirmation -->
+    <string name="alias_delete_title">Delete %1$s?</string>
+    <string name="alias_delete_message">This removes the alias. The underlying voice stays installed.</string>
+    <string name="alias_delete">Delete</string>
+    <string name="alias_cancel">Cancel</string>
+
+    <!-- Editor sheet -->
+    <string name="alias_edit_title">Edit %1$s</string>
+    <string name="alias_name_label">Name</string>
+    <string name="alias_name_help">Letters, digits, spaces, dashes — up to 50 characters.</string>
+    <string name="alias_error_name_taken">That name is already in use.</string>
+    <string name="alias_error_missing_voice">Pick a voice for this alias.</string>
+    <string name="alias_voice_label">Voice</string>
+    <string name="alias_voice_placeholder">Choose a voice</string>
+    <string name="alias_voice_error">Pick a voice for this alias</string>
+    <string name="alias_speed">Speed</string>
+    <string name="alias_speed_label">Speed: %1$s</string>
+    <string name="alias_effect_label">Effect</string>
+    <string name="alias_pick_effect">Pick effect</string>
+    <string name="alias_make_primary">Make primary</string>
+    <string name="alias_save">Save</string>
+
+    <!-- Offline fallback -->
+    <string name="alias_no_fallback_candidates">No on-device alias to fall back to.</string>
+    <string name="alias_offline_fallback">Offline fallback</string>
+    <string name="alias_fallback_none">None</string>
+
+    <!-- Phonemization language -->
+    <string name="alias_phonemization_language">Phonemization language</string>
+    <string name="alias_pick_phonemization_language">Pick phonemization language</string>
+    <string name="alias_lang_auto">Auto (engine decides)</string>
+    <string name="alias_lang_en_us">English (US)</string>
+    <string name="alias_lang_en_gb">English (UK)</string>
+    <string name="alias_lang_es">Spanish</string>
+    <string name="alias_lang_fr_fr">French</string>
+    <string name="alias_lang_hi">Hindi</string>
+    <string name="alias_lang_it">Italian</string>
+    <string name="alias_lang_ja">Japanese</string>
+    <string name="alias_lang_pt_br">Portuguese (BR)</string>
+    <string name="alias_lang_cmn">Mandarin Chinese</string>
+
+    <!-- Per-alias app routing sheet -->
+    <string name="alias_routing_title">Apps that use %1$s</string>
+    <string name="alias_routing_subtitle">Anything you don\'t tick here falls back to your primary alias.</string>
+    <string name="alias_routing_search">Search apps</string>
+    <string name="alias_routing_loading">Loading apps…</string>
+    <string name="alias_routing_no_match">No apps match \"%1$s\"</string>
+    <string name="alias_routing_owned_elsewhere">Routed to %1$s — un-route it there first</string>
+    <string name="alias_save_routing">Save routing</string>
+</resources>

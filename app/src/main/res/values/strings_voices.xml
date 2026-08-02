@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Picker chrome -->
+    <string name="voices_title">Voices</string>
+    <string name="voices_title_engine">%1$s voices</string>
+    <string name="voices_sheet_title">Choose a voice</string>
+    <string name="voices_back">Back</string>
+    <string name="voices_search_placeholder">Search all voices</string>
+
+    <!-- Breadcrumb -->
+    <string name="voices_crumb_searching">Searching every voice</string>
+    <string name="voices_crumb_all_sources">All sources</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Empty / status lines -->
+    <string name="voices_engine_generic">TTS</string>
+    <string name="voices_engine_not_installed">%1$s engine not installed yet — install it from the Engines tab to enable previews.</string>
+    <string name="voices_no_engines_installed">No engines installed yet. Open the Engines tab to install Kokoro or Kitten — voices will appear here once you do.</string>
+    <string name="voices_empty_none_installed">No voices installed yet</string>
+    <string name="voices_empty_model">This model has no installed voices</string>
+    <string name="voices_empty_no_match">No voices match \"%1$s\"</string>
+
+    <!-- Rows -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">Selected</string>
+    <string name="voices_preview">Preview %1$s</string>
+    <string name="voices_previewing">Previewing %1$s</string>
+
+    <!-- Drill-down levels -->
+    <string name="voices_source_cloud">Cloud</string>
+    <string name="voices_source_on_device">On device</string>
+    <string name="voices_source_with_models">%1$s in %2$d models</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="one">%1$s · %2$d voice</item>
+        <item quantity="other">%1$s · %2$d voices</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="one">%1$d voice</item>
+        <item quantity="other">%1$d voices</item>
+    </plurals>
+
+    <!-- Preview errors -->
+    <string name="voices_error_preview_failed">Preview failed</string>
+    <string name="voices_error_unknown">Unknown error</string>
+</resources>

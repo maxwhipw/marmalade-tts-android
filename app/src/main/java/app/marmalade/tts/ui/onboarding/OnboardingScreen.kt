@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.onboarding
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -54,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -235,19 +237,18 @@ private fun WelcomeStep(
     ) {
         Image(
             painter = painterResource(id = R.drawable.mascot_happy),
-            contentDescription = "Marmalade mascot",
+            contentDescription = stringResource(R.string.onboarding_mascot_content_description),
             modifier = Modifier.size(160.dp),
         )
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "Welcome to Marmalade TTS",
+            text = stringResource(R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "Marmalade reads text aloud, offline, in voices you choose. " +
-                "Pick an engine to get started.",
+            text = stringResource(R.string.onboarding_welcome_body),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -257,7 +258,7 @@ private fun WelcomeStep(
             onClick = onGetStarted,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Get started")
+            Text(stringResource(R.string.onboarding_get_started))
         }
     }
 }
@@ -282,14 +283,14 @@ private fun EnginePickStep(
     ) {
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Choose engines",
+            text = stringResource(R.string.onboarding_engines_title),
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Engines run on-device. You can install more later from the Engines tab.",
+            text = stringResource(R.string.onboarding_engines_body),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -317,15 +318,15 @@ private fun EnginePickStep(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("Back") }
+            TextButton(onClick = onBack) { Text(stringResource(R.string.onboarding_back)) }
             Row {
-                TextButton(onClick = onSkip) { Text("Skip") }
+                TextButton(onClick = onSkip) { Text(stringResource(R.string.onboarding_skip)) }
                 Spacer(Modifier.size(8.dp))
                 Button(
                     onClick = onInstall,
                     enabled = selectedIds.isNotEmpty(),
                 ) {
-                    Text("Install selected")
+                    Text(stringResource(R.string.onboarding_install_selected))
                 }
             }
         }
@@ -371,7 +372,7 @@ private fun EngineCard(
                     if (engine.isRecommended) {
                         Spacer(Modifier.size(8.dp))
                         Text(
-                            text = "RECOMMENDED",
+                            text = stringResource(R.string.onboarding_recommended),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -385,7 +386,10 @@ private fun EngineCard(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Download: ${formatBytes(engine.downloadSizeBytes)}",
+                    text = stringResource(
+                        R.string.onboarding_download_size,
+                        formatBytes(engine.downloadSizeBytes),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
@@ -435,7 +439,11 @@ private fun InstallingStep(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = if (allDone) "Setup complete" else "Installing engines",
+            text = if (allDone) {
+                stringResource(R.string.onboarding_setup_complete)
+            } else {
+                stringResource(R.string.onboarding_installing_engines)
+            },
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
@@ -445,7 +453,7 @@ private fun InstallingStep(
         if (rowsToShow.isEmpty()) {
             // User picked zero engines. Show a friendly note.
             Text(
-                text = "No engines selected — you can install one any time from the Engines tab.",
+                text = stringResource(R.string.onboarding_no_engines_selected),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -472,7 +480,7 @@ private fun InstallingStep(
             enabled = allDone || rowsToShow.isEmpty(),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Continue")
+            Text(stringResource(R.string.onboarding_continue))
         }
         Spacer(Modifier.height(16.dp))
     }
@@ -496,7 +504,7 @@ private fun InstallRow(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = statusLabel(state),
+                text = stringResource(statusLabelRes(state)),
                 style = MaterialTheme.typography.labelMedium,
                 color = when (state) {
                     is InstallState.Failed -> MaterialTheme.colorScheme.error
@@ -548,7 +556,7 @@ private fun InstallRow(
                         onClick = onRetry,
                         modifier = Modifier.align(Alignment.CenterEnd),
                     ) {
-                        Text("Retry")
+                        Text(stringResource(R.string.onboarding_retry))
                     }
                 }
             }
@@ -605,17 +613,14 @@ private fun CreateAliasStep(
     ) {
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Create your primary alias",
+            text = stringResource(R.string.onboarding_alias_title),
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "An alias bundles your favorite voice, speed, and effect under a single " +
-                "name like \"narrator\". Marmalade uses the primary alias whenever an app " +
-                "asks it to speak without specifying a voice. Create at least one alias to " +
-                "finish setup — you can add more later from Settings → Voice aliases.",
+            text = stringResource(R.string.onboarding_alias_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -624,12 +629,13 @@ private fun CreateAliasStep(
         OutlinedTextField(
             value = editor.name,
             onValueChange = onNameChange,
-            label = { Text("Name") },
+            label = { Text(stringResource(R.string.onboarding_alias_name_label)) },
             singleLine = true,
             supportingText = {
                 Text(
-                    text = editor.error
-                        ?: "Letters, digits, spaces, dashes — up to 50 characters.",
+                    text = stringResource(
+                        editor.error ?: R.string.onboarding_alias_name_helper,
+                    ),
                     color = if (editor.error != null) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -653,10 +659,13 @@ private fun CreateAliasStep(
         Spacer(Modifier.height(12.dp))
 
         Column {
-            val speedText = "%.2f×".format(editor.speed)
+            val speedText = stringResource(R.string.onboarding_alias_speed_value, editor.speed)
             Text(
-                text = "Speed: $speedText",
+                text = stringResource(R.string.onboarding_alias_speed_label, speedText),
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            val speedDescription = stringResource(
+                R.string.onboarding_alias_speed_content_description,
             )
             Slider(
                 value = editor.speed,
@@ -664,7 +673,7 @@ private fun CreateAliasStep(
                 valueRange = VoiceAlias.MIN_SPEED..VoiceAlias.MAX_SPEED,
                 steps = 14,
                 modifier = Modifier.semantics {
-                    contentDescription = "Speed"
+                    contentDescription = speedDescription
                     stateDescription = speedText
                 },
             )
@@ -684,14 +693,14 @@ private fun CreateAliasStep(
         Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Save and continue") }
+        ) { Text(stringResource(R.string.onboarding_alias_save)) }
         Spacer(Modifier.height(8.dp))
 
         // Secondary CTA: create a default alias without thinking about it.
         OutlinedButton(
             onClick = onUseDefaults,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Use defaults") }
+        ) { Text(stringResource(R.string.onboarding_alias_use_defaults)) }
 
         // If we entered this step with an alias already present
         // (sideloaded edge case) the user can just finish — the gated
@@ -701,7 +710,7 @@ private fun CreateAliasStep(
             TextButton(
                 onClick = onFinish,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Finish setup") }
+            ) { Text(stringResource(R.string.onboarding_alias_finish_setup)) }
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -721,10 +730,14 @@ private fun OnboardingEngineDropdown(
     ) {
         OutlinedTextField(
             value = engines.firstOrNull { it.name == selected }?.displayName
-                ?: if (selected.isBlank()) "Select an engine" else selected,
+                ?: if (selected.isBlank()) {
+                    stringResource(R.string.onboarding_alias_engine_placeholder)
+                } else {
+                    selected
+                },
             onValueChange = { /* read-only */ },
             readOnly = true,
-            label = { Text("Engine") },
+            label = { Text(stringResource(R.string.onboarding_alias_engine_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
@@ -761,7 +774,11 @@ private fun OnboardingVoiceDropdown(
     val installed = voices.filter { it.isInstalled }
     val choices = installed.ifEmpty { voices }
     val selectedLabel = choices.firstOrNull { it.id == selected }?.displayName
-        ?: if (selected.isBlank()) "Select a voice" else selected
+        ?: if (selected.isBlank()) {
+            stringResource(R.string.onboarding_alias_voice_placeholder)
+        } else {
+            selected
+        }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
@@ -770,7 +787,7 @@ private fun OnboardingVoiceDropdown(
             value = selectedLabel,
             onValueChange = { /* read-only */ },
             readOnly = true,
-            label = { Text("Voice") },
+            label = { Text(stringResource(R.string.onboarding_alias_voice_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
@@ -782,7 +799,7 @@ private fun OnboardingVoiceDropdown(
         ) {
             if (choices.isEmpty()) {
                 DropdownMenuItem(
-                    text = { Text("No voices available — install an engine first.") },
+                    text = { Text(stringResource(R.string.onboarding_alias_no_voices)) },
                     onClick = { expanded = false },
                     enabled = false,
                 )
@@ -809,13 +826,18 @@ private fun OnboardingEffectDropdown(
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedTextField(
-            value = effectDisplayName(selected),
+            value = stringResource(effectDisplayNameRes(selected)),
             onValueChange = { /* read-only */ },
             readOnly = true,
-            label = { Text("Effect") },
+            label = { Text(stringResource(R.string.onboarding_alias_effect_label)) },
             trailingIcon = {
                 IconButton(onClick = { expanded = true }) {
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pick effect")
+                    Icon(
+                        Icons.Filled.ArrowDropDown,
+                        contentDescription = stringResource(
+                            R.string.onboarding_alias_effect_pick_content_description,
+                        ),
+                    )
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -826,7 +848,7 @@ private fun OnboardingEffectDropdown(
         ) {
             for (preset in EffectPreset.entries) {
                 DropdownMenuItem(
-                    text = { Text(effectDisplayName(preset)) },
+                    text = { Text(stringResource(effectDisplayNameRes(preset))) },
                     onClick = {
                         onPick(preset)
                         expanded = false
@@ -837,31 +859,38 @@ private fun OnboardingEffectDropdown(
     }
 }
 
-private fun effectDisplayName(preset: EffectPreset): String = when (preset) {
-    EffectPreset.NONE -> "None"
-    EffectPreset.CAVE -> "Cave"
-    EffectPreset.TELEPHONE -> "Telephone"
+@StringRes
+private fun effectDisplayNameRes(preset: EffectPreset): Int = when (preset) {
+    EffectPreset.NONE -> R.string.onboarding_effect_none
+    EffectPreset.CAVE -> R.string.onboarding_effect_cave
+    EffectPreset.TELEPHONE -> R.string.onboarding_effect_telephone
 }
 
 // -- helpers ----------------------------------------------------------------
 
-private fun statusLabel(state: InstallState): String = when (state) {
-    InstallState.NotInstalled -> "Pending"
-    is InstallState.Downloading -> "Downloading"
-    is InstallState.Extracting -> "Finishing up"
-    InstallState.Installed -> "Installed"
-    is InstallState.Failed -> "Failed"
-    InstallState.Corrupt -> "Corrupt"
-    is InstallState.Outdated -> "Update available"
+@StringRes
+private fun statusLabelRes(state: InstallState): Int = when (state) {
+    InstallState.NotInstalled -> R.string.onboarding_status_pending
+    is InstallState.Downloading -> R.string.onboarding_status_downloading
+    is InstallState.Extracting -> R.string.onboarding_status_finishing_up
+    InstallState.Installed -> R.string.onboarding_status_installed
+    is InstallState.Failed -> R.string.onboarding_status_failed
+    InstallState.Corrupt -> R.string.onboarding_status_corrupt
+    is InstallState.Outdated -> R.string.onboarding_status_outdated
 }
 
+@Composable
 private fun downloadDetail(state: InstallState.Downloading): String {
     val fetched = formatBytes(state.bytesFetched)
-    val total = if (state.totalBytes > 0L) formatBytes(state.totalBytes) else "?"
-    return if (state.currentFile.isNotBlank()) {
-        "$fetched / $total — ${state.currentFile}"
+    val total = if (state.totalBytes > 0L) {
+        formatBytes(state.totalBytes)
     } else {
-        "$fetched / $total"
+        stringResource(R.string.onboarding_download_size_unknown)
+    }
+    return if (state.currentFile.isNotBlank()) {
+        stringResource(R.string.onboarding_download_detail_file, fetched, total, state.currentFile)
+    } else {
+        stringResource(R.string.onboarding_download_detail, fetched, total)
     }
 }
 
@@ -915,7 +944,11 @@ private fun BackgroundUnrestrictedStep(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = if (isAllowed) "Background allowed" else "Keep speaking with the screen off",
+            text = if (isAllowed) {
+                stringResource(R.string.onboarding_background_title_allowed)
+            } else {
+                stringResource(R.string.onboarding_background_title)
+            },
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -923,13 +956,9 @@ private fun BackgroundUnrestrictedStep(
         Spacer(Modifier.height(12.dp))
         Text(
             text = if (isAllowed) {
-                "Marmalade is exempt from Android's battery restrictions. " +
-                    "Synthesis won't be paused when the screen sleeps."
+                stringResource(R.string.onboarding_background_body_allowed)
             } else {
-                "Android pauses background apps when the screen sleeps or the " +
-                    "battery dips low — that can cut off speech mid-sentence on long " +
-                    "passages. Allowing Marmalade to run unrestricted keeps speech " +
-                    "playing through screen-off."
+                stringResource(R.string.onboarding_background_body)
             },
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
@@ -939,21 +968,21 @@ private fun BackgroundUnrestrictedStep(
             Button(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Continue") }
+            ) { Text(stringResource(R.string.onboarding_continue)) }
         } else {
             Button(
                 onClick = onOpenSettings,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Allow background activity") }
+            ) { Text(stringResource(R.string.onboarding_background_allow)) }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Skip — I'll do this later") }
+            ) { Text(stringResource(R.string.onboarding_skip_for_now)) }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "You can change this any time in Android Settings → Apps → Marmalade TTS → Battery.",
+            text = stringResource(R.string.onboarding_background_footnote),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -1014,7 +1043,11 @@ private fun NotificationPermissionStep(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = if (granted) "Notifications on" else "Show what Marmalade's doing",
+            text = if (granted) {
+                stringResource(R.string.onboarding_notifications_title_granted)
+            } else {
+                stringResource(R.string.onboarding_notifications_title)
+            },
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -1022,11 +1055,9 @@ private fun NotificationPermissionStep(
         Spacer(Modifier.height(12.dp))
         Text(
             text = if (granted) {
-                "Marmalade can show its speaking and “keeping warm” notifications."
+                stringResource(R.string.onboarding_notifications_body_granted)
             } else {
-                "Marmalade shows a small notification while it speaks, and " +
-                    "another while it keeps an engine warm for instant replies " +
-                    "(the default). Allow notifications so both can appear."
+                stringResource(R.string.onboarding_notifications_body)
             },
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
@@ -1036,22 +1067,21 @@ private fun NotificationPermissionStep(
             Button(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Continue") }
+            ) { Text(stringResource(R.string.onboarding_continue)) }
         } else {
             Button(
                 onClick = { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Allow notifications") }
+            ) { Text(stringResource(R.string.onboarding_notifications_allow)) }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Skip — I'll do this later") }
+            ) { Text(stringResource(R.string.onboarding_skip_for_now)) }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Only used for the speaking and keep-warm notifications. " +
-                "Change any time in Android Settings → Apps → Marmalade TTS → Notifications.",
+            text = stringResource(R.string.onboarding_notifications_footnote),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -1108,19 +1138,20 @@ private fun SystemDefaultStep(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = if (isDefault) "All done!" else "One more step",
+            text = if (isDefault) {
+                stringResource(R.string.onboarding_system_title_done)
+            } else {
+                stringResource(R.string.onboarding_system_title)
+            },
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(12.dp))
         Text(
             text = if (isDefault) {
-                "Marmalade is your system text-to-speech engine. Other apps' " +
-                    "TTS now routes through your voices."
+                stringResource(R.string.onboarding_system_body_done)
             } else {
-                "To let other apps speak through Marmalade, you have to pick it " +
-                    "as your system text-to-speech engine. Android won't route TTS to " +
-                    "us until you do."
+                stringResource(R.string.onboarding_system_body)
             },
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
@@ -1130,13 +1161,11 @@ private fun SystemDefaultStep(
             Button(
                 onClick = onFinish,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Finish") }
+            ) { Text(stringResource(R.string.onboarding_finish)) }
         } else {
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Tap the button below — most phones land directly on the right " +
-                    "page. If yours doesn't, look for \"Text-to-speech\" under " +
-                    "System → Languages, Accessibility → Audio, or Languages & input.",
+                text = stringResource(R.string.onboarding_system_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -1145,15 +1174,15 @@ private fun SystemDefaultStep(
             Button(
                 onClick = onOpenSystemSettings,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Open system TTS settings") }
+            ) { Text(stringResource(R.string.onboarding_system_open_settings)) }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onFinish,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Finish — I'll do this later") }
+            ) { Text(stringResource(R.string.onboarding_system_finish_later)) }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "You can re-open this from Settings → Set as system TTS engine.",
+                text = stringResource(R.string.onboarding_system_footnote),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

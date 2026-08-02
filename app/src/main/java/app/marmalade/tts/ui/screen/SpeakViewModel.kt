@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.SpeechPlayer
@@ -78,8 +80,15 @@ sealed class PlaybackState {
     /** Engine assets aren't bundled — see STUBS.md (P0). */
     object ModelMissing : PlaybackState()
 
-    /** Anything else — synth/JNI/audiotrack error. `message` is user-facing. */
-    data class Error(val message: String) : PlaybackState()
+    /**
+     * Anything else — synth/JNI/audiotrack error. [message] is the engine's
+     * own user-facing detail; when it has none, the UI renders
+     * [fallbackRes] instead.
+     */
+    data class Error(
+        val message: String?,
+        @StringRes val fallbackRes: Int,
+    ) : PlaybackState()
 }
 
 /**
@@ -517,9 +526,10 @@ class SpeakViewModel @Inject constructor(
                     when (err) {
                         is SynthesizerException.ModelMissing -> PlaybackState.ModelMissing
                         is SynthesizerException.SynthesisFailed -> PlaybackState.Error(
-                            err.message ?: "Synthesis failed",
+                            err.message,
+                            R.string.speak_error_synthesis_failed,
                         )
-                        else -> PlaybackState.Error(err.message ?: "Unknown error")
+                        else -> PlaybackState.Error(err.message, R.string.speak_error_unknown)
                     }
                 },
             )

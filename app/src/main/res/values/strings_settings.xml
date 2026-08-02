@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_mode">Mode</string>
+    <string name="settings_mode_system">System</string>
+    <string name="settings_mode_light">Light</string>
+    <string name="settings_mode_dark">Dark</string>
+    <string name="settings_color">Color</string>
+
+    <string name="settings_system_integration">System integration</string>
+    <string name="settings_set_system_engine">Set as system TTS engine</string>
+    <string name="settings_set_system_engine_desc">Opens Android\'s text-to-speech settings so you can pick Marmalade as the default engine. Required for external apps to route TTS through us.</string>
+
+    <string name="settings_keepalive">Keep engine loaded</string>
+    <string name="settings_keepalive_off">Off</string>
+    <string name="settings_keepalive_smart">Smart (10 min)</string>
+    <string name="settings_keepalive_always">Always</string>
+    <string name="settings_keepalive_off_desc">The engine reloads from cold each time Android reclaims the app process (usually within a few minutes of leaving). Cheapest on RAM; slowest first-speak.</string>
+    <string name="settings_keepalive_smart_desc">After each speak, Marmalade stays warm for 10 minutes so the next speak is instant. A small notification appears during that window. No long-term cost.</string>
+    <string name="settings_keepalive_persistent_desc">Marmalade stays loaded all the time and shows a permanent notification. Trade-off is RAM use: Pocket ≈ 500 MB, Kokoro ≈ 150 MB, Kitten Nano ≈ 80 MB. Only the engines you actually use stay loaded.</string>
+
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_advanced_row">Advanced settings</string>
+    <string name="settings_advanced_row_desc">Synthesis threads, developer engines, and other knobs most people never need.</string>
+
+    <string name="settings_about">About</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_licenses">Open-source licenses</string>
+    <string name="settings_licenses_desc">Licenses for the app, its bundled components, and the downloadable engines.</string>
+    <string name="settings_report_bug">Report a bug</string>
+    <string name="settings_report_bug_desc">Something broken or mispronounced? Opens a GitHub issue with the details filled in.</string>
+    <string name="settings_more_marmalade">More Marmalade</string>
+    <string name="settings_more_marmalade_desc">Other Marmalade apps on GitHub.</string>
+
+    <!-- AdvancedSettingsScreen -->
+    <string name="settings_performance">Performance</string>
+    <string name="settings_onnx_threads">ONNX threads</string>
+    <string name="settings_threads_auto">Auto (%1$d)</string>
+    <string name="settings_threads_desc">Auto matches the fast CPU cores. More threads is not faster: the slow efficiency cores drag every step down to their pace. Takes effect on your next Speak — the engine reloads automatically when you change this.</string>
+
+    <string name="settings_developer">Developer</string>
+    <string name="settings_show_developer_engines">Show developer engines</string>
+    <string name="settings_show_developer_engines_desc">Reveal the older sherpa-onnx engines (Kokoro v1.0/v1.1, Kitten Nano/Mini). The direct-ORT engines replaced them; these are kept for comparison.</string>
+
+    <string name="settings_debug">Debug</string>
+    <string name="settings_benchmark">Benchmark</string>
+    <string name="settings_benchmark_desc">Measure per-engine synth timings. Pocket shows a phase breakdown; sherpa engines get load + total + realtime ratio.</string>
+
+    <!-- LicensesScreen / LicenseTextScreen -->
+    <string name="settings_licenses_licensing">Licensing</string>
+    <string name="settings_licenses_component_summary">%1$s · %2$s</string>
+    <string name="settings_licenses_view_full">View full license</string>
+    <string name="settings_license_text_title">License</string>
+    <string name="settings_license_text_not_bundled">License text is not bundled. See the link on the previous screen.</string>
+    <string name="settings_license_text_load_failed">Could not load the license text. See the upstream link on the previous screen.</string>
+</resources>

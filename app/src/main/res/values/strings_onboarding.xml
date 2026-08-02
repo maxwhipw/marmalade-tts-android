@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Marmalade mascot</string>
+
+    <string name="onboarding_welcome_title">Welcome to Marmalade TTS</string>
+    <string name="onboarding_welcome_body">Marmalade reads text aloud, offline, in voices you choose. Pick an engine to get started.</string>
+    <string name="onboarding_get_started">Get started</string>
+
+    <string name="onboarding_engines_title">Choose engines</string>
+    <string name="onboarding_engines_body">Engines run on-device. You can install more later from the Engines tab.</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_install_selected">Install selected</string>
+    <string name="onboarding_recommended">RECOMMENDED</string>
+    <string name="onboarding_download_size">Download: %1$s</string>
+
+    <string name="onboarding_setup_complete">Setup complete</string>
+    <string name="onboarding_installing_engines">Installing engines</string>
+    <string name="onboarding_no_engines_selected">No engines selected — you can install one any time from the Engines tab.</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_retry">Retry</string>
+
+    <string name="onboarding_status_pending">Pending</string>
+    <string name="onboarding_status_downloading">Downloading</string>
+    <string name="onboarding_status_finishing_up">Finishing up</string>
+    <string name="onboarding_status_installed">Installed</string>
+    <string name="onboarding_status_failed">Failed</string>
+    <string name="onboarding_status_corrupt">Corrupt</string>
+    <string name="onboarding_status_outdated">Update available</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">Create your primary alias</string>
+    <string name="onboarding_alias_body">An alias bundles your favorite voice, speed, and effect under a single name like \"narrator\". Marmalade uses the primary alias whenever an app asks it to speak without specifying a voice. Create at least one alias to finish setup — you can add more later from Settings → Voice aliases.</string>
+    <string name="onboarding_alias_name_label">Name</string>
+    <string name="onboarding_alias_name_helper">Letters, digits, spaces, dashes — up to 50 characters.</string>
+    <string name="onboarding_alias_speed_label">Speed: %1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">Speed</string>
+    <string name="onboarding_alias_save">Save and continue</string>
+    <string name="onboarding_alias_use_defaults">Use defaults</string>
+    <string name="onboarding_alias_finish_setup">Finish setup</string>
+
+    <string name="onboarding_alias_engine_label">Engine</string>
+    <string name="onboarding_alias_engine_placeholder">Select an engine</string>
+    <string name="onboarding_alias_voice_label">Voice</string>
+    <string name="onboarding_alias_voice_placeholder">Select a voice</string>
+    <string name="onboarding_alias_no_voices">No voices available — install an engine first.</string>
+    <string name="onboarding_alias_effect_label">Effect</string>
+    <string name="onboarding_alias_effect_pick_content_description">Pick effect</string>
+
+    <string name="onboarding_effect_none">None</string>
+    <string name="onboarding_effect_cave">Cave</string>
+    <string name="onboarding_effect_telephone">Telephone</string>
+
+    <string name="onboarding_error_pick_voice">Pick a voice.</string>
+    <string name="onboarding_error_pick_engine">Pick an engine.</string>
+    <string name="onboarding_error_install_engine_first">Install an engine before creating an alias.</string>
+
+    <string name="onboarding_background_title_allowed">Background allowed</string>
+    <string name="onboarding_background_title">Keep speaking with the screen off</string>
+    <string name="onboarding_background_body_allowed">Marmalade is exempt from Android\'s battery restrictions. Synthesis won\'t be paused when the screen sleeps.</string>
+    <string name="onboarding_background_body">Android pauses background apps when the screen sleeps or the battery dips low — that can cut off speech mid-sentence on long passages. Allowing Marmalade to run unrestricted keeps speech playing through screen-off.</string>
+    <string name="onboarding_background_allow">Allow background activity</string>
+    <string name="onboarding_skip_for_now">Skip — I\'ll do this later</string>
+    <string name="onboarding_background_footnote">You can change this any time in Android Settings → Apps → Marmalade TTS → Battery.</string>
+
+    <string name="onboarding_notifications_title_granted">Notifications on</string>
+    <string name="onboarding_notifications_title">Show what Marmalade\'s doing</string>
+    <string name="onboarding_notifications_body_granted">Marmalade can show its speaking and “keeping warm” notifications.</string>
+    <string name="onboarding_notifications_body">Marmalade shows a small notification while it speaks, and another while it keeps an engine warm for instant replies (the default). Allow notifications so both can appear.</string>
+    <string name="onboarding_notifications_allow">Allow notifications</string>
+    <string name="onboarding_notifications_footnote">Only used for the speaking and keep-warm notifications. Change any time in Android Settings → Apps → Marmalade TTS → Notifications.</string>
+
+    <string name="onboarding_system_title_done">All done!</string>
+    <string name="onboarding_system_title">One more step</string>
+    <string name="onboarding_system_body_done">Marmalade is your system text-to-speech engine. Other apps\' TTS now routes through your voices.</string>
+    <string name="onboarding_system_body">To let other apps speak through Marmalade, you have to pick it as your system text-to-speech engine. Android won\'t route TTS to us until you do.</string>
+    <string name="onboarding_system_hint">Tap the button below — most phones land directly on the right page. If yours doesn\'t, look for \"Text-to-speech\" under System → Languages, Accessibility → Audio, or Languages &amp; input.</string>
+    <string name="onboarding_system_open_settings">Open system TTS settings</string>
+    <string name="onboarding_system_finish_later">Finish — I\'ll do this later</string>
+    <string name="onboarding_system_footnote">You can re-open this from Settings → Set as system TTS engine.</string>
+    <string name="onboarding_finish">Finish</string>
+</resources>

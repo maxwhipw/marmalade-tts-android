@@ -47,10 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
+import app.marmalade.tts.audio.EffectBlock
 
 // -----------------------------------------------------------------------------
 //   EffectsScreen
@@ -93,7 +96,7 @@ fun EffectsScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Effects") },
+                title = { Text(stringResource(R.string.effects_title)) },
                 windowInsets = WindowInsets(0),
             )
         },
@@ -103,7 +106,10 @@ fun EffectsScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Create effect")
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.effects_create),
+                )
             }
         },
     ) { innerPadding ->
@@ -116,9 +122,7 @@ fun EffectsScreen(
         ) {
             item {
                 Text(
-                    text = "Apply an effect to a voice by attaching it to an alias " +
-                        "(Aliases tab → Effect). Tap + to build your own, or Edit a " +
-                        "built-in to fork your own copy.",
+                    text = stringResource(R.string.effects_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -127,7 +131,7 @@ fun EffectsScreen(
                 EffectCardItem(
                     card = card,
                     isPlaying = preview.playingId == card.id,
-                    error = preview.errorMessage.takeIf { preview.errorId == card.id },
+                    error = previewErrorFor(preview, card.id),
                     onPlay = { viewModel.preview(card) },
                     onStop = viewModel::stopPreview,
                     onEdit = { onEdit(card.id) },
@@ -141,13 +145,8 @@ fun EffectsScreen(
     pendingDelete?.let { card ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete \"${card.name}\"?") },
-            text = {
-                Text(
-                    "This removes the effect. Any alias still using it falls back to " +
-                        "no effect.",
-                )
-            },
+            title = { Text(stringResource(R.string.effects_delete_title, card.name)) },
+            text = { Text(stringResource(R.string.effects_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -158,13 +157,27 @@ fun EffectsScreen(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.effects_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.effects_cancel))
+                }
             },
         )
     }
+}
+
+/**
+ * The failure text for [cardId], or null when the last failure belongs to a
+ * different card. The engine's own message wins when it has one — it names the
+ * actual fault, where the resource is only the generic headline.
+ */
+@Composable
+private fun previewErrorFor(preview: EffectsPreviewState, cardId: String): String? {
+    if (preview.errorId != cardId) return null
+    val fallback = preview.errorRes?.let { stringResource(it) }
+    return preview.errorDetail ?: fallback
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -189,7 +202,11 @@ private fun EffectCardItem(
                     modifier = Modifier.weight(1f),
                 )
                 if (card.isBuiltin) {
-                    AssistChip(onClick = {}, enabled = false, label = { Text("Built-in") })
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(stringResource(R.string.effects_builtin)) },
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -199,8 +216,12 @@ private fun EffectCardItem(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                for (label in card.blocks) {
-                    BlockChip(label)
+                if (card.chain.isEmpty()) {
+                    BlockChip(stringResource(R.string.effects_chip_none))
+                } else {
+                    for (block in card.chain) {
+                        BlockChip(blockChipLabel(block))
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -217,26 +238,44 @@ private fun EffectCardItem(
                 IconButton(onClick = if (isPlaying) onStop else onPlay) {
                     Icon(
                         imageVector = if (isPlaying) StopIcon else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) {
-                            "Stop ${card.name}"
-                        } else {
-                            "Preview ${card.name}"
-                        },
+                        contentDescription = stringResource(
+                            if (isPlaying) {
+                                R.string.effects_stop_card
+                            } else {
+                                R.string.effects_preview_card
+                            },
+                            card.name,
+                        ),
                     )
                 }
                 if (!card.isBuiltin) {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit ${card.name}")
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = stringResource(
+                                R.string.effects_edit_card,
+                                card.name,
+                            ),
+                        )
                     }
                 }
                 IconButton(onClick = onDuplicate) {
-                    Icon(ContentCopyIcon, contentDescription = "Duplicate ${card.name}")
+                    Icon(
+                        ContentCopyIcon,
+                        contentDescription = stringResource(
+                            R.string.effects_duplicate_card,
+                            card.name,
+                        ),
+                    )
                 }
                 if (!card.isBuiltin) {
                     IconButton(onClick = onDelete) {
                         Icon(
                             Icons.Filled.Delete,
-                            contentDescription = "Delete ${card.name}",
+                            contentDescription = stringResource(
+                                R.string.effects_delete_card,
+                                card.name,
+                            ),
                             tint = MaterialTheme.colorScheme.error,
                         )
                     }
@@ -318,6 +357,57 @@ private val ContentCopyIcon: ImageVector = ImageVector.Builder(
         close()
     }
 }.build()
+
+/** "+12" / "-12" — the sign is what makes a cut readable as a cut. */
+internal fun signed(value: Int): String = "%+d".format(value)
+
+/** Same, for a slider read-out that rounds rather than truncates. */
+internal fun signedRounded(value: Float): String = "%+.0f".format(value)
+
+/**
+ * One block summarised for its chip: the block's name plus the parameter that
+ * defines how it sounds. Deliberately shorter than the editor's full read-out —
+ * a chain of five blocks has to fit on a card.
+ */
+@Composable
+private fun blockChipLabel(block: EffectBlock): String = when (block) {
+    is EffectBlock.Reverb -> stringResource(R.string.effects_chip_reverb, block.reverberance.toInt())
+    is EffectBlock.Echo -> stringResource(R.string.effects_chip_echo)
+    is EffectBlock.Overdrive -> stringResource(R.string.effects_chip_overdrive, block.gainDb.toInt())
+    is EffectBlock.Pitch -> stringResource(R.string.effects_chip_pitch, signed(block.cents.toInt()))
+    is EffectBlock.Tempo -> stringResource(R.string.effects_chip_tempo, block.factor)
+    is EffectBlock.Bandpass -> stringResource(
+        R.string.effects_chip_bandpass,
+        block.lowHz.toInt(),
+        block.highHz.toInt(),
+    )
+    is EffectBlock.Vol -> stringResource(R.string.effects_chip_vol, block.factor)
+    is EffectBlock.Treble -> stringResource(R.string.effects_chip_treble, signed(block.db.toInt()))
+    is EffectBlock.Bass -> stringResource(R.string.effects_chip_bass, signed(block.db.toInt()))
+    is EffectBlock.Mid -> stringResource(
+        R.string.effects_chip_mid,
+        block.freqHz.toInt(),
+        signed(block.gainDb.toInt()),
+    )
+    is EffectBlock.Lowpass -> stringResource(R.string.effects_chip_lowpass, block.freqHz.toInt())
+    is EffectBlock.Highpass -> stringResource(R.string.effects_chip_highpass, block.freqHz.toInt())
+    is EffectBlock.Tremolo -> stringResource(R.string.effects_chip_tremolo, block.speedHz)
+    is EffectBlock.Flanger -> stringResource(R.string.effects_chip_flanger, block.speedHz)
+    is EffectBlock.Chorus -> stringResource(R.string.effects_chip_chorus, block.speedHz)
+    is EffectBlock.Phaser -> stringResource(R.string.effects_chip_phaser, block.speedHz)
+    is EffectBlock.Compressor -> stringResource(
+        R.string.effects_chip_compressor,
+        block.thresholdDb.toInt(),
+        block.ratio,
+    )
+    is EffectBlock.Bitcrush -> stringResource(
+        R.string.effects_chip_bitcrush,
+        block.bits.toInt(),
+        block.downsample.toInt(),
+    )
+    is EffectBlock.RingMod -> stringResource(R.string.effects_chip_ringmod, block.freqHz.toInt())
+    is EffectBlock.Monotone -> stringResource(R.string.effects_chip_monotone, block.targetHz.toInt())
+}
 
 @Composable
 private fun BlockChip(label: String) {

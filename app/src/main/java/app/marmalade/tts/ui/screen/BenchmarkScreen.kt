@@ -41,12 +41,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.engine.EnginePhaseTimings
 import app.marmalade.tts.perf.SystemStats
 import app.marmalade.tts.perf.SystemStatsSnapshot
@@ -96,10 +99,10 @@ fun BenchmarkScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Benchmark") },
+                title = { Text(stringResource(R.string.bench_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.engines_back))
                     }
                 },
                 windowInsets = WindowInsets(0),
@@ -141,9 +144,9 @@ fun BenchmarkScreen(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(Modifier.size(8.dp))
-                    Text("Running ${state.currentlyRunning ?: "..."}")
+                    Text(stringResource(R.string.bench_running, state.currentlyRunning ?: "…"))
                 } else {
-                    Text("Run benchmark")
+                    Text(stringResource(R.string.bench_run))
                 }
             }
 
@@ -178,11 +181,9 @@ private fun KokoroQuantSection(
     onRun: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Kokoro quant bench", style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.bench_quant_title), style = MaterialTheme.typography.labelLarge)
         Text(
-            text = "Times the fp32 baseline plus any variants side-loaded into " +
-                "files/kokoro-quant/. Missing files are skipped. Full detail in " +
-                "logcat under tag KokoroQuantBench.",
+            text = stringResource(R.string.bench_quant_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -198,9 +199,9 @@ private fun KokoroQuantSection(
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
                 Spacer(Modifier.size(8.dp))
-                Text(status ?: "Running…")
+                Text(status ?: stringResource(R.string.bench_quant_running))
             } else {
-                Text("Run quant bench")
+                Text(stringResource(R.string.bench_quant_run))
             }
         }
         if (error != null) {
@@ -230,7 +231,7 @@ private fun QuantResultCard(result: KokoroQuantBench.VariantResult) {
                 Box(modifier = Modifier.weight(1f))
                 if (result.status == "ok") {
                     Text(
-                        text = "mean RTF %.3f".format(result.meanRtf),
+                        text = stringResource(R.string.bench_quant_mean_rtf, result.meanRtf),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -238,7 +239,7 @@ private fun QuantResultCard(result: KokoroQuantBench.VariantResult) {
             }
             Text(
                 text = if (result.sizeMb > 0) {
-                    "${result.fileName}  ·  %.1f MB".format(result.sizeMb)
+                    stringResource(R.string.bench_quant_file_size, result.fileName, result.sizeMb)
                 } else {
                     result.fileName
                 },
@@ -261,9 +262,9 @@ private fun QuantResultCard(result: KokoroQuantBench.VariantResult) {
             Spacer(Modifier.height(8.dp))
             for (t in result.timings) {
                 TimingRow(
-                    label = "${t.textName} (${t.tokenCount} tok)",
-                    value = "${t.medianMs} ms",
-                    detail = "%.2f s audio  ·  RTF %.3f".format(t.audioSeconds, t.rtf),
+                    label = stringResource(R.string.bench_quant_timing_label, t.textName, t.tokenCount),
+                    value = stringResource(R.string.bench_ms, t.medianMs),
+                    detail = stringResource(R.string.bench_quant_timing_detail, t.audioSeconds, t.rtf),
                 )
             }
         }
@@ -296,17 +297,22 @@ private fun SystemStatsBar() {
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text("Device load (live)", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.bench_device_load), style = MaterialTheme.typography.labelLarge)
             val s = snap
             if (s == null) {
-                Text("sampling…", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.bench_sampling), style = MaterialTheme.typography.bodySmall)
             } else {
                 // Memory is the figure that usually explains a slow run; flag it
                 // in the error colour when free RAM is low / zram is heavily used.
                 val pressured = s.ramAvailMb in 1..800 || s.zramUsedMb > 500
                 Text(
-                    text = "RAM free ${s.ramAvailMb} / ${s.ramTotalMb} MB" +
-                        "   ·   zram ${s.zramUsedMb} / ${s.zramTotalMb} MB used",
+                    text = stringResource(
+                        R.string.bench_ram,
+                        s.ramAvailMb,
+                        s.ramTotalMb,
+                        s.zramUsedMb,
+                        s.zramTotalMb,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (pressured) {
                         MaterialTheme.colorScheme.error
@@ -314,7 +320,10 @@ private fun SystemStatsBar() {
                         MaterialTheme.colorScheme.onSurface
                     },
                 )
-                Text("CPU ${s.cpuBusyPct}% busy", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(R.string.bench_cpu_busy, s.cpuBusyPct),
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 if (s.cores.isNotEmpty()) {
                     Text(
                         text = s.cores.joinToString(" ") { "c${it.core}:${it.busyPct}".padEnd(6) },
@@ -323,15 +332,20 @@ private fun SystemStatsBar() {
                     )
                 }
                 val temps = if (s.clusterTemps.isNotEmpty()) {
-                    "  ·  " + s.clusterTemps.joinToString(" ") {
-                        "${it.first}=${"%.0f".format(it.second)}°"
-                    }
+                    stringResource(
+                        R.string.bench_thermal_temps,
+                        s.clusterTemps.joinToString(" ") {
+                            "${it.first}=${"%.0f".format(it.second)}°"
+                        },
+                    )
                 } else {
                     ""
                 }
-                val headroom = s.thermalHeadroom?.let { " (headroom ${"%.2f".format(it)})" } ?: ""
+                val headroom = s.thermalHeadroom
+                    ?.let { stringResource(R.string.bench_thermal_headroom, "%.2f".format(it)) }
+                    ?: ""
                 Text(
-                    text = "thermal ${s.thermalStatus}$headroom$temps",
+                    text = stringResource(R.string.bench_thermal, s.thermalStatus, headroom, temps),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -346,21 +360,30 @@ private fun InputSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Input",
+            text = stringResource(R.string.bench_input),
             style = MaterialTheme.typography.labelLarge,
         )
         OutlinedTextField(
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Text to synthesize") },
+            placeholder = { Text(stringResource(R.string.bench_input_placeholder)) },
             minLines = 2,
             maxLines = 5,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PresetChip(label = "Short", onClick = { onTextChange(DEFAULT_TEXT_SHORT) })
-            PresetChip(label = "Medium", onClick = { onTextChange(DEFAULT_TEXT_MEDIUM) })
-            PresetChip(label = "Long", onClick = { onTextChange(DEFAULT_TEXT_LONG) })
+            PresetChip(
+                label = stringResource(R.string.bench_preset_short),
+                onClick = { onTextChange(DEFAULT_TEXT_SHORT) },
+            )
+            PresetChip(
+                label = stringResource(R.string.bench_preset_medium),
+                onClick = { onTextChange(DEFAULT_TEXT_MEDIUM) },
+            )
+            PresetChip(
+                label = stringResource(R.string.bench_preset_long),
+                onClick = { onTextChange(DEFAULT_TEXT_LONG) },
+            )
         }
     }
 }
@@ -382,11 +405,11 @@ private fun EngineSelectorSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Engines",
+            text = stringResource(R.string.bench_engines),
             style = MaterialTheme.typography.labelLarge,
         )
         Text(
-            text = "Uninstalled engines are skipped automatically.",
+            text = stringResource(R.string.bench_engines_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -398,8 +421,13 @@ private fun EngineSelectorSection(
                     onClick = { if (installed) onToggle(p.engineName) },
                     enabled = installed,
                     label = {
-                        val suffix = if (installed) "" else " (not installed)"
-                        Text("${p.displayName}$suffix")
+                        Text(
+                            if (installed) {
+                                p.displayName
+                            } else {
+                                stringResource(R.string.bench_engine_not_installed, p.displayName)
+                            },
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -412,7 +440,7 @@ private fun EngineSelectorSection(
 private fun ResultsSection(results: List<BenchmarkResult>) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Results",
+            text = stringResource(R.string.bench_results),
             style = MaterialTheme.typography.labelLarge,
         )
         for (r in results) {
@@ -445,7 +473,7 @@ private fun ResultCard(result: BenchmarkResult) {
             if (result.error != null) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "FAILED: ${result.error}",
+                    text = stringResource(R.string.bench_failed, result.error),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -458,14 +486,18 @@ private fun ResultCard(result: BenchmarkResult) {
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "First audio: ${result.timeToFirstAudioMs} ms",
+                        text = stringResource(R.string.bench_first_audio, result.timeToFirstAudioMs),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(Modifier.size(8.dp))
                     if (result.chunkCount != null && result.chunkCount > 0) {
                         Text(
-                            text = "(${result.chunkCount} chunk${if (result.chunkCount == 1) "" else "s"})",
+                            text = pluralStringResource(
+                                R.plurals.bench_chunk_count,
+                                result.chunkCount,
+                                result.chunkCount,
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -487,7 +519,7 @@ private fun RealtimeRatioBadge(ratio: Double) {
         else -> Color(0xFFC62828) // red — slower than realtime
     }
     Text(
-        text = "%.2fx realtime".format(ratio),
+        text = stringResource(R.string.bench_realtime_ratio, ratio),
         color = color,
         style = MaterialTheme.typography.labelMedium,
     )
@@ -497,13 +529,16 @@ private fun RealtimeRatioBadge(ratio: Double) {
 private fun TimingsTable(timings: EnginePhaseTimings, audioSeconds: Double) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (timings.loadMs > 0) {
-            TimingRow("model load", "${timings.loadMs} ms")
+            TimingRow(
+                stringResource(R.string.bench_model_load),
+                stringResource(R.string.bench_ms, timings.loadMs),
+            )
         }
         // Header row showing the wall-clock total + audio duration.
         TimingRow(
-            label = "total",
-            value = "${timings.totalMs} ms",
-            detail = "→ %.2f s audio".format(audioSeconds),
+            label = stringResource(R.string.bench_total),
+            value = stringResource(R.string.bench_ms, timings.totalMs),
+            detail = stringResource(R.string.bench_audio_duration, audioSeconds),
             bold = true,
         )
         if (timings.phases.isNotEmpty()) {
@@ -511,7 +546,11 @@ private fun TimingsTable(timings: EnginePhaseTimings, audioSeconds: Double) {
             HorizontalDivider()
             Spacer(Modifier.height(4.dp))
             for (p in timings.phases) {
-                TimingRow(label = p.name, value = "${p.ms} ms", detail = p.detail)
+                TimingRow(
+                    label = p.name,
+                    value = stringResource(R.string.bench_ms, p.ms),
+                    detail = p.detail,
+                )
             }
         }
     }

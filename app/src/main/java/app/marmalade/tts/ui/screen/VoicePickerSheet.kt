@@ -29,8 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.marmalade.tts.R
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.latencyKeyFor
 import app.marmalade.tts.data.db.VoiceMeta
@@ -83,25 +85,28 @@ fun VoicePickerSheet(
         ) {
             if (state.source != null || state.searching) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.voices_back),
+                )
                 }
             } else {
                 Spacer(Modifier.size(16.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Choose a voice",
+                    text = stringResource(R.string.voices_sheet_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
                 // Breadcrumb. Always says where you are, so the two "Alice"
                 // are never ambiguous.
                 val crumb = when {
-                    state.searching -> "Searching every voice"
+                    state.searching -> stringResource(R.string.voices_crumb_searching)
                     model != null && source != null && source.models.size > 1 ->
-                        "${source.name} › ${model.name}"
+                        stringResource(R.string.voices_crumb_path, source.name, model.name)
                     source != null -> source.name
-                    else -> "All sources"
+                    else -> stringResource(R.string.voices_crumb_all_sources)
                 }
                 Text(
                     text = crumb,
@@ -114,7 +119,7 @@ fun VoicePickerSheet(
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Search all voices") },
+            placeholder = { Text(stringResource(R.string.voices_search_placeholder)) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
             modifier = Modifier
@@ -126,7 +131,7 @@ fun VoicePickerSheet(
         Box(modifier = Modifier.heightIn(min = 220.dp, max = 460.dp)) {
             when {
                 state.searching -> SearchResults(tree, state.query, selectedVoiceId, latency, onPick)
-                tree.isEmpty() -> Empty("No voices installed yet")
+                tree.isEmpty() -> Empty(stringResource(R.string.voices_empty_none_installed))
                 model != null -> VoiceList(model.voices, selectedVoiceId, onPick)
                 source != null -> VoiceModelList(source, latency, SheetGutter, onSelectModel)
                 else -> VoiceSourceList(tree, latency, SheetGutter, onSelectSource)
@@ -153,7 +158,7 @@ private fun VoiceList(
     onPick: (VoiceMeta) -> Unit,
 ) {
     if (voices.isEmpty()) {
-        Empty("This model has no installed voices")
+        Empty(stringResource(R.string.voices_empty_model))
         return
     }
     LazyColumn {
@@ -177,7 +182,7 @@ private fun SearchResults(
 ) {
     val hits = remember(tree, query) { searchVoiceTree(tree, query) }
     if (hits.isEmpty()) {
-        Empty("No voices match \"$query\"")
+        Empty(stringResource(R.string.voices_empty_no_match, query))
         return
     }
     LazyColumn {
@@ -226,7 +231,7 @@ private fun VoiceRow(
         if (selected) {
             Icon(
                 imageVector = Icons.Filled.Check,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.voices_selected),
                 tint = MaterialTheme.colorScheme.primary,
             )
         }

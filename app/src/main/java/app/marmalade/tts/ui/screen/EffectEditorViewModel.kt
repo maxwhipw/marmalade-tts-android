@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectBlockJson
 import app.marmalade.tts.data.SettingsRepository
@@ -39,7 +41,15 @@ internal const val EFFECT_PREVIEW_TEXT = "The quick brown fox jumps over the laz
 sealed interface EffectPreviewState {
     object Idle : EffectPreviewState
     object Playing : EffectPreviewState
-    data class Error(val message: String) : EffectPreviewState
+
+    /**
+     * [messageRes] names the failure; [detail] carries the engine's own message
+     * when there is one, which has no resource to come from.
+     */
+    data class Error(
+        @StringRes val messageRes: Int,
+        val detail: String? = null,
+    ) : EffectPreviewState
 }
 
 /**
@@ -173,7 +183,9 @@ class EffectEditorViewModel @Inject constructor(
             if (voiceId.isBlank()) {
                 if (generation != previewGeneration) return@launch
                 _state.value = _state.value.copy(
-                    preview = EffectPreviewState.Error("Pick a default voice on the Speak screen first."),
+                    preview = EffectPreviewState.Error(
+                        R.string.effects_preview_pick_default_voice,
+                    ),
                 )
                 return@launch
             }
@@ -183,7 +195,9 @@ class EffectEditorViewModel @Inject constructor(
             _state.value = _state.value.copy(
                 preview = result.fold(
                     onSuccess = { EffectPreviewState.Idle },
-                    onFailure = { EffectPreviewState.Error(it.message ?: "Preview failed") },
+                    onFailure = {
+                        EffectPreviewState.Error(R.string.effects_preview_failed, it.message)
+                    },
                 ),
             )
         }

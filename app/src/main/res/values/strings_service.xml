@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <string name="service_synth_channel_name">Marmalade TTS Playback</string>
+    <string name="service_synth_channel_description">Shows while Marmalade TTS is reading aloud</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">Preparing…</string>
+    <string name="service_synth_state_queued">Queued: %1$s</string>
+    <string name="service_synth_state_speaking_text">Speaking: %1$s</string>
+    <string name="service_synth_state_speaking">Speaking</string>
+    <string name="service_synth_state_paused">Paused</string>
+    <string name="service_synth_action_pause">Pause</string>
+    <string name="service_synth_action_resume">Resume</string>
+    <string name="service_synth_action_stop">Stop</string>
+    <string name="service_synth_error_engine_not_installed">%1$s engine not installed</string>
+    <string name="service_synth_error_failed">Synthesis failed</string>
+
+    <!-- Keepalive foreground service -->
+    <string name="service_keepalive_channel_name">Marmalade TTS Keepalive</string>
+    <string name="service_keepalive_channel_description">Shows while Marmalade keeps the TTS engine loaded for faster speak-onset.</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — ready</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — recently used</string>
+    <string name="service_keepalive_text_persistent">Engine kept loaded for instant speak-onset.</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="one">Engine stays loaded for the next %1$d minute.</item>
+        <item quantity="other">Engine stays loaded for the next %1$d minutes.</item>
+    </plurals>
+
+    <!-- Quick Settings tile -->
+    <string name="service_clipboard_empty">Clipboard is empty</string>
+
+    <!-- Spoken sample for Settings → Languages → TTS → \"Listen to an example\" -->
+    <string name="service_sample_text">Hello, this is Marmalade speaking.</string>
+</resources>

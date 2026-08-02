@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
 import app.marmalade.tts.data.CloudApiVoiceCatalog
@@ -85,7 +87,14 @@ sealed class PreviewState {
      */
     data class ModelMissing(val engineName: String) : PreviewState()
 
-    data class Error(val message: String) : PreviewState()
+    /**
+     * [message] is the engine's own user-facing detail; when it has none,
+     * the UI renders [fallbackRes] instead.
+     */
+    data class Error(
+        val message: String?,
+        @StringRes val fallbackRes: Int,
+    ) : PreviewState()
 }
 
 /**
@@ -302,9 +311,10 @@ class VoicePickerViewModel @Inject constructor(
                         is SynthesizerException.ModelMissing ->
                             PreviewState.ModelMissing(voice.engine)
                         is SynthesizerException.SynthesisFailed -> PreviewState.Error(
-                            err.message ?: "Preview failed",
+                            err.message,
+                            R.string.voices_error_preview_failed,
                         )
-                        else -> PreviewState.Error(err.message ?: "Unknown error")
+                        else -> PreviewState.Error(err.message, R.string.voices_error_unknown)
                     }
                 },
             )

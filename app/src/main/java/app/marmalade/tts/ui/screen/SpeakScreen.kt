@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -174,7 +175,7 @@ fun SpeakScreen(
                 // dark (LocalWordmarkColor carries the mode-aware swap).
                 title = {
                     Text(
-                        text = "marmalade tts",
+                        text = stringResource(R.string.speak_wordmark),
                         fontFamily = Wordmark,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 22.sp,
@@ -213,7 +214,7 @@ fun SpeakScreen(
             OutlinedTextField(
                 value = text,
                 onValueChange = viewModel::onTextChanged,
-                label = { Text("Text to speak") },
+                label = { Text(stringResource(R.string.speak_text_field_label)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 160.dp),
@@ -245,7 +246,11 @@ fun SpeakScreen(
                 enabled = canSpeak,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (isSpeaking) "Stop" else "Speak")
+                Text(
+                    stringResource(
+                        if (isSpeaking) R.string.speak_button_stop else R.string.speak_button_speak,
+                    ),
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -337,7 +342,7 @@ private fun CurrentVoiceRow(
                 Text(
                     // Null only on the very first frame, before either flow
                     // has emitted. An em dash beats an empty row jumping.
-                    text = persona?.name ?: "—",
+                    text = persona?.name ?: stringResource(R.string.speak_persona_unresolved),
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -361,7 +366,7 @@ private fun CurrentVoiceRow(
             }
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
-                contentDescription = "Change voice",
+                contentDescription = stringResource(R.string.speak_change_voice),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -377,7 +382,7 @@ fun CloudMark(
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     /** Null where neighbouring text already says "Cloud". */
-    contentDescription: String? = "Cloud voice — needs the network",
+    contentDescription: String? = stringResource(R.string.speak_cloud_voice_desc),
 ) {
     Icon(
         imageVector = MarmaladeIcons.Cloud,
@@ -405,7 +410,7 @@ private fun PersonaSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
-            text = "Voice",
+            text = stringResource(R.string.speak_sheet_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp),
         )
@@ -418,7 +423,7 @@ private fun PersonaSheet(
                             if (persona.isPrimary) {
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = "Primary",
+                                    text = stringResource(R.string.speak_persona_primary),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
@@ -443,7 +448,7 @@ private fun PersonaSheet(
                         if (persona.id == activeId) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
-                                contentDescription = "Selected",
+                                contentDescription = stringResource(R.string.speak_persona_selected),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }
@@ -457,7 +462,7 @@ private fun PersonaSheet(
         }
         HorizontalDivider()
         ListItem(
-            headlineContent = { Text("Pick a voice directly") },
+            headlineContent = { Text(stringResource(R.string.speak_pick_voice_directly)) },
             leadingContent = {
                 Icon(MarmaladeIcons.Speak, contentDescription = null)
             },
@@ -467,7 +472,7 @@ private fun PersonaSheet(
             },
         )
         ListItem(
-            headlineContent = { Text("New persona") },
+            headlineContent = { Text(stringResource(R.string.speak_new_persona)) },
             leadingContent = {
                 Icon(Icons.Filled.Add, contentDescription = null)
             },
@@ -485,11 +490,12 @@ private fun PersonaSheet(
 // and a line that never changes stops being read, which costs the states
 // that DO matter their glance value. The Box keeps its height reserved so
 // nothing below shifts when a real message arrives.
+@Composable
 private fun statusText(state: PlaybackState, installCta: String): String = when (state) {
     is PlaybackState.Idle -> ""
-    is PlaybackState.Speaking -> "Speaking…"
+    is PlaybackState.Speaking -> stringResource(R.string.speak_status_speaking)
     is PlaybackState.ModelMissing -> installCta
-    is PlaybackState.Error -> state.message
+    is PlaybackState.Error -> state.message ?: stringResource(state.fallbackRes)
 }
 
 /**
@@ -500,12 +506,13 @@ private fun statusText(state: PlaybackState, installCta: String): String = when 
  * when no voice is resolved yet (initial-load flicker) or the engine
  * isn't in the catalog (would be a bug, but the neutral copy is safe).
  */
+@Composable
 private fun installCtaFor(voice: VoiceMeta?): String {
     val displayName = voice?.engine
         ?.let { EngineCatalog.byName(it)?.displayName }
     return if (displayName != null) {
-        "Tap to install $displayName"
+        stringResource(R.string.speak_install_cta_engine, displayName)
     } else {
-        "Tap to install a TTS engine"
+        stringResource(R.string.speak_install_cta_generic)
     }
 }

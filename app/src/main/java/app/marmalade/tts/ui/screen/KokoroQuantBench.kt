@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.util.Log
+import app.marmalade.tts.R
 import app.marmalade.tts.engine.kitten.PAD_TOKEN
 import app.marmalade.tts.engine.kitten.encodePhonemes
 import app.marmalade.tts.perf.CpuClusterDetector
@@ -203,7 +204,7 @@ object KokoroQuantBench {
         onVariant: (VariantResult) -> Unit,
     ): String? = withContext(Dispatchers.Default) {
         if (!running.compareAndSet(false, true)) {
-            return@withContext "a quant bench is already running (from a previous screen visit) — wait for it to finish"
+            return@withContext ctx.getString(R.string.bench_quant_already_running)
         }
         try {
             runLocked(ctx, onProgress, onVariant)
@@ -220,7 +221,7 @@ object KokoroQuantBench {
         val engineDir = File(ctx.filesDir, ENGINE_DIR)
         val voicesFile = File(engineDir, "voices.bin")
         if (!voicesFile.isFile) {
-            val msg = "Kokoro Direct not installed (${voicesFile.absolutePath} missing)"
+            val msg = ctx.getString(R.string.bench_quant_not_installed, voicesFile.absolutePath)
             Log.w(TAG, msg)
             return msg
         }

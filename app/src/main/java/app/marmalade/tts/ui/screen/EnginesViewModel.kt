@@ -1,14 +1,17 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.R
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -50,6 +53,7 @@ import kotlinx.coroutines.launch
 class EnginesViewModel @Inject constructor(
     private val installer: EngineInstaller,
     private val settings: SettingsRepository,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     /**
@@ -116,7 +120,11 @@ class EnginesViewModel @Inject constructor(
             _installStates.update {
                 it + (engineName to result.fold(
                     onSuccess = { InstallState.Installed },
-                    onFailure = { err -> InstallState.Failed(err.message ?: "Install failed") },
+                    onFailure = { err ->
+                        InstallState.Failed(
+                            err.message ?: appContext.getString(R.string.engines_install_failed),
+                        )
+                    },
                 ))
             }
             stateJob.cancel()
@@ -135,7 +143,11 @@ class EnginesViewModel @Inject constructor(
             _installStates.update {
                 it + (engineName to result.fold(
                     onSuccess = { InstallState.NotInstalled },
-                    onFailure = { err -> InstallState.Failed(err.message ?: "Uninstall failed") },
+                    onFailure = { err ->
+                        InstallState.Failed(
+                            err.message ?: appContext.getString(R.string.engines_uninstall_failed),
+                        )
+                    },
                 ))
             }
         }

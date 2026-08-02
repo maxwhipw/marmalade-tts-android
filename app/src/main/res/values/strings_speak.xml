@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bottom navigation -->
+    <string name="speak_nav_speak">Speak</string>
+    <string name="speak_nav_aliases">Aliases</string>
+    <string name="speak_nav_effects">Effects</string>
+    <string name="speak_nav_engines">Engines</string>
+    <string name="speak_nav_settings">Settings</string>
+
+    <!-- Speak screen -->
+    <string name="speak_wordmark" translatable="false">marmalade tts</string>
+    <string name="speak_text_field_label">Text to speak</string>
+    <string name="speak_button_speak">Speak</string>
+    <string name="speak_button_stop">Stop</string>
+    <string name="speak_status_speaking">Speaking…</string>
+    <string name="speak_install_cta_engine">Tap to install %1$s</string>
+    <string name="speak_install_cta_generic">Tap to install a TTS engine</string>
+    <string name="speak_change_voice">Change voice</string>
+    <string name="speak_persona_unresolved">—</string>
+    <string name="speak_cloud_voice_desc">Cloud voice — needs the network</string>
+
+    <!-- Persona sheet -->
+    <string name="speak_sheet_title">Voice</string>
+    <string name="speak_persona_primary">Primary</string>
+    <string name="speak_persona_selected">Selected</string>
+    <string name="speak_pick_voice_directly">Pick a voice directly</string>
+    <string name="speak_new_persona">New persona</string>
+
+    <!-- Playback errors -->
+    <string name="speak_error_synthesis_failed">Synthesis failed</string>
+    <string name="speak_error_unknown">Unknown error</string>
+
+    <!-- Share / process-text trampoline -->
+    <string name="speak_share_nothing_to_speak">Nothing to speak</string>
+</resources>

@@ -203,7 +203,9 @@ class MarmaladeSynthService : Service() {
         // match the manifest declaration (mediaPlayback) — otherwise we get
         // a MissingForegroundServiceTypeException at runtime. The 3-arg
         // overload exists since API 29 (Q), so we guard the type pass on Q+.
-        val notification = buildNotification(stateText = "Preparing…")
+        val notification = buildNotification(
+            stateText = getString(R.string.service_synth_state_preparing),
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
@@ -325,7 +327,9 @@ class MarmaladeSynthService : Service() {
                 startNextLocked()
             } else {
                 Log.d(TAG, "Queued request (queue size = ${queue.size})")
-                updateNotification("Queued: ${req.text.take(40)}")
+                updateNotification(
+                    getString(R.string.service_synth_state_queued, req.text.take(40)),
+                )
             }
         }
     }
@@ -410,7 +414,9 @@ class MarmaladeSynthService : Service() {
         // recover earlier leaks either. try { … } finally { releaseFocus() }
         // is the only safe shape.
         try {
-            updateNotification("Speaking: ${req.text.take(40)}")
+            updateNotification(
+                getString(R.string.service_synth_state_speaking_text, req.text.take(40)),
+            )
 
             // Per-engine preprocessing (currency, numbers, abbreviations,
             // …) feeds the engine the same normalised text the user gets
@@ -433,11 +439,16 @@ class MarmaladeSynthService : Service() {
                 }
             } catch (e: EngineNotInstalledException) {
                 Log.w(TAG, "Engine not installed", e)
-                postErrorNotification("${displayNameFor(engineName)} engine not installed")
+                postErrorNotification(
+                    getString(
+                        R.string.service_synth_error_engine_not_installed,
+                        displayNameFor(engineName),
+                    ),
+                )
                 return
             } catch (t: Throwable) {
                 Log.e(TAG, "Synthesis failed", t)
-                postErrorNotification("Synthesis failed")
+                postErrorNotification(getString(R.string.service_synth_error_failed))
                 return
             }
         } finally {
@@ -575,7 +586,7 @@ class MarmaladeSynthService : Service() {
             if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.pause()
         } catch (_: IllegalStateException) { /* track gone */ }
         updateMediaState(PlaybackStateCompat.STATE_PAUSED)
-        updateNotification("Paused")
+        updateNotification(getString(R.string.service_synth_state_paused))
     }
 
     private fun doResume() {
@@ -585,7 +596,7 @@ class MarmaladeSynthService : Service() {
             if (track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
         } catch (_: IllegalStateException) { /* track gone */ }
         updateMediaState(PlaybackStateCompat.STATE_PLAYING)
-        updateNotification("Speaking")
+        updateNotification(getString(R.string.service_synth_state_speaking))
     }
 
     private fun doStop() {
@@ -823,10 +834,10 @@ class MarmaladeSynthService : Service() {
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Marmalade TTS Playback",
+            getString(R.string.service_synth_channel_name),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Shows while Marmalade TTS is reading aloud"
+            description = getString(R.string.service_synth_channel_description)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -847,7 +858,7 @@ class MarmaladeSynthService : Service() {
      */
     private fun postErrorNotification(message: String) {
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Marmalade TTS")
+            .setContentTitle(getString(R.string.service_synth_notification_title))
             .setContentText(message)
             .setSmallIcon(R.drawable.mascot_speaking)
             .setAutoCancel(true)
@@ -862,22 +873,22 @@ class MarmaladeSynthService : Service() {
 
         val pauseAction = NotificationCompat.Action(
             android.R.drawable.ic_media_pause,
-            "Pause",
+            getString(R.string.service_synth_action_pause),
             servicePendingIntent(ACTION_PAUSE),
         )
         val resumeAction = NotificationCompat.Action(
             android.R.drawable.ic_media_play,
-            "Resume",
+            getString(R.string.service_synth_action_resume),
             servicePendingIntent(ACTION_RESUME),
         )
         val stopAction = NotificationCompat.Action(
             android.R.drawable.ic_menu_close_clear_cancel,
-            "Stop",
+            getString(R.string.service_synth_action_stop),
             servicePendingIntent(ACTION_STOP),
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Marmalade TTS")
+            .setContentTitle(getString(R.string.service_synth_notification_title))
             .setContentText(stateText)
             .setSmallIcon(R.drawable.mascot_speaking)
             .setOnlyAlertOnce(true)

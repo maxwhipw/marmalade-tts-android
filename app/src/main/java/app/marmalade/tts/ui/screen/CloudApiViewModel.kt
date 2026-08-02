@@ -1,13 +1,16 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.R
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.cloud.CloudProvider
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.db.VoiceMetaDao
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +52,7 @@ class CloudApiViewModel @Inject constructor(
     private val store: CloudProviderStore,
     private val settings: SettingsRepository,
     voiceDao: VoiceMetaDao,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     private val _providers = MutableStateFlow<List<CloudProvider>>(emptyList())
@@ -127,7 +131,7 @@ class CloudApiViewModel @Inject constructor(
                 onSuccess = { _providers.value = store.providers() },
                 onFailure = { err ->
                     _errors.update {
-                        it + (provider.id to (err.message ?: "Voice discovery failed"))
+                        it + (provider.id to (err.message ?: appContext.getString(R.string.engines_cloud_discovery_failed)))
                     }
                 },
             )

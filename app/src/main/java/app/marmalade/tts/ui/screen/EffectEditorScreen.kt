@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -50,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 
 // -----------------------------------------------------------------------------
@@ -78,15 +81,30 @@ fun EffectEditorScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (state.isEdit) "Edit effect" else "New effect") },
+                title = {
+                    Text(
+                        stringResource(
+                            if (state.isEdit) {
+                                R.string.effects_editor_title_edit
+                            } else {
+                                R.string.effects_editor_title_new
+                            },
+                        ),
+                    )
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.effects_back),
+                        )
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.save(onSaved = onBack) }) { Text("Save") }
+                    TextButton(onClick = { viewModel.save(onSaved = onBack) }) {
+                        Text(stringResource(R.string.effects_save))
+                    }
                 },
             )
         },
@@ -112,11 +130,16 @@ fun EffectEditorScreen(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.effects_name)) },
                 singleLine = true,
                 isError = state.nameError,
                 supportingText = if (state.nameError) {
-                    { Text("Give the effect a name.", color = MaterialTheme.colorScheme.error) }
+                    {
+                        Text(
+                            stringResource(R.string.effects_name_error),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 } else {
                     null
                 },
@@ -124,21 +147,19 @@ fun EffectEditorScreen(
             )
 
             Text(
-                text = "Chain",
+                text = stringResource(R.string.effects_chain),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Blocks run top → bottom: each one processes the audio the " +
-                    "block above it produced.",
+                text = stringResource(R.string.effects_chain_help),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             if (state.blocks.isEmpty()) {
                 Text(
-                    text = "No blocks yet — add one below for a dry (unprocessed) effect, " +
-                        "or stack several to shape the sound.",
+                    text = stringResource(R.string.effects_chain_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -178,19 +199,19 @@ private fun PreviewRow(
     Column {
         if (preview is EffectPreviewState.Playing) {
             OutlinedButton(onClick = onStop, modifier = Modifier.fillMaxWidth()) {
-                Text("Stop")
+                Text(stringResource(R.string.effects_stop))
             }
         } else {
             Button(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Preview")
+                Text(stringResource(R.string.effects_preview))
             }
         }
         if (preview is EffectPreviewState.Error) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = preview.message,
+                text = preview.detail ?: stringResource(preview.messageRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -213,21 +234,27 @@ private fun BlockCard(
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = blockTitle(block),
+                    text = stringResource(blockTitleRes(block)),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onMoveUp, enabled = index > 0) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move up")
+                    Icon(
+                        Icons.Filled.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.effects_move_up),
+                    )
                 }
                 IconButton(onClick = onMoveDown, enabled = index < count - 1) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move down")
+                    Icon(
+                        Icons.Filled.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.effects_move_down),
+                    )
                 }
                 IconButton(onClick = onRemove) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Remove block",
+                        contentDescription = stringResource(R.string.effects_remove_block),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -246,247 +273,256 @@ private fun BlockCard(
 private fun BlockParams(block: EffectBlock, onChange: (EffectBlock) -> Unit) {
     when (block) {
         is EffectBlock.Reverb -> LabeledSlider(
-            label = "Reverberance",
+            label = stringResource(R.string.effects_param_reverberance),
             value = block.reverberance,
             range = 0f..100f,
-            valueText = "%.0f".format(block.reverberance),
+            valueText = stringResource(R.string.effects_value_plain0, block.reverberance),
             onValueChange = { onChange(block.copy(reverberance = it)) },
         )
         is EffectBlock.Echo -> {
             LabeledSlider(
-                label = "Delay",
+                label = stringResource(R.string.effects_param_delay),
                 value = block.delayMs,
                 range = 0f..500f,
-                valueText = "%.0f ms".format(block.delayMs),
+                valueText = stringResource(R.string.effects_value_ms0, block.delayMs),
                 onValueChange = { onChange(block.copy(delayMs = it)) },
             )
             LabeledSlider(
-                label = "Decay",
+                label = stringResource(R.string.effects_param_decay),
                 value = block.decay,
                 range = 0f..1f,
-                valueText = "%.2f".format(block.decay),
+                valueText = stringResource(R.string.effects_value_plain2, block.decay),
                 onValueChange = { onChange(block.copy(decay = it)) },
             )
             LabeledSlider(
-                label = "Input gain",
+                label = stringResource(R.string.effects_param_gain_in),
                 value = block.gainIn,
                 range = 0f..1f,
-                valueText = "%.2f".format(block.gainIn),
+                valueText = stringResource(R.string.effects_value_plain2, block.gainIn),
                 onValueChange = { onChange(block.copy(gainIn = it)) },
             )
             LabeledSlider(
-                label = "Output gain",
+                label = stringResource(R.string.effects_param_gain_out),
                 value = block.gainOut,
                 range = 0f..1f,
-                valueText = "%.2f".format(block.gainOut),
+                valueText = stringResource(R.string.effects_value_plain2, block.gainOut),
                 onValueChange = { onChange(block.copy(gainOut = it)) },
             )
         }
         is EffectBlock.Overdrive -> LabeledSlider(
-            label = "Gain",
+            label = stringResource(R.string.effects_param_gain),
             value = block.gainDb,
             range = 0f..40f,
-            valueText = "%.0f dB".format(block.gainDb),
+            valueText = stringResource(R.string.effects_value_db, block.gainDb),
             onValueChange = { onChange(block.copy(gainDb = it)) },
         )
         is EffectBlock.Pitch -> LabeledSlider(
-            label = "Pitch",
+            label = stringResource(R.string.effects_param_pitch),
             value = block.cents,
             range = -1200f..1200f,
-            valueText = "${if (block.cents >= 0) "+" else ""}${"%.0f".format(block.cents)} cents",
+            valueText = stringResource(
+                R.string.effects_value_cents,
+                signedRounded(block.cents),
+            ),
             onValueChange = { onChange(block.copy(cents = it)) },
         )
         is EffectBlock.Tempo -> LabeledSlider(
-            label = "Speed",
+            label = stringResource(R.string.effects_param_speed),
             value = block.factor,
             range = 0.5f..2f,
-            valueText = "%.2f×".format(block.factor),
+            valueText = stringResource(R.string.effects_value_multiplier, block.factor),
             onValueChange = { onChange(block.copy(factor = it)) },
         )
         is EffectBlock.Bandpass -> {
             LabeledSlider(
-                label = "Low cut",
+                label = stringResource(R.string.effects_param_low_cut),
                 value = block.lowHz,
                 range = 50f..4000f,
-                valueText = "%.0f Hz".format(block.lowHz),
+                valueText = stringResource(R.string.effects_value_hz0, block.lowHz),
                 onValueChange = { onChange(block.copy(lowHz = it)) },
             )
             LabeledSlider(
-                label = "High cut",
+                label = stringResource(R.string.effects_param_high_cut),
                 value = block.highHz,
                 range = 1000f..8000f,
-                valueText = "%.0f Hz".format(block.highHz),
+                valueText = stringResource(R.string.effects_value_hz0, block.highHz),
                 onValueChange = { onChange(block.copy(highHz = it)) },
             )
         }
         is EffectBlock.Vol -> LabeledSlider(
-            label = "Volume",
+            label = stringResource(R.string.effects_param_volume),
             value = block.factor,
             range = 0f..3f,
-            valueText = "%.2f×".format(block.factor),
+            valueText = stringResource(R.string.effects_value_multiplier, block.factor),
             onValueChange = { onChange(block.copy(factor = it)) },
         )
         is EffectBlock.Treble -> LabeledSlider(
-            label = "Treble",
+            label = stringResource(R.string.effects_param_treble),
             value = block.db,
             range = -20f..20f,
-            valueText = "${if (block.db >= 0) "+" else ""}${"%.0f".format(block.db)} dB",
+            valueText = stringResource(R.string.effects_value_db_signed, signedRounded(block.db)),
             onValueChange = { onChange(block.copy(db = it)) },
         )
         is EffectBlock.Bass -> LabeledSlider(
-            label = "Bass",
+            label = stringResource(R.string.effects_param_bass),
             value = block.db,
             range = -20f..20f,
-            valueText = "${if (block.db >= 0) "+" else ""}${"%.0f".format(block.db)} dB",
+            valueText = stringResource(R.string.effects_value_db_signed, signedRounded(block.db)),
             onValueChange = { onChange(block.copy(db = it)) },
         )
         is EffectBlock.Mid -> {
             LabeledSlider(
-                label = "Frequency",
+                label = stringResource(R.string.effects_param_frequency),
                 value = block.freqHz,
                 range = 100f..8000f,
-                valueText = "%.0f Hz".format(block.freqHz),
+                valueText = stringResource(R.string.effects_value_hz0, block.freqHz),
                 onValueChange = { onChange(block.copy(freqHz = it)) },
             )
             LabeledSlider(
-                label = "Gain",
+                label = stringResource(R.string.effects_param_gain),
                 value = block.gainDb,
                 range = -20f..20f,
-                valueText = "${if (block.gainDb >= 0) "+" else ""}${"%.0f".format(block.gainDb)} dB",
+                valueText = stringResource(
+                    R.string.effects_value_db_signed,
+                    signedRounded(block.gainDb),
+                ),
                 onValueChange = { onChange(block.copy(gainDb = it)) },
             )
         }
         is EffectBlock.Lowpass -> LabeledSlider(
-            label = "Cutoff",
+            label = stringResource(R.string.effects_param_cutoff),
             value = block.freqHz,
             range = 500f..12000f,
-            valueText = "%.0f Hz".format(block.freqHz),
+            valueText = stringResource(R.string.effects_value_hz0, block.freqHz),
             onValueChange = { onChange(block.copy(freqHz = it)) },
         )
         is EffectBlock.Highpass -> LabeledSlider(
-            label = "Cutoff",
+            label = stringResource(R.string.effects_param_cutoff),
             value = block.freqHz,
             range = 20f..2000f,
-            valueText = "%.0f Hz".format(block.freqHz),
+            valueText = stringResource(R.string.effects_value_hz0, block.freqHz),
             onValueChange = { onChange(block.copy(freqHz = it)) },
         )
         is EffectBlock.Tremolo -> {
             LabeledSlider(
-                label = "Speed",
+                label = stringResource(R.string.effects_param_speed),
                 value = block.speedHz,
                 range = 0.5f..20f,
-                valueText = "%.1f Hz".format(block.speedHz),
+                valueText = stringResource(R.string.effects_value_hz1, block.speedHz),
                 onValueChange = { onChange(block.copy(speedHz = it)) },
             )
             LabeledSlider(
-                label = "Depth",
+                label = stringResource(R.string.effects_param_depth),
                 value = block.depth,
                 range = 0f..1f,
-                valueText = "%.0f%%".format(block.depth * 100),
+                valueText = stringResource(R.string.effects_value_percent, block.depth * 100),
                 onValueChange = { onChange(block.copy(depth = it)) },
             )
         }
         is EffectBlock.Flanger -> {
             LabeledSlider(
-                label = "Speed",
+                label = stringResource(R.string.effects_param_speed),
                 value = block.speedHz,
                 range = 0.1f..5f,
-                valueText = "%.2f Hz".format(block.speedHz),
+                valueText = stringResource(R.string.effects_value_hz2, block.speedHz),
                 onValueChange = { onChange(block.copy(speedHz = it)) },
             )
             LabeledSlider(
-                label = "Depth",
+                label = stringResource(R.string.effects_param_depth),
                 value = block.depthMs,
                 range = 0f..10f,
-                valueText = "%.1f ms".format(block.depthMs),
+                valueText = stringResource(R.string.effects_value_ms1, block.depthMs),
                 onValueChange = { onChange(block.copy(depthMs = it)) },
             )
         }
         is EffectBlock.Chorus -> {
             LabeledSlider(
-                label = "Speed",
+                label = stringResource(R.string.effects_param_speed),
                 value = block.speedHz,
                 range = 0.1f..5f,
-                valueText = "%.2f Hz".format(block.speedHz),
+                valueText = stringResource(R.string.effects_value_hz2, block.speedHz),
                 onValueChange = { onChange(block.copy(speedHz = it)) },
             )
             LabeledSlider(
-                label = "Depth",
+                label = stringResource(R.string.effects_param_depth),
                 value = block.depthMs,
                 range = 0f..10f,
-                valueText = "%.1f ms".format(block.depthMs),
+                valueText = stringResource(R.string.effects_value_ms1, block.depthMs),
                 onValueChange = { onChange(block.copy(depthMs = it)) },
             )
         }
         is EffectBlock.Phaser -> {
             LabeledSlider(
-                label = "Speed",
+                label = stringResource(R.string.effects_param_speed),
                 value = block.speedHz,
                 range = 0.1f..5f,
-                valueText = "%.2f Hz".format(block.speedHz),
+                valueText = stringResource(R.string.effects_value_hz2, block.speedHz),
                 onValueChange = { onChange(block.copy(speedHz = it)) },
             )
             LabeledSlider(
-                label = "Resonance",
+                label = stringResource(R.string.effects_param_resonance),
                 value = block.decay,
                 range = 0f..0.9f,
-                valueText = "%.2f".format(block.decay),
+                valueText = stringResource(R.string.effects_value_plain2, block.decay),
                 onValueChange = { onChange(block.copy(decay = it)) },
             )
         }
         is EffectBlock.Compressor -> {
             LabeledSlider(
-                label = "Threshold",
+                label = stringResource(R.string.effects_param_threshold),
                 value = block.thresholdDb,
                 range = -60f..0f,
-                valueText = "%.0f dB".format(block.thresholdDb),
+                valueText = stringResource(R.string.effects_value_db, block.thresholdDb),
                 onValueChange = { onChange(block.copy(thresholdDb = it)) },
             )
             LabeledSlider(
-                label = "Ratio",
+                label = stringResource(R.string.effects_param_ratio),
                 value = block.ratio,
                 range = 1f..20f,
-                valueText = "%.1f:1".format(block.ratio),
+                valueText = stringResource(R.string.effects_value_ratio, block.ratio),
                 onValueChange = { onChange(block.copy(ratio = it)) },
             )
         }
         is EffectBlock.Bitcrush -> {
             LabeledSlider(
-                label = "Bits",
+                label = stringResource(R.string.effects_param_bits),
                 value = block.bits,
                 range = 1f..16f,
-                valueText = "%.0f-bit".format(block.bits),
+                valueText = stringResource(R.string.effects_value_bits, block.bits),
                 onValueChange = { onChange(block.copy(bits = it)) },
             )
             LabeledSlider(
-                label = "Downsample",
+                label = stringResource(R.string.effects_param_downsample),
                 value = block.downsample,
                 range = 1f..32f,
-                valueText = "${block.downsample.toInt()}×",
+                valueText = stringResource(
+                    R.string.effects_value_times,
+                    block.downsample.toInt(),
+                ),
                 onValueChange = { onChange(block.copy(downsample = it)) },
             )
         }
         is EffectBlock.RingMod -> {
             LabeledSlider(
-                label = "Frequency",
+                label = stringResource(R.string.effects_param_frequency),
                 value = block.freqHz,
                 range = 10f..2000f,
-                valueText = "%.0f Hz".format(block.freqHz),
+                valueText = stringResource(R.string.effects_value_hz0, block.freqHz),
                 onValueChange = { onChange(block.copy(freqHz = it)) },
             )
             LabeledSlider(
-                label = "Mix",
+                label = stringResource(R.string.effects_param_mix),
                 value = block.mix,
                 range = 0f..1f,
-                valueText = "%.0f%%".format(block.mix * 100),
+                valueText = stringResource(R.string.effects_value_percent, block.mix * 100),
                 onValueChange = { onChange(block.copy(mix = it)) },
             )
         }
         is EffectBlock.Monotone -> LabeledSlider(
-            label = "Target pitch",
+            label = stringResource(R.string.effects_param_target_pitch),
             value = block.targetHz,
             range = 50f..400f,
-            valueText = "%.0f Hz".format(block.targetHz),
+            valueText = stringResource(R.string.effects_value_hz0, block.targetHz),
             onValueChange = { onChange(block.copy(targetHz = it)) },
         )
     }
@@ -539,21 +575,21 @@ private fun AddBlockButton(onAdd: (EffectBlock) -> Unit) {
     OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(8.dp))
-        Text("Add block")
+        Text(stringResource(R.string.effects_add_block))
     }
     if (showPicker) {
         AlertDialog(
             onDismissRequest = { showPicker = false },
-            title = { Text("Add block") },
+            title = { Text(stringResource(R.string.effects_add_block)) },
             text = {
                 // M3 AlertDialog doesn't scroll custom text content on its
                 // own; ~20 rows exceed any phone screen, so without this the
                 // bottom entries were unreachable. Same fix as AliasScreen's
                 // effect picker.
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    for ((label, factory) in BLOCK_FACTORIES) {
+                    for ((labelRes, factory) in BLOCK_FACTORIES) {
                         Text(
-                            text = label,
+                            text = stringResource(labelRes),
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -568,55 +604,62 @@ private fun AddBlockButton(onAdd: (EffectBlock) -> Unit) {
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.effects_cancel))
+                }
             },
         )
     }
 }
 
 /** Friendly name → default block instance, in a sensible add-menu order. */
-private val BLOCK_FACTORIES: List<Pair<String, () -> EffectBlock>> = listOf(
-    "Reverb" to { EffectBlock.Reverb(reverberance = 50f) },
-    "Echo" to { EffectBlock.Echo(gainIn = 0.6f, gainOut = 0.6f, delayMs = 120f, decay = 0.3f) },
-    "Pitch" to { EffectBlock.Pitch(cents = 0f) },
-    "Speed (tempo)" to { EffectBlock.Tempo(factor = 1f) },
-    "Overdrive" to { EffectBlock.Overdrive(gainDb = 10f) },
-    "Band-pass" to { EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f) },
-    "Low-pass" to { EffectBlock.Lowpass(freqHz = 3000f) },
-    "High-pass" to { EffectBlock.Highpass(freqHz = 300f) },
-    "Volume" to { EffectBlock.Vol(factor = 1f) },
-    "Bass" to { EffectBlock.Bass(db = 0f) },
-    "Mid" to { EffectBlock.Mid(freqHz = 1000f, gainDb = 0f) },
-    "Treble" to { EffectBlock.Treble(db = 0f) },
-    "Tremolo" to { EffectBlock.Tremolo(speedHz = 5f, depth = 0.5f) },
-    "Flanger" to { EffectBlock.Flanger(speedHz = 0.5f, depthMs = 2f) },
-    "Chorus" to { EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f) },
-    "Phaser" to { EffectBlock.Phaser(speedHz = 0.5f, decay = 0.4f) },
-    "Compressor" to { EffectBlock.Compressor(thresholdDb = -20f, ratio = 4f) },
-    "Bitcrush" to { EffectBlock.Bitcrush(bits = 8f, downsample = 4f) },
-    "Ring mod" to { EffectBlock.RingMod(freqHz = 60f, mix = 0.6f) },
-    "Monotone" to { EffectBlock.Monotone(targetHz = 160f) },
+private val BLOCK_FACTORIES: List<Pair<Int, () -> EffectBlock>> = listOf(
+    R.string.effects_block_reverb to { EffectBlock.Reverb(reverberance = 50f) },
+    R.string.effects_block_echo to {
+        EffectBlock.Echo(gainIn = 0.6f, gainOut = 0.6f, delayMs = 120f, decay = 0.3f)
+    },
+    R.string.effects_block_pitch to { EffectBlock.Pitch(cents = 0f) },
+    R.string.effects_block_tempo to { EffectBlock.Tempo(factor = 1f) },
+    R.string.effects_block_overdrive to { EffectBlock.Overdrive(gainDb = 10f) },
+    R.string.effects_block_bandpass to { EffectBlock.Bandpass(lowHz = 300f, highHz = 3400f) },
+    R.string.effects_block_lowpass to { EffectBlock.Lowpass(freqHz = 3000f) },
+    R.string.effects_block_highpass to { EffectBlock.Highpass(freqHz = 300f) },
+    R.string.effects_block_vol to { EffectBlock.Vol(factor = 1f) },
+    R.string.effects_block_bass to { EffectBlock.Bass(db = 0f) },
+    R.string.effects_block_mid to { EffectBlock.Mid(freqHz = 1000f, gainDb = 0f) },
+    R.string.effects_block_treble to { EffectBlock.Treble(db = 0f) },
+    R.string.effects_block_tremolo to { EffectBlock.Tremolo(speedHz = 5f, depth = 0.5f) },
+    R.string.effects_block_flanger to { EffectBlock.Flanger(speedHz = 0.5f, depthMs = 2f) },
+    R.string.effects_block_chorus to { EffectBlock.Chorus(speedHz = 0.25f, depthMs = 2f) },
+    R.string.effects_block_phaser to { EffectBlock.Phaser(speedHz = 0.5f, decay = 0.4f) },
+    R.string.effects_block_compressor to {
+        EffectBlock.Compressor(thresholdDb = -20f, ratio = 4f)
+    },
+    R.string.effects_block_bitcrush to { EffectBlock.Bitcrush(bits = 8f, downsample = 4f) },
+    R.string.effects_block_ringmod to { EffectBlock.RingMod(freqHz = 60f, mix = 0.6f) },
+    R.string.effects_block_monotone to { EffectBlock.Monotone(targetHz = 160f) },
 )
 
-private fun blockTitle(block: EffectBlock): String = when (block) {
-    is EffectBlock.Reverb -> "Reverb"
-    is EffectBlock.Echo -> "Echo"
-    is EffectBlock.Overdrive -> "Overdrive"
-    is EffectBlock.Pitch -> "Pitch"
-    is EffectBlock.Tempo -> "Speed (tempo)"
-    is EffectBlock.Bandpass -> "Band-pass"
-    is EffectBlock.Vol -> "Volume"
-    is EffectBlock.Treble -> "Treble"
-    is EffectBlock.Bass -> "Bass"
-    is EffectBlock.Mid -> "Mid"
-    is EffectBlock.Lowpass -> "Low-pass"
-    is EffectBlock.Highpass -> "High-pass"
-    is EffectBlock.Tremolo -> "Tremolo"
-    is EffectBlock.Flanger -> "Flanger"
-    is EffectBlock.Chorus -> "Chorus"
-    is EffectBlock.Phaser -> "Phaser"
-    is EffectBlock.Compressor -> "Compressor"
-    is EffectBlock.Bitcrush -> "Bitcrush"
-    is EffectBlock.RingMod -> "Ring mod"
-    is EffectBlock.Monotone -> "Monotone"
+@StringRes
+private fun blockTitleRes(block: EffectBlock): Int = when (block) {
+    is EffectBlock.Reverb -> R.string.effects_block_reverb
+    is EffectBlock.Echo -> R.string.effects_block_echo
+    is EffectBlock.Overdrive -> R.string.effects_block_overdrive
+    is EffectBlock.Pitch -> R.string.effects_block_pitch
+    is EffectBlock.Tempo -> R.string.effects_block_tempo
+    is EffectBlock.Bandpass -> R.string.effects_block_bandpass
+    is EffectBlock.Vol -> R.string.effects_block_vol
+    is EffectBlock.Treble -> R.string.effects_block_treble
+    is EffectBlock.Bass -> R.string.effects_block_bass
+    is EffectBlock.Mid -> R.string.effects_block_mid
+    is EffectBlock.Lowpass -> R.string.effects_block_lowpass
+    is EffectBlock.Highpass -> R.string.effects_block_highpass
+    is EffectBlock.Tremolo -> R.string.effects_block_tremolo
+    is EffectBlock.Flanger -> R.string.effects_block_flanger
+    is EffectBlock.Chorus -> R.string.effects_block_chorus
+    is EffectBlock.Phaser -> R.string.effects_block_phaser
+    is EffectBlock.Compressor -> R.string.effects_block_compressor
+    is EffectBlock.Bitcrush -> R.string.effects_block_bitcrush
+    is EffectBlock.RingMod -> R.string.effects_block_ringmod
+    is EffectBlock.Monotone -> R.string.effects_block_monotone
 }
