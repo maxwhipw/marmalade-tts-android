@@ -100,6 +100,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isMinifyEnabled = false
+            // Emulator testing: debug builds also carry x86_64 (espeak-ng
+            // builds from source, ORT ships x86_64 in its AAR). Release
+            // keeps the arm-only filter from defaultConfig.
+            ndk { abiFilters += "x86_64" }
         }
         release {
             isMinifyEnabled = true
