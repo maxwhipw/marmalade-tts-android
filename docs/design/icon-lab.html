@@ -69,8 +69,9 @@ palette (no new shades).</p>
 <p class="lede">Each card shows the full 108-canvas, the circular launcher mask
 (center 72 of 108 — what most launchers actually display), and shelf size. Download gives
 the full-canvas SVG on the selected field.</p>
-<div class="note"><b>2026-08-01:</b> V2 (sound waves) is the provisional pick. V5a–V5c
-explore the speech-bubble concept with happier :D faces per Max's feedback.</div>
+<div class="note"><b>2026-08-01:</b> V2 (sound waves) is the provisional pick. The V5
+speech-bubble face was iterated in-chat through two :D rounds (tongue/no-tongue, flat vs
+curved top, sizes, corner rounding); winner <b>e5</b> is now baked into the V5 card.</div>
 <div class="grid" id="vgrid"></div>
 
 <h2 class="sec">Shelf test</h2>
@@ -133,27 +134,13 @@ const MOUTH_SPEAK = [
   ["M50.0,70.0 a4.0,2.5 0 1,0 8.0,0 a4.0,2.5 0 1,0 -8.0,0 Z","#3D2B1F"],
   ["M51.0,70.2 a3.0,1.5 0 1,0 6.0,0 a3.0,1.5 0 1,0 -6.0,0 Z","#2A1810"],
 ];
-const MOUTH_GRIN = [
-  ["M47.0,67.5 Q54.0,69.5 61.0,67.5 Q61.0,76.5 54.0,77.0 Q47.0,76.5 47.0,67.5 Z","#3D2B1F"],
-  ["M50.5,73.2 Q54.0,71.8 57.5,73.2 Q57.2,76.4 54.0,76.6 Q50.8,76.4 50.5,73.2 Z","#FF6B6B",null,0,0.9],
-];
-const EYES_SMILE = [
-  ["M40.5,60.5 Q44.6,56.8 48.7,60.5",null,"#3D2B1F",1.5,1,"round"],
-  ["M59.3,60.5 Q63.4,56.8 67.5,60.5",null,"#3D2B1F",1.5,1,"round"],
-];
-const MOUTH_BIGSMILE = [["M46.5,67.5 Q54.0,73.5 61.5,67.5",null,"#3D2B1F",1.2,1,"round"]];
-// Flat-top :D mouths (half-ellipse, no tongue) in three sizes
-const MOUTH_FLAT_S = [["M49.5,68.0 A4.5,5.0 0 0 0 58.5,68.0 Z","#3D2B1F"]];
-const MOUTH_FLAT_M = [["M47.0,68.0 A7.0,7.5 0 0 0 61.0,68.0 Z","#3D2B1F"]];
-const MOUTH_FLAT_L = [["M45.0,68.0 A9.0,10.5 0 0 0 63.0,68.0 Z","#3D2B1F"]];
+// Winner of the 2026-08-01 face iterations (e5): flat-top :D, rounded corners,
+// 10 wide x 5 deep, no tongue. Pairs with the slice-free jar (JAR_NOSLICE).
+const MOUTH_GRIN_E5 = [["M49.0,69.2 Q49.0,68.0 50.2,68.0 L57.8,68.0 Q59.0,68.0 59.0,69.2 A5.0,3.8 0 0 1 49.0,69.2 Z","#3D2B1F"]];
+const JAR_NOSLICE = JAR.slice(0,15);   // drop the orange-slice label decoration
 const FACE_HAPPY = [...EYES, ...MOUTH_HAPPY, ...BLUSH];
 const FACE_SPEAK = [...EYES, ...MOUTH_SPEAK, ...BLUSH];
-const FACE_GRIN     = [...EYES, ...MOUTH_GRIN, ...BLUSH];
-const FACE_GRIN_UWU = [...EYES_SMILE, ...MOUTH_GRIN, ...BLUSH];
-const FACE_BIGSMILE = [...EYES, ...MOUTH_BIGSMILE, ...BLUSH];
-const FACE_FLAT_S = [...EYES, ...MOUTH_FLAT_S, ...BLUSH];
-const FACE_FLAT_M = [...EYES, ...MOUTH_FLAT_M, ...BLUSH];
-const FACE_FLAT_L = [...EYES, ...MOUTH_FLAT_L, ...BLUSH];
+const FACE_GRIN_FINAL = [...EYES, ...MOUTH_GRIN_E5, ...BLUSH];
 
 // Add-ons in jar space (scale with the jar)
 const SPEAK_ARCS = [
@@ -223,26 +210,8 @@ const VARIANTS = [
    desc:"Cream headphones (lid-matched, amber-outlined so they hold on every field) over the jar. Strong \"audio app\" signal and a genuinely different silhouette.",
    jar:[...HEADPHONES.slice(0,2), ...JAR, ...HEADPHONES.slice(2), ...FACE_HAPPY]},
   {id:"V5", name:"Speech bubble", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"Jar tucked lower-left, cream speech bubble with a waveform. The bubble is the TTS story told literally.",
-   jar:[...JAR, ...FACE_SPEAK], post:BUBBLE},
-  {id:"V5a", name:"Speech bubble — :D grin", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"V5 with an open :D grin (tongue peek) instead of the :O oval. Same bubble.",
-   jar:[...JAR, ...FACE_GRIN], post:BUBBLE},
-  {id:"V5b", name:"Speech bubble — :D + smiling eyes", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"The :D grin plus closed ^^ eyes — maximum delight, loses the sparkly round eyes.",
-   jar:[...JAR, ...FACE_GRIN_UWU], post:BUBBLE},
-  {id:"V5c", name:"Speech bubble — big smile", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"Closed but wider, deeper smile than the standard happy face — cheerful without an open mouth.",
-   jar:[...JAR, ...FACE_BIGSMILE], post:BUBBLE},
-  {id:"V5d", name:"Speech bubble — flat :D, small", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"Flat-top half-ellipse grin, no tongue, small (9 wide).",
-   jar:[...JAR, ...FACE_FLAT_S], post:BUBBLE},
-  {id:"V5e", name:"Speech bubble — flat :D, medium", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"Flat-top grin, no tongue, medium (14 wide).",
-   jar:[...JAR, ...FACE_FLAT_M], post:BUBBLE},
-  {id:"V5f", name:"Speech bubble — flat :D, large", t:"translate(45,64) scale(0.72) translate(-54,-60)",
-   desc:"Flat-top grin, no tongue, large (18 wide — full :D).",
-   jar:[...JAR, ...FACE_FLAT_L], post:BUBBLE},
+   desc:"Jar tucked lower-left, cream speech bubble with a waveform. Face is the FINAL pick from the 2026-08-01 :D iterations (e5: rounded-corner flat-top grin, 10 wide, no tongue, orange-slice decoration removed).",
+   jar:[...JAR_NOSLICE, ...FACE_GRIN_FINAL], post:BUBBLE},
   {id:"V6", name:"Singing", t:"translate(47,56) scale(0.80) translate(-54,-60)",
    desc:"Speaking face plus a beamed pair of notes. Warmer/cuter than waves; slightly more \"music player\" than \"TTS\".",
    jar:[...JAR, ...FACE_SPEAK], post:NOTES},
