@@ -62,10 +62,15 @@ icon). Kokoro now ships quantized (v23 bundle, RTF 0.62–0.77 on Pixel 8a) —
 **Pocket is now the slowest engine** (shipping ~1.19 whole-pipeline RTF) and
 the next optimization target.
 
-Separate track (2026-08-02, `d1562cc`): F-Droid submission now has its own lab
-at `docs/release/fdroid-lab.html` (http://<labs-server>/marmalade-tts-release/fdroid-lab.html)
-with the verified fdroiddata recipe + MR text; gate = Max tags/pushes
-v1.0.0-beta.1 and does the GitLab fork/MR.
+Separate track (2026-08-02): F-Droid submission is IN. Tag `v1.0.0-beta.1`
+pushed to github at `f5a2397` (vc 33 — the Play AAB must build from this same
+tag); MR open at https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636
+(fork maxwhipw/fdroiddata, branch marmalade-tts). GitLab PAT: header file at
+`~/secure/gitlab-header`, use `curl -H @file` so the token stays out of
+transcripts. BLOCKED on Max's one-time gitlab.com identity verification (MR
+CI pipelines fail with zero jobs until then); after that, retry the pipeline
+via API. Lab: `docs/release/fdroid-lab.html`
+(http://<labs-server>/marmalade-tts-release/fdroid-lab.html).
 
 ## 2026-08-02 addendum — synthesis-language audit fixes (5 commits, UNPUSHED)
 
