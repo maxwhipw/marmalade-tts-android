@@ -43,6 +43,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -510,7 +513,17 @@ private fun LabeledSlider(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Slider(value = value, onValueChange = onValueChange, valueRange = range)
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            // Without this TalkBack reads the raw 0..1 fraction with no name;
+            // the label and valueText above are separate nodes it never links.
+            modifier = Modifier.semantics {
+                contentDescription = label
+                stateDescription = valueText
+            },
+        )
     }
 }
 

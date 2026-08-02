@@ -64,6 +64,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -665,8 +668,9 @@ private fun AliasEditorSheet(
             }
 
             Column {
+                val speedText = "%.2f×".format(state.speed)
                 Text(
-                    text = "Speed: %.2f×".format(state.speed),
+                    text = "Speed: $speedText",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -676,6 +680,10 @@ private fun AliasEditorSheet(
                     // 15 steps between 0.5 and 2.0 = 0.1x increments
                     // (Slider's `steps` excludes the endpoints).
                     steps = 14,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Speed"
+                        stateDescription = speedText
+                    },
                 )
             }
 

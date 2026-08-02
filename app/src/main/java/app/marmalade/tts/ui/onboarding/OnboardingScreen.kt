@@ -54,6 +54,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -645,8 +648,9 @@ private fun CreateAliasStep(
         Spacer(Modifier.height(12.dp))
 
         Column {
+            val speedText = "%.2f×".format(editor.speed)
             Text(
-                text = "Speed: %.2f×".format(editor.speed),
+                text = "Speed: $speedText",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Slider(
@@ -654,6 +658,10 @@ private fun CreateAliasStep(
                 onValueChange = onSpeedChange,
                 valueRange = VoiceAlias.MIN_SPEED..VoiceAlias.MAX_SPEED,
                 steps = 14,
+                modifier = Modifier.semantics {
+                    contentDescription = "Speed"
+                    stateDescription = speedText
+                },
             )
         }
         Spacer(Modifier.height(12.dp))
