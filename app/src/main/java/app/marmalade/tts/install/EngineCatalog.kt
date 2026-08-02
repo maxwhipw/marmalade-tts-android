@@ -124,7 +124,7 @@ object EngineCatalog {
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
     private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 99_919_078L
-    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 481_353_035L
+    private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_864L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
     // The clean-reference dev engine still pins the older 8-voice v10 archive
@@ -212,6 +212,14 @@ object EngineCatalog {
      * + cutlet-style IPA conversion, the G2P Kokoro v1.0 was trained with.
      * espeak now only handles the European languages it does well
      * (en/es/fr/it/hi/pt); zh and ja have dedicated bundled pipelines.
+     *
+     * v23 swaps the fp32 model for a selectively-quantized static-QDQ
+     * int8 build of the SAME graph (per-channel, 118-node exclusion list
+     * covering the vocoder's boundary convs, the ALBERT text encoder, and
+     * the last-stage resblock convs; LSTMs stay fp32). Max ear-verified
+     * lossless vs fp32 (2026-08-01); 150 MB model vs 326 MB, and measured
+     * faster than fp32 on both x86 and the Pixel 8a. Recipe + sweep
+     * tooling: scratch/kokoro-quant-experiments (REPORT.md).
      */
     private val KOKORO_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kokoro-direct-v1_0",
@@ -222,16 +230,17 @@ object EngineCatalog {
             "most people. Runs fully on your device; Japanese and Mandarin use " +
             "bundled pronunciation data and the other languages use espeak-ng, " +
             "all loaded at runtime.",
-        downloadSizeBytes = 360_207_868L,
+        downloadSizeBytes = 194_352_951L,
         installedSizeBytes = KOKORO_DIRECT_INSTALLED_SIZE_BYTES,
         isRecommended = true,
         archive = EngineArchive(
+            // v23: selectively-quantized QDQ int8 model (see class doc above).
             // v22: legacy libttsespeak.so removed; espeak-ng-data rebuilt from
             // the 1.52.0 tag (see KITTEN_DIRECT). v18 added openjtalk_dic/
             // (Japanese G2P); v17 added lexicon-zh.txt (Mandarin).
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v22/kokoro-direct-v1_0.tar.gz",
-            sha256 = "039b972081429b9770afc7867ff1874bd9dea39128b972c13853337a1b194ea7",
-            sizeBytes = 360_207_868L,
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v23/kokoro-direct-v1_0.tar.gz",
+            sha256 = "47584007f7d7a0b2c4d0d3ec5389744b20d2691a49e0bb12d08d1126b55310a5",
+            sizeBytes = 194_352_951L,
             archiveRoot = "kokoro-direct-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-direct.md",
