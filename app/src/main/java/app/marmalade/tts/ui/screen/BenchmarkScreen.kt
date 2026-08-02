@@ -44,6 +44,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -181,7 +183,11 @@ private fun KokoroQuantSection(
     onRun: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.bench_quant_title), style = MaterialTheme.typography.labelLarge)
+        Text(
+            text = stringResource(R.string.bench_quant_title),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { heading() },
+        )
         Text(
             text = stringResource(R.string.bench_quant_desc),
             style = MaterialTheme.typography.bodySmall,
@@ -362,6 +368,7 @@ private fun InputSection(
         Text(
             text = stringResource(R.string.bench_input),
             style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { heading() },
         )
         OutlinedTextField(
             value = text,
@@ -407,6 +414,7 @@ private fun EngineSelectorSection(
         Text(
             text = stringResource(R.string.bench_engines),
             style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             text = stringResource(R.string.bench_engines_hint),
@@ -442,6 +450,7 @@ private fun ResultsSection(results: List<BenchmarkResult>) {
         Text(
             text = stringResource(R.string.bench_results),
             style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { heading() },
         )
         for (r in results) {
             ResultCard(result = r)

@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -219,15 +221,20 @@ fun VoicePickerScreen(
                 return@Column
             }
 
+            // Placeholder text disappears the moment the user types, so it
+            // can't be the field's name — spell the name out for a screen
+            // reader without adding a visible label.
+            val searchLabel = stringResource(R.string.voices_search_placeholder)
             OutlinedTextField(
                 value = pickerState.query,
                 onValueChange = viewModel::onQueryChange,
-                placeholder = { Text(stringResource(R.string.voices_search_placeholder)) },
+                placeholder = { Text(searchLabel) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = ScreenGutter, vertical = 8.dp),
+                    .padding(horizontal = ScreenGutter, vertical = 8.dp)
+                    .semantics { contentDescription = searchLabel },
             )
 
             val onPick: (VoiceMeta) -> Unit = { voice ->

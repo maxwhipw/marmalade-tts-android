@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -659,6 +660,7 @@ private fun AliasEditorSheet(
                 },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() },
             )
 
             OutlinedTextField(
@@ -824,6 +826,10 @@ private fun PickerField(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
         )
+        // The label sits outside the tappable Surface, so a screen reader
+        // landing on the control would otherwise announce the value alone
+        // ("Aria", not "Voice: Aria"). Name the control explicitly.
+        val spoken = if (supporting != null) "$value, $supporting" else value
         Surface(
             onClick = onClick,
             shape = RoundedCornerShape(12.dp),
@@ -836,7 +842,9 @@ private fun PickerField(
                     MaterialTheme.colorScheme.outline
                 },
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "$label: $spoken" },
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),

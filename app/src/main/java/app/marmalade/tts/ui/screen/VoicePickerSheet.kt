@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.marmalade.tts.R
@@ -116,15 +118,19 @@ fun VoicePickerSheet(
             }
         }
         Spacer(Modifier.height(10.dp))
+        // The placeholder vanishes on first keystroke, so it can't serve as
+        // the field's accessible name. Name it explicitly instead.
+        val searchLabel = stringResource(R.string.voices_search_placeholder)
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChange,
-            placeholder = { Text(stringResource(R.string.voices_search_placeholder)) },
+            placeholder = { Text(searchLabel) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .semantics { contentDescription = searchLabel },
         )
         Spacer(Modifier.height(8.dp))
 
