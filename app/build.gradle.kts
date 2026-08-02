@@ -134,6 +134,11 @@ android {
         compose = true
         buildConfig = true
     }
+    androidResources {
+        // Shipped UI languages (keep in sync with res/xml/locales_config.xml).
+        // Also strips unused locales from library resources.
+        localeFilters += listOf("en", "es", "fr", "hi", "it", "ja", "pt-rBR", "zh-rCN")
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
