@@ -34,10 +34,24 @@ Desktop spike complete — full report:
    http://<labs-server>/pocket-qdq/pocket-qdq-lab.html — fp32 vs int8_dyn
    vs qdq_X1, same seed, 8 texts, voice marius.
 
+## 2026-08-02 later — quants EAR-APPROVED; opening thump root-caused
+
+Max listened: **all quants sound good → quality gate PASSED for qdq_X1.**
+He flagged a sharp opening "inhale": NOT quantization (fp32 identical), not
+the mimi batch bug — the model generates a low-frequency thump (94% <500 Hz)
+in its first ~2 latent frames, **imitating low-band breath/rumble at the
+start of its voice prompt clip** (alba heavy/often, marius some/sometimes,
+fantine clean/never). Desktop-confirmed fix: clean the prompt wavs — marius
+just 70 Hz HP + 50 ms trim; alba needed excising all loud low-band-only
+windows (29% of clip; timbre check pending Max, lab section 2). Ship path:
+cleaned `voices/*.wav` in the next bundle rev (composes with the qdq
+decision; check the app's voice_cache invalidation on bundle update).
+Details: ~/coding/scratch/pocket-qdq/REPORT.md.
+
 ## Next steps (in order)
 
-1. Max listens to the lab (only penalise artifacts — muffle/buzz/garble;
-   pacing differences are EOS timing).
+1. ~~Max listens to the lab~~ DONE — approved (see above). Still open in the
+   lab: section 2, alba cleaned-prompt timbre verdict.
 2. Device bench (needs Max's ADB port; debug app is disposable, never touch
    the release app): install APK, push
    `~/coding/scratch/pocket-qdq/flow_lm_main_qdq_X1.onnx` (+ optionally
