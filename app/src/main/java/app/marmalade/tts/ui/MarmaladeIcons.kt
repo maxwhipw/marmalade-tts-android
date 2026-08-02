@@ -94,6 +94,19 @@ object MarmaladeIcons {
         )
     }
 
+    /**
+     * Document with text lines (material `description` filled) — the
+     * Settings "Open-source licenses" row. Not in `material-icons-core`,
+     * same story as the nav glyphs.
+     */
+    val LicenseDoc: ImageVector by lazy {
+        filled24(
+            "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12.01c1.1 " +
+                "0 1.99-.9 1.99-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V" +
+                "3.5L18.5 9H13z",
+        )
+    }
+
     private fun filled24(pathData: String): ImageVector =
         ImageVector.Builder(
             name = "MarmaladeIcon",

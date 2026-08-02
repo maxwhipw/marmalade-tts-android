@@ -346,19 +346,13 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
         showChevron = false,
     )
 
-    ListItem(
+    AboutRow(
+        label = stringResource(R.string.settings_licenses),
+        supporting = stringResource(R.string.settings_licenses_desc),
+        leading = {
+            Icon(imageVector = MarmaladeIcons.LicenseDoc, contentDescription = null)
+        },
         modifier = Modifier.clickable(onClick = onNavigateToLicenses),
-        headlineContent = { Text(stringResource(R.string.settings_licenses)) },
-        supportingContent = {
-            Text(stringResource(R.string.settings_licenses_desc))
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
 
     AboutLinkRow(
