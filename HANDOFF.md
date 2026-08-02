@@ -7,6 +7,11 @@ icon). Kokoro now ships quantized (v23 bundle, RTF 0.62–0.77 on Pixel 8a) —
 **Pocket is now the slowest engine** (shipping ~1.19 whole-pipeline RTF) and
 the next optimization target.
 
+Separate track (2026-08-02, `d1562cc`): F-Droid submission now has its own lab
+at `docs/release/fdroid-lab.html` (http://marmalade:8095/marmalade-tts-release/fdroid-lab.html)
+with the verified fdroiddata recipe + MR text; gate = Max tags/pushes
+v1.0.0-beta.1 and does the GitLab fork/MR.
+
 ## Task: apply the Kokoro QDQ recipe to Pocket ("Pocket parity")
 
 Goal: static QDQ per-channel int8 (the format that hits ORT's fast ARM
