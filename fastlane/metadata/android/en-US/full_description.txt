@@ -3,6 +3,9 @@ Marmalade TTS turns your phone into a private, high-quality text-to-speech engin
 WORKS EVERYWHERE ON YOUR DEVICE
 Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
 
+ACCESSIBLE BY DESIGN
+Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
+
 ON-DEVICE NEURAL VOICES
 Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
 

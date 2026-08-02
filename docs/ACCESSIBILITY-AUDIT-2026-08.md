@@ -141,6 +141,13 @@ accessible, though not AA-conformant-by-default; don't claim the latter.
 No theme step is to be added to onboarding (Max: don't add a step, and
 encourage the orange default).
 
+**2026-08-02 — WCAG 2.1 AA delta sweep done** (`WCAG-2.1-AA-SWEEP-2026-08.md`):
+the remaining A/AA criteria (keyboard, focus, orientation, gestures, timing,
+errors) show no hard failures; the four small items it surfaced (SpeakScreen
+landscape scroll, heading semantics, PickerField name, search-field names)
+are fixed in `a8543ab`. Public wording: "designed to meet WCAG 2.1 AA" until
+the on-device TalkBack pass upgrades it — see the sweep doc's "The claim".
+
 ## What's already good
 
 - Registered system TTS engine — genuinely valuable to blind users.

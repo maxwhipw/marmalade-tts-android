@@ -99,9 +99,17 @@ time, each with the store link + a 30–60 s screen recording with audio
 **Audiences, in order of fit:**
 1. **Screen-reader / low-vision users** — TalkBack users live in TTS
    all day and hate that quality voices need Google/network. r/Blind,
-   AudioGames.net forum, AppleVis's Android sibling communities.
+   AudioGames.net forum, the Blind Android Users community/podcast.
    Angle: works as the system engine, every feature free — nothing an
-   assistive-tech user needs sits behind a purchase.
+   assistive-tech user needs sits behind a purchase — and the app's own
+   UI is fully TalkBack-accessible (audited + fixed 2026-08-01/02, see
+   `docs/ACCESSIBILITY-AUDIT-2026-08.md` + `docs/WCAG-2.1-AA-SWEEP-2026-08.md`;
+   designed to WCAG 2.1 AA, dark theme carries AA contrast).
+   **Gate before posting here:** a real on-device TalkBack pass (still
+   pending), and ideally one actual screen-reader user's session —
+   these communities are the harshest reviewers of accessibility
+   claims, and rightly so. Wording rule: "designed to meet WCAG 2.1 AA"
+   until the device pass is done; never bare "WCAG compliant".
 2. **Read-aloud / ebook people** — MobileRead forums, @Voice Aloud +
    Moon+ Reader + Librera + KOReader user communities. Angle: point
    your reader's TTS at Marmalade, get Kokoro-quality narration

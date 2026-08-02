@@ -85,7 +85,12 @@ everything else Claude can do or has done.
 15. App icon 512×512 + feature graphic 1024×500 (mascot art from
     `assets/` is the base).
 16. Listing text: reuse `fastlane/metadata/android/en-US/`
-    (title/short/full descriptions are current and accurate).
+    (title/short/full descriptions are current and accurate; the full
+    description's ACCESSIBLE BY DESIGN section says "designed to meet
+    WCAG 2.1 AA" — keep that wording, not "compliant/conformant",
+    until the on-device TalkBack pass is done; grounding in
+    `docs/ACCESSIBILITY-AUDIT-2026-08.md` and
+    `docs/WCAG-2.1-AA-SWEEP-2026-08.md`).
 
 ## Phase 4 — submit
 
