@@ -26,10 +26,14 @@ import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
+import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
@@ -156,6 +160,8 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
+    @Inject lateinit var pocketDev: PocketDevEngine
+    @Inject lateinit var cloudApi: CloudApiEngine
 
     @Inject lateinit var preprocessor: Preprocessor
 
@@ -310,14 +316,27 @@ class MarmaladeSynthService : Service() {
     private fun engineFromVoiceId(voiceId: String): String {
         val sep = voiceId.indexOf(':')
         if (sep <= 0) return DEFAULT_ENGINE
-        val name = voiceId.substring(0, sep)
-        return when (name) {
-            KokoroDirectVoiceCatalog.ENGINE,
-            KittenDirectVoiceCatalog.ENGINE,
-            KittenDirectMiniVoiceCatalog.ENGINE,
-            PocketVoiceCatalog.ENGINE -> name
-            else -> DEFAULT_ENGINE
-        }
+        return knownEngineOrDefault(voiceId.substring(0, sep))
+    }
+
+    /**
+     * The one list of engines this service can dispatch to; anything else
+     * degrades to Kokoro. Both entry points — the voice-id parse above and
+     * the alias-resolved route in [runOne] — go through here, because when
+     * they each kept their own copy the copies drifted and the cloud and
+     * dev-Pocket engines went missing from one of them. A name missing
+     * from this list doesn't fail; it silently synthesizes with Kokoro,
+     * which for a cloud alias means the wrong engine and an unusable
+     * voice id, with no error anywhere.
+     */
+    internal fun knownEngineOrDefault(name: String): String = when (name) {
+        KokoroDirectVoiceCatalog.ENGINE,
+        KittenDirectVoiceCatalog.ENGINE,
+        KittenDirectMiniVoiceCatalog.ENGINE,
+        PocketVoiceCatalog.ENGINE,
+        PocketDevVoiceCatalog.ENGINE,
+        CloudApiVoiceCatalog.ENGINE -> name
+        else -> DEFAULT_ENGINE
     }
 
     private fun enqueue(req: SpeakRequest) {
@@ -390,15 +409,9 @@ class MarmaladeSynthService : Service() {
         // warn and fall through to Kokoro (the recommended default)
         // rather than failing loudly — keeps the foreground service
         // robust to third-party callers sending garbage in EXTRA_ENGINE.
-        val engineName = when (resolved.engine) {
-            KokoroDirectVoiceCatalog.ENGINE,
-            KittenDirectVoiceCatalog.ENGINE,
-            KittenDirectMiniVoiceCatalog.ENGINE,
-            PocketVoiceCatalog.ENGINE -> resolved.engine
-            else -> {
-                Log.w(TAG, "Engine '${resolved.engine}' not supported — using $DEFAULT_ENGINE")
-                DEFAULT_ENGINE
-            }
+        val engineName = knownEngineOrDefault(resolved.engine)
+        if (engineName != resolved.engine) {
+            Log.w(TAG, "Engine '${resolved.engine}' not supported — using $engineName")
         }
 
         if (!requestFocus()) {
@@ -549,6 +562,8 @@ class MarmaladeSynthService : Service() {
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
+        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
         // Defensive: runOne already narrows engineName to known values.
         else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
     }
@@ -565,6 +580,8 @@ class MarmaladeSynthService : Service() {
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
     }
 
@@ -574,6 +591,8 @@ class MarmaladeSynthService : Service() {
         KittenDirectVoiceCatalog.ENGINE -> "Kitten Nano"
         KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Mini"
         PocketVoiceCatalog.ENGINE -> "Pocket TTS"
+        PocketDevVoiceCatalog.ENGINE -> "Pocket TTS (clean)"
+        CloudApiVoiceCatalog.ENGINE -> "Cloud"
         else -> engineName
     }
 
