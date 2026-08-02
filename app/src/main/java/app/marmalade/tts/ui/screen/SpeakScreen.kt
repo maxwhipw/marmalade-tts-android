@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -215,7 +216,7 @@ fun SpeakScreen(
                 label = { Text("Text to speak") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp),
+                    .heightIn(min = 160.dp),
                 minLines = 5,
                 maxLines = 8,
             )
@@ -314,10 +315,12 @@ private fun CurrentVoiceRow(
         onClick = onClick,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            // fillMaxWidth, not fillMaxSize: the Surface's height is now a
+            // minimum, so a filling Row would stretch to the whole column.
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // A speaker, not a person avatar: an avatar implies personas
