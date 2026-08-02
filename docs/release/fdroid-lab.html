@@ -61,13 +61,10 @@ can never cross-update — same applicationId, coordinated versionCodes, reinsta
   <b>GitHub main is current</b> (<code>f5a2397</code> pushed). <code>CHANGELOG.md</code>,
   <code>PRIVACY.md</code>, <code>CREDITS.md</code> all present at repo root.</p></div></div>
 
-<div class="wstep max"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 and push it — needs your all-clear</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-  <div class="body"><p>No release tag exists yet (tags stop at <code>v0.1.9</code>). F-Droid builds from
-  the tag, so this is the gate for everything below. I can create the annotated tag and push it the
-  moment you say go — GitHub is public, so per standing policy the push itself waits for your explicit
-  all-clear. Coordinate with the Play timeline only insofar as the tag should point at the same commit
-  the closed-test AAB is built from, so both stores ship identical code at versionCode 33.</p>
-  <pre>git tag -a v1.0.0-beta.1 -m "1.0.0-beta.1 (versionCode 33)" &amp;&amp; git push github v1.0.0-beta.1</pre></div></div>
+<div class="wstep done"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 — DONE 2026-08-02</span><span class="tag done">done</span><span class="chev">▸</span></div>
+  <div class="body"><p>Annotated tag <code>v1.0.0-beta.1</code> created at <code>f5a2397</code> (the public
+  GitHub HEAD, versionCode 33) and pushed on Max's go. <b>Standing constraint:</b> the Play closed-test
+  AAB must be built from this same tag so both stores ship identical code at versionCode 33.</p></div></div>
 
 <h2 class="sec">Submission — who does what</h2>
 <p class="lede">Green = done · amber = I can do when asked · red = needs you (account/browser work I
@@ -77,11 +74,12 @@ not compose.</p>
 <details class="phase" open>
 <summary><h2><span class="id">S1</span> GitLab side — fork + branch (you)</h2><span class="prog"></span></summary>
 <div class="inner">
-<p class="why">fdroiddata lives on gitlab.com, so this needs a GitLab account — account creation and
-the web fork are yours; everything inside the fork I can prepare as files for you to paste.</p>
-<label class="step"><input type="checkbox" data-k="s1-account"><span class="t"><b>GitLab account ready</b> <small>Sign in (or create) at gitlab.com. Free tier is fine.</small></span></label>
-<label class="step"><input type="checkbox" data-k="s1-fork"><span class="t"><b>Fork <a href="https://gitlab.com/fdroid/fdroiddata">fdroid/fdroiddata</a></b> <small>Fork button, default options. It's a big repo — the web UI fork is instant; you never need a full local clone (the web editor is enough for a one-file MR).</small></span></label>
-<label class="step"><input type="checkbox" data-k="s1-branch"><span class="t"><b>Create branch <code>marmalade-tts</code> in your fork</b> <small>Web UI: Repository → Branches → New branch, from master.</small></span></label>
+<p class="why">DONE 2026-08-02 — Max created the account (<code>maxwhipw</code>) + a scoped PAT
+(<code>api</code>, expires 2027-03-01, header file at <code>~/secure/gitlab-header</code>, mode 600);
+Claude drove the rest via the GitLab REST API, no clone needed.</p>
+<label class="step"><input type="checkbox" data-k="s1-account"><span class="t"><b>GitLab account ready</b> <small>maxwhipw · PAT verified via /api/v4/user.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s1-fork"><span class="t"><b>Fork <a href="https://gitlab.com/maxwhipw/fdroiddata">maxwhipw/fdroiddata</a></b> <small>Forked via API (project id 85050608).</small></span></label>
+<label class="step"><input type="checkbox" data-k="s1-branch"><span class="t"><b>Branch <code>marmalade-tts</code></b> <small>Created with the recipe commit (<code>2104498</code>).</small></span></label>
 </div>
 </details>
 
@@ -91,7 +89,7 @@ the web fork are yours; everything inside the fork I can prepare as files for yo
 <p class="why">One new file in the fork: <code>metadata/app.marmalade.tts.yml</code> — contents in copy
 block R1, every field already verified against the repo (versionCode 33, ndk r26d matching
 <code>ndkVersion 26.3.11579264</code>, <code>gradle: [fdroid]</code> flavor, <code>submodules: yes</code>).</p>
-<label class="step"><input type="checkbox" data-k="s2-file"><span class="t"><b>Add <code>metadata/app.marmalade.tts.yml</code> with copy R1</b> <small>Web IDE on the <code>marmalade-tts</code> branch → New file → paste → commit "New app: Marmalade TTS".</small></span></label>
+<label class="step"><input type="checkbox" data-k="s2-file"><span class="t"><b>DONE: <code>metadata/app.marmalade.tts.yml</code> committed with copy R1</b> <small>Commit <code>2104498</code> "New app: Marmalade TTS" on the <code>marmalade-tts</code> branch, via API.</small></span></label>
 <label class="step"><input type="checkbox" data-k="s2-lint"><span class="t"><b>Optional: local recipe check</b> <small>I can run <code>fdroid lint</code> / <code>fdroid build</code> in a local fdroidserver checkout if you want pre-MR confidence; their CI runs the same checks on the MR anyway, so skipping is legitimate.</small></span></label>
 </div>
 </details>
@@ -102,8 +100,8 @@ block R1, every field already verified against the repo (versionCode 33, ndk r26
 <p class="why">Reviewers respond best when the awkward facts are stated up front: MIT source but
 GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI-assisted development
 (F-Droid has no policy against it — unlike IzzyOnDroid, which is out per the 2026-07-26 decision).</p>
-<label class="step"><input type="checkbox" data-k="s3-mr"><span class="t"><b>Open the MR against fdroid/fdroiddata master</b> <small>Title: <code>New app: Marmalade TTS</code>. Description = copy M1.</small></span></label>
-<label class="step"><input type="checkbox" data-k="s3-ci"><span class="t"><b>MR pipeline green</b> <small>Their CI lints the recipe and attempts the build. If it fails, paste me the log — typical fixes are recipe nits, not code.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-mr"><span class="t"><b>MR OPENED 2026-08-02: <a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636">fdroiddata!44636</a></b> <small>Title "New app: Marmalade TTS", description = copy M1, via API.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-ci"><span class="t"><b>MR pipeline green — currently BLOCKED on identity verification</b> <small>First pipelines failed with zero jobs: new gitlab.com accounts must verify identity (phone/card) before shared runners work. Max: gitlab.com → the verification banner (or https://gitlab.com/-/identity_verification), then Claude retries the pipeline via API.</small></span></label>
 <label class="step"><input type="checkbox" data-k="s3-review"><span class="t"><b>Respond to reviewer feedback</b> <small>Typical round-trips: anti-feature wording, NDK pinning, reproducibility nits. Paste comments to me; I draft replies and any repo-side fixes.</small></span></label>
 <label class="step"><input type="checkbox" data-k="s3-merged"><span class="t"><b>MR merged — listing appears after their next build cycle</b> <small>No further action; index publication is automatic (can take a few days post-merge).</small></span></label>
 <b style="font-size:14px;color:var(--toast)">Review tracker</b> <span style="font-size:13px;color:var(--dimmer)">(persists here — date · reviewer ask · resolution)</span>
