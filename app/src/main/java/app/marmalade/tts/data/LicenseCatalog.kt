@@ -213,6 +213,10 @@ object LicenseCatalog {
             shipsIn = "Engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) hexgrad and contributors"),
+            note = "The shipped model is Marmalade's selectively int8-" +
+                "quantized build of the ONNX export from " +
+                "github.com/thewh1teagle/kokoro-onnx, as packaged for " +
+                "multilingual use by k2-fsa/sherpa-onnx.",
         ),
         Component(
             key = "kittentts",

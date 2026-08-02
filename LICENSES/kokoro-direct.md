@@ -37,7 +37,11 @@ the espeak corresponding-source pointer.
 ## Notices
 
 - **Kokoro-82M** — Copyright (c) hexgrad. Apache License, Version 2.0.
-  Model card: https://huggingface.co/hexgrad/Kokoro-82M
+  Model card: https://huggingface.co/hexgrad/Kokoro-82M. The shipped
+  `model.onnx` is Marmalade's selectively int8-quantized build of the
+  ONNX export from https://github.com/thewh1teagle/kokoro-onnx
+  (`model-files` release), as packaged for multilingual use by
+  k2-fsa/sherpa-onnx (`kokoro-multi-lang-v1_0`).
 - **espeak-ng** — Copyright (c) eSpeak NG authors. GPL-3.0-or-later.
   Corresponding source: https://github.com/espeak-ng/espeak-ng (the
   exact version is pinned in [`../NOTICE.md`](../NOTICE.md)).
