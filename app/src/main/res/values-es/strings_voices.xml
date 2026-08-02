@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Elementos del selector -->
+    <string name="voices_title">Voces</string>
+    <string name="voices_title_engine">Voces de %1$s</string>
+    <string name="voices_sheet_title">Elige una voz</string>
+    <string name="voices_back">Atrás</string>
+    <string name="voices_search_placeholder">Buscar en todas las voces</string>
+
+    <!-- Ruta de navegación -->
+    <string name="voices_crumb_searching">Buscando en todas las voces</string>
+    <string name="voices_crumb_all_sources">Todas las fuentes</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Estados vacíos / mensajes -->
+    <string name="voices_engine_generic">TTS</string>
+    <string name="voices_engine_not_installed">El motor %1$s aún no está instalado: instálalo desde la pestaña Motores para poder escuchar muestras.</string>
+    <string name="voices_no_engines_installed">Todavía no hay motores instalados. Abre la pestaña Motores para instalar Kokoro o Kitten; las voces aparecerán aquí en cuanto lo hagas.</string>
+    <string name="voices_empty_none_installed">Todavía no hay voces instaladas</string>
+    <string name="voices_empty_model">Este modelo no tiene voces instaladas</string>
+    <string name="voices_empty_no_match">Ninguna voz coincide con \"%1$s\"</string>
+
+    <!-- Filas -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">Seleccionada</string>
+    <string name="voices_preview">Escuchar %1$s</string>
+    <string name="voices_previewing">Reproduciendo %1$s</string>
+
+    <!-- Niveles de navegación -->
+    <string name="voices_source_cloud">En la nube</string>
+    <string name="voices_source_on_device">En el dispositivo</string>
+    <string name="voices_source_with_models">%1$s en %2$d modelos</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="one">%1$s · %2$d voz</item>
+        <item quantity="other">%1$s · %2$d voces</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="one">%1$d voz</item>
+        <item quantity="other">%1$d voces</item>
+    </plurals>
+
+    <!-- Errores de muestra -->
+    <string name="voices_error_preview_failed">No se pudo reproducir la muestra</string>
+    <string name="voices_error_unknown">Error desconocido</string>
+    <string name="voices_preview_phrase">Hola, soy %1$s.</string>
+    <string name="voices_latency_instant">Instantánea</string>
+    <string name="voices_latency_quick">Rápida</string>
+    <string name="voices_latency_slow">Lenta</string>
+</resources>

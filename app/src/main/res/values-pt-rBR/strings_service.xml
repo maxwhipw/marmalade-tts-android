@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Serviço em primeiro plano de reprodução (compartilhamento / bloco da área de transferência) -->
+    <string name="service_synth_channel_name">Reprodução do Marmalade TTS</string>
+    <string name="service_synth_channel_description">Aparece enquanto o Marmalade TTS está lendo em voz alta</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">Preparando…</string>
+    <string name="service_synth_state_queued">Na fila: %1$s</string>
+    <string name="service_synth_state_speaking_text">Falando: %1$s</string>
+    <string name="service_synth_state_speaking">Falando</string>
+    <string name="service_synth_state_paused">Pausado</string>
+    <string name="service_synth_action_pause">Pausar</string>
+    <string name="service_synth_action_resume">Retomar</string>
+    <string name="service_synth_action_stop">Parar</string>
+    <string name="service_synth_error_engine_not_installed">O motor %1$s não está instalado</string>
+    <string name="service_synth_error_failed">Falha na síntese</string>
+
+    <!-- Serviço em primeiro plano de keepalive -->
+    <string name="service_keepalive_channel_name">Keepalive do Marmalade TTS</string>
+    <string name="service_keepalive_channel_description">Aparece enquanto o Marmalade mantém o motor de TTS carregado para começar a falar mais rápido.</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — pronto</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — usado recentemente</string>
+    <string name="service_keepalive_text_persistent">Motor mantido carregado para começar a falar instantaneamente.</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="one">O motor fica carregado pelo próximo %1$d minuto.</item>
+        <item quantity="other">O motor fica carregado pelos próximos %1$d minutos.</item>
+    </plurals>
+
+    <!-- Bloco das Configurações Rápidas -->
+    <string name="service_clipboard_empty">A área de transferência está vazia</string>
+
+    <!-- Amostra falada para Configurações → Idiomas → TTS → \"Ouvir um exemplo\" -->
+    <string name="service_sample_text">Olá, aqui é o Marmalade falando.</string>
+</resources>

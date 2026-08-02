@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Marmalade का शुभंकर</string>
+
+    <string name="onboarding_welcome_title">Marmalade TTS में आपका स्वागत है</string>
+    <string name="onboarding_welcome_body">Marmalade आपके चुने हुए वॉइस में, ऑफ़लाइन ही टेक्स्ट पढ़कर सुनाता है। शुरू करने के लिए एक इंजन चुनें।</string>
+    <string name="onboarding_get_started">शुरू करें</string>
+
+    <string name="onboarding_engines_title">इंजन चुनें</string>
+    <string name="onboarding_engines_body">इंजन आपके डिवाइस पर ही चलते हैं। बाद में इंजन टैब से आप और भी इंस्टॉल कर सकते हैं।</string>
+    <string name="onboarding_back">वापस</string>
+    <string name="onboarding_skip">छोड़ें</string>
+    <string name="onboarding_install_selected">चुने हुए इंस्टॉल करें</string>
+    <string name="onboarding_recommended">सुझाया गया</string>
+    <string name="onboarding_download_size">डाउनलोड: %1$s</string>
+
+    <string name="onboarding_setup_complete">सेटअप पूरा हुआ</string>
+    <string name="onboarding_installing_engines">इंजन इंस्टॉल हो रहे हैं</string>
+    <string name="onboarding_no_engines_selected">कोई इंजन नहीं चुना गया — आप इंजन टैब से कभी भी कोई इंजन इंस्टॉल कर सकते हैं।</string>
+    <string name="onboarding_continue">आगे बढ़ें</string>
+    <string name="onboarding_retry">फिर से कोशिश करें</string>
+
+    <string name="onboarding_status_pending">बाकी है</string>
+    <string name="onboarding_status_downloading">डाउनलोड हो रहा है</string>
+    <string name="onboarding_status_finishing_up">पूरा किया जा रहा है</string>
+    <string name="onboarding_status_installed">इंस्टॉल हो गया</string>
+    <string name="onboarding_status_failed">विफल</string>
+    <string name="onboarding_status_corrupt">खराब</string>
+    <string name="onboarding_status_outdated">अपडेट उपलब्ध है</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">अपना प्राथमिक उपनाम बनाएँ</string>
+    <string name="onboarding_alias_body">उपनाम आपकी पसंदीदा वॉइस, स्पीड और इफ़ेक्ट को \"narrator\" जैसे एक ही नाम के नीचे रख देता है। जब कोई ऐप बिना वॉइस बताए बोलने को कहता है, तब Marmalade प्राथमिक उपनाम का इस्तेमाल करता है। सेटअप पूरा करने के लिए कम से कम एक उपनाम बनाएँ — और उपनाम आप बाद में सेटिंग → वॉइस उपनाम से जोड़ सकते हैं।</string>
+    <string name="onboarding_alias_name_label">नाम</string>
+    <string name="onboarding_alias_name_helper">अक्षर, अंक, स्पेस और डैश — ज़्यादा से ज़्यादा 50 वर्ण।</string>
+    <string name="onboarding_alias_speed_label">स्पीड: %1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">स्पीड</string>
+    <string name="onboarding_alias_save">सेव करके आगे बढ़ें</string>
+    <string name="onboarding_alias_use_defaults">डिफ़ॉल्ट इस्तेमाल करें</string>
+    <string name="onboarding_alias_finish_setup">सेटअप पूरा करें</string>
+
+    <string name="onboarding_alias_engine_label">इंजन</string>
+    <string name="onboarding_alias_engine_placeholder">कोई इंजन चुनें</string>
+    <string name="onboarding_alias_voice_label">वॉइस</string>
+    <string name="onboarding_alias_voice_placeholder">कोई वॉइस चुनें</string>
+    <string name="onboarding_alias_no_voices">कोई वॉइस उपलब्ध नहीं — पहले कोई इंजन इंस्टॉल करें।</string>
+    <string name="onboarding_alias_effect_label">इफ़ेक्ट</string>
+    <string name="onboarding_alias_effect_pick_content_description">इफ़ेक्ट चुनें</string>
+
+    <string name="onboarding_effect_none">कोई नहीं</string>
+    <string name="onboarding_effect_cave">गुफ़ा</string>
+    <string name="onboarding_effect_telephone">टेलीफ़ोन</string>
+
+    <string name="onboarding_error_pick_voice">कोई वॉइस चुनें।</string>
+    <string name="onboarding_error_pick_engine">कोई इंजन चुनें।</string>
+    <string name="onboarding_error_install_engine_first">उपनाम बनाने से पहले कोई इंजन इंस्टॉल करें।</string>
+
+    <string name="onboarding_background_title_allowed">बैकग्राउंड में चलने की अनुमति है</string>
+    <string name="onboarding_background_title">स्क्रीन बंद होने पर भी बोलता रहे</string>
+    <string name="onboarding_background_body_allowed">Marmalade पर Android की बैटरी पाबंदियाँ लागू नहीं हैं। स्क्रीन बंद होने पर सिंथेसिस नहीं रुकेगा।</string>
+    <string name="onboarding_background_body">स्क्रीन बंद होने या बैटरी कम होने पर Android बैकग्राउंड ऐप्स को रोक देता है — लंबे टेक्स्ट में इससे बोलना बीच वाक्य में कट सकता है। Marmalade को बिना पाबंदी चलने देने से स्क्रीन बंद होने पर भी बोलना जारी रहता है।</string>
+    <string name="onboarding_background_allow">बैकग्राउंड में चलने दें</string>
+    <string name="onboarding_skip_for_now">अभी छोड़ें — यह मैं बाद में करूँगा</string>
+    <string name="onboarding_background_footnote">इसे आप कभी भी Android सेटिंग → ऐप्स → Marmalade TTS → बैटरी में जाकर बदल सकते हैं।</string>
+
+    <string name="onboarding_notifications_title_granted">सूचनाएँ चालू हैं</string>
+    <string name="onboarding_notifications_title">Marmalade क्या कर रहा है, यह दिखने दें</string>
+    <string name="onboarding_notifications_body_granted">Marmalade अपनी “बोल रहा है” और “तैयार है” वाली सूचनाएँ दिखा सकता है।</string>
+    <string name="onboarding_notifications_body">बोलते समय Marmalade एक छोटी सूचना दिखाता है, और तुरंत जवाब देने के लिए इंजन को तैयार रखते समय एक और (यही डिफ़ॉल्ट है)। दोनों दिखने के लिए सूचनाओं की अनुमति दें।</string>
+    <string name="onboarding_notifications_allow">सूचनाओं की अनुमति दें</string>
+    <string name="onboarding_notifications_footnote">इनका इस्तेमाल सिर्फ़ बोलने और इंजन तैयार रखने की सूचनाओं के लिए होता है। इसे कभी भी Android सेटिंग → ऐप्स → Marmalade TTS → सूचनाएँ में बदल सकते हैं।</string>
+
+    <string name="onboarding_system_title_done">सब हो गया!</string>
+    <string name="onboarding_system_title">बस एक कदम और</string>
+    <string name="onboarding_system_body_done">Marmalade अब आपका सिस्टम टेक्स्ट-टू-स्पीच इंजन है। दूसरे ऐप्स का TTS अब आपकी वॉइस से चलेगा।</string>
+    <string name="onboarding_system_body">दूसरे ऐप्स Marmalade के ज़रिए बोल सकें, इसके लिए आपको इसे अपना सिस्टम टेक्स्ट-टू-स्पीच इंजन चुनना होगा। तब तक Android हमें TTS नहीं भेजेगा।</string>
+    <string name="onboarding_system_hint">नीचे दिए बटन पर टैप करें — ज़्यादातर फ़ोन सीधे सही पेज पर पहुँचा देते हैं। अगर आपका फ़ोन ऐसा न करे, तो सिस्टम → भाषाएँ, सुलभता → ऑडियो, या भाषा और इनपुट के नीचे \"टेक्स्ट-टू-स्पीच\" ढूँढें।</string>
+    <string name="onboarding_system_open_settings">सिस्टम TTS सेटिंग खोलें</string>
+    <string name="onboarding_system_finish_later">पूरा करें — यह मैं बाद में कर लूँगा</string>
+    <string name="onboarding_system_footnote">इसे आप सेटिंग → सिस्टम TTS इंजन के तौर पर सेट करें से दोबारा खोल सकते हैं।</string>
+    <string name="onboarding_finish">पूरा करें</string>
+    <string name="onboarding_install_failed">इंस्टॉल नहीं हो सका</string>
+</resources>

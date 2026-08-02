@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Picker chrome -->
+    <string name="voices_title">语音</string>
+    <string name="voices_title_engine">%1$s 语音</string>
+    <string name="voices_sheet_title">选择语音</string>
+    <string name="voices_back">返回</string>
+    <string name="voices_search_placeholder">搜索全部语音</string>
+
+    <!-- Breadcrumb -->
+    <string name="voices_crumb_searching">搜索全部语音中</string>
+    <string name="voices_crumb_all_sources">全部来源</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Empty / status lines -->
+    <string name="voices_engine_generic">语音合成</string>
+    <string name="voices_engine_not_installed">尚未安装 %1$s 引擎 — 请在“引擎”标签页中安装，之后即可试听。</string>
+    <string name="voices_no_engines_installed">尚未安装任何引擎。打开“引擎”标签页安装 Kokoro 或 Kitten，安装后语音会显示在这里。</string>
+    <string name="voices_empty_none_installed">尚未安装任何语音</string>
+    <string name="voices_empty_model">此模型没有已安装的语音</string>
+    <string name="voices_empty_no_match">没有匹配“%1$s”的语音</string>
+
+    <!-- Rows -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">已选择</string>
+    <string name="voices_preview">试听 %1$s</string>
+    <string name="voices_previewing">正在试听 %1$s</string>
+
+    <!-- Drill-down levels -->
+    <string name="voices_source_cloud">云端</string>
+    <string name="voices_source_on_device">本机</string>
+    <string name="voices_source_with_models">%1$s · %2$d 个模型</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="other">%1$s · %2$d 个语音</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="other">%1$d 个语音</item>
+    </plurals>
+
+    <!-- Preview errors -->
+    <string name="voices_error_preview_failed">试听失败</string>
+    <string name="voices_error_unknown">未知错误</string>
+    <string name="voices_preview_phrase">你好，我是 %1$s。</string>
+    <string name="voices_latency_instant">即时</string>
+    <string name="voices_latency_quick">较快</string>
+    <string name="voices_latency_slow">较慢</string>
+</resources>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Marmalade 吉祥物</string>
+
+    <string name="onboarding_welcome_title">欢迎使用 Marmalade TTS</string>
+    <string name="onboarding_welcome_body">Marmalade 用你选择的语音离线朗读文本。先选择一个引擎开始吧。</string>
+    <string name="onboarding_get_started">开始使用</string>
+
+    <string name="onboarding_engines_title">选择引擎</string>
+    <string name="onboarding_engines_body">引擎在本机运行。之后你可以随时在“引擎”标签页安装更多。</string>
+    <string name="onboarding_back">返回</string>
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_install_selected">安装所选</string>
+    <string name="onboarding_recommended">推荐</string>
+    <string name="onboarding_download_size">下载大小：%1$s</string>
+
+    <string name="onboarding_setup_complete">设置完成</string>
+    <string name="onboarding_installing_engines">正在安装引擎</string>
+    <string name="onboarding_no_engines_selected">未选择任何引擎 — 你可以随时在“引擎”标签页安装。</string>
+    <string name="onboarding_continue">继续</string>
+    <string name="onboarding_retry">重试</string>
+
+    <string name="onboarding_status_pending">等待中</string>
+    <string name="onboarding_status_downloading">正在下载</string>
+    <string name="onboarding_status_finishing_up">即将完成</string>
+    <string name="onboarding_status_installed">已安装</string>
+    <string name="onboarding_status_failed">失败</string>
+    <string name="onboarding_status_corrupt">已损坏</string>
+    <string name="onboarding_status_outdated">有可用更新</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">创建你的主别名</string>
+    <string name="onboarding_alias_body">别名把你喜欢的语音、语速和音效归到一个名字下，例如“旁白”。当应用请求朗读却未指定语音时，Marmalade 就会使用主别名。至少创建一个别名以完成设置 — 之后可在“设置 → 语音别名”中添加更多。</string>
+    <string name="onboarding_alias_name_label">名称</string>
+    <string name="onboarding_alias_name_helper">可使用字母、数字、空格和连字符，最多 50 个字符。</string>
+    <string name="onboarding_alias_speed_label">语速：%1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">语速</string>
+    <string name="onboarding_alias_save">保存并继续</string>
+    <string name="onboarding_alias_use_defaults">使用默认值</string>
+    <string name="onboarding_alias_finish_setup">完成设置</string>
+
+    <string name="onboarding_alias_engine_label">引擎</string>
+    <string name="onboarding_alias_engine_placeholder">选择引擎</string>
+    <string name="onboarding_alias_voice_label">语音</string>
+    <string name="onboarding_alias_voice_placeholder">选择语音</string>
+    <string name="onboarding_alias_no_voices">没有可用语音 — 请先安装引擎。</string>
+    <string name="onboarding_alias_effect_label">音效</string>
+    <string name="onboarding_alias_effect_pick_content_description">选择音效</string>
+
+    <string name="onboarding_effect_none">无</string>
+    <string name="onboarding_effect_cave">洞穴</string>
+    <string name="onboarding_effect_telephone">电话</string>
+
+    <string name="onboarding_error_pick_voice">请选择语音。</string>
+    <string name="onboarding_error_pick_engine">请选择引擎。</string>
+    <string name="onboarding_error_install_engine_first">创建别名前请先安装引擎。</string>
+
+    <string name="onboarding_background_title_allowed">已允许后台运行</string>
+    <string name="onboarding_background_title">息屏后继续朗读</string>
+    <string name="onboarding_background_body_allowed">Marmalade 已不受 Android 的电池限制。息屏时合成不会被暂停。</string>
+    <string name="onboarding_background_body">当屏幕熄灭或电量偏低时，Android 会暂停后台应用 — 朗读长段落时可能被中途打断。允许 Marmalade 不受限制地运行，息屏后也能继续朗读。</string>
+    <string name="onboarding_background_allow">允许后台活动</string>
+    <string name="onboarding_skip_for_now">跳过 — 稍后再设置</string>
+    <string name="onboarding_background_footnote">你可以随时在“Android 设置 → 应用 → Marmalade TTS → 电池”中更改。</string>
+
+    <string name="onboarding_notifications_title_granted">通知已开启</string>
+    <string name="onboarding_notifications_title">让你了解 Marmalade 的状态</string>
+    <string name="onboarding_notifications_body_granted">Marmalade 可以显示“正在朗读”和“保持热状态”的通知。</string>
+    <string name="onboarding_notifications_body">Marmalade 在朗读时会显示一条小通知，在保持引擎热状态以便即时响应时（默认行为）也会显示一条。请允许通知，让两者都能出现。</string>
+    <string name="onboarding_notifications_allow">允许通知</string>
+    <string name="onboarding_notifications_footnote">仅用于朗读通知和保持热状态通知。可随时在“Android 设置 → 应用 → Marmalade TTS → 通知”中更改。</string>
+
+    <string name="onboarding_system_title_done">全部完成！</string>
+    <string name="onboarding_system_title">还差一步</string>
+    <string name="onboarding_system_body_done">Marmalade 已成为你的系统文字转语音引擎。其他应用的朗读现在都会使用你的语音。</string>
+    <string name="onboarding_system_body">要让其他应用通过 Marmalade 朗读，你需要把它选为系统文字转语音引擎。在此之前，Android 不会把朗读请求交给我们。</string>
+    <string name="onboarding_system_hint">点按下方按钮 — 多数手机会直接跳转到对应页面。如果你的手机没有，请在“系统 → 语言”、“无障碍 → 音频”或“语言和输入法”中查找“文字转语音”。</string>
+    <string name="onboarding_system_open_settings">打开系统语音设置</string>
+    <string name="onboarding_system_finish_later">完成 — 稍后再设置</string>
+    <string name="onboarding_system_footnote">你可以从“设置 → 设为系统语音引擎”重新打开此页。</string>
+    <string name="onboarding_finish">完成</string>
+    <string name="onboarding_install_failed">安装失败</string>
+</resources>

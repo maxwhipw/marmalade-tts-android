@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EnginesScreen -->
+    <string name="engines_title">引擎</string>
+    <string name="engines_back">返回</string>
+    <string name="engines_show_more">展开</string>
+    <string name="engines_show_less">收起</string>
+    <string name="engines_developer_badge">开发者</string>
+    <string name="engines_size_summary">下载 %1$s · 安装后占用 %2$s</string>
+    <string name="engines_downloading_progress">正在下载 · %1$s / %2$s</string>
+    <string name="engines_installing_progress">正在安装 · %1$s / %2$s</string>
+
+    <string name="engines_install">安装</string>
+    <string name="engines_uninstall">卸载</string>
+    <string name="engines_engine_settings">引擎设置</string>
+    <string name="engines_retry">重试</string>
+    <string name="engines_reinstall">重新安装</string>
+    <string name="engines_update">更新</string>
+    <string name="engines_cancel">取消</string>
+
+    <string name="engines_install_confirm_title">安装 %1$s？</string>
+    <string name="engines_install_download_size">下载大小：%1$s</string>
+    <string name="engines_uninstall_confirm_title">卸载 %1$s？</string>
+    <string name="engines_uninstall_confirm_body">这会从设备上删除该引擎的文件。你可以随时重新安装。</string>
+
+    <string name="engines_install_failed">安装失败</string>
+    <string name="engines_uninstall_failed">卸载失败</string>
+
+    <!-- Cloud API engine card (EnginesScreen) -->
+    <string name="engines_cloud_title">云端语音</string>
+    <string name="engines_cloud_card_desc">通过网络使用托管语音 — 无需下载，但每次请求都会把你的文本发送给你配置的服务商（Venice、OpenAI 等），并需要该服务商的 API 密钥。上手极快，服务商的全部语音阵容触手可及。</string>
+    <string name="engines_cloud_configured">已配置 — 云端语音可用。</string>
+    <string name="engines_cloud_not_configured">未配置 — 添加服务商 API 密钥即可启用。</string>
+    <string name="engines_configure">配置</string>
+    <string name="engines_voices">语音</string>
+
+    <!-- EngineDetailScreen -->
+    <string name="engines_browse_voices">浏览语音</string>
+    <string name="engines_browse_voices_enabled">试听该引擎的语音并选定默认语音。</string>
+    <string name="engines_browse_voices_disabled">安装该引擎后即可浏览其语音。</string>
+    <string name="engines_status">状态</string>
+    <string name="engines_install_to_see_settings">安装该引擎后即可查看其设置。</string>
+    <string name="engines_preprocessing">文本预处理</string>
+    <string name="engines_preprocessing_pending">偏好设置已保存，安装该引擎后生效。</string>
+    <string name="engines_reset_defaults">恢复默认</string>
+    <string name="engines_about">关于此引擎</string>
+    <string name="engines_unknown_title">引擎“%1$s”不在目录中。</string>
+    <string name="engines_unknown_body">它可能已在较新版本的应用中被移除。</string>
+
+    <string name="engines_state_not_installed">未安装</string>
+    <string name="engines_state_downloading">正在下载</string>
+    <string name="engines_state_installing">正在安装</string>
+    <string name="engines_state_installed">已安装</string>
+    <string name="engines_state_failed">失败</string>
+    <string name="engines_state_corrupt">已损坏 — 需要重新安装</string>
+    <string name="engines_state_outdated">有可用更新</string>
+
+    <!-- CloudApiScreen -->
+    <string name="engines_cloud_intro">语音在服务商的服务器上合成 — 每次请求都会通过网络发送你的文本。为任一服务商添加密钥即可使用其语音；每家服务商都通过各自的账户计费。</string>
+    <string name="engines_cloud_disclaimer_title">使用云端语音前请阅读</string>
+    <string name="engines_cloud_disclaimer_leaves_title">你的文本会离开本设备</string>
+    <string name="engines_cloud_disclaimer_leaves_body">Marmalade 的内置语音完全在手机本地运行，不会向任何地方发送数据。云端语音是例外：你要它朗读的文本会连同所请求的语音、模型、语速以及你的 API 密钥，完整传输给你选择的服务商。</string>
+    <string name="engines_cloud_disclaimer_rules_title">适用的是他们的规则，不是我们的</string>
+    <string name="engines_cloud_disclaimer_rules_body">该服务商记录什么、保存你的文本多久、是否用于训练，均由他们的隐私政策和条款约束 — 你在注册账户时就已直接与他们达成这些约定。</string>
+    <string name="engines_cloud_disclaimer_affiliation_title">我们与他们没有关联</string>
+    <string name="engines_cloud_disclaimer_affiliation_body">Marmalade 是独立的。我们未获任何服务商的背书、赞助或合作，也不从他们那里获得任何收益，更无法查看或干预你的使用情况 — 包括删除请求，那必须直接向服务商提出。</string>
+    <string name="engines_cloud_disclaimer_other_apps_title">其他应用同样受影响</string>
+    <string name="engines_cloud_disclaimer_other_apps_body">Marmalade 可以作为你的全系统语音。如果把云端语音设为主语音，或把某个应用指向它，那么这些应用的文本 — 电子书、消息，凡是朗读给你听的内容 — 也会被发送给该服务商。本机语音不受影响。</string>
+    <string name="engines_cloud_disclaimer_billing_title">费用付给他们，不是我们</string>
+    <string name="engines_cloud_disclaimer_billing_body">每家服务商都按用量向你自己的账户计费。Marmalade 本身免费，不抽取任何分成。</string>
+    <string name="engines_cloud_disclaimer_footer">这些内容同样写在隐私政策中，可从“设置 → 关于”打开，随时再次查阅。</string>
+    <string name="engines_cloud_disclaimer_agree">我已了解并同意</string>
+    <string name="engines_cloud_disclaimer_decline">暂不使用</string>
+
+    <string name="engines_cloud_voice_summary">%1$d 个语音 · %2$s</string>
+    <string name="engines_cloud_syncing">密钥已配置 — 正在同步语音…</string>
+    <string name="engines_cloud_key_hint">API 密钥：%1$s</string>
+    <string name="engines_cloud_refresh_voices">刷新语音</string>
+    <string name="engines_cloud_change_key">更换密钥</string>
+    <string name="engines_cloud_set_key">设置密钥</string>
+    <string name="engines_cloud_key_dialog_title">%1$s API 密钥</string>
+    <string name="engines_cloud_key_dialog_body">前往 %1$s 获取密钥。它只保存在本设备上，且只会发送给 %2$s。</string>
+    <string name="engines_cloud_key_label_replace">新密钥（将替换当前密钥）</string>
+    <string name="engines_cloud_key_label">API 密钥</string>
+    <string name="engines_cloud_save">保存</string>
+    <string name="engines_cloud_remove_key">移除密钥</string>
+    <string name="engines_cloud_discovery_failed">语音发现失败</string>
+
+    <!-- BenchmarkScreen (debug-only) -->
+    <string name="bench_title">性能测试</string>
+    <string name="bench_running">正在运行 %1$s</string>
+    <string name="bench_run">运行性能测试</string>
+    <string name="bench_input">输入</string>
+    <string name="bench_input_placeholder">要合成的文本</string>
+    <string name="bench_preset_short">短</string>
+    <string name="bench_preset_medium">中</string>
+    <string name="bench_preset_long">长</string>
+    <string name="bench_engines">引擎</string>
+    <string name="bench_engines_hint">未安装的引擎会自动跳过。</string>
+    <string name="bench_engine_not_installed">%1$s（未安装）</string>
+    <string name="bench_results">结果</string>
+    <string name="bench_failed">失败：%1$s</string>
+    <string name="bench_first_audio">首个音频：%1$d 毫秒</string>
+    <plurals name="bench_chunk_count">
+        <item quantity="other">（%1$d 个分块）</item>
+    </plurals>
+    <string name="bench_realtime_ratio">%1$.2f 倍实时</string>
+    <string name="bench_model_load">模型加载</string>
+    <string name="bench_total">总计</string>
+    <string name="bench_ms">%1$d 毫秒</string>
+    <string name="bench_audio_duration">→ %1$.2f 秒音频</string>
+
+    <string name="bench_device_load">设备负载（实时）</string>
+    <string name="bench_sampling">采样中…</string>
+    <string name="bench_ram">内存可用 %1$d / %2$d MB   ·   zram 已用 %3$d / %4$d MB</string>
+    <string name="bench_cpu_busy">CPU 占用 %1$d%%</string>
+    <string name="bench_thermal">温控 %1$s%2$s%3$s</string>
+    <string name="bench_thermal_headroom">"（余量 %1$s）"</string>
+    <string name="bench_thermal_temps">"  ·  %1$s"</string>
+
+    <string name="bench_quant_title">Kokoro 量化测试</string>
+    <string name="bench_quant_desc">测量 fp32 基线以及所有旁加载到 files/kokoro-quant/ 的变体。缺失的文件会被跳过。完整明细见 logcat 中标签 KokoroQuantBench。</string>
+    <string name="bench_quant_run">运行量化测试</string>
+    <string name="bench_quant_running">运行中…</string>
+    <string name="bench_quant_starting">启动中…</string>
+    <string name="bench_quant_mean_rtf">平均 RTF %1$.3f</string>
+    <string name="bench_quant_file_size">%1$s  ·  %2$.1f MB</string>
+    <string name="bench_quant_timing_label">%1$s（%2$d 个 token）</string>
+    <string name="bench_quant_timing_detail">%1$.2f 秒音频  ·  RTF %2$.3f</string>
+    <string name="bench_quant_already_running">已有一次量化测试正在运行（来自上次进入本页面）— 请等待其结束</string>
+    <string name="bench_quant_not_installed">未安装 Kokoro Direct（缺少 %1$s）</string>
+</resources>

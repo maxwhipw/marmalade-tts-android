@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EnginesScreen -->
+    <string name="engines_title">इंजन</string>
+    <string name="engines_back">वापस</string>
+    <string name="engines_show_more">और दिखाएँ</string>
+    <string name="engines_show_less">कम दिखाएँ</string>
+    <string name="engines_developer_badge">डेवलपर</string>
+    <string name="engines_size_summary">%1$s डाउनलोड · इंस्टॉल होने पर %2$s</string>
+    <string name="engines_downloading_progress">डाउनलोड हो रहा है · %1$s / %2$s</string>
+    <string name="engines_installing_progress">इंस्टॉल हो रहा है · %1$s / %2$s</string>
+
+    <string name="engines_install">इंस्टॉल करें</string>
+    <string name="engines_uninstall">अनइंस्टॉल करें</string>
+    <string name="engines_engine_settings">इंजन सेटिंग</string>
+    <string name="engines_retry">फिर से कोशिश करें</string>
+    <string name="engines_reinstall">दोबारा इंस्टॉल करें</string>
+    <string name="engines_update">अपडेट करें</string>
+    <string name="engines_cancel">रद्द करें</string>
+
+    <string name="engines_install_confirm_title">%1$s इंस्टॉल करें?</string>
+    <string name="engines_install_download_size">डाउनलोड: %1$s</string>
+    <string name="engines_uninstall_confirm_title">%1$s अनइंस्टॉल करें?</string>
+    <string name="engines_uninstall_confirm_body">इससे इंजन की फ़ाइलें आपके डिवाइस से मिट जाएँगी। आप इसे कभी भी दोबारा इंस्टॉल कर सकते हैं।</string>
+
+    <string name="engines_install_failed">इंस्टॉल नहीं हो सका</string>
+    <string name="engines_uninstall_failed">अनइंस्टॉल नहीं हो सका</string>
+
+    <!-- Cloud API engine card (EnginesScreen) -->
+    <string name="engines_cloud_title">क्लाउड वॉइस</string>
+    <string name="engines_cloud_card_desc">नेटवर्क पर चलने वाली वॉइस — डाउनलोड करने के लिए कुछ नहीं, लेकिन हर बार आपका टेक्स्ट उस प्रोवाइडर को भेजा जाता है जिसे आप चुनते हैं (Venice, OpenAI, …), और उस प्रोवाइडर की API कुंजी ज़रूरी होती है। बोलना तुरंत शुरू हो जाता है, और प्रोवाइडर की पूरी वॉइस लाइनअप आपके पास होती है।</string>
+    <string name="engines_cloud_configured">सेट हो चुका है — क्लाउड वॉइस उपलब्ध हैं।</string>
+    <string name="engines_cloud_not_configured">सेट नहीं है — चालू करने के लिए किसी प्रोवाइडर की API कुंजी जोड़ें।</string>
+    <string name="engines_configure">सेट करें</string>
+    <string name="engines_voices">वॉइस</string>
+
+    <!-- EngineDetailScreen -->
+    <string name="engines_browse_voices">वॉइस देखें</string>
+    <string name="engines_browse_voices_enabled">इस इंजन की वॉइस सुनें और एक डिफ़ॉल्ट चुनें।</string>
+    <string name="engines_browse_voices_disabled">वॉइस देखने के लिए इंजन इंस्टॉल करें।</string>
+    <string name="engines_status">स्थिति</string>
+    <string name="engines_install_to_see_settings">इसकी सेटिंग देखने के लिए यह इंजन इंस्टॉल करें।</string>
+    <string name="engines_preprocessing">टेक्स्ट प्रीप्रोसेसिंग</string>
+    <string name="engines_preprocessing_pending">पसंद सेव हो गई; यह इंजन इंस्टॉल करते ही लागू होगी।</string>
+    <string name="engines_reset_defaults">डिफ़ॉल्ट पर लौटाएँ</string>
+    <string name="engines_about">इस इंजन के बारे में</string>
+    <string name="engines_unknown_title">इंजन \"%1$s\" कैटलॉग में नहीं है।</string>
+    <string name="engines_unknown_body">हो सकता है इसे ऐप के किसी नए वर्शन में हटा दिया गया हो।</string>
+
+    <string name="engines_state_not_installed">इंस्टॉल नहीं है</string>
+    <string name="engines_state_downloading">डाउनलोड हो रहा है</string>
+    <string name="engines_state_installing">इंस्टॉल हो रहा है</string>
+    <string name="engines_state_installed">इंस्टॉल है</string>
+    <string name="engines_state_failed">विफल</string>
+    <string name="engines_state_corrupt">खराब — दोबारा इंस्टॉल करना होगा</string>
+    <string name="engines_state_outdated">अपडेट उपलब्ध है</string>
+
+    <!-- CloudApiScreen -->
+    <string name="engines_cloud_intro">ये वॉइस किसी प्रोवाइडर के सर्वर पर बनती हैं — हर अनुरोध के साथ आपका टेक्स्ट नेटवर्क पर भेजा जाता है। किसी भी प्रोवाइडर की वॉइस इस्तेमाल करने के लिए उसकी कुंजी जोड़ें; हर प्रोवाइडर आपके अपने खाते से बिलिंग करता है।</string>
+    <string name="engines_cloud_disclaimer_title">क्लाउड वॉइस इस्तेमाल करने से पहले</string>
+    <string name="engines_cloud_disclaimer_leaves_title">आपका टेक्स्ट इस डिवाइस से बाहर जाता है</string>
+    <string name="engines_cloud_disclaimer_leaves_body">Marmalade की बिल्ट-इन वॉइस पूरी तरह आपके फ़ोन पर ही चलती हैं और कहीं कुछ नहीं भेजतीं। क्लाउड वॉइस इसका अपवाद हैं: जो टेक्स्ट आप उन्हें पढ़ने के लिए देते हैं, वह पूरा का पूरा आपके चुने हुए प्रोवाइडर को भेजा जाता है — वॉइस, मॉडल, स्पीड और आपकी API कुंजी के साथ।</string>
+    <string name="engines_cloud_disclaimer_rules_title">वहाँ उनके नियम चलते हैं, हमारे नहीं</string>
+    <string name="engines_cloud_disclaimer_rules_body">वह प्रोवाइडर क्या लॉग करता है, आपका टेक्स्ट कितने समय तक रखता है, और उस पर ट्रेनिंग करता है या नहीं — यह सब उसकी प्राइवेसी पॉलिसी और शर्तों से तय होता है, जिन्हें आप खाता बनाते समय सीधे उसके साथ स्वीकार करते हैं।</string>
+    <string name="engines_cloud_disclaimer_affiliation_title">उनसे हमारा कोई संबंध नहीं है</string>
+    <string name="engines_cloud_disclaimer_affiliation_body">Marmalade स्वतंत्र है। किसी भी प्रोवाइडर का न हमें समर्थन है, न प्रायोजन, न कोई साझेदारी; हमें उनसे कुछ नहीं मिलता, और हम आपका इस्तेमाल न देख सकते हैं न उस पर कुछ कर सकते हैं — डेटा मिटाने के अनुरोध भी सीधे प्रोवाइडर को ही करने होंगे।</string>
+    <string name="engines_cloud_disclaimer_other_apps_title">इसका असर दूसरे ऐप्स पर भी पड़ता है</string>
+    <string name="engines_cloud_disclaimer_other_apps_body">Marmalade आपके पूरे फ़ोन की वॉइस बन सकता है। अगर आप किसी क्लाउड वॉइस को प्राथमिक बनाते हैं, या किसी ऐप को उस पर भेजते हैं, तो उन ऐप्स का टेक्स्ट भी — ईबुक, मैसेज, कुछ भी जो आपको पढ़कर सुनाया जाता है — उसी प्रोवाइडर को भेजा जाएगा। डिवाइस पर चलने वाली वॉइस पर इसका कोई असर नहीं होता।</string>
+    <string name="engines_cloud_disclaimer_billing_title">पैसे उन्हें जाते हैं, हमें नहीं</string>
+    <string name="engines_cloud_disclaimer_billing_body">आपके इस्तेमाल का बिल हर प्रोवाइडर आपके अपने खाते से लेता है। Marmalade खुद मुफ़्त है और इसमें से कुछ नहीं लेता।</string>
+    <string name="engines_cloud_disclaimer_footer">यह सब प्राइवेसी पॉलिसी में भी है, जिसका लिंक सेटिंग → ऐप के बारे में में मिलेगा; वहाँ आप इसे कभी भी दोबारा पढ़ सकते हैं।</string>
+    <string name="engines_cloud_disclaimer_agree">मैं समझ गया और सहमत हूँ</string>
+    <string name="engines_cloud_disclaimer_decline">अभी नहीं</string>
+
+    <string name="engines_cloud_voice_summary">%1$d वॉइस · %2$s</string>
+    <string name="engines_cloud_syncing">कुंजी सेट हो गई — वॉइस सिंक हो रही हैं…</string>
+    <string name="engines_cloud_key_hint">API कुंजी: %1$s</string>
+    <string name="engines_cloud_refresh_voices">वॉइस रीफ़्रेश करें</string>
+    <string name="engines_cloud_change_key">कुंजी बदलें</string>
+    <string name="engines_cloud_set_key">कुंजी सेट करें</string>
+    <string name="engines_cloud_key_dialog_title">%1$s API कुंजी</string>
+    <string name="engines_cloud_key_dialog_body">कुंजी %1$s से लें। यह सिर्फ़ इसी डिवाइस पर सेव होती है और सिर्फ़ %2$s को भेजी जाती है।</string>
+    <string name="engines_cloud_key_label_replace">नई कुंजी (मौजूदा की जगह लेगी)</string>
+    <string name="engines_cloud_key_label">API कुंजी</string>
+    <string name="engines_cloud_save">सेव करें</string>
+    <string name="engines_cloud_remove_key">कुंजी हटाएँ</string>
+    <string name="engines_cloud_discovery_failed">वॉइस की सूची नहीं मिल सकी</string>
+
+    <!-- BenchmarkScreen (debug-only) -->
+    <string name="bench_title">बेंचमार्क</string>
+    <string name="bench_running">%1$s चल रहा है</string>
+    <string name="bench_run">बेंचमार्क चलाएँ</string>
+    <string name="bench_input">इनपुट</string>
+    <string name="bench_input_placeholder">सिंथेसाइज़ करने के लिए टेक्स्ट</string>
+    <string name="bench_preset_short">छोटा</string>
+    <string name="bench_preset_medium">मध्यम</string>
+    <string name="bench_preset_long">लंबा</string>
+    <string name="bench_engines">इंजन</string>
+    <string name="bench_engines_hint">जो इंजन इंस्टॉल नहीं हैं, वे अपने आप छोड़ दिए जाते हैं।</string>
+    <string name="bench_engine_not_installed">%1$s (इंस्टॉल नहीं है)</string>
+    <string name="bench_results">नतीजे</string>
+    <string name="bench_failed">विफल: %1$s</string>
+    <string name="bench_first_audio">पहला ऑडियो: %1$d ms</string>
+    <plurals name="bench_chunk_count">
+        <item quantity="one">(%1$d चंक)</item>
+        <item quantity="other">(%1$d चंक)</item>
+    </plurals>
+    <string name="bench_realtime_ratio">%1$.2fx रियलटाइम</string>
+    <string name="bench_model_load">मॉडल लोड</string>
+    <string name="bench_total">कुल</string>
+    <string name="bench_ms">%1$d ms</string>
+    <string name="bench_audio_duration">→ %1$.2f s ऑडियो</string>
+
+    <string name="bench_device_load">डिवाइस लोड (लाइव)</string>
+    <string name="bench_sampling">सैंपलिंग…</string>
+    <string name="bench_ram">RAM खाली %1$d / %2$d MB   ·   zram %3$d / %4$d MB इस्तेमाल</string>
+    <string name="bench_cpu_busy">CPU %1$d%% व्यस्त</string>
+    <string name="bench_thermal">थर्मल %1$s%2$s%3$s</string>
+    <string name="bench_thermal_headroom">" (हेडरूम %1$s)"</string>
+    <string name="bench_thermal_temps">"  ·  %1$s"</string>
+
+    <string name="bench_quant_title">Kokoro क्वांट बेंच</string>
+    <string name="bench_quant_desc">fp32 बेसलाइन के साथ-साथ files/kokoro-quant/ में डाले गए किसी भी वैरिएंट का समय मापता है। जो फ़ाइलें नहीं मिलतीं, उन्हें छोड़ दिया जाता है। पूरा ब्यौरा logcat में KokoroQuantBench टैग के नीचे मिलेगा।</string>
+    <string name="bench_quant_run">क्वांट बेंच चलाएँ</string>
+    <string name="bench_quant_running">चल रहा है…</string>
+    <string name="bench_quant_starting">शुरू हो रहा है…</string>
+    <string name="bench_quant_mean_rtf">औसत RTF %1$.3f</string>
+    <string name="bench_quant_file_size">%1$s  ·  %2$.1f MB</string>
+    <string name="bench_quant_timing_label">%1$s (%2$d टोकन)</string>
+    <string name="bench_quant_timing_detail">%1$.2f s ऑडियो  ·  RTF %2$.3f</string>
+    <string name="bench_quant_already_running">एक क्वांट बेंच पहले से चल रहा है (पिछली बार स्क्रीन खोलने से) — उसके पूरा होने का इंतज़ार करें</string>
+    <string name="bench_quant_not_installed">Kokoro Direct इंस्टॉल नहीं है (%1$s नहीं मिली)</string>
+</resources>

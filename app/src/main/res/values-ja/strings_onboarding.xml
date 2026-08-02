@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Marmalade のマスコット</string>
+
+    <string name="onboarding_welcome_title">Marmalade TTS へようこそ</string>
+    <string name="onboarding_welcome_body">Marmalade は、お好みのボイスでテキストをオフラインで読み上げます。まずはエンジンを選んでください。</string>
+    <string name="onboarding_get_started">はじめる</string>
+
+    <string name="onboarding_engines_title">エンジンを選ぶ</string>
+    <string name="onboarding_engines_body">エンジンは端末内で動作します。あとからエンジンタブで追加することもできます。</string>
+    <string name="onboarding_back">戻る</string>
+    <string name="onboarding_skip">スキップ</string>
+    <string name="onboarding_install_selected">選択したものをインストール</string>
+    <string name="onboarding_recommended">おすすめ</string>
+    <string name="onboarding_download_size">ダウンロード: %1$s</string>
+
+    <string name="onboarding_setup_complete">セットアップ完了</string>
+    <string name="onboarding_installing_engines">エンジンをインストール中</string>
+    <string name="onboarding_no_engines_selected">エンジンが選択されていません。エンジンタブからいつでもインストールできます。</string>
+    <string name="onboarding_continue">次へ</string>
+    <string name="onboarding_retry">再試行</string>
+
+    <string name="onboarding_status_pending">待機中</string>
+    <string name="onboarding_status_downloading">ダウンロード中</string>
+    <string name="onboarding_status_finishing_up">仕上げ中</string>
+    <string name="onboarding_status_installed">インストール済み</string>
+    <string name="onboarding_status_failed">失敗</string>
+    <string name="onboarding_status_corrupt">破損</string>
+    <string name="onboarding_status_outdated">更新があります</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">メインのエイリアスを作成</string>
+    <string name="onboarding_alias_body">エイリアスは、お気に入りのボイスと速度、エフェクトを「ナレーター」などのひとつの名前にまとめたものです。アプリがボイスを指定せずに読み上げを要求したとき、Marmalade はメインのエイリアスを使います。セットアップを終えるには、少なくとも 1 つ作成してください。あとから設定 →「ボイスエイリアス」で追加できます。</string>
+    <string name="onboarding_alias_name_label">名前</string>
+    <string name="onboarding_alias_name_helper">英数字、スペース、ハイフンが使えます（50 文字まで）。</string>
+    <string name="onboarding_alias_speed_label">速度: %1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">速度</string>
+    <string name="onboarding_alias_save">保存して次へ</string>
+    <string name="onboarding_alias_use_defaults">初期値を使う</string>
+    <string name="onboarding_alias_finish_setup">セットアップを完了</string>
+
+    <string name="onboarding_alias_engine_label">エンジン</string>
+    <string name="onboarding_alias_engine_placeholder">エンジンを選択</string>
+    <string name="onboarding_alias_voice_label">ボイス</string>
+    <string name="onboarding_alias_voice_placeholder">ボイスを選択</string>
+    <string name="onboarding_alias_no_voices">利用できるボイスがありません。先にエンジンをインストールしてください。</string>
+    <string name="onboarding_alias_effect_label">エフェクト</string>
+    <string name="onboarding_alias_effect_pick_content_description">エフェクトを選択</string>
+
+    <string name="onboarding_effect_none">なし</string>
+    <string name="onboarding_effect_cave">洞窟</string>
+    <string name="onboarding_effect_telephone">電話</string>
+
+    <string name="onboarding_error_pick_voice">ボイスを選んでください。</string>
+    <string name="onboarding_error_pick_engine">エンジンを選んでください。</string>
+    <string name="onboarding_error_install_engine_first">エイリアスを作成する前に、エンジンをインストールしてください。</string>
+
+    <string name="onboarding_background_title_allowed">バックグラウンド動作は許可済み</string>
+    <string name="onboarding_background_title">画面が消えても読み上げを続ける</string>
+    <string name="onboarding_background_body_allowed">Marmalade は Android のバッテリー制限の対象外です。画面が消えても音声合成は中断されません。</string>
+    <string name="onboarding_background_body">Android は、画面が消えたりバッテリー残量が少なくなったりすると、バックグラウンドのアプリを一時停止します。長い文章では、読み上げが途中で止まってしまうことがあります。Marmalade を制限なしで動かせるようにすると、画面が消えても読み上げが続きます。</string>
+    <string name="onboarding_background_allow">バックグラウンド動作を許可</string>
+    <string name="onboarding_skip_for_now">スキップ — あとで設定する</string>
+    <string name="onboarding_background_footnote">この設定は、Android の設定 →「アプリ」→「Marmalade TTS」→「電池」でいつでも変更できます。</string>
+
+    <string name="onboarding_notifications_title_granted">通知はオン</string>
+    <string name="onboarding_notifications_title">Marmalade の状態を表示する</string>
+    <string name="onboarding_notifications_body_granted">Marmalade は、読み上げ中とエンジン保持中の通知を表示できます。</string>
+    <string name="onboarding_notifications_body">Marmalade は読み上げ中に小さな通知を表示します。また、すぐに応答できるようエンジンを保持している間にも通知を表示します（初期設定）。どちらも表示するには、通知を許可してください。</string>
+    <string name="onboarding_notifications_allow">通知を許可</string>
+    <string name="onboarding_notifications_footnote">読み上げ中とエンジン保持中の通知にのみ使用します。Android の設定 →「アプリ」→「Marmalade TTS」→「通知」でいつでも変更できます。</string>
+
+    <string name="onboarding_system_title_done">これで完了です</string>
+    <string name="onboarding_system_title">あと 1 ステップ</string>
+    <string name="onboarding_system_body_done">Marmalade がシステムのテキスト読み上げエンジンになりました。他のアプリの読み上げも、あなたのボイスで行われます。</string>
+    <string name="onboarding_system_body">他のアプリで Marmalade を使って読み上げるには、システムのテキスト読み上げエンジンとして選ぶ必要があります。設定するまで、Android は読み上げを Marmalade に渡しません。</string>
+    <string name="onboarding_system_hint">下のボタンをタップしてください。多くの端末では該当ページが直接開きます。開かない場合は、「システム」→「言語」、「ユーザー補助」→「音声」、または「言語と入力」の中から「テキスト読み上げ」を探してください。</string>
+    <string name="onboarding_system_open_settings">システムの TTS 設定を開く</string>
+    <string name="onboarding_system_finish_later">完了 — あとで設定する</string>
+    <string name="onboarding_system_footnote">設定 →「システムの TTS エンジンに設定」からいつでも開き直せます。</string>
+    <string name="onboarding_finish">完了</string>
+    <string name="onboarding_install_failed">インストールに失敗しました</string>
+</resources>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_title">सेटिंग</string>
+    <string name="settings_back">वापस</string>
+
+    <string name="settings_appearance">दिखावट</string>
+    <string name="settings_mode">मोड</string>
+    <string name="settings_mode_system">सिस्टम</string>
+    <string name="settings_mode_light">लाइट</string>
+    <string name="settings_mode_dark">डार्क</string>
+    <string name="settings_color">रंग</string>
+
+    <string name="settings_system_integration">सिस्टम इंटीग्रेशन</string>
+    <string name="settings_set_system_engine">सिस्टम TTS इंजन के तौर पर सेट करें</string>
+    <string name="settings_set_system_engine_desc">Android की टेक्स्ट-टू-स्पीच सेटिंग खोलता है, जहाँ आप Marmalade को डिफ़ॉल्ट इंजन चुन सकते हैं। दूसरे ऐप्स का TTS हमारे ज़रिए चलाने के लिए यह ज़रूरी है।</string>
+
+    <string name="settings_keepalive">इंजन लोड रखें</string>
+    <string name="settings_keepalive_off">बंद</string>
+    <string name="settings_keepalive_smart">स्मार्ट (10 मिनट)</string>
+    <string name="settings_keepalive_always">हमेशा</string>
+    <string name="settings_keepalive_off_desc">जब भी Android ऐप का प्रोसेस बंद करता है (आम तौर पर ऐप छोड़ने के कुछ मिनट के भीतर), इंजन दोबारा शुरू से लोड होता है। RAM की सबसे कम खपत; पहली बार बोलने में सबसे ज़्यादा देर।</string>
+    <string name="settings_keepalive_smart_desc">हर बार बोलने के बाद Marmalade 10 मिनट तक तैयार रहता है, ताकि अगली बार तुरंत बोल सके। उस दौरान एक छोटी सूचना दिखती है। लंबे समय तक कोई खर्च नहीं।</string>
+    <string name="settings_keepalive_persistent_desc">Marmalade हर समय लोड रहता है और एक स्थायी सूचना दिखाता है। इसका असर RAM पर पड़ता है: Pocket ≈ 500 MB, Kokoro ≈ 150 MB, Kitten Nano ≈ 80 MB। सिर्फ़ वही इंजन लोड रहते हैं जिन्हें आप सचमुच इस्तेमाल करते हैं।</string>
+
+    <string name="settings_advanced">बेहतर</string>
+    <string name="settings_advanced_row">बेहतर सेटिंग</string>
+    <string name="settings_advanced_row_desc">सिंथेसिस थ्रेड, डेवलपर इंजन और ऐसे दूसरे विकल्प जिनकी ज़रूरत ज़्यादातर लोगों को कभी नहीं पड़ती।</string>
+
+    <string name="settings_about">ऐप के बारे में</string>
+    <string name="settings_about_version">वर्शन %1$s</string>
+    <string name="settings_licenses">ओपन-सोर्स लाइसेंस</string>
+    <string name="settings_licenses_desc">ऐप, इसके साथ आने वाले कॉम्पोनेंट और डाउनलोड होने वाले इंजनों के लाइसेंस।</string>
+    <string name="settings_report_bug">गड़बड़ी की शिकायत करें</string>
+    <string name="settings_report_bug_desc">कुछ काम नहीं कर रहा या उच्चारण गलत है? पूरी जानकारी के साथ GitHub पर एक issue खोलता है।</string>
+    <string name="settings_more_marmalade">और Marmalade</string>
+    <string name="settings_more_marmalade_desc">GitHub पर Marmalade के दूसरे ऐप्स।</string>
+
+    <!-- AdvancedSettingsScreen -->
+    <string name="settings_performance">परफ़ॉर्मेंस</string>
+    <string name="settings_onnx_threads">ONNX थ्रेड</string>
+    <string name="settings_threads_auto">अपने आप (%1$d)</string>
+    <string name="settings_threads_desc">अपने आप वाला विकल्प तेज़ CPU कोर के हिसाब से चलता है। ज़्यादा थ्रेड का मतलब ज़्यादा रफ़्तार नहीं है: धीमे एफ़िशिएंसी कोर हर चरण को अपनी रफ़्तार पर ले आते हैं। बदलाव अगली बार बोलने पर लागू होगा — इसे बदलते ही इंजन अपने आप दोबारा लोड हो जाता है।</string>
+
+    <string name="settings_developer">डेवलपर</string>
+    <string name="settings_show_developer_engines">डेवलपर इंजन दिखाएँ</string>
+    <string name="settings_show_developer_engines_desc">पुराने sherpa-onnx इंजन दिखाएँ (Kokoro v1.0/v1.1, Kitten Nano/Mini)। इनकी जगह अब डायरेक्ट-ORT इंजन आ चुके हैं; ये सिर्फ़ तुलना के लिए रखे गए हैं।</string>
+
+    <string name="settings_debug">डीबग</string>
+    <string name="settings_benchmark">बेंचमार्क</string>
+    <string name="settings_benchmark_desc">हर इंजन का सिंथेसिस समय मापता है। Pocket के लिए चरण-दर-चरण ब्यौरा दिखता है; sherpa इंजनों के लिए लोड + कुल समय + रियलटाइम रेशियो।</string>
+
+    <!-- LicensesScreen / LicenseTextScreen -->
+    <string name="settings_licenses_licensing">लाइसेंसिंग</string>
+    <string name="settings_licenses_component_summary">%1$s · %2$s</string>
+    <string name="settings_licenses_view_full">पूरा लाइसेंस देखें</string>
+    <string name="settings_license_text_title">लाइसेंस</string>
+    <string name="settings_license_text_not_bundled">लाइसेंस का टेक्स्ट ऐप के साथ नहीं आता। पिछली स्क्रीन पर दिया गया लिंक देखें।</string>
+    <string name="settings_license_text_load_failed">लाइसेंस का टेक्स्ट लोड नहीं हो सका। पिछली स्क्रीन पर दिया गया मूल लिंक देखें।</string>
+</resources>

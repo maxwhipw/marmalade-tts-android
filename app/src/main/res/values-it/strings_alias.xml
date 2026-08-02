@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Elenco degli alias -->
+    <string name="alias_title">Alias vocali</string>
+    <string name="alias_create">Crea alias</string>
+    <string name="alias_empty_title">Ancora nessun alias</string>
+    <string name="alias_empty_body">Un alias salva voce + velocità + effetto sotto un nome come \"narratore\" o \"drammatico\". Tocca + per crearne uno.</string>
+    <string name="alias_primary_pill">PRINCIPALE</string>
+    <string name="alias_chip_cloud">Cloud</string>
+    <string name="alias_chip_on_device">Sul dispositivo</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">Nessun effetto</string>
+
+    <!-- Barra di assegnazione delle app -->
+    <string name="alias_route_apps_to">Assegna app a %1$s</string>
+    <string name="alias_routed_apps_unrouted_only">App assegnate: tutte le app non assegnate</string>
+    <string name="alias_routed_apps_with_unrouted">App assegnate: %1$s, più tutte le app non assegnate</string>
+    <string name="alias_routed_apps">App assegnate: %1$s</string>
+    <string name="alias_all_unrouted_apps">Tutte le app non assegnate</string>
+    <string name="alias_plus_all_unrouted">+ tutte le non assegnate</string>
+    <string name="alias_choose_apps_for">Scegli le app per %1$s</string>
+    <plurals name="alias_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d app</item>
+    </plurals>
+
+    <!-- Conferma di eliminazione -->
+    <string name="alias_delete_title">Eliminare %1$s?</string>
+    <string name="alias_delete_message">L\'alias verrà rimosso. La voce a cui rimanda resta installata.</string>
+    <string name="alias_delete">Elimina</string>
+    <string name="alias_cancel">Annulla</string>
+
+    <!-- Riquadro di modifica -->
+    <string name="alias_edit_title">Modifica %1$s</string>
+    <string name="alias_name_label">Nome</string>
+    <string name="alias_name_help">Lettere, cifre, spazi, trattini — fino a 50 caratteri.</string>
+    <string name="alias_error_name_taken">Questo nome è già in uso.</string>
+    <string name="alias_error_missing_voice">Scegli una voce per questo alias.</string>
+    <string name="alias_voice_label">Voce</string>
+    <string name="alias_voice_placeholder">Scegli una voce</string>
+    <string name="alias_voice_error">Scegli una voce per questo alias</string>
+    <string name="alias_speed">Velocità</string>
+    <string name="alias_speed_label">Velocità: %1$s</string>
+    <string name="alias_effect_label">Effetto</string>
+    <string name="alias_pick_effect">Scegli un effetto</string>
+    <string name="alias_make_primary">Imposta come principale</string>
+    <string name="alias_save">Salva</string>
+
+    <!-- Ripiego offline -->
+    <string name="alias_no_fallback_candidates">Nessun alias sul dispositivo su cui ripiegare.</string>
+    <string name="alias_offline_fallback">Ripiego offline</string>
+    <string name="alias_fallback_none">Nessuno</string>
+
+    <!-- Lingua di fonemizzazione -->
+    <string name="alias_phonemization_language">Lingua di fonemizzazione</string>
+    <string name="alias_pick_phonemization_language">Scegli la lingua di fonemizzazione</string>
+    <string name="alias_lang_auto">Automatica (decide il motore)</string>
+    <string name="alias_lang_en_us">Inglese (USA)</string>
+    <string name="alias_lang_en_gb">Inglese (Regno Unito)</string>
+    <string name="alias_lang_es">Spagnolo</string>
+    <string name="alias_lang_fr_fr">Francese</string>
+    <string name="alias_lang_hi">Hindi</string>
+    <string name="alias_lang_it">Italiano</string>
+    <string name="alias_lang_ja">Giapponese</string>
+    <string name="alias_lang_pt_br">Portoghese (BR)</string>
+    <string name="alias_lang_cmn">Cinese mandarino</string>
+
+    <!-- Riquadro di assegnazione delle app per alias -->
+    <string name="alias_routing_title">App che usano %1$s</string>
+    <string name="alias_routing_subtitle">Tutto ciò che non selezioni qui ricade sull\'alias principale.</string>
+    <string name="alias_routing_search">Cerca app</string>
+    <string name="alias_routing_loading">Caricamento delle app…</string>
+    <string name="alias_routing_no_match">Nessuna app corrisponde a \"%1$s\"</string>
+    <string name="alias_routing_owned_elsewhere">Assegnata a %1$s — rimuovi prima l\'assegnazione lì</string>
+    <string name="alias_save_routing">Salva le assegnazioni</string>
+</resources>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <string name="service_synth_channel_name">Marmalade TTS 播放</string>
+    <string name="service_synth_channel_description">Marmalade TTS 朗读时显示</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">准备中…</string>
+    <string name="service_synth_state_queued">已排队：%1$s</string>
+    <string name="service_synth_state_speaking_text">正在朗读：%1$s</string>
+    <string name="service_synth_state_speaking">正在朗读</string>
+    <string name="service_synth_state_paused">已暂停</string>
+    <string name="service_synth_action_pause">暂停</string>
+    <string name="service_synth_action_resume">继续</string>
+    <string name="service_synth_action_stop">停止</string>
+    <string name="service_synth_error_engine_not_installed">未安装 %1$s 引擎</string>
+    <string name="service_synth_error_failed">合成失败</string>
+
+    <!-- Keepalive foreground service -->
+    <string name="service_keepalive_channel_name">Marmalade TTS 保活</string>
+    <string name="service_keepalive_channel_description">Marmalade 为加快朗读启动而保持语音引擎加载时显示。</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — 就绪</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — 最近使用过</string>
+    <string name="service_keepalive_text_persistent">引擎保持加载，朗读即时开始。</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="other">引擎将在接下来的 %1$d 分钟内保持加载。</item>
+    </plurals>
+
+    <!-- Quick Settings tile -->
+    <string name="service_clipboard_empty">剪贴板为空</string>
+
+    <!-- Spoken sample for Settings → Languages → TTS → "Listen to an example" -->
+    <string name="service_sample_text">你好，这里是 Marmalade 在为你朗读。</string>
+</resources>

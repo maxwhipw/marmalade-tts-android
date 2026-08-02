@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alias list -->
+    <string name="alias_title">语音别名</string>
+    <string name="alias_create">新建别名</string>
+    <string name="alias_empty_title">尚无别名</string>
+    <string name="alias_empty_body">别名把语音、语速和音效保存在一个名字下，例如“旁白”或“戏剧腔”。点按 + 新建一个。</string>
+    <string name="alias_primary_pill">主别名</string>
+    <string name="alias_chip_cloud">云端</string>
+    <string name="alias_chip_on_device">本机</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">无音效</string>
+
+    <!-- Routing strip -->
+    <string name="alias_route_apps_to">将应用指向 %1$s</string>
+    <string name="alias_routed_apps_unrouted_only">已指向的应用：所有未指定的应用</string>
+    <string name="alias_routed_apps_with_unrouted">已指向的应用：%1$s，以及所有未指定的应用</string>
+    <string name="alias_routed_apps">已指向的应用：%1$s</string>
+    <string name="alias_all_unrouted_apps">所有未指定的应用</string>
+    <string name="alias_plus_all_unrouted">+ 所有未指定</string>
+    <string name="alias_choose_apps_for">为 %1$s 选择应用</string>
+    <plurals name="alias_app_count">
+        <item quantity="other">%1$d 个应用</item>
+    </plurals>
+
+    <!-- Delete confirmation -->
+    <string name="alias_delete_title">删除 %1$s？</string>
+    <string name="alias_delete_message">这只会删除别名，对应的语音仍保留在设备上。</string>
+    <string name="alias_delete">删除</string>
+    <string name="alias_cancel">取消</string>
+
+    <!-- Editor sheet -->
+    <string name="alias_edit_title">编辑 %1$s</string>
+    <string name="alias_name_label">名称</string>
+    <string name="alias_name_help">可使用字母、数字、空格和连字符，最多 50 个字符。</string>
+    <string name="alias_error_name_taken">该名称已被使用。</string>
+    <string name="alias_error_missing_voice">请为此别名选择语音。</string>
+    <string name="alias_voice_label">语音</string>
+    <string name="alias_voice_placeholder">选择语音</string>
+    <string name="alias_voice_error">请为此别名选择语音</string>
+    <string name="alias_speed">语速</string>
+    <string name="alias_speed_label">语速：%1$s</string>
+    <string name="alias_effect_label">音效</string>
+    <string name="alias_pick_effect">选择音效</string>
+    <string name="alias_make_primary">设为主别名</string>
+    <string name="alias_save">保存</string>
+
+    <!-- Offline fallback -->
+    <string name="alias_no_fallback_candidates">没有可回退的本机别名。</string>
+    <string name="alias_offline_fallback">离线回退</string>
+    <string name="alias_fallback_none">无</string>
+
+    <!-- Phonemization language -->
+    <string name="alias_phonemization_language">音素化语言</string>
+    <string name="alias_pick_phonemization_language">选择音素化语言</string>
+    <string name="alias_lang_auto">自动（由引擎决定）</string>
+    <string name="alias_lang_en_us">英语（美国）</string>
+    <string name="alias_lang_en_gb">英语（英国）</string>
+    <string name="alias_lang_es">西班牙语</string>
+    <string name="alias_lang_fr_fr">法语</string>
+    <string name="alias_lang_hi">印地语</string>
+    <string name="alias_lang_it">意大利语</string>
+    <string name="alias_lang_ja">日语</string>
+    <string name="alias_lang_pt_br">葡萄牙语（巴西）</string>
+    <string name="alias_lang_cmn">普通话</string>
+
+    <!-- Per-alias app routing sheet -->
+    <string name="alias_routing_title">使用 %1$s 的应用</string>
+    <string name="alias_routing_subtitle">未勾选的应用都会回退到你的主别名。</string>
+    <string name="alias_routing_search">搜索应用</string>
+    <string name="alias_routing_loading">正在加载应用…</string>
+    <string name="alias_routing_no_match">没有匹配“%1$s”的应用</string>
+    <string name="alias_routing_owned_elsewhere">已指向 %1$s — 请先在那里取消指向</string>
+    <string name="alias_save_routing">保存指向</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Servizio in primo piano per la riproduzione (condivisione / riquadro appunti) -->
+    <string name="service_synth_channel_name">Riproduzione di Marmalade TTS</string>
+    <string name="service_synth_channel_description">Visibile mentre Marmalade TTS legge ad alta voce</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">Preparazione…</string>
+    <string name="service_synth_state_queued">In coda: %1$s</string>
+    <string name="service_synth_state_speaking_text">Lettura: %1$s</string>
+    <string name="service_synth_state_speaking">Lettura in corso</string>
+    <string name="service_synth_state_paused">In pausa</string>
+    <string name="service_synth_action_pause">Pausa</string>
+    <string name="service_synth_action_resume">Riprendi</string>
+    <string name="service_synth_action_stop">Interrompi</string>
+    <string name="service_synth_error_engine_not_installed">Motore %1$s non installato</string>
+    <string name="service_synth_error_failed">Sintesi non riuscita</string>
+
+    <!-- Servizio in primo piano per il mantenimento del motore -->
+    <string name="service_keepalive_channel_name">Motore attivo di Marmalade TTS</string>
+    <string name="service_keepalive_channel_description">Visibile mentre Marmalade tiene caricato il motore TTS per iniziare a leggere più in fretta.</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — pronto</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — usato di recente</string>
+    <string name="service_keepalive_text_persistent">Motore sempre caricato per iniziare a leggere all\'istante.</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="one">Il motore resta caricato per %1$d minuto.</item>
+        <item quantity="other">Il motore resta caricato per altri %1$d minuti.</item>
+    </plurals>
+
+    <!-- Riquadro delle Impostazioni rapide -->
+    <string name="service_clipboard_empty">Gli appunti sono vuoti</string>
+
+    <!-- Frase di esempio per Impostazioni → Lingue → Sintesi vocale → Ascolta un esempio -->
+    <string name="service_sample_text">Ciao, sono Marmalade e ti sto parlando.</string>
+</resources>

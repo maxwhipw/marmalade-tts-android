@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Estrutura do seletor -->
+    <string name="voices_title">Vozes</string>
+    <string name="voices_title_engine">Vozes do %1$s</string>
+    <string name="voices_sheet_title">Escolha uma voz</string>
+    <string name="voices_back">Voltar</string>
+    <string name="voices_search_placeholder">Buscar em todas as vozes</string>
+
+    <!-- Trilha de navegação -->
+    <string name="voices_crumb_searching">Buscando em todas as vozes</string>
+    <string name="voices_crumb_all_sources">Todas as origens</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Estados vazios / linhas de status -->
+    <string name="voices_engine_generic">TTS</string>
+    <string name="voices_engine_not_installed">O motor %1$s ainda não está instalado — instale-o na aba Motores para ouvir prévias.</string>
+    <string name="voices_no_engines_installed">Nenhum motor instalado ainda. Abra a aba Motores para instalar o Kokoro ou o Kitten — as vozes aparecerão aqui depois disso.</string>
+    <string name="voices_empty_none_installed">Nenhuma voz instalada ainda</string>
+    <string name="voices_empty_model">Este modelo não tem vozes instaladas</string>
+    <string name="voices_empty_no_match">Nenhuma voz corresponde a \"%1$s\"</string>
+
+    <!-- Linhas -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">Selecionada</string>
+    <string name="voices_preview">Ouvir prévia de %1$s</string>
+    <string name="voices_previewing">Tocando prévia de %1$s</string>
+
+    <!-- Níveis de navegação -->
+    <string name="voices_source_cloud">Nuvem</string>
+    <string name="voices_source_on_device">No dispositivo</string>
+    <string name="voices_source_with_models">%1$s em %2$d modelos</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="one">%1$s · %2$d voz</item>
+        <item quantity="other">%1$s · %2$d vozes</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="one">%1$d voz</item>
+        <item quantity="other">%1$d vozes</item>
+    </plurals>
+
+    <!-- Erros de prévia -->
+    <string name="voices_error_preview_failed">Falha na prévia</string>
+    <string name="voices_error_unknown">Erro desconhecido</string>
+    <string name="voices_preview_phrase">Olá, eu sou %1$s.</string>
+    <string name="voices_latency_instant">Instantânea</string>
+    <string name="voices_latency_quick">Rápida</string>
+    <string name="voices_latency_slow">Lenta</string>
+</resources>

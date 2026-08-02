@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Mascotte di Marmalade</string>
+
+    <string name="onboarding_welcome_title">Benvenuto in Marmalade TTS</string>
+    <string name="onboarding_welcome_body">Marmalade legge i testi ad alta voce, offline, con le voci che scegli tu. Scegli un motore per iniziare.</string>
+    <string name="onboarding_get_started">Inizia</string>
+
+    <string name="onboarding_engines_title">Scegli i motori</string>
+    <string name="onboarding_engines_body">I motori funzionano sul dispositivo. Puoi installarne altri in seguito dalla scheda Motori.</string>
+    <string name="onboarding_back">Indietro</string>
+    <string name="onboarding_skip">Salta</string>
+    <string name="onboarding_install_selected">Installa i selezionati</string>
+    <string name="onboarding_recommended">CONSIGLIATO</string>
+    <string name="onboarding_download_size">Download: %1$s</string>
+
+    <string name="onboarding_setup_complete">Configurazione completata</string>
+    <string name="onboarding_installing_engines">Installazione dei motori</string>
+    <string name="onboarding_no_engines_selected">Nessun motore selezionato — puoi installarne uno quando vuoi dalla scheda Motori.</string>
+    <string name="onboarding_continue">Continua</string>
+    <string name="onboarding_retry">Riprova</string>
+
+    <string name="onboarding_status_pending">In attesa</string>
+    <string name="onboarding_status_downloading">Download in corso</string>
+    <string name="onboarding_status_finishing_up">Completamento</string>
+    <string name="onboarding_status_installed">Installato</string>
+    <string name="onboarding_status_failed">Non riuscito</string>
+    <string name="onboarding_status_corrupt">Danneggiato</string>
+    <string name="onboarding_status_outdated">Aggiornamento disponibile</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">Crea il tuo alias principale</string>
+    <string name="onboarding_alias_body">Un alias raccoglie la tua voce preferita, la velocità e l\'effetto sotto un unico nome come \"narratore\". Marmalade usa l\'alias principale ogni volta che un\'app chiede di leggere senza indicare una voce. Crea almeno un alias per completare la configurazione — potrai aggiungerne altri in seguito da Impostazioni → Alias vocali.</string>
+    <string name="onboarding_alias_name_label">Nome</string>
+    <string name="onboarding_alias_name_helper">Lettere, cifre, spazi, trattini — fino a 50 caratteri.</string>
+    <string name="onboarding_alias_speed_label">Velocità: %1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">Velocità</string>
+    <string name="onboarding_alias_save">Salva e continua</string>
+    <string name="onboarding_alias_use_defaults">Usa i valori predefiniti</string>
+    <string name="onboarding_alias_finish_setup">Completa la configurazione</string>
+
+    <string name="onboarding_alias_engine_label">Motore</string>
+    <string name="onboarding_alias_engine_placeholder">Seleziona un motore</string>
+    <string name="onboarding_alias_voice_label">Voce</string>
+    <string name="onboarding_alias_voice_placeholder">Seleziona una voce</string>
+    <string name="onboarding_alias_no_voices">Nessuna voce disponibile — installa prima un motore.</string>
+    <string name="onboarding_alias_effect_label">Effetto</string>
+    <string name="onboarding_alias_effect_pick_content_description">Scegli un effetto</string>
+
+    <string name="onboarding_effect_none">Nessuno</string>
+    <string name="onboarding_effect_cave">Caverna</string>
+    <string name="onboarding_effect_telephone">Telefono</string>
+
+    <string name="onboarding_error_pick_voice">Scegli una voce.</string>
+    <string name="onboarding_error_pick_engine">Scegli un motore.</string>
+    <string name="onboarding_error_install_engine_first">Installa un motore prima di creare un alias.</string>
+
+    <string name="onboarding_background_title_allowed">Attività in background consentita</string>
+    <string name="onboarding_background_title">Continua a leggere a schermo spento</string>
+    <string name="onboarding_background_body_allowed">Marmalade è esente dalle restrizioni della batteria di Android. La sintesi non verrà interrotta quando lo schermo si spegne.</string>
+    <string name="onboarding_background_body">Android sospende le app in background quando lo schermo si spegne o la batteria si abbassa, e sui testi lunghi questo può troncare la lettura a metà frase. Consentire a Marmalade di funzionare senza restrizioni mantiene la lettura attiva anche a schermo spento.</string>
+    <string name="onboarding_background_allow">Consenti l\'attività in background</string>
+    <string name="onboarding_skip_for_now">Salta — lo farò dopo</string>
+    <string name="onboarding_background_footnote">Puoi cambiare questa impostazione quando vuoi in Impostazioni Android → App → Marmalade TTS → Batteria.</string>
+
+    <string name="onboarding_notifications_title_granted">Notifiche attive</string>
+    <string name="onboarding_notifications_title">Mostra cosa sta facendo Marmalade</string>
+    <string name="onboarding_notifications_body_granted">Marmalade può mostrare le notifiche di lettura in corso e di motore pronto.</string>
+    <string name="onboarding_notifications_body">Marmalade mostra una piccola notifica mentre legge e un\'altra mentre tiene un motore pronto per rispondere all\'istante (l\'impostazione predefinita). Consenti le notifiche perché possano comparire entrambe.</string>
+    <string name="onboarding_notifications_allow">Consenti le notifiche</string>
+    <string name="onboarding_notifications_footnote">Servono solo per le notifiche di lettura e di motore pronto. Puoi cambiare questa impostazione quando vuoi in Impostazioni Android → App → Marmalade TTS → Notifiche.</string>
+
+    <string name="onboarding_system_title_done">Tutto pronto!</string>
+    <string name="onboarding_system_title">Ancora un passaggio</string>
+    <string name="onboarding_system_body_done">Marmalade è il motore di sintesi vocale del tuo sistema. La lettura delle altre app passa ora dalle tue voci.</string>
+    <string name="onboarding_system_body">Perché le altre app possano parlare con Marmalade, devi sceglierlo come motore di sintesi vocale del sistema. Finché non lo fai, Android non ci invierà i testi da leggere.</string>
+    <string name="onboarding_system_hint">Tocca il pulsante qui sotto: su quasi tutti i telefoni si apre direttamente la pagina giusta. Se sul tuo non succede, cerca \"Sintesi vocale\" in Sistema → Lingue, in Accessibilità → Audio oppure in Lingue e immissione.</string>
+    <string name="onboarding_system_open_settings">Apri le impostazioni TTS di sistema</string>
+    <string name="onboarding_system_finish_later">Fine — lo farò dopo</string>
+    <string name="onboarding_system_footnote">Puoi riaprire questa schermata da Impostazioni → Imposta come motore TTS di sistema.</string>
+    <string name="onboarding_finish">Fine</string>
+    <string name="onboarding_install_failed">Installazione non riuscita</string>
+</resources>

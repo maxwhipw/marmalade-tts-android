@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <string name="service_synth_channel_name">Marmalade TTS の再生</string>
+    <string name="service_synth_channel_description">Marmalade TTS が読み上げている間に表示されます</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">準備中…</string>
+    <string name="service_synth_state_queued">待機中: %1$s</string>
+    <string name="service_synth_state_speaking_text">読み上げ中: %1$s</string>
+    <string name="service_synth_state_speaking">読み上げ中</string>
+    <string name="service_synth_state_paused">一時停止中</string>
+    <string name="service_synth_action_pause">一時停止</string>
+    <string name="service_synth_action_resume">再開</string>
+    <string name="service_synth_action_stop">停止</string>
+    <string name="service_synth_error_engine_not_installed">%1$s エンジンがインストールされていません</string>
+    <string name="service_synth_error_failed">音声合成に失敗しました</string>
+
+    <!-- Keepalive foreground service -->
+    <string name="service_keepalive_channel_name">Marmalade TTS のエンジン保持</string>
+    <string name="service_keepalive_channel_description">読み上げをすぐ開始できるよう、Marmalade が TTS エンジンを読み込んだまま保持している間に表示されます。</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — 準備完了</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — 最近使用</string>
+    <string name="service_keepalive_text_persistent">読み上げを瞬時に開始できるよう、エンジンを保持しています。</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="other">あと %1$d 分間、エンジンを保持します。</item>
+    </plurals>
+
+    <!-- Quick Settings tile -->
+    <string name="service_clipboard_empty">クリップボードが空です</string>
+
+    <!-- Spoken sample for Settings → Languages → TTS → "Listen to an example" -->
+    <string name="service_sample_text">こんにちは。マーマレードがお話ししています。</string>
+</resources>

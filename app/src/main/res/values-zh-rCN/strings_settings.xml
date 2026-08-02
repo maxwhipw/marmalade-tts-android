@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_title">设置</string>
+    <string name="settings_back">返回</string>
+
+    <string name="settings_appearance">外观</string>
+    <string name="settings_mode">模式</string>
+    <string name="settings_mode_system">跟随系统</string>
+    <string name="settings_mode_light">浅色</string>
+    <string name="settings_mode_dark">深色</string>
+    <string name="settings_color">配色</string>
+
+    <string name="settings_system_integration">系统集成</string>
+    <string name="settings_set_system_engine">设为系统语音引擎</string>
+    <string name="settings_set_system_engine_desc">打开 Android 的文字转语音设置，以便把 Marmalade 选为默认引擎。其他应用要通过 Marmalade 朗读，必须先完成这一步。</string>
+
+    <string name="settings_keepalive">保持引擎加载</string>
+    <string name="settings_keepalive_off">关闭</string>
+    <string name="settings_keepalive_smart">智能（10 分钟）</string>
+    <string name="settings_keepalive_always">始终</string>
+    <string name="settings_keepalive_off_desc">每当 Android 回收应用进程（通常在你离开应用几分钟后），引擎都会重新冷加载。最省内存，但首次朗读最慢。</string>
+    <string name="settings_keepalive_smart_desc">每次朗读后，Marmalade 会保持热状态 10 分钟，下一次朗读即时开始。该时段内会显示一条小通知，不会带来长期开销。</string>
+    <string name="settings_keepalive_persistent_desc">Marmalade 会始终保持加载，并显示一条常驻通知。代价是内存占用：Pocket 约 500 MB，Kokoro 约 150 MB，Kitten Nano 约 80 MB。只有你实际使用的引擎才会保持加载。</string>
+
+    <string name="settings_advanced">高级</string>
+    <string name="settings_advanced_row">高级设置</string>
+    <string name="settings_advanced_row_desc">合成线程数、开发者引擎，以及大多数人用不上的其他选项。</string>
+
+    <string name="settings_about">关于</string>
+    <string name="settings_about_version">版本 %1$s</string>
+    <string name="settings_licenses">开源许可</string>
+    <string name="settings_licenses_desc">本应用、其内置组件以及可下载引擎的许可协议。</string>
+    <string name="settings_report_bug">报告问题</string>
+    <string name="settings_report_bug_desc">遇到故障或读音错误？将打开一个已填好详情的 GitHub issue。</string>
+    <string name="settings_more_marmalade">更多 Marmalade</string>
+    <string name="settings_more_marmalade_desc">GitHub 上的其他 Marmalade 应用。</string>
+
+    <!-- AdvancedSettingsScreen -->
+    <string name="settings_performance">性能</string>
+    <string name="settings_onnx_threads">ONNX 线程数</string>
+    <string name="settings_threads_auto">自动（%1$d）</string>
+    <string name="settings_threads_desc">自动模式会匹配高性能 CPU 核心。线程越多并不越快：能效核心会把每一步都拖慢到它们的速度。更改后从下次朗读起生效 — 引擎会自动重新加载。</string>
+
+    <string name="settings_developer">开发者</string>
+    <string name="settings_show_developer_engines">显示开发者引擎</string>
+    <string name="settings_show_developer_engines_desc">显示较旧的 sherpa-onnx 引擎（Kokoro v1.0/v1.1、Kitten Nano/Mini）。它们已被直连 ORT 的引擎取代，保留仅供对比。</string>
+
+    <string name="settings_debug">调试</string>
+    <string name="settings_benchmark">性能测试</string>
+    <string name="settings_benchmark_desc">测量各引擎的合成耗时。Pocket 会显示分阶段明细；sherpa 引擎则给出加载时间、总耗时和实时率。</string>
+
+    <!-- LicensesScreen / LicenseTextScreen -->
+    <string name="settings_licenses_licensing">许可</string>
+    <string name="settings_licenses_component_summary">%1$s · %2$s</string>
+    <string name="settings_licenses_view_full">查看完整许可</string>
+    <string name="settings_license_text_title">许可</string>
+    <string name="settings_license_text_not_bundled">未内置许可全文。请参见上一页中的链接。</string>
+    <string name="settings_license_text_load_failed">无法加载许可全文。请参见上一页中的上游链接。</string>
+</resources>

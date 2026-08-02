@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bottom navigation -->
+    <string name="speak_nav_speak">読み上げ</string>
+    <string name="speak_nav_aliases">エイリアス</string>
+    <string name="speak_nav_effects">エフェクト</string>
+    <string name="speak_nav_engines">エンジン</string>
+    <string name="speak_nav_settings">設定</string>
+
+    <!-- Speak screen -->
+    <string name="speak_text_field_label">読み上げるテキスト</string>
+    <string name="speak_button_speak">読み上げ</string>
+    <string name="speak_button_stop">停止</string>
+    <string name="speak_status_speaking">読み上げ中…</string>
+    <string name="speak_install_cta_engine">タップして %1$s をインストール</string>
+    <string name="speak_install_cta_generic">タップして TTS エンジンをインストール</string>
+    <string name="speak_change_voice">ボイスを変更</string>
+    <string name="speak_persona_unresolved">—</string>
+    <string name="speak_cloud_voice_desc">クラウドボイス — ネットワーク接続が必要です</string>
+
+    <!-- Persona sheet -->
+    <string name="speak_sheet_title">ボイス</string>
+    <string name="speak_persona_primary">メイン</string>
+    <string name="speak_persona_selected">選択中</string>
+    <string name="speak_pick_voice_directly">ボイスを直接選ぶ</string>
+    <string name="speak_new_persona">新しいペルソナ</string>
+
+    <!-- Playback errors -->
+    <string name="speak_error_synthesis_failed">音声合成に失敗しました</string>
+    <string name="speak_error_unknown">不明なエラー</string>
+
+    <!-- Share / process-text trampoline -->
+    <string name="speak_share_nothing_to_speak">読み上げるテキストがありません</string>
+</resources>

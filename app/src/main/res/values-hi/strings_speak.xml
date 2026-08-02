@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bottom navigation -->
+    <string name="speak_nav_speak">बोलें</string>
+    <string name="speak_nav_aliases">उपनाम</string>
+    <string name="speak_nav_effects">इफ़ेक्ट</string>
+    <string name="speak_nav_engines">इंजन</string>
+    <string name="speak_nav_settings">सेटिंग</string>
+
+    <!-- Speak screen -->
+    <string name="speak_text_field_label">बोलने के लिए टेक्स्ट</string>
+    <string name="speak_button_speak">बोलें</string>
+    <string name="speak_button_stop">रोकें</string>
+    <string name="speak_status_speaking">बोल रहा है…</string>
+    <string name="speak_install_cta_engine">%1$s इंस्टॉल करने के लिए टैप करें</string>
+    <string name="speak_install_cta_generic">TTS इंजन इंस्टॉल करने के लिए टैप करें</string>
+    <string name="speak_change_voice">वॉइस बदलें</string>
+    <string name="speak_persona_unresolved">—</string>
+    <string name="speak_cloud_voice_desc">क्लाउड वॉइस — इंटरनेट ज़रूरी है</string>
+
+    <!-- Persona sheet -->
+    <string name="speak_sheet_title">वॉइस</string>
+    <string name="speak_persona_primary">प्राथमिक</string>
+    <string name="speak_persona_selected">चुनी गई</string>
+    <string name="speak_pick_voice_directly">सीधे कोई वॉइस चुनें</string>
+    <string name="speak_new_persona">नया पर्सोना</string>
+
+    <!-- Playback errors -->
+    <string name="speak_error_synthesis_failed">सिंथेसिस नहीं हो सका</string>
+    <string name="speak_error_unknown">अज्ञात गड़बड़ी</string>
+
+    <!-- Share / process-text trampoline -->
+    <string name="speak_share_nothing_to_speak">बोलने के लिए कुछ नहीं है</string>
+</resources>

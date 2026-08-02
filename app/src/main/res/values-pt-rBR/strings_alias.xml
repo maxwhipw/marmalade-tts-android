@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lista de apelidos -->
+    <string name="alias_title">Apelidos de voz</string>
+    <string name="alias_create">Criar apelido</string>
+    <string name="alias_empty_title">Nenhum apelido ainda</string>
+    <string name="alias_empty_body">Apelidos guardam voz + velocidade + efeito sob um nome como \"narrador\" ou \"dramático\". Toque em + para criar um.</string>
+    <string name="alias_primary_pill">PRINCIPAL</string>
+    <string name="alias_chip_cloud">Nuvem</string>
+    <string name="alias_chip_on_device">No dispositivo</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">Sem efeito</string>
+
+    <!-- Faixa de roteamento -->
+    <string name="alias_route_apps_to">Direcionar apps para %1$s</string>
+    <string name="alias_routed_apps_unrouted_only">Apps direcionados: todos os apps sem direcionamento</string>
+    <string name="alias_routed_apps_with_unrouted">Apps direcionados: %1$s, além de todos os apps sem direcionamento</string>
+    <string name="alias_routed_apps">Apps direcionados: %1$s</string>
+    <string name="alias_all_unrouted_apps">Todos os apps sem direcionamento</string>
+    <string name="alias_plus_all_unrouted">+ todos sem direcionamento</string>
+    <string name="alias_choose_apps_for">Escolher apps para %1$s</string>
+    <plurals name="alias_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+    <!-- Confirmação de exclusão -->
+    <string name="alias_delete_title">Excluir %1$s?</string>
+    <string name="alias_delete_message">Isso remove o apelido. A voz correspondente continua instalada.</string>
+    <string name="alias_delete">Excluir</string>
+    <string name="alias_cancel">Cancelar</string>
+
+    <!-- Folha do editor -->
+    <string name="alias_edit_title">Editar %1$s</string>
+    <string name="alias_name_label">Nome</string>
+    <string name="alias_name_help">Letras, números, espaços e hifens — até 50 caracteres.</string>
+    <string name="alias_error_name_taken">Esse nome já está em uso.</string>
+    <string name="alias_error_missing_voice">Escolha uma voz para este apelido.</string>
+    <string name="alias_voice_label">Voz</string>
+    <string name="alias_voice_placeholder">Escolha uma voz</string>
+    <string name="alias_voice_error">Escolha uma voz para este apelido</string>
+    <string name="alias_speed">Velocidade</string>
+    <string name="alias_speed_label">Velocidade: %1$s</string>
+    <string name="alias_effect_label">Efeito</string>
+    <string name="alias_pick_effect">Escolher efeito</string>
+    <string name="alias_make_primary">Tornar principal</string>
+    <string name="alias_save">Salvar</string>
+
+    <!-- Alternativa offline -->
+    <string name="alias_no_fallback_candidates">Nenhum apelido no dispositivo para usar como alternativa.</string>
+    <string name="alias_offline_fallback">Alternativa offline</string>
+    <string name="alias_fallback_none">Nenhuma</string>
+
+    <!-- Idioma de fonemização -->
+    <string name="alias_phonemization_language">Idioma de fonemização</string>
+    <string name="alias_pick_phonemization_language">Escolher idioma de fonemização</string>
+    <string name="alias_lang_auto">Automático (o motor decide)</string>
+    <string name="alias_lang_en_us">Inglês (EUA)</string>
+    <string name="alias_lang_en_gb">Inglês (Reino Unido)</string>
+    <string name="alias_lang_es">Espanhol</string>
+    <string name="alias_lang_fr_fr">Francês</string>
+    <string name="alias_lang_hi">Híndi</string>
+    <string name="alias_lang_it">Italiano</string>
+    <string name="alias_lang_ja">Japonês</string>
+    <string name="alias_lang_pt_br">Português (BR)</string>
+    <string name="alias_lang_cmn">Chinês mandarim</string>
+
+    <!-- Folha de direcionamento de apps por apelido -->
+    <string name="alias_routing_title">Apps que usam %1$s</string>
+    <string name="alias_routing_subtitle">Tudo o que você não marcar aqui recai no seu apelido principal.</string>
+    <string name="alias_routing_search">Buscar apps</string>
+    <string name="alias_routing_loading">Carregando apps…</string>
+    <string name="alias_routing_no_match">Nenhum app corresponde a \"%1$s\"</string>
+    <string name="alias_routing_owned_elsewhere">Direcionado para %1$s — remova o direcionamento de lá primeiro</string>
+    <string name="alias_save_routing">Salvar direcionamento</string>
+</resources>

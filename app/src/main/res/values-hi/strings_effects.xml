@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Effects catalog -->
+    <string name="effects_title">इफ़ेक्ट</string>
+    <string name="effects_create">इफ़ेक्ट बनाएँ</string>
+    <string name="effects_intro">किसी वॉइस पर इफ़ेक्ट लगाने के लिए उसे किसी उपनाम से जोड़ें (उपनाम टैब → इफ़ेक्ट)। अपना इफ़ेक्ट बनाने के लिए + पर टैप करें, या किसी बिल्ट-इन इफ़ेक्ट में बदलाव करके उसकी अपनी कॉपी बना लें।</string>
+    <string name="effects_builtin">बिल्ट-इन</string>
+    <string name="effects_delete_title">\"%1$s\" को मिटाएँ?</string>
+    <string name="effects_delete_message">इससे इफ़ेक्ट हट जाएगा। जो उपनाम इसे इस्तेमाल कर रहे हैं, वे बिना इफ़ेक्ट के चलेंगे।</string>
+    <string name="effects_delete">मिटाएँ</string>
+    <string name="effects_cancel">रद्द करें</string>
+    <string name="effects_stop_card">%1$s रोकें</string>
+    <string name="effects_preview_card">%1$s का प्रीव्यू सुनें</string>
+    <string name="effects_edit_card">%1$s में बदलाव करें</string>
+    <string name="effects_duplicate_card">%1$s की कॉपी बनाएँ</string>
+    <string name="effects_delete_card">%1$s को मिटाएँ</string>
+
+    <!-- Chain chips on an effect card -->
+    <string name="effects_chip_none">कोई इफ़ेक्ट नहीं</string>
+    <string name="effects_chip_reverb">रिवर्ब %1$d</string>
+    <string name="effects_chip_echo">इको</string>
+    <string name="effects_chip_overdrive">ओवरड्राइव %1$d</string>
+    <string name="effects_chip_pitch">पिच %1$s</string>
+    <string name="effects_chip_tempo">टेम्पो %1$.2f×</string>
+    <string name="effects_chip_bandpass">बैंड %1$d–%2$d</string>
+    <string name="effects_chip_vol">वॉल्यूम %1$.1f×</string>
+    <string name="effects_chip_treble">ट्रेबल %1$s</string>
+    <string name="effects_chip_bass">बेस %1$s</string>
+    <string name="effects_chip_mid">मिड %1$dHz %2$s</string>
+    <string name="effects_chip_lowpass">LP %1$dHz</string>
+    <string name="effects_chip_highpass">HP %1$dHz</string>
+    <string name="effects_chip_tremolo">ट्रेमोलो %1$.1fHz</string>
+    <string name="effects_chip_flanger">फ़्लैंजर %1$.2fHz</string>
+    <string name="effects_chip_chorus">कोरस %1$.2fHz</string>
+    <string name="effects_chip_phaser">फ़ेज़र %1$.2fHz</string>
+    <string name="effects_chip_compressor">कंप्रेसर %1$ddB %2$.0f:1</string>
+    <string name="effects_chip_bitcrush">क्रश %1$d-बिट %2$d×</string>
+    <string name="effects_chip_ringmod">रिंग %1$dHz</string>
+    <string name="effects_chip_monotone">मोनोटोन %1$dHz</string>
+
+    <!-- Editor -->
+    <string name="effects_editor_title_edit">इफ़ेक्ट में बदलाव करें</string>
+    <string name="effects_editor_title_new">नया इफ़ेक्ट</string>
+    <string name="effects_back">वापस</string>
+    <string name="effects_save">सेव करें</string>
+    <string name="effects_name">नाम</string>
+    <string name="effects_name_error">इफ़ेक्ट को कोई नाम दें।</string>
+    <string name="effects_chain">चेन</string>
+    <string name="effects_chain_help">ब्लॉक ऊपर से नीचे चलते हैं: हर ब्लॉक उस ऑडियो पर काम करता है जो उसके ऊपर वाले ब्लॉक ने तैयार किया।</string>
+    <string name="effects_chain_empty">अभी कोई ब्लॉक नहीं है — बिना किसी प्रोसेसिंग वाले (ड्राई) इफ़ेक्ट के लिए इसे खाली छोड़ें, या आवाज़ को ढालने के लिए नीचे ब्लॉक जोड़ें।</string>
+    <string name="effects_move_up">ऊपर ले जाएँ</string>
+    <string name="effects_move_down">नीचे ले जाएँ</string>
+    <string name="effects_remove_block">ब्लॉक हटाएँ</string>
+    <string name="effects_add_block">ब्लॉक जोड़ें</string>
+    <string name="effects_stop">रोकें</string>
+    <string name="effects_preview">प्रीव्यू</string>
+    <string name="effects_preview_pick_default_voice">पहले बोलें स्क्रीन पर कोई डिफ़ॉल्ट वॉइस चुनें।</string>
+    <string name="effects_preview_failed">प्रीव्यू नहीं चल सका</string>
+
+    <!-- Block type names -->
+    <string name="effects_block_reverb">रिवर्ब</string>
+    <string name="effects_block_echo">इको</string>
+    <string name="effects_block_pitch">पिच</string>
+    <string name="effects_block_tempo">स्पीड (टेम्पो)</string>
+    <string name="effects_block_overdrive">ओवरड्राइव</string>
+    <string name="effects_block_bandpass">बैंड-पास</string>
+    <string name="effects_block_lowpass">लो-पास</string>
+    <string name="effects_block_highpass">हाई-पास</string>
+    <string name="effects_block_vol">वॉल्यूम</string>
+    <string name="effects_block_bass">बेस</string>
+    <string name="effects_block_mid">मिड</string>
+    <string name="effects_block_treble">ट्रेबल</string>
+    <string name="effects_block_tremolo">ट्रेमोलो</string>
+    <string name="effects_block_flanger">फ़्लैंजर</string>
+    <string name="effects_block_chorus">कोरस</string>
+    <string name="effects_block_phaser">फ़ेज़र</string>
+    <string name="effects_block_compressor">कंप्रेसर</string>
+    <string name="effects_block_bitcrush">बिटक्रश</string>
+    <string name="effects_block_ringmod">रिंग मॉड</string>
+    <string name="effects_block_monotone">मोनोटोन</string>
+
+    <!-- Block parameter labels -->
+    <string name="effects_param_reverberance">रिवर्बरेंस</string>
+    <string name="effects_param_delay">डिले</string>
+    <string name="effects_param_decay">डिके</string>
+    <string name="effects_param_gain_in">इनपुट गेन</string>
+    <string name="effects_param_gain_out">आउटपुट गेन</string>
+    <string name="effects_param_gain">गेन</string>
+    <string name="effects_param_pitch">पिच</string>
+    <string name="effects_param_speed">स्पीड</string>
+    <string name="effects_param_low_cut">लो कट</string>
+    <string name="effects_param_high_cut">हाई कट</string>
+    <string name="effects_param_volume">वॉल्यूम</string>
+    <string name="effects_param_treble">ट्रेबल</string>
+    <string name="effects_param_bass">बेस</string>
+    <string name="effects_param_frequency">फ़्रीक्वेंसी</string>
+    <string name="effects_param_cutoff">कटऑफ़</string>
+    <string name="effects_param_depth">डेप्थ</string>
+    <string name="effects_param_resonance">रेज़ोनेंस</string>
+    <string name="effects_param_threshold">थ्रेशोल्ड</string>
+    <string name="effects_param_ratio">रेशियो</string>
+    <string name="effects_param_bits">बिट</string>
+    <string name="effects_param_downsample">डाउनसैंपल</string>
+    <string name="effects_param_mix">मिक्स</string>
+    <string name="effects_param_target_pitch">टारगेट पिच</string>
+
+    <!-- Slider readouts (announced as the slider's state description) -->
+    <string name="effects_value_plain0">%1$.0f</string>
+    <string name="effects_value_plain2">%1$.2f</string>
+    <string name="effects_value_ms0">%1$.0f ms</string>
+    <string name="effects_value_ms1">%1$.1f ms</string>
+    <string name="effects_value_db">%1$.0f dB</string>
+    <string name="effects_value_db_signed">%1$s dB</string>
+    <string name="effects_value_hz0">%1$.0f Hz</string>
+    <string name="effects_value_hz1">%1$.1f Hz</string>
+    <string name="effects_value_hz2">%1$.2f Hz</string>
+    <string name="effects_value_multiplier">%1$.2f×</string>
+    <string name="effects_value_cents">%1$s सेंट</string>
+    <string name="effects_value_percent">%1$.0f%%</string>
+    <string name="effects_value_ratio">%1$.1f:1</string>
+    <string name="effects_value_bits">%1$.0f-बिट</string>
+    <string name="effects_value_times">%1$d×</string>
+    <string name="effects_preview_text">ऋषि के छोटे भाई ने ढेर सारे अंगूर खाकर ज़ोर से डकार ली।</string>
+</resources>

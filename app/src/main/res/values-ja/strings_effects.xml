@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Effects catalog -->
+    <string name="effects_title">エフェクト</string>
+    <string name="effects_create">エフェクトを作成</string>
+    <string name="effects_intro">エフェクトはエイリアスに紐づけてボイスに適用します（エイリアスタブ →「エフェクト」）。＋をタップして自作するか、組み込みエフェクトを編集して自分用のコピーを作成できます。</string>
+    <string name="effects_builtin">組み込み</string>
+    <string name="effects_delete_title">「%1$s」を削除しますか？</string>
+    <string name="effects_delete_message">エフェクトを削除します。これを使っているエイリアスはエフェクトなしに戻ります。</string>
+    <string name="effects_delete">削除</string>
+    <string name="effects_cancel">キャンセル</string>
+    <string name="effects_stop_card">%1$s を停止</string>
+    <string name="effects_preview_card">%1$s を試聴</string>
+    <string name="effects_edit_card">%1$s を編集</string>
+    <string name="effects_duplicate_card">%1$s を複製</string>
+    <string name="effects_delete_card">%1$s を削除</string>
+
+    <!-- Chain chips on an effect card -->
+    <string name="effects_chip_none">エフェクトなし</string>
+    <string name="effects_chip_reverb">リバーブ %1$d</string>
+    <string name="effects_chip_echo">エコー</string>
+    <string name="effects_chip_overdrive">オーバードライブ %1$d</string>
+    <string name="effects_chip_pitch">ピッチ %1$s</string>
+    <string name="effects_chip_tempo">テンポ %1$.2f×</string>
+    <string name="effects_chip_bandpass">帯域 %1$d–%2$d</string>
+    <string name="effects_chip_vol">音量 %1$.1f×</string>
+    <string name="effects_chip_treble">高音 %1$s</string>
+    <string name="effects_chip_bass">低音 %1$s</string>
+    <string name="effects_chip_mid">中音 %1$dHz %2$s</string>
+    <string name="effects_chip_lowpass">LP %1$dHz</string>
+    <string name="effects_chip_highpass">HP %1$dHz</string>
+    <string name="effects_chip_tremolo">トレモロ %1$.1fHz</string>
+    <string name="effects_chip_flanger">フランジャー %1$.2fHz</string>
+    <string name="effects_chip_chorus">コーラス %1$.2fHz</string>
+    <string name="effects_chip_phaser">フェイザー %1$.2fHz</string>
+    <string name="effects_chip_compressor">コンプ %1$ddB %2$.0f:1</string>
+    <string name="effects_chip_bitcrush">クラッシュ %1$dbit %2$d×</string>
+    <string name="effects_chip_ringmod">リング %1$dHz</string>
+    <string name="effects_chip_monotone">モノトーン %1$dHz</string>
+
+    <!-- Editor -->
+    <string name="effects_editor_title_edit">エフェクトを編集</string>
+    <string name="effects_editor_title_new">新しいエフェクト</string>
+    <string name="effects_back">戻る</string>
+    <string name="effects_save">保存</string>
+    <string name="effects_name">名前</string>
+    <string name="effects_name_error">エフェクトの名前を入力してください。</string>
+    <string name="effects_chain">チェーン</string>
+    <string name="effects_chain_help">ブロックは上から下へ順に処理されます。各ブロックは、その上のブロックが出力した音声を処理します。</string>
+    <string name="effects_chain_empty">ブロックがまだありません。下から追加するか、そのままドライ（無加工）のエフェクトとして使えます。複数重ねて音を作り込むこともできます。</string>
+    <string name="effects_move_up">上へ移動</string>
+    <string name="effects_move_down">下へ移動</string>
+    <string name="effects_remove_block">ブロックを削除</string>
+    <string name="effects_add_block">ブロックを追加</string>
+    <string name="effects_stop">停止</string>
+    <string name="effects_preview">試聴</string>
+    <string name="effects_preview_pick_default_voice">先に読み上げ画面でデフォルトのボイスを選んでください。</string>
+    <string name="effects_preview_failed">試聴に失敗しました</string>
+
+    <!-- Block type names -->
+    <string name="effects_block_reverb">リバーブ</string>
+    <string name="effects_block_echo">エコー</string>
+    <string name="effects_block_pitch">ピッチ</string>
+    <string name="effects_block_tempo">速度（テンポ）</string>
+    <string name="effects_block_overdrive">オーバードライブ</string>
+    <string name="effects_block_bandpass">バンドパス</string>
+    <string name="effects_block_lowpass">ローパス</string>
+    <string name="effects_block_highpass">ハイパス</string>
+    <string name="effects_block_vol">音量</string>
+    <string name="effects_block_bass">低音</string>
+    <string name="effects_block_mid">中音</string>
+    <string name="effects_block_treble">高音</string>
+    <string name="effects_block_tremolo">トレモロ</string>
+    <string name="effects_block_flanger">フランジャー</string>
+    <string name="effects_block_chorus">コーラス</string>
+    <string name="effects_block_phaser">フェイザー</string>
+    <string name="effects_block_compressor">コンプレッサー</string>
+    <string name="effects_block_bitcrush">ビットクラッシュ</string>
+    <string name="effects_block_ringmod">リングモジュレーター</string>
+    <string name="effects_block_monotone">モノトーン</string>
+
+    <!-- Block parameter labels -->
+    <string name="effects_param_reverberance">残響量</string>
+    <string name="effects_param_delay">ディレイ</string>
+    <string name="effects_param_decay">ディケイ</string>
+    <string name="effects_param_gain_in">入力ゲイン</string>
+    <string name="effects_param_gain_out">出力ゲイン</string>
+    <string name="effects_param_gain">ゲイン</string>
+    <string name="effects_param_pitch">ピッチ</string>
+    <string name="effects_param_speed">速度</string>
+    <string name="effects_param_low_cut">ローカット</string>
+    <string name="effects_param_high_cut">ハイカット</string>
+    <string name="effects_param_volume">音量</string>
+    <string name="effects_param_treble">高音</string>
+    <string name="effects_param_bass">低音</string>
+    <string name="effects_param_frequency">周波数</string>
+    <string name="effects_param_cutoff">カットオフ</string>
+    <string name="effects_param_depth">深さ</string>
+    <string name="effects_param_resonance">レゾナンス</string>
+    <string name="effects_param_threshold">スレッショルド</string>
+    <string name="effects_param_ratio">レシオ</string>
+    <string name="effects_param_bits">ビット数</string>
+    <string name="effects_param_downsample">ダウンサンプル</string>
+    <string name="effects_param_mix">ミックス</string>
+    <string name="effects_param_target_pitch">目標ピッチ</string>
+
+    <!-- Slider readouts (announced as the slider's state description) -->
+    <string name="effects_value_plain0">%1$.0f</string>
+    <string name="effects_value_plain2">%1$.2f</string>
+    <string name="effects_value_ms0">%1$.0f ミリ秒</string>
+    <string name="effects_value_ms1">%1$.1f ミリ秒</string>
+    <string name="effects_value_db">%1$.0f dB</string>
+    <string name="effects_value_db_signed">%1$s dB</string>
+    <string name="effects_value_hz0">%1$.0f Hz</string>
+    <string name="effects_value_hz1">%1$.1f Hz</string>
+    <string name="effects_value_hz2">%1$.2f Hz</string>
+    <string name="effects_value_multiplier">%1$.2f×</string>
+    <string name="effects_value_cents">%1$s セント</string>
+    <string name="effects_value_percent">%1$.0f%%</string>
+    <string name="effects_value_ratio">%1$.1f:1</string>
+    <string name="effects_value_bits">%1$.0f ビット</string>
+    <string name="effects_value_times">%1$d×</string>
+    <string name="effects_preview_text">秋の夕暮れ、遠くの山から鐘の音が静かに響いてきました。</string>
+</resources>

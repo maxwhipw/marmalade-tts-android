@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EnginesScreen -->
+    <string name="engines_title">エンジン</string>
+    <string name="engines_back">戻る</string>
+    <string name="engines_show_more">もっと見る</string>
+    <string name="engines_show_less">閉じる</string>
+    <string name="engines_developer_badge">開発者向け</string>
+    <string name="engines_size_summary">ダウンロード %1$s · インストール後 %2$s</string>
+    <string name="engines_downloading_progress">ダウンロード中 · %1$s / %2$s</string>
+    <string name="engines_installing_progress">インストール中 · %1$s / %2$s</string>
+
+    <string name="engines_install">インストール</string>
+    <string name="engines_uninstall">アンインストール</string>
+    <string name="engines_engine_settings">エンジンの設定</string>
+    <string name="engines_retry">再試行</string>
+    <string name="engines_reinstall">再インストール</string>
+    <string name="engines_update">更新</string>
+    <string name="engines_cancel">キャンセル</string>
+
+    <string name="engines_install_confirm_title">%1$s をインストールしますか？</string>
+    <string name="engines_install_download_size">ダウンロード: %1$s</string>
+    <string name="engines_uninstall_confirm_title">%1$s をアンインストールしますか？</string>
+    <string name="engines_uninstall_confirm_body">エンジンのファイルを端末から削除します。いつでも再インストールできます。</string>
+
+    <string name="engines_install_failed">インストールに失敗しました</string>
+    <string name="engines_uninstall_failed">アンインストールに失敗しました</string>
+
+    <!-- Cloud API engine card (EnginesScreen) -->
+    <string name="engines_cloud_title">クラウドボイス</string>
+    <string name="engines_cloud_card_desc">ネットワーク経由で利用するホスト型のボイスです。ダウンロードは不要ですが、リクエストのたびにテキストが、設定したプロバイダ（Venice、OpenAI など）へ送信され、そのプロバイダの API キーが必要になります。すぐに読み上げを始められ、プロバイダのボイスをひととおり使えます。</string>
+    <string name="engines_cloud_configured">設定済み — クラウドボイスを利用できます。</string>
+    <string name="engines_cloud_not_configured">未設定 — プロバイダの API キーを追加すると使えます。</string>
+    <string name="engines_configure">設定</string>
+    <string name="engines_voices">ボイス</string>
+
+    <!-- EngineDetailScreen -->
+    <string name="engines_browse_voices">ボイスを見る</string>
+    <string name="engines_browse_voices_enabled">このエンジンのボイスを試聴して、デフォルトを選べます。</string>
+    <string name="engines_browse_voices_disabled">ボイスを見るには、エンジンをインストールしてください。</string>
+    <string name="engines_status">状態</string>
+    <string name="engines_install_to_see_settings">設定を表示するには、このエンジンをインストールしてください。</string>
+    <string name="engines_preprocessing">テキストの前処理</string>
+    <string name="engines_preprocessing_pending">設定を保存しました。このエンジンをインストールすると有効になります。</string>
+    <string name="engines_reset_defaults">初期値に戻す</string>
+    <string name="engines_about">このエンジンについて</string>
+    <string name="engines_unknown_title">エンジン「%1$s」はカタログにありません。</string>
+    <string name="engines_unknown_body">新しいバージョンのアプリで削除された可能性があります。</string>
+
+    <string name="engines_state_not_installed">未インストール</string>
+    <string name="engines_state_downloading">ダウンロード中</string>
+    <string name="engines_state_installing">インストール中</string>
+    <string name="engines_state_installed">インストール済み</string>
+    <string name="engines_state_failed">失敗</string>
+    <string name="engines_state_corrupt">破損 — 再インストールが必要です</string>
+    <string name="engines_state_outdated">更新があります</string>
+
+    <!-- CloudApiScreen -->
+    <string name="engines_cloud_intro">プロバイダのサーバー上で合成されるボイスです。リクエストのたびに、テキストがネットワーク経由で送信されます。プロバイダのキーを追加すると、そのボイスを使えます。料金は各プロバイダのアカウントに請求されます。</string>
+    <string name="engines_cloud_disclaimer_title">クラウドボイスを使う前に</string>
+    <string name="engines_cloud_disclaimer_leaves_title">テキストがこの端末の外に出ます</string>
+    <string name="engines_cloud_disclaimer_leaves_body">Marmalade の組み込みボイスは完全に端末内で動作し、どこにも情報を送信しません。クラウドボイスだけは例外です。読み上げるテキストは、選択したプロバイダにそのまま送信されます。あわせて、指定したボイス・モデル・速度と、API キーも送信されます。</string>
+    <string name="engines_cloud_disclaimer_rules_title">適用されるのは当方ではなく、各社の規約です</string>
+    <string name="engines_cloud_disclaimer_rules_body">そのプロバイダが何を記録するのか、テキストをどれだけの期間保持するのか、学習に利用するのかは、各社のプライバシーポリシーと利用規約によって定められます。これらはアカウント作成時に、お客様が各社と直接同意するものです。</string>
+    <string name="engines_cloud_disclaimer_affiliation_title">当方は各社と提携していません</string>
+    <string name="engines_cloud_disclaimer_affiliation_body">Marmalade は独立したアプリです。いずれのプロバイダからも推奨・出資・提携を受けておらず、対価も一切受け取っていません。また、お客様の利用状況を確認したり操作したりすることもできません。削除の依頼などは、プロバイダに直接お問い合わせください。</string>
+    <string name="engines_cloud_disclaimer_other_apps_title">他のアプリにも影響します</string>
+    <string name="engines_cloud_disclaimer_other_apps_body">Marmalade は端末全体の読み上げエンジンとして使えます。クラウドボイスをメインに設定したり、アプリを割り当てたりすると、それらのアプリのテキスト（電子書籍、メッセージなど読み上げる内容すべて）もプロバイダに送信されます。端末内で動くボイスは影響を受けません。</string>
+    <string name="engines_cloud_disclaimer_billing_title">支払先は当方ではなく各プロバイダです</string>
+    <string name="engines_cloud_disclaimer_billing_body">利用分は各プロバイダがお客様のアカウントに請求します。Marmalade 自体は無料で、手数料も受け取りません。</string>
+    <string name="engines_cloud_disclaimer_footer">この内容はプライバシーポリシーにも記載されています。設定 →「このアプリについて」からいつでも読み返せます。</string>
+    <string name="engines_cloud_disclaimer_agree">理解して同意する</string>
+    <string name="engines_cloud_disclaimer_decline">今はしない</string>
+
+    <string name="engines_cloud_voice_summary">%1$d ボイス · %2$s</string>
+    <string name="engines_cloud_syncing">キーを設定しました — ボイスを同期中…</string>
+    <string name="engines_cloud_key_hint">API キー: %1$s</string>
+    <string name="engines_cloud_refresh_voices">ボイスを更新</string>
+    <string name="engines_cloud_change_key">キーを変更</string>
+    <string name="engines_cloud_set_key">キーを設定</string>
+    <string name="engines_cloud_key_dialog_title">%1$s の API キー</string>
+    <string name="engines_cloud_key_dialog_body">キーは %1$s で取得できます。この端末にのみ保存され、%2$s にのみ送信されます。</string>
+    <string name="engines_cloud_key_label_replace">新しいキー（現在のキーを置き換えます）</string>
+    <string name="engines_cloud_key_label">API キー</string>
+    <string name="engines_cloud_save">保存</string>
+    <string name="engines_cloud_remove_key">キーを削除</string>
+    <string name="engines_cloud_discovery_failed">ボイスの取得に失敗しました</string>
+
+    <!-- BenchmarkScreen (debug-only) -->
+    <string name="bench_title">ベンチマーク</string>
+    <string name="bench_running">%1$s を実行中</string>
+    <string name="bench_run">ベンチマークを実行</string>
+    <string name="bench_input">入力</string>
+    <string name="bench_input_placeholder">合成するテキスト</string>
+    <string name="bench_preset_short">短</string>
+    <string name="bench_preset_medium">中</string>
+    <string name="bench_preset_long">長</string>
+    <string name="bench_engines">エンジン</string>
+    <string name="bench_engines_hint">未インストールのエンジンは自動的にスキップされます。</string>
+    <string name="bench_engine_not_installed">%1$s（未インストール）</string>
+    <string name="bench_results">結果</string>
+    <string name="bench_failed">失敗: %1$s</string>
+    <string name="bench_first_audio">最初の音声まで: %1$d ms</string>
+    <plurals name="bench_chunk_count">
+        <item quantity="other">（%1$d チャンク）</item>
+    </plurals>
+    <string name="bench_realtime_ratio">実時間比 %1$.2f 倍</string>
+    <string name="bench_model_load">モデル読み込み</string>
+    <string name="bench_total">合計</string>
+    <string name="bench_ms">%1$d ms</string>
+    <string name="bench_audio_duration">→ 音声 %1$.2f 秒</string>
+
+    <string name="bench_device_load">端末の負荷（リアルタイム）</string>
+    <string name="bench_sampling">サンプリング中…</string>
+    <string name="bench_ram">RAM 空き %1$d / %2$d MB   ·   zram 使用 %3$d / %4$d MB</string>
+    <string name="bench_cpu_busy">CPU 使用率 %1$d%%</string>
+    <string name="bench_thermal">温度 %1$s%2$s%3$s</string>
+    <string name="bench_thermal_headroom">"（余裕 %1$s）"</string>
+    <string name="bench_thermal_temps">"  ·  %1$s"</string>
+
+    <string name="bench_quant_title">Kokoro 量子化ベンチ</string>
+    <string name="bench_quant_desc">fp32 の基準に加え、files/kokoro-quant/ にサイドロードした派生モデルを計測します。存在しないファイルはスキップされます。詳細は logcat の KokoroQuantBench タグに出力されます。</string>
+    <string name="bench_quant_run">量子化ベンチを実行</string>
+    <string name="bench_quant_running">実行中…</string>
+    <string name="bench_quant_starting">開始中…</string>
+    <string name="bench_quant_mean_rtf">平均 RTF %1$.3f</string>
+    <string name="bench_quant_file_size">%1$s  ·  %2$.1f MB</string>
+    <string name="bench_quant_timing_label">%1$s（%2$d トークン）</string>
+    <string name="bench_quant_timing_detail">音声 %1$.2f 秒  ·  RTF %2$.3f</string>
+    <string name="bench_quant_already_running">量子化ベンチはすでに実行中です（前回この画面を開いたときの処理）。終了までお待ちください</string>
+    <string name="bench_quant_not_installed">Kokoro Direct がインストールされていません（%1$s が見つかりません）</string>
+</resources>

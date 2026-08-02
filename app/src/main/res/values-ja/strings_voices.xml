@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Picker chrome -->
+    <string name="voices_title">ボイス</string>
+    <string name="voices_title_engine">%1$s のボイス</string>
+    <string name="voices_sheet_title">ボイスを選択</string>
+    <string name="voices_back">戻る</string>
+    <string name="voices_search_placeholder">すべてのボイスを検索</string>
+
+    <!-- Breadcrumb -->
+    <string name="voices_crumb_searching">すべてのボイスを検索中</string>
+    <string name="voices_crumb_all_sources">すべての提供元</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Empty / status lines -->
+    <string name="voices_engine_generic">TTS</string>
+    <string name="voices_engine_not_installed">%1$s エンジンはまだインストールされていません。試聴するには、エンジンタブからインストールしてください。</string>
+    <string name="voices_no_engines_installed">エンジンがまだインストールされていません。エンジンタブを開いて Kokoro または Kitten をインストールすると、ここにボイスが表示されます。</string>
+    <string name="voices_empty_none_installed">ボイスがまだインストールされていません</string>
+    <string name="voices_empty_model">このモデルにはインストール済みのボイスがありません</string>
+    <string name="voices_empty_no_match">「%1$s」に一致するボイスはありません</string>
+
+    <!-- Rows -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">選択中</string>
+    <string name="voices_preview">%1$s を試聴</string>
+    <string name="voices_previewing">%1$s を試聴中</string>
+
+    <!-- Drill-down levels -->
+    <string name="voices_source_cloud">クラウド</string>
+    <string name="voices_source_on_device">端末内</string>
+    <string name="voices_source_with_models">%1$s（%2$d モデル）</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="other">%1$s · %2$d ボイス</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="other">%1$d ボイス</item>
+    </plurals>
+
+    <!-- Preview errors -->
+    <string name="voices_error_preview_failed">試聴に失敗しました</string>
+    <string name="voices_error_unknown">不明なエラー</string>
+    <string name="voices_preview_phrase">こんにちは、%1$s です。</string>
+    <string name="voices_latency_instant">瞬時</string>
+    <string name="voices_latency_quick">高速</string>
+    <string name="voices_latency_slow">低速</string>
+</resources>

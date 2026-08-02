@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navegación inferior -->
+    <string name="speak_nav_speak">Hablar</string>
+    <string name="speak_nav_aliases">Alias</string>
+    <string name="speak_nav_effects">Efectos</string>
+    <string name="speak_nav_engines">Motores</string>
+    <string name="speak_nav_settings">Ajustes</string>
+
+    <!-- Pantalla Hablar -->
+    <string name="speak_text_field_label">Texto para leer</string>
+    <string name="speak_button_speak">Hablar</string>
+    <string name="speak_button_stop">Detener</string>
+    <string name="speak_status_speaking">Hablando…</string>
+    <string name="speak_install_cta_engine">Toca para instalar %1$s</string>
+    <string name="speak_install_cta_generic">Toca para instalar un motor de TTS</string>
+    <string name="speak_change_voice">Cambiar de voz</string>
+    <string name="speak_persona_unresolved">—</string>
+    <string name="speak_cloud_voice_desc">Voz en la nube: necesita conexión</string>
+
+    <!-- Hoja de personas -->
+    <string name="speak_sheet_title">Voz</string>
+    <string name="speak_persona_primary">Principal</string>
+    <string name="speak_persona_selected">Seleccionada</string>
+    <string name="speak_pick_voice_directly">Elegir una voz directamente</string>
+    <string name="speak_new_persona">Nueva persona</string>
+
+    <!-- Errores de reproducción -->
+    <string name="speak_error_synthesis_failed">Falló la síntesis</string>
+    <string name="speak_error_unknown">Error desconocido</string>
+
+    <!-- Compartir / procesar texto -->
+    <string name="speak_share_nothing_to_speak">No hay nada que leer</string>
+</resources>

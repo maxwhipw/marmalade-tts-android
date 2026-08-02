@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_mascot_content_description">Mascote do Marmalade</string>
+
+    <string name="onboarding_welcome_title">Boas-vindas ao Marmalade TTS</string>
+    <string name="onboarding_welcome_body">O Marmalade lê textos em voz alta, offline, com as vozes que você escolher. Escolha um motor para começar.</string>
+    <string name="onboarding_get_started">Começar</string>
+
+    <string name="onboarding_engines_title">Escolha os motores</string>
+    <string name="onboarding_engines_body">Os motores rodam no dispositivo. Você pode instalar outros depois na aba Motores.</string>
+    <string name="onboarding_back">Voltar</string>
+    <string name="onboarding_skip">Pular</string>
+    <string name="onboarding_install_selected">Instalar selecionados</string>
+    <string name="onboarding_recommended">RECOMENDADO</string>
+    <string name="onboarding_download_size">Download: %1$s</string>
+
+    <string name="onboarding_setup_complete">Configuração concluída</string>
+    <string name="onboarding_installing_engines">Instalando motores</string>
+    <string name="onboarding_no_engines_selected">Nenhum motor selecionado — você pode instalar um quando quiser na aba Motores.</string>
+    <string name="onboarding_continue">Continuar</string>
+    <string name="onboarding_retry">Tentar novamente</string>
+
+    <string name="onboarding_status_pending">Pendente</string>
+    <string name="onboarding_status_downloading">Baixando</string>
+    <string name="onboarding_status_finishing_up">Finalizando</string>
+    <string name="onboarding_status_installed">Instalado</string>
+    <string name="onboarding_status_failed">Falhou</string>
+    <string name="onboarding_status_corrupt">Corrompido</string>
+    <string name="onboarding_status_outdated">Atualização disponível</string>
+
+    <string name="onboarding_download_detail">%1$s / %2$s</string>
+    <string name="onboarding_download_detail_file">%1$s / %2$s — %3$s</string>
+    <string name="onboarding_download_size_unknown">?</string>
+
+    <string name="onboarding_alias_title">Crie o seu apelido principal</string>
+    <string name="onboarding_alias_body">Um apelido reúne a sua voz, velocidade e efeito favoritos sob um único nome, como \"narrador\". O Marmalade usa o apelido principal sempre que um app pede para falar sem indicar uma voz. Crie pelo menos um apelido para concluir a configuração — dá para adicionar outros depois em Configurações → Apelidos de voz.</string>
+    <string name="onboarding_alias_name_label">Nome</string>
+    <string name="onboarding_alias_name_helper">Letras, números, espaços e hifens — até 50 caracteres.</string>
+    <string name="onboarding_alias_speed_label">Velocidade: %1$s</string>
+    <string name="onboarding_alias_speed_value">%1$.2f×</string>
+    <string name="onboarding_alias_speed_content_description">Velocidade</string>
+    <string name="onboarding_alias_save">Salvar e continuar</string>
+    <string name="onboarding_alias_use_defaults">Usar padrões</string>
+    <string name="onboarding_alias_finish_setup">Concluir configuração</string>
+
+    <string name="onboarding_alias_engine_label">Motor</string>
+    <string name="onboarding_alias_engine_placeholder">Selecione um motor</string>
+    <string name="onboarding_alias_voice_label">Voz</string>
+    <string name="onboarding_alias_voice_placeholder">Selecione uma voz</string>
+    <string name="onboarding_alias_no_voices">Nenhuma voz disponível — instale um motor primeiro.</string>
+    <string name="onboarding_alias_effect_label">Efeito</string>
+    <string name="onboarding_alias_effect_pick_content_description">Escolher efeito</string>
+
+    <string name="onboarding_effect_none">Nenhum</string>
+    <string name="onboarding_effect_cave">Caverna</string>
+    <string name="onboarding_effect_telephone">Telefone</string>
+
+    <string name="onboarding_error_pick_voice">Escolha uma voz.</string>
+    <string name="onboarding_error_pick_engine">Escolha um motor.</string>
+    <string name="onboarding_error_install_engine_first">Instale um motor antes de criar um apelido.</string>
+
+    <string name="onboarding_background_title_allowed">Execução em segundo plano liberada</string>
+    <string name="onboarding_background_title">Continue ouvindo com a tela desligada</string>
+    <string name="onboarding_background_body_allowed">O Marmalade está isento das restrições de bateria do Android. A síntese não será pausada quando a tela apagar.</string>
+    <string name="onboarding_background_body">O Android pausa apps em segundo plano quando a tela apaga ou a bateria fica baixa — isso pode cortar a fala no meio de uma frase em textos longos. Permitir que o Marmalade rode sem restrições mantém a fala tocando com a tela desligada.</string>
+    <string name="onboarding_background_allow">Permitir atividade em segundo plano</string>
+    <string name="onboarding_skip_for_now">Pular — faço isso depois</string>
+    <string name="onboarding_background_footnote">Você pode mudar isso quando quiser em Configurações do Android → Apps → Marmalade TTS → Bateria.</string>
+
+    <string name="onboarding_notifications_title_granted">Notificações ativadas</string>
+    <string name="onboarding_notifications_title">Mostre o que o Marmalade está fazendo</string>
+    <string name="onboarding_notifications_body_granted">O Marmalade pode exibir as notificações de fala e de “manter aquecido”.</string>
+    <string name="onboarding_notifications_body">O Marmalade exibe uma pequena notificação enquanto fala e outra enquanto mantém um motor aquecido para respostas instantâneas (o padrão). Permita as notificações para que ambas possam aparecer.</string>
+    <string name="onboarding_notifications_allow">Permitir notificações</string>
+    <string name="onboarding_notifications_footnote">Usadas apenas para as notificações de fala e de manter aquecido. Mude quando quiser em Configurações do Android → Apps → Marmalade TTS → Notificações.</string>
+
+    <string name="onboarding_system_title_done">Tudo pronto!</string>
+    <string name="onboarding_system_title">Falta um passo</string>
+    <string name="onboarding_system_body_done">O Marmalade é o seu motor de conversão de texto em fala do sistema. O TTS dos outros apps agora passa pelas suas vozes.</string>
+    <string name="onboarding_system_body">Para que outros apps falem pelo Marmalade, você precisa escolhê-lo como motor de conversão de texto em fala do sistema. O Android não vai encaminhar o TTS para nós até que você faça isso.</string>
+    <string name="onboarding_system_hint">Toque no botão abaixo — na maioria dos celulares ele leva direto à página certa. Se não levar no seu, procure por \"Conversão de texto em fala\" em Sistema → Idiomas, Acessibilidade → Áudio ou Idiomas e entrada.</string>
+    <string name="onboarding_system_open_settings">Abrir configurações de TTS do sistema</string>
+    <string name="onboarding_system_finish_later">Concluir — faço isso depois</string>
+    <string name="onboarding_system_footnote">Você pode abrir isso de novo em Configurações → Definir como motor de TTS do sistema.</string>
+    <string name="onboarding_finish">Concluir</string>
+    <string name="onboarding_install_failed">Falha na instalação</string>
+</resources>

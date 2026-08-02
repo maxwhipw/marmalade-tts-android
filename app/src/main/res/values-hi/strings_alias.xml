@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alias list -->
+    <string name="alias_title">वॉइस उपनाम</string>
+    <string name="alias_create">उपनाम बनाएँ</string>
+    <string name="alias_empty_title">अभी कोई उपनाम नहीं है</string>
+    <string name="alias_empty_body">उपनाम किसी वॉइस + स्पीड + इफ़ेक्ट को \"narrator\" या \"dramatic\" जैसे एक नाम के नीचे सेव कर लेते हैं। नया बनाने के लिए + पर टैप करें।</string>
+    <string name="alias_primary_pill">प्राथमिक</string>
+    <string name="alias_chip_cloud">क्लाउड</string>
+    <string name="alias_chip_on_device">डिवाइस पर</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">कोई इफ़ेक्ट नहीं</string>
+
+    <!-- Routing strip -->
+    <string name="alias_route_apps_to">ऐप्स को %1$s पर भेजें</string>
+    <string name="alias_routed_apps_unrouted_only">भेजे गए ऐप्स: वे सभी ऐप्स जो कहीं और नहीं भेजे गए</string>
+    <string name="alias_routed_apps_with_unrouted">भेजे गए ऐप्स: %1$s, और वे सभी ऐप्स जो कहीं और नहीं भेजे गए</string>
+    <string name="alias_routed_apps">भेजे गए ऐप्स: %1$s</string>
+    <string name="alias_all_unrouted_apps">वे सभी ऐप्स जो कहीं और नहीं भेजे गए</string>
+    <string name="alias_plus_all_unrouted">+ बाकी सभी</string>
+    <string name="alias_choose_apps_for">%1$s के लिए ऐप्स चुनें</string>
+    <plurals name="alias_app_count">
+        <item quantity="one">%1$d ऐप</item>
+        <item quantity="other">%1$d ऐप्स</item>
+    </plurals>
+
+    <!-- Delete confirmation -->
+    <string name="alias_delete_title">%1$s को मिटाएँ?</string>
+    <string name="alias_delete_message">इससे सिर्फ़ उपनाम हटेगा। इसकी वॉइस डिवाइस पर इंस्टॉल रहेगी।</string>
+    <string name="alias_delete">मिटाएँ</string>
+    <string name="alias_cancel">रद्द करें</string>
+
+    <!-- Editor sheet -->
+    <string name="alias_edit_title">%1$s में बदलाव करें</string>
+    <string name="alias_name_label">नाम</string>
+    <string name="alias_name_help">अक्षर, अंक, स्पेस और डैश — ज़्यादा से ज़्यादा 50 वर्ण।</string>
+    <string name="alias_error_name_taken">यह नाम पहले से इस्तेमाल में है।</string>
+    <string name="alias_error_missing_voice">इस उपनाम के लिए कोई वॉइस चुनें।</string>
+    <string name="alias_voice_label">वॉइस</string>
+    <string name="alias_voice_placeholder">कोई वॉइस चुनें</string>
+    <string name="alias_voice_error">इस उपनाम के लिए कोई वॉइस चुनें</string>
+    <string name="alias_speed">स्पीड</string>
+    <string name="alias_speed_label">स्पीड: %1$s</string>
+    <string name="alias_effect_label">इफ़ेक्ट</string>
+    <string name="alias_pick_effect">इफ़ेक्ट चुनें</string>
+    <string name="alias_make_primary">प्राथमिक बनाएँ</string>
+    <string name="alias_save">सेव करें</string>
+
+    <!-- Offline fallback -->
+    <string name="alias_no_fallback_candidates">फ़ॉलबैक के लिए डिवाइस पर कोई उपनाम नहीं है।</string>
+    <string name="alias_offline_fallback">ऑफ़लाइन फ़ॉलबैक</string>
+    <string name="alias_fallback_none">कोई नहीं</string>
+
+    <!-- Phonemization language -->
+    <string name="alias_phonemization_language">फ़ोनेमाइज़ेशन की भाषा</string>
+    <string name="alias_pick_phonemization_language">फ़ोनेमाइज़ेशन की भाषा चुनें</string>
+    <string name="alias_lang_auto">अपने आप (इंजन तय करे)</string>
+    <string name="alias_lang_en_us">अंग्रेज़ी (अमेरिकी)</string>
+    <string name="alias_lang_en_gb">अंग्रेज़ी (ब्रिटिश)</string>
+    <string name="alias_lang_es">स्पेनिश</string>
+    <string name="alias_lang_fr_fr">फ़्रेंच</string>
+    <string name="alias_lang_hi">हिन्दी</string>
+    <string name="alias_lang_it">इतालवी</string>
+    <string name="alias_lang_ja">जापानी</string>
+    <string name="alias_lang_pt_br">पुर्तगाली (ब्राज़ील)</string>
+    <string name="alias_lang_cmn">मैंडरिन चीनी</string>
+
+    <!-- Per-alias app routing sheet -->
+    <string name="alias_routing_title">%1$s इस्तेमाल करने वाले ऐप्स</string>
+    <string name="alias_routing_subtitle">यहाँ जिन ऐप्स पर आप निशान नहीं लगाएँगे, वे आपके प्राथमिक उपनाम का इस्तेमाल करेंगे।</string>
+    <string name="alias_routing_search">ऐप्स खोजें</string>
+    <string name="alias_routing_loading">ऐप्स लोड हो रहे हैं…</string>
+    <string name="alias_routing_no_match">\"%1$s\" से मेल खाता कोई ऐप नहीं मिला</string>
+    <string name="alias_routing_owned_elsewhere">यह %1$s पर भेजा गया है — पहले उसे वहाँ से हटाएँ</string>
+    <string name="alias_save_routing">रूटिंग सेव करें</string>
+</resources>

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Catálogo de efeitos -->
+    <string name="effects_title">Efeitos</string>
+    <string name="effects_create">Criar efeito</string>
+    <string name="effects_intro">Aplique um efeito a uma voz anexando-o a um apelido (aba Apelidos → Efeito). Toque em + para criar o seu, ou toque em Editar em um efeito integrado para bifurcar uma cópia sua.</string>
+    <string name="effects_builtin">Integrado</string>
+    <string name="effects_delete_title">Excluir \"%1$s\"?</string>
+    <string name="effects_delete_message">Isso remove o efeito. Qualquer apelido que ainda o use passa a ficar sem efeito.</string>
+    <string name="effects_delete">Excluir</string>
+    <string name="effects_cancel">Cancelar</string>
+    <string name="effects_stop_card">Parar %1$s</string>
+    <string name="effects_preview_card">Ouvir prévia de %1$s</string>
+    <string name="effects_edit_card">Editar %1$s</string>
+    <string name="effects_duplicate_card">Duplicar %1$s</string>
+    <string name="effects_delete_card">Excluir %1$s</string>
+
+    <!-- Chips da cadeia no cartão do efeito -->
+    <string name="effects_chip_none">Sem efeito</string>
+    <string name="effects_chip_reverb">Reverb %1$d</string>
+    <string name="effects_chip_echo">Eco</string>
+    <string name="effects_chip_overdrive">Overdrive %1$d</string>
+    <string name="effects_chip_pitch">Tom %1$s</string>
+    <string name="effects_chip_tempo">Ritmo %1$.2f×</string>
+    <string name="effects_chip_bandpass">Banda %1$d–%2$d</string>
+    <string name="effects_chip_vol">Vol %1$.1f×</string>
+    <string name="effects_chip_treble">Agudos %1$s</string>
+    <string name="effects_chip_bass">Graves %1$s</string>
+    <string name="effects_chip_mid">Médios %1$dHz %2$s</string>
+    <string name="effects_chip_lowpass">PB %1$dHz</string>
+    <string name="effects_chip_highpass">PA %1$dHz</string>
+    <string name="effects_chip_tremolo">Trêmolo %1$.1fHz</string>
+    <string name="effects_chip_flanger">Flanger %1$.2fHz</string>
+    <string name="effects_chip_chorus">Chorus %1$.2fHz</string>
+    <string name="effects_chip_phaser">Phaser %1$.2fHz</string>
+    <string name="effects_chip_compressor">Comp %1$ddB %2$.0f:1</string>
+    <string name="effects_chip_bitcrush">Crush %1$d bits %2$d×</string>
+    <string name="effects_chip_ringmod">Ring %1$dHz</string>
+    <string name="effects_chip_monotone">Monótono %1$dHz</string>
+
+    <!-- Editor -->
+    <string name="effects_editor_title_edit">Editar efeito</string>
+    <string name="effects_editor_title_new">Novo efeito</string>
+    <string name="effects_back">Voltar</string>
+    <string name="effects_save">Salvar</string>
+    <string name="effects_name">Nome</string>
+    <string name="effects_name_error">Dê um nome ao efeito.</string>
+    <string name="effects_chain">Cadeia</string>
+    <string name="effects_chain_help">Os blocos rodam de cima para baixo: cada um processa o áudio produzido pelo bloco acima.</string>
+    <string name="effects_chain_empty">Nenhum bloco ainda — adicione um abaixo, ou deixe vazio para um efeito seco (sem processamento); empilhe vários para moldar o som.</string>
+    <string name="effects_move_up">Mover para cima</string>
+    <string name="effects_move_down">Mover para baixo</string>
+    <string name="effects_remove_block">Remover bloco</string>
+    <string name="effects_add_block">Adicionar bloco</string>
+    <string name="effects_stop">Parar</string>
+    <string name="effects_preview">Prévia</string>
+    <string name="effects_preview_pick_default_voice">Escolha primeiro uma voz padrão na tela Falar.</string>
+    <string name="effects_preview_failed">Falha na prévia</string>
+
+    <!-- Nomes dos tipos de bloco -->
+    <string name="effects_block_reverb">Reverb</string>
+    <string name="effects_block_echo">Eco</string>
+    <string name="effects_block_pitch">Tom</string>
+    <string name="effects_block_tempo">Velocidade (ritmo)</string>
+    <string name="effects_block_overdrive">Overdrive</string>
+    <string name="effects_block_bandpass">Passa-banda</string>
+    <string name="effects_block_lowpass">Passa-baixa</string>
+    <string name="effects_block_highpass">Passa-alta</string>
+    <string name="effects_block_vol">Volume</string>
+    <string name="effects_block_bass">Graves</string>
+    <string name="effects_block_mid">Médios</string>
+    <string name="effects_block_treble">Agudos</string>
+    <string name="effects_block_tremolo">Trêmolo</string>
+    <string name="effects_block_flanger">Flanger</string>
+    <string name="effects_block_chorus">Chorus</string>
+    <string name="effects_block_phaser">Phaser</string>
+    <string name="effects_block_compressor">Compressor</string>
+    <string name="effects_block_bitcrush">Bitcrush</string>
+    <string name="effects_block_ringmod">Ring mod</string>
+    <string name="effects_block_monotone">Monótono</string>
+
+    <!-- Rótulos dos parâmetros dos blocos -->
+    <string name="effects_param_reverberance">Reverberação</string>
+    <string name="effects_param_delay">Atraso</string>
+    <string name="effects_param_decay">Decaimento</string>
+    <string name="effects_param_gain_in">Ganho de entrada</string>
+    <string name="effects_param_gain_out">Ganho de saída</string>
+    <string name="effects_param_gain">Ganho</string>
+    <string name="effects_param_pitch">Tom</string>
+    <string name="effects_param_speed">Velocidade</string>
+    <string name="effects_param_low_cut">Corte de graves</string>
+    <string name="effects_param_high_cut">Corte de agudos</string>
+    <string name="effects_param_volume">Volume</string>
+    <string name="effects_param_treble">Agudos</string>
+    <string name="effects_param_bass">Graves</string>
+    <string name="effects_param_frequency">Frequência</string>
+    <string name="effects_param_cutoff">Frequência de corte</string>
+    <string name="effects_param_depth">Profundidade</string>
+    <string name="effects_param_resonance">Ressonância</string>
+    <string name="effects_param_threshold">Limiar</string>
+    <string name="effects_param_ratio">Proporção</string>
+    <string name="effects_param_bits">Bits</string>
+    <string name="effects_param_downsample">Subamostragem</string>
+    <string name="effects_param_mix">Mistura</string>
+    <string name="effects_param_target_pitch">Tom alvo</string>
+
+    <!-- Leituras dos controles deslizantes (anunciadas como descrição de estado) -->
+    <string name="effects_value_plain0">%1$.0f</string>
+    <string name="effects_value_plain2">%1$.2f</string>
+    <string name="effects_value_ms0">%1$.0f ms</string>
+    <string name="effects_value_ms1">%1$.1f ms</string>
+    <string name="effects_value_db">%1$.0f dB</string>
+    <string name="effects_value_db_signed">%1$s dB</string>
+    <string name="effects_value_hz0">%1$.0f Hz</string>
+    <string name="effects_value_hz1">%1$.1f Hz</string>
+    <string name="effects_value_hz2">%1$.2f Hz</string>
+    <string name="effects_value_multiplier">%1$.2f×</string>
+    <string name="effects_value_cents">%1$s cents</string>
+    <string name="effects_value_percent">%1$.0f%%</string>
+    <string name="effects_value_ratio">%1$.1f:1</string>
+    <string name="effects_value_bits">%1$.0f bits</string>
+    <string name="effects_value_times">%1$d×</string>
+    <string name="effects_preview_text">Um pequeno jabuti xereta viu dez cegonhas felizes.</string>
+</resources>

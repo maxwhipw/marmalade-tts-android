@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alias list -->
+    <string name="alias_title">ボイスエイリアス</string>
+    <string name="alias_create">エイリアスを作成</string>
+    <string name="alias_empty_title">エイリアスがまだありません</string>
+    <string name="alias_empty_body">エイリアスは、ボイスと速度とエフェクトの組み合わせを「ナレーター」「劇的」などの名前で保存する機能です。＋をタップして作成してください。</string>
+    <string name="alias_primary_pill">メイン</string>
+    <string name="alias_chip_cloud">クラウド</string>
+    <string name="alias_chip_on_device">端末内</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">エフェクトなし</string>
+
+    <!-- Routing strip -->
+    <string name="alias_route_apps_to">アプリを %1$s に割り当てる</string>
+    <string name="alias_routed_apps_unrouted_only">割り当て済みのアプリ: 未割り当てのすべてのアプリ</string>
+    <string name="alias_routed_apps_with_unrouted">割り当て済みのアプリ: %1$s、および未割り当てのすべてのアプリ</string>
+    <string name="alias_routed_apps">割り当て済みのアプリ: %1$s</string>
+    <string name="alias_all_unrouted_apps">未割り当てのすべてのアプリ</string>
+    <string name="alias_plus_all_unrouted">＋未割り当てすべて</string>
+    <string name="alias_choose_apps_for">%1$s に使うアプリを選択</string>
+    <plurals name="alias_app_count">
+        <item quantity="other">%1$d 個のアプリ</item>
+    </plurals>
+
+    <!-- Delete confirmation -->
+    <string name="alias_delete_title">%1$s を削除しますか？</string>
+    <string name="alias_delete_message">エイリアスのみを削除します。元のボイスはインストールされたまま残ります。</string>
+    <string name="alias_delete">削除</string>
+    <string name="alias_cancel">キャンセル</string>
+
+    <!-- Editor sheet -->
+    <string name="alias_edit_title">%1$s を編集</string>
+    <string name="alias_name_label">名前</string>
+    <string name="alias_name_help">英数字、スペース、ハイフンが使えます（50 文字まで）。</string>
+    <string name="alias_error_name_taken">その名前はすでに使われています。</string>
+    <string name="alias_error_missing_voice">このエイリアスに使うボイスを選んでください。</string>
+    <string name="alias_voice_label">ボイス</string>
+    <string name="alias_voice_placeholder">ボイスを選択</string>
+    <string name="alias_voice_error">このエイリアスに使うボイスを選んでください</string>
+    <string name="alias_speed">速度</string>
+    <string name="alias_speed_label">速度: %1$s</string>
+    <string name="alias_effect_label">エフェクト</string>
+    <string name="alias_pick_effect">エフェクトを選択</string>
+    <string name="alias_make_primary">メインにする</string>
+    <string name="alias_save">保存</string>
+
+    <!-- Offline fallback -->
+    <string name="alias_no_fallback_candidates">代わりに使える端末内のエイリアスがありません。</string>
+    <string name="alias_offline_fallback">オフライン時の代替</string>
+    <string name="alias_fallback_none">なし</string>
+
+    <!-- Phonemization language -->
+    <string name="alias_phonemization_language">音素化する言語</string>
+    <string name="alias_pick_phonemization_language">音素化する言語を選択</string>
+    <string name="alias_lang_auto">自動（エンジンに任せる）</string>
+    <string name="alias_lang_en_us">英語（米国）</string>
+    <string name="alias_lang_en_gb">英語（英国）</string>
+    <string name="alias_lang_es">スペイン語</string>
+    <string name="alias_lang_fr_fr">フランス語</string>
+    <string name="alias_lang_hi">ヒンディー語</string>
+    <string name="alias_lang_it">イタリア語</string>
+    <string name="alias_lang_ja">日本語</string>
+    <string name="alias_lang_pt_br">ポルトガル語（ブラジル）</string>
+    <string name="alias_lang_cmn">中国語（普通話）</string>
+
+    <!-- Per-alias app routing sheet -->
+    <string name="alias_routing_title">%1$s を使うアプリ</string>
+    <string name="alias_routing_subtitle">ここでチェックしなかったアプリは、メインのエイリアスを使います。</string>
+    <string name="alias_routing_search">アプリを検索</string>
+    <string name="alias_routing_loading">アプリを読み込み中…</string>
+    <string name="alias_routing_no_match">「%1$s」に一致するアプリはありません</string>
+    <string name="alias_routing_owned_elsewhere">%1$s に割り当て済みです。先にそちらの割り当てを解除してください</string>
+    <string name="alias_save_routing">割り当てを保存</string>
+</resources>

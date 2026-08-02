@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Picker chrome -->
+    <string name="voices_title">वॉइस</string>
+    <string name="voices_title_engine">%1$s की वॉइस</string>
+    <string name="voices_sheet_title">कोई वॉइस चुनें</string>
+    <string name="voices_back">वापस</string>
+    <string name="voices_search_placeholder">सभी वॉइस में खोजें</string>
+
+    <!-- Breadcrumb -->
+    <string name="voices_crumb_searching">हर वॉइस में खोजा जा रहा है</string>
+    <string name="voices_crumb_all_sources">सभी स्रोत</string>
+    <string name="voices_crumb_path">%1$s › %2$s</string>
+
+    <!-- Empty / status lines -->
+    <string name="voices_engine_generic">TTS</string>
+    <string name="voices_engine_not_installed">%1$s इंजन अभी इंस्टॉल नहीं है — प्रीव्यू सुनने के लिए इसे इंजन टैब से इंस्टॉल करें।</string>
+    <string name="voices_no_engines_installed">अभी कोई इंजन इंस्टॉल नहीं है। Kokoro या Kitten इंस्टॉल करने के लिए इंजन टैब खोलें — उसके बाद वॉइस यहाँ दिखने लगेंगी।</string>
+    <string name="voices_empty_none_installed">अभी कोई वॉइस इंस्टॉल नहीं है</string>
+    <string name="voices_empty_model">इस मॉडल की कोई वॉइस इंस्टॉल नहीं है</string>
+    <string name="voices_empty_no_match">\"%1$s\" से मेल खाती कोई वॉइस नहीं मिली</string>
+
+    <!-- Rows -->
+    <string name="voices_row_subtitle">%1$s · %2$s</string>
+    <string name="voices_gender_unknown">—</string>
+    <string name="voices_selected">चुनी गई</string>
+    <string name="voices_preview">%1$s का प्रीव्यू सुनें</string>
+    <string name="voices_previewing">%1$s का प्रीव्यू चल रहा है</string>
+
+    <!-- Drill-down levels -->
+    <string name="voices_source_cloud">क्लाउड</string>
+    <string name="voices_source_on_device">डिवाइस पर</string>
+    <string name="voices_source_with_models">%1$s, %2$d मॉडल में</string>
+    <plurals name="voices_source_voice_count">
+        <item quantity="one">%1$s · %2$d वॉइस</item>
+        <item quantity="other">%1$s · %2$d वॉइस</item>
+    </plurals>
+    <plurals name="voices_model_voice_count">
+        <item quantity="one">%1$d वॉइस</item>
+        <item quantity="other">%1$d वॉइस</item>
+    </plurals>
+
+    <!-- Preview errors -->
+    <string name="voices_error_preview_failed">प्रीव्यू नहीं चल सका</string>
+    <string name="voices_error_unknown">अज्ञात गड़बड़ी</string>
+    <string name="voices_preview_phrase">नमस्ते, मैं %1$s हूँ।</string>
+    <string name="voices_latency_instant">तुरंत</string>
+    <string name="voices_latency_quick">तेज़</string>
+    <string name="voices_latency_slow">धीमी</string>
+</resources>

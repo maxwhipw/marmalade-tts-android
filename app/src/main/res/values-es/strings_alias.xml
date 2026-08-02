@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lista de alias -->
+    <string name="alias_title">Alias de voz</string>
+    <string name="alias_create">Crear alias</string>
+    <string name="alias_empty_title">Todavía no hay alias</string>
+    <string name="alias_empty_body">Los alias guardan una voz + velocidad + efecto bajo un nombre como \"narrador\" o \"dramático\". Toca + para crear uno.</string>
+    <string name="alias_primary_pill">PRINCIPAL</string>
+    <string name="alias_chip_cloud">En la nube</string>
+    <string name="alias_chip_on_device">En el dispositivo</string>
+    <string name="alias_speed_chip">%1$.2f×</string>
+    <string name="alias_no_effect">Sin efecto</string>
+
+    <!-- Franja de enrutamiento -->
+    <string name="alias_route_apps_to">Enrutar apps a %1$s</string>
+    <string name="alias_routed_apps_unrouted_only">Apps enrutadas: todas las apps sin enrutar</string>
+    <string name="alias_routed_apps_with_unrouted">Apps enrutadas: %1$s, más todas las apps sin enrutar</string>
+    <string name="alias_routed_apps">Apps enrutadas: %1$s</string>
+    <string name="alias_all_unrouted_apps">Todas las apps sin enrutar</string>
+    <string name="alias_plus_all_unrouted">+ todas las no enrutadas</string>
+    <string name="alias_choose_apps_for">Elegir apps para %1$s</string>
+    <plurals name="alias_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+
+    <!-- Confirmación de borrado -->
+    <string name="alias_delete_title">¿Eliminar %1$s?</string>
+    <string name="alias_delete_message">Esto elimina el alias. La voz en la que se basa sigue instalada.</string>
+    <string name="alias_delete">Eliminar</string>
+    <string name="alias_cancel">Cancelar</string>
+
+    <!-- Hoja del editor -->
+    <string name="alias_edit_title">Editar %1$s</string>
+    <string name="alias_name_label">Nombre</string>
+    <string name="alias_name_help">Letras, dígitos, espacios y guiones: hasta 50 caracteres.</string>
+    <string name="alias_error_name_taken">Ese nombre ya está en uso.</string>
+    <string name="alias_error_missing_voice">Elige una voz para este alias.</string>
+    <string name="alias_voice_label">Voz</string>
+    <string name="alias_voice_placeholder">Elige una voz</string>
+    <string name="alias_voice_error">Elige una voz para este alias</string>
+    <string name="alias_speed">Velocidad</string>
+    <string name="alias_speed_label">Velocidad: %1$s</string>
+    <string name="alias_effect_label">Efecto</string>
+    <string name="alias_pick_effect">Elegir efecto</string>
+    <string name="alias_make_primary">Hacer principal</string>
+    <string name="alias_save">Guardar</string>
+
+    <!-- Alternativa sin conexión -->
+    <string name="alias_no_fallback_candidates">No hay ningún alias en el dispositivo al que recurrir.</string>
+    <string name="alias_offline_fallback">Alternativa sin conexión</string>
+    <string name="alias_fallback_none">Ninguna</string>
+
+    <!-- Idioma de fonemización -->
+    <string name="alias_phonemization_language">Idioma de fonemización</string>
+    <string name="alias_pick_phonemization_language">Elegir idioma de fonemización</string>
+    <string name="alias_lang_auto">Automático (lo decide el motor)</string>
+    <string name="alias_lang_en_us">Inglés (EE. UU.)</string>
+    <string name="alias_lang_en_gb">Inglés (Reino Unido)</string>
+    <string name="alias_lang_es">Español</string>
+    <string name="alias_lang_fr_fr">Francés</string>
+    <string name="alias_lang_hi">Hindi</string>
+    <string name="alias_lang_it">Italiano</string>
+    <string name="alias_lang_ja">Japonés</string>
+    <string name="alias_lang_pt_br">Portugués (BR)</string>
+    <string name="alias_lang_cmn">Chino mandarín</string>
+
+    <!-- Hoja de enrutamiento de apps por alias -->
+    <string name="alias_routing_title">Apps que usan %1$s</string>
+    <string name="alias_routing_subtitle">Todo lo que no marques aquí recurrirá a tu alias principal.</string>
+    <string name="alias_routing_search">Buscar apps</string>
+    <string name="alias_routing_loading">Cargando apps…</string>
+    <string name="alias_routing_no_match">Ninguna app coincide con \"%1$s\"</string>
+    <string name="alias_routing_owned_elsewhere">Enrutada a %1$s: quítala de ahí primero</string>
+    <string name="alias_save_routing">Guardar enrutamiento</string>
+</resources>

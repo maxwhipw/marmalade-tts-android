@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Effects catalog -->
+    <string name="effects_title">音效</string>
+    <string name="effects_create">新建音效</string>
+    <string name="effects_intro">把音效挂到别名上即可应用于语音（“别名”标签页 → 音效）。点按 + 自己搭建一个，或编辑内置音效来派生一份自己的副本。</string>
+    <string name="effects_builtin">内置</string>
+    <string name="effects_delete_title">删除“%1$s”？</string>
+    <string name="effects_delete_message">这会删除该音效。仍在使用它的别名将回退为无音效。</string>
+    <string name="effects_delete">删除</string>
+    <string name="effects_cancel">取消</string>
+    <string name="effects_stop_card">停止 %1$s</string>
+    <string name="effects_preview_card">试听 %1$s</string>
+    <string name="effects_edit_card">编辑 %1$s</string>
+    <string name="effects_duplicate_card">复制 %1$s</string>
+    <string name="effects_delete_card">删除 %1$s</string>
+
+    <!-- Chain chips on an effect card -->
+    <string name="effects_chip_none">无音效</string>
+    <string name="effects_chip_reverb">混响 %1$d</string>
+    <string name="effects_chip_echo">回声</string>
+    <string name="effects_chip_overdrive">过载 %1$d</string>
+    <string name="effects_chip_pitch">音高 %1$s</string>
+    <string name="effects_chip_tempo">节奏 %1$.2f×</string>
+    <string name="effects_chip_bandpass">带通 %1$d–%2$d</string>
+    <string name="effects_chip_vol">音量 %1$.1f×</string>
+    <string name="effects_chip_treble">高音 %1$s</string>
+    <string name="effects_chip_bass">低音 %1$s</string>
+    <string name="effects_chip_mid">中音 %1$dHz %2$s</string>
+    <string name="effects_chip_lowpass">低通 %1$dHz</string>
+    <string name="effects_chip_highpass">高通 %1$dHz</string>
+    <string name="effects_chip_tremolo">颤音 %1$.1fHz</string>
+    <string name="effects_chip_flanger">镶边 %1$.2fHz</string>
+    <string name="effects_chip_chorus">合唱 %1$.2fHz</string>
+    <string name="effects_chip_phaser">移相 %1$.2fHz</string>
+    <string name="effects_chip_compressor">压缩 %1$ddB %2$.0f:1</string>
+    <string name="effects_chip_bitcrush">位压 %1$d 位 %2$d×</string>
+    <string name="effects_chip_ringmod">环调 %1$dHz</string>
+    <string name="effects_chip_monotone">单音 %1$dHz</string>
+
+    <!-- Editor -->
+    <string name="effects_editor_title_edit">编辑音效</string>
+    <string name="effects_editor_title_new">新建音效</string>
+    <string name="effects_back">返回</string>
+    <string name="effects_save">保存</string>
+    <string name="effects_name">名称</string>
+    <string name="effects_name_error">请为音效取一个名称。</string>
+    <string name="effects_chain">处理链</string>
+    <string name="effects_chain_help">模块自上而下依次运行：每个模块处理上一个模块输出的音频。</string>
+    <string name="effects_chain_empty">还没有模块 — 在下方添加一个，或留空以获得干声（不作处理）音效；也可以叠加多个来塑造声音。</string>
+    <string name="effects_move_up">上移</string>
+    <string name="effects_move_down">下移</string>
+    <string name="effects_remove_block">移除模块</string>
+    <string name="effects_add_block">添加模块</string>
+    <string name="effects_stop">停止</string>
+    <string name="effects_preview">试听</string>
+    <string name="effects_preview_pick_default_voice">请先在“朗读”页面选择默认语音。</string>
+    <string name="effects_preview_failed">试听失败</string>
+
+    <!-- Block type names -->
+    <string name="effects_block_reverb">混响</string>
+    <string name="effects_block_echo">回声</string>
+    <string name="effects_block_pitch">音高</string>
+    <string name="effects_block_tempo">速度（节奏）</string>
+    <string name="effects_block_overdrive">过载</string>
+    <string name="effects_block_bandpass">带通</string>
+    <string name="effects_block_lowpass">低通</string>
+    <string name="effects_block_highpass">高通</string>
+    <string name="effects_block_vol">音量</string>
+    <string name="effects_block_bass">低音</string>
+    <string name="effects_block_mid">中音</string>
+    <string name="effects_block_treble">高音</string>
+    <string name="effects_block_tremolo">颤音</string>
+    <string name="effects_block_flanger">镶边</string>
+    <string name="effects_block_chorus">合唱</string>
+    <string name="effects_block_phaser">移相器</string>
+    <string name="effects_block_compressor">压缩器</string>
+    <string name="effects_block_bitcrush">位压缩</string>
+    <string name="effects_block_ringmod">环形调制</string>
+    <string name="effects_block_monotone">单音调</string>
+
+    <!-- Block parameter labels -->
+    <string name="effects_param_reverberance">混响量</string>
+    <string name="effects_param_delay">延迟</string>
+    <string name="effects_param_decay">衰减</string>
+    <string name="effects_param_gain_in">输入增益</string>
+    <string name="effects_param_gain_out">输出增益</string>
+    <string name="effects_param_gain">增益</string>
+    <string name="effects_param_pitch">音高</string>
+    <string name="effects_param_speed">速度</string>
+    <string name="effects_param_low_cut">低切</string>
+    <string name="effects_param_high_cut">高切</string>
+    <string name="effects_param_volume">音量</string>
+    <string name="effects_param_treble">高音</string>
+    <string name="effects_param_bass">低音</string>
+    <string name="effects_param_frequency">频率</string>
+    <string name="effects_param_cutoff">截止频率</string>
+    <string name="effects_param_depth">深度</string>
+    <string name="effects_param_resonance">共振</string>
+    <string name="effects_param_threshold">阈值</string>
+    <string name="effects_param_ratio">压缩比</string>
+    <string name="effects_param_bits">位深</string>
+    <string name="effects_param_downsample">降采样</string>
+    <string name="effects_param_mix">混合比</string>
+    <string name="effects_param_target_pitch">目标音高</string>
+
+    <!-- Slider readouts (announced as the slider's state description) -->
+    <string name="effects_value_plain0">%1$.0f</string>
+    <string name="effects_value_plain2">%1$.2f</string>
+    <string name="effects_value_ms0">%1$.0f 毫秒</string>
+    <string name="effects_value_ms1">%1$.1f 毫秒</string>
+    <string name="effects_value_db">%1$.0f dB</string>
+    <string name="effects_value_db_signed">%1$s dB</string>
+    <string name="effects_value_hz0">%1$.0f Hz</string>
+    <string name="effects_value_hz1">%1$.1f Hz</string>
+    <string name="effects_value_hz2">%1$.2f Hz</string>
+    <string name="effects_value_multiplier">%1$.2f×</string>
+    <string name="effects_value_cents">%1$s 音分</string>
+    <string name="effects_value_percent">%1$.0f%%</string>
+    <string name="effects_value_ratio">%1$.1f:1</string>
+    <string name="effects_value_bits">%1$.0f 位</string>
+    <string name="effects_value_times">%1$d×</string>
+    <string name="effects_preview_text">春风吹过山谷，带来远方的花香。</string>
+</resources>

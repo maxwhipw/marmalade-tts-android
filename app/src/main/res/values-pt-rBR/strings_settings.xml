@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_back">Voltar</string>
+
+    <string name="settings_appearance">Aparência</string>
+    <string name="settings_mode">Modo</string>
+    <string name="settings_mode_system">Sistema</string>
+    <string name="settings_mode_light">Claro</string>
+    <string name="settings_mode_dark">Escuro</string>
+    <string name="settings_color">Cor</string>
+
+    <string name="settings_system_integration">Integração com o sistema</string>
+    <string name="settings_set_system_engine">Definir como motor de TTS do sistema</string>
+    <string name="settings_set_system_engine_desc">Abre as configurações de conversão de texto em fala do Android para você escolher o Marmalade como motor padrão. Necessário para que apps externos usem a nossa síntese de voz.</string>
+
+    <string name="settings_keepalive">Manter o motor carregado</string>
+    <string name="settings_keepalive_off">Desativado</string>
+    <string name="settings_keepalive_smart">Inteligente (10 min)</string>
+    <string name="settings_keepalive_always">Sempre</string>
+    <string name="settings_keepalive_off_desc">O motor é recarregado do zero sempre que o Android encerra o processo do app (normalmente poucos minutos depois de você sair). É o que menos consome RAM, mas a primeira fala é a mais lenta.</string>
+    <string name="settings_keepalive_smart_desc">Depois de cada fala, o Marmalade fica aquecido por 10 minutos para que a próxima fala seja instantânea. Uma pequena notificação aparece nesse período. Sem custo a longo prazo.</string>
+    <string name="settings_keepalive_persistent_desc">O Marmalade fica carregado o tempo todo e exibe uma notificação permanente. O preço é o uso de RAM: Pocket ≈ 500 MB, Kokoro ≈ 150 MB, Kitten Nano ≈ 80 MB. Só ficam carregados os motores que você realmente usa.</string>
+
+    <string name="settings_advanced">Avançado</string>
+    <string name="settings_advanced_row">Configurações avançadas</string>
+    <string name="settings_advanced_row_desc">Threads de síntese, motores para desenvolvedores e outros ajustes que quase ninguém precisa.</string>
+
+    <string name="settings_about">Sobre</string>
+    <string name="settings_about_version">Versão %1$s</string>
+    <string name="settings_licenses">Licenças de código aberto</string>
+    <string name="settings_licenses_desc">Licenças do app, dos componentes incluídos e dos motores para download.</string>
+    <string name="settings_report_bug">Relatar um problema</string>
+    <string name="settings_report_bug_desc">Algo quebrado ou pronunciado errado? Abre uma issue no GitHub com os detalhes já preenchidos.</string>
+    <string name="settings_more_marmalade">Mais Marmalade</string>
+    <string name="settings_more_marmalade_desc">Outros apps Marmalade no GitHub.</string>
+
+    <!-- AdvancedSettingsScreen -->
+    <string name="settings_performance">Desempenho</string>
+    <string name="settings_onnx_threads">Threads do ONNX</string>
+    <string name="settings_threads_auto">Automático (%1$d)</string>
+    <string name="settings_threads_desc">O modo automático usa os núcleos rápidos da CPU. Mais threads não deixa mais rápido: os núcleos de eficiência, mais lentos, puxam cada etapa para o ritmo deles. Passa a valer na próxima vez que você falar — o motor é recarregado automaticamente quando você altera isso.</string>
+
+    <string name="settings_developer">Desenvolvedor</string>
+    <string name="settings_show_developer_engines">Mostrar motores para desenvolvedores</string>
+    <string name="settings_show_developer_engines_desc">Exibe os antigos motores sherpa-onnx (Kokoro v1.0/v1.1, Kitten Nano/Mini). Os motores ORT diretos os substituíram; estes ficam apenas para comparação.</string>
+
+    <string name="settings_debug">Depuração</string>
+    <string name="settings_benchmark">Benchmark</string>
+    <string name="settings_benchmark_desc">Mede os tempos de síntese de cada motor. O Pocket mostra a divisão por fase; os motores sherpa mostram carregamento + total + razão de tempo real.</string>
+
+    <!-- LicensesScreen / LicenseTextScreen -->
+    <string name="settings_licenses_licensing">Licenciamento</string>
+    <string name="settings_licenses_component_summary">%1$s · %2$s</string>
+    <string name="settings_licenses_view_full">Ver licença completa</string>
+    <string name="settings_license_text_title">Licença</string>
+    <string name="settings_license_text_not_bundled">O texto da licença não está incluído no app. Veja o link na tela anterior.</string>
+    <string name="settings_license_text_load_failed">Não foi possível carregar o texto da licença. Veja o link para a fonte original na tela anterior.</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <string name="service_synth_channel_name">Lecture Marmalade TTS</string>
+    <string name="service_synth_channel_description">S\'affiche pendant que Marmalade TTS lit à voix haute</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">Préparation…</string>
+    <string name="service_synth_state_queued">En file d\'attente&#160;: %1$s</string>
+    <string name="service_synth_state_speaking_text">Lecture&#160;: %1$s</string>
+    <string name="service_synth_state_speaking">Lecture en cours</string>
+    <string name="service_synth_state_paused">En pause</string>
+    <string name="service_synth_action_pause">Pause</string>
+    <string name="service_synth_action_resume">Reprendre</string>
+    <string name="service_synth_action_stop">Arrêter</string>
+    <string name="service_synth_error_engine_not_installed">Moteur %1$s non installé</string>
+    <string name="service_synth_error_failed">Échec de la synthèse</string>
+
+    <!-- Keepalive foreground service -->
+    <string name="service_keepalive_channel_name">Maintien en mémoire Marmalade TTS</string>
+    <string name="service_keepalive_channel_description">S\'affiche pendant que Marmalade garde le moteur TTS chargé pour démarrer la lecture plus vite.</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS — prêt</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS — utilisé récemment</string>
+    <string name="service_keepalive_text_persistent">Moteur gardé en mémoire pour un démarrage instantané de la lecture.</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="one">Le moteur reste chargé pendant %1$d minute.</item>
+        <item quantity="other">Le moteur reste chargé pendant %1$d minutes.</item>
+    </plurals>
+
+    <!-- Quick Settings tile -->
+    <string name="service_clipboard_empty">Le presse-papiers est vide</string>
+
+    <!-- Spoken sample for Settings → Languages → TTS → \"Listen to an example\" -->
+    <string name="service_sample_text">Bonjour, ici Marmalade.</string>
+</resources>

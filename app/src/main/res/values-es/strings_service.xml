@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Servicio en primer plano de reproducción (compartir / mosaico del portapapeles) -->
+    <string name="service_synth_channel_name">Reproducción de Marmalade TTS</string>
+    <string name="service_synth_channel_description">Se muestra mientras Marmalade TTS lee en voz alta</string>
+    <string name="service_synth_notification_title">Marmalade TTS</string>
+    <string name="service_synth_state_preparing">Preparando…</string>
+    <string name="service_synth_state_queued">En cola: %1$s</string>
+    <string name="service_synth_state_speaking_text">Leyendo: %1$s</string>
+    <string name="service_synth_state_speaking">Leyendo</string>
+    <string name="service_synth_state_paused">En pausa</string>
+    <string name="service_synth_action_pause">Pausar</string>
+    <string name="service_synth_action_resume">Reanudar</string>
+    <string name="service_synth_action_stop">Detener</string>
+    <string name="service_synth_error_engine_not_installed">El motor %1$s no está instalado</string>
+    <string name="service_synth_error_failed">Falló la síntesis</string>
+
+    <!-- Servicio en primer plano de mantenimiento en memoria -->
+    <string name="service_keepalive_channel_name">Marmalade TTS en memoria</string>
+    <string name="service_keepalive_channel_description">Se muestra mientras Marmalade mantiene el motor de TTS cargado para empezar a hablar antes.</string>
+    <string name="service_keepalive_title_ready">Marmalade TTS: listo</string>
+    <string name="service_keepalive_title_recently_used">Marmalade TTS: usado hace poco</string>
+    <string name="service_keepalive_text_persistent">El motor se mantiene cargado para empezar a hablar al instante.</string>
+    <plurals name="service_keepalive_text_smart">
+        <item quantity="one">El motor seguirá cargado durante %1$d minuto más.</item>
+        <item quantity="other">El motor seguirá cargado durante %1$d minutos más.</item>
+    </plurals>
+
+    <!-- Mosaico de ajustes rápidos -->
+    <string name="service_clipboard_empty">El portapapeles está vacío</string>
+
+    <!-- Muestra hablada para Ajustes → Idiomas → TTS → \"Escuchar un ejemplo\" -->
+    <string name="service_sample_text">Hola, te habla Marmalade.</string>
+</resources>

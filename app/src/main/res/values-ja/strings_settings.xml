@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_title">設定</string>
+    <string name="settings_back">戻る</string>
+
+    <string name="settings_appearance">外観</string>
+    <string name="settings_mode">モード</string>
+    <string name="settings_mode_system">システム設定に従う</string>
+    <string name="settings_mode_light">ライト</string>
+    <string name="settings_mode_dark">ダーク</string>
+    <string name="settings_color">配色</string>
+
+    <string name="settings_system_integration">システム連携</string>
+    <string name="settings_set_system_engine">システムの TTS エンジンに設定</string>
+    <string name="settings_set_system_engine_desc">Android のテキスト読み上げ設定を開き、Marmalade を既定のエンジンとして選べます。他のアプリの読み上げを Marmalade 経由にするには、この設定が必要です。</string>
+
+    <string name="settings_keepalive">エンジンを保持する</string>
+    <string name="settings_keepalive_off">オフ</string>
+    <string name="settings_keepalive_smart">スマート（10 分）</string>
+    <string name="settings_keepalive_always">常時</string>
+    <string name="settings_keepalive_off_desc">Android がアプリのプロセスを解放するたび（通常はアプリを離れて数分以内）、エンジンをゼロから読み込み直します。メモリ消費は最小ですが、最初の読み上げが最も遅くなります。</string>
+    <string name="settings_keepalive_smart_desc">読み上げのたびに Marmalade を 10 分間ウォーム状態に保ち、次の読み上げを瞬時に開始します。その間は小さな通知が表示されます。長時間の負担はありません。</string>
+    <string name="settings_keepalive_persistent_desc">Marmalade を常時読み込んだままにし、常設の通知を表示します。引き換えにメモリを使用します（Pocket 約 500 MB、Kokoro 約 150 MB、Kitten Nano 約 80 MB）。実際に使うエンジンだけが保持されます。</string>
+
+    <string name="settings_advanced">詳細設定</string>
+    <string name="settings_advanced_row">詳細設定</string>
+    <string name="settings_advanced_row_desc">合成スレッド数、開発者向けエンジンなど、ほとんどの方には不要な項目です。</string>
+
+    <string name="settings_about">このアプリについて</string>
+    <string name="settings_about_version">バージョン %1$s</string>
+    <string name="settings_licenses">オープンソースライセンス</string>
+    <string name="settings_licenses_desc">アプリ本体、同梱コンポーネント、ダウンロード可能なエンジンのライセンスです。</string>
+    <string name="settings_report_bug">バグを報告</string>
+    <string name="settings_report_bug_desc">不具合や読み間違いがありましたか？ 詳細を入力済みの GitHub Issue を開きます。</string>
+    <string name="settings_more_marmalade">Marmalade の他のアプリ</string>
+    <string name="settings_more_marmalade_desc">GitHub にある Marmalade の他のアプリです。</string>
+
+    <!-- AdvancedSettingsScreen -->
+    <string name="settings_performance">パフォーマンス</string>
+    <string name="settings_onnx_threads">ONNX スレッド数</string>
+    <string name="settings_threads_auto">自動（%1$d）</string>
+    <string name="settings_threads_desc">自動では高性能 CPU コアの数に合わせます。スレッドを増やしても速くはなりません。省電力コアが加わると、全体がその遅さに引きずられます。変更は次回の読み上げから有効になり、エンジンは自動的に読み込み直されます。</string>
+
+    <string name="settings_developer">開発者向け</string>
+    <string name="settings_show_developer_engines">開発者向けエンジンを表示</string>
+    <string name="settings_show_developer_engines_desc">旧来の sherpa-onnx エンジン（Kokoro v1.0/v1.1、Kitten Nano/Mini）を表示します。直接 ORT を使うエンジンに置き換えられましたが、比較用に残してあります。</string>
+
+    <string name="settings_debug">デバッグ</string>
+    <string name="settings_benchmark">ベンチマーク</string>
+    <string name="settings_benchmark_desc">エンジンごとの合成時間を計測します。Pocket はフェーズ別の内訳を、sherpa 系エンジンは読み込み時間・合計時間・リアルタイム比を表示します。</string>
+
+    <!-- LicensesScreen / LicenseTextScreen -->
+    <string name="settings_licenses_licensing">ライセンス</string>
+    <string name="settings_licenses_component_summary">%1$s · %2$s</string>
+    <string name="settings_licenses_view_full">ライセンス全文を表示</string>
+    <string name="settings_license_text_title">ライセンス</string>
+    <string name="settings_license_text_not_bundled">ライセンス本文は同梱されていません。前の画面のリンクをご覧ください。</string>
+    <string name="settings_license_text_load_failed">ライセンス本文を読み込めませんでした。前の画面の配布元リンクをご覧ください。</string>
+</resources>

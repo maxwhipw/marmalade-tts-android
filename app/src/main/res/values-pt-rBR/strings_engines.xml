@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EnginesScreen -->
+    <string name="engines_title">Motores</string>
+    <string name="engines_back">Voltar</string>
+    <string name="engines_show_more">Mostrar mais</string>
+    <string name="engines_show_less">Mostrar menos</string>
+    <string name="engines_developer_badge">Desenvolvedor</string>
+    <string name="engines_size_summary">%1$s de download · %2$s instalado</string>
+    <string name="engines_downloading_progress">Baixando · %1$s / %2$s</string>
+    <string name="engines_installing_progress">Instalando · %1$s / %2$s</string>
+
+    <string name="engines_install">Instalar</string>
+    <string name="engines_uninstall">Desinstalar</string>
+    <string name="engines_engine_settings">Configurações do motor</string>
+    <string name="engines_retry">Tentar novamente</string>
+    <string name="engines_reinstall">Reinstalar</string>
+    <string name="engines_update">Atualizar</string>
+    <string name="engines_cancel">Cancelar</string>
+
+    <string name="engines_install_confirm_title">Instalar o %1$s?</string>
+    <string name="engines_install_download_size">Download: %1$s</string>
+    <string name="engines_uninstall_confirm_title">Desinstalar o %1$s?</string>
+    <string name="engines_uninstall_confirm_body">Isso vai apagar os arquivos do motor do seu dispositivo. Você pode reinstalar quando quiser.</string>
+
+    <string name="engines_install_failed">Falha na instalação</string>
+    <string name="engines_uninstall_failed">Falha na desinstalação</string>
+
+    <!-- Cartão do motor de API na nuvem (EnginesScreen) -->
+    <string name="engines_cloud_title">Vozes na nuvem</string>
+    <string name="engines_cloud_card_desc">Vozes hospedadas, usadas pela rede — não há nada para baixar, mas cada requisição envia o seu texto ao provedor que você configurar (Venice, OpenAI, …) e exige a chave de API desse provedor. Começa a falar rápido e coloca todo o catálogo de vozes do provedor ao seu alcance.</string>
+    <string name="engines_cloud_configured">Configurado — as vozes na nuvem estão disponíveis.</string>
+    <string name="engines_cloud_not_configured">Não configurado — adicione a chave de API de um provedor para ativar.</string>
+    <string name="engines_configure">Configurar</string>
+    <string name="engines_voices">Vozes</string>
+
+    <!-- EngineDetailScreen -->
+    <string name="engines_browse_voices">Explorar vozes</string>
+    <string name="engines_browse_voices_enabled">Ouça prévias das vozes deste motor e escolha uma padrão.</string>
+    <string name="engines_browse_voices_disabled">Instale o motor para explorar as vozes dele.</string>
+    <string name="engines_status">Status</string>
+    <string name="engines_install_to_see_settings">Instale este motor para ver as configurações dele.</string>
+    <string name="engines_preprocessing">Pré-processamento de texto</string>
+    <string name="engines_preprocessing_pending">Preferências salvas; passarão a valer assim que você instalar este motor.</string>
+    <string name="engines_reset_defaults">Restaurar padrões</string>
+    <string name="engines_about">Sobre este motor</string>
+    <string name="engines_unknown_title">O motor \"%1$s\" não está no catálogo.</string>
+    <string name="engines_unknown_body">Ele pode ter sido removido em uma versão mais recente do app.</string>
+
+    <string name="engines_state_not_installed">Não instalado</string>
+    <string name="engines_state_downloading">Baixando</string>
+    <string name="engines_state_installing">Instalando</string>
+    <string name="engines_state_installed">Instalado</string>
+    <string name="engines_state_failed">Falhou</string>
+    <string name="engines_state_corrupt">Corrompido — precisa reinstalar</string>
+    <string name="engines_state_outdated">Atualização disponível</string>
+
+    <!-- CloudApiScreen -->
+    <string name="engines_cloud_intro">Vozes sintetizadas nos servidores de um provedor — o seu texto é enviado pela rede a cada requisição. Adicione a chave de qualquer provedor para usar as vozes dele; cada provedor cobra pela sua própria conta.</string>
+    <string name="engines_cloud_disclaimer_title">Antes de usar vozes na nuvem</string>
+    <string name="engines_cloud_disclaimer_leaves_title">Seu texto sai deste dispositivo</string>
+    <string name="engines_cloud_disclaimer_leaves_body">As vozes integradas do Marmalade rodam inteiramente no seu celular e não enviam nada para lugar nenhum. As vozes na nuvem são a exceção: o texto que você manda ler em voz alta é transmitido por completo ao provedor que você escolher, junto com a voz, o modelo e a velocidade solicitados e a sua chave de API.</string>
+    <string name="engines_cloud_disclaimer_rules_title">Valem as regras deles, não as nossas</string>
+    <string name="engines_cloud_disclaimer_rules_body">O que esse provedor registra, por quanto tempo guarda o seu texto e se o usa para treinamento são questões regidas pela política de privacidade e pelos termos dele — que você aceita diretamente com o provedor ao criar uma conta.</string>
+    <string name="engines_cloud_disclaimer_affiliation_title">Não temos vínculo com eles</string>
+    <string name="engines_cloud_disclaimer_affiliation_body">O Marmalade é independente. Não somos endossados, patrocinados nem parceiros de nenhum provedor, não recebemos nada deles e não conseguimos ver nem intervir no seu uso — inclusive em pedidos de exclusão, que precisam ser feitos diretamente ao provedor.</string>
+    <string name="engines_cloud_disclaimer_other_apps_title">Outros apps também são afetados</string>
+    <string name="engines_cloud_disclaimer_other_apps_body">O Marmalade pode ser a voz de todo o sistema. Se você definir uma voz na nuvem como principal, ou direcionar um app para ela, o texto desses apps — e-books, mensagens, qualquer coisa lida em voz alta para você — também é enviado a esse provedor. As vozes no dispositivo não são afetadas.</string>
+    <string name="engines_cloud_disclaimer_billing_title">Você paga a eles, não a nós</string>
+    <string name="engines_cloud_disclaimer_billing_body">Cada provedor cobra da sua própria conta pelo que você usar. O Marmalade em si é gratuito e não fica com nenhuma parte.</string>
+    <string name="engines_cloud_disclaimer_footer">Isso também consta na política de privacidade, com link em Configurações → Sobre, onde você pode reler quando quiser.</string>
+    <string name="engines_cloud_disclaimer_agree">Entendi e concordo</string>
+    <string name="engines_cloud_disclaimer_decline">Agora não</string>
+
+    <string name="engines_cloud_voice_summary">%1$d vozes · %2$s</string>
+    <string name="engines_cloud_syncing">Chave configurada — sincronizando vozes…</string>
+    <string name="engines_cloud_key_hint">Chave de API: %1$s</string>
+    <string name="engines_cloud_refresh_voices">Atualizar vozes</string>
+    <string name="engines_cloud_change_key">Trocar chave</string>
+    <string name="engines_cloud_set_key">Definir chave</string>
+    <string name="engines_cloud_key_dialog_title">Chave de API do %1$s</string>
+    <string name="engines_cloud_key_dialog_body">Obtenha uma chave em %1$s. Ela é armazenada apenas neste dispositivo e enviada apenas para %2$s.</string>
+    <string name="engines_cloud_key_label_replace">Nova chave (substitui a atual)</string>
+    <string name="engines_cloud_key_label">Chave de API</string>
+    <string name="engines_cloud_save">Salvar</string>
+    <string name="engines_cloud_remove_key">Remover chave</string>
+    <string name="engines_cloud_discovery_failed">Falha ao descobrir as vozes</string>
+
+    <!-- BenchmarkScreen (somente em debug) -->
+    <string name="bench_title">Benchmark</string>
+    <string name="bench_running">Executando %1$s</string>
+    <string name="bench_run">Executar benchmark</string>
+    <string name="bench_input">Entrada</string>
+    <string name="bench_input_placeholder">Texto a sintetizar</string>
+    <string name="bench_preset_short">Curto</string>
+    <string name="bench_preset_medium">Médio</string>
+    <string name="bench_preset_long">Longo</string>
+    <string name="bench_engines">Motores</string>
+    <string name="bench_engines_hint">Motores não instalados são ignorados automaticamente.</string>
+    <string name="bench_engine_not_installed">%1$s (não instalado)</string>
+    <string name="bench_results">Resultados</string>
+    <string name="bench_failed">FALHOU: %1$s</string>
+    <string name="bench_first_audio">Primeiro áudio: %1$d ms</string>
+    <plurals name="bench_chunk_count">
+        <item quantity="one">(%1$d bloco)</item>
+        <item quantity="other">(%1$d blocos)</item>
+    </plurals>
+    <string name="bench_realtime_ratio">%1$.2fx do tempo real</string>
+    <string name="bench_model_load">carregamento do modelo</string>
+    <string name="bench_total">total</string>
+    <string name="bench_ms">%1$d ms</string>
+    <string name="bench_audio_duration">→ %1$.2f s de áudio</string>
+
+    <string name="bench_device_load">Carga do dispositivo (ao vivo)</string>
+    <string name="bench_sampling">amostrando…</string>
+    <string name="bench_ram">RAM livre %1$d / %2$d MB   ·   zram %3$d / %4$d MB em uso</string>
+    <string name="bench_cpu_busy">CPU %1$d%% ocupada</string>
+    <string name="bench_thermal">térmico %1$s%2$s%3$s</string>
+    <string name="bench_thermal_headroom">" (folga %1$s)"</string>
+    <string name="bench_thermal_temps">"  ·  %1$s"</string>
+
+    <string name="bench_quant_title">Benchmark de quantização do Kokoro</string>
+    <string name="bench_quant_desc">Mede a linha de base fp32 e quaisquer variantes carregadas manualmente em files/kokoro-quant/. Arquivos ausentes são ignorados. Detalhes completos no logcat sob a tag KokoroQuantBench.</string>
+    <string name="bench_quant_run">Executar benchmark de quantização</string>
+    <string name="bench_quant_running">Executando…</string>
+    <string name="bench_quant_starting">iniciando…</string>
+    <string name="bench_quant_mean_rtf">RTF médio %1$.3f</string>
+    <string name="bench_quant_file_size">%1$s  ·  %2$.1f MB</string>
+    <string name="bench_quant_timing_label">%1$s (%2$d tok)</string>
+    <string name="bench_quant_timing_detail">%1$.2f s de áudio  ·  RTF %2$.3f</string>
+    <string name="bench_quant_already_running">já há um benchmark de quantização em andamento (de uma visita anterior à tela) — espere ele terminar</string>
+    <string name="bench_quant_not_installed">Kokoro Direct não está instalado (%1$s ausente)</string>
+</resources>
