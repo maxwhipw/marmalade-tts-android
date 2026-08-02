@@ -1,4 +1,59 @@
-# HANDOFF — Pocket QDQ parity, 2026-08-02 (branch `main`, PUSHED through `bcac168`)
+# HANDOFF — Pocket QDQ parity: desktop half DONE, device bench next, 2026-08-02 (branch `main`)
+
+## State (this session, head `f3f97b1`, UNPUSHED)
+
+Desktop spike complete — full report:
+`~/coding/scratch/pocket-qdq/REPORT.md` (read it first; venv `./venv`).
+
+1. **Format question ANSWERED**: bundle v21's flow_lm_main_int8 is DYNAMIC
+   int8 (26 DynamicQuantizeLinear+MatMulInteger, from
+   KevinAHM/pocket-tts-onnx-export `quantize_dynamic`). fp32 source (302 MB)
+   downloaded from HF `KevinAHM/pocket-tts-onnx` — same export family.
+2. **Candidate built + desktop-gated**: `~/coding/scratch/pocket-qdq/
+   flow_lm_main_qdq_X1.onnx` (static QDQ per-channel MinMax over 213 real
+   captured feeds; 24 linears int8, `input_linear` + EOS head fp32).
+   Deterministic temp-0 gate: mel 3.71 dB vs shipping dynamic's 2.83,
+   duration bias +1.75% vs +6.9% — quality ≈ shipping. Key finding (mirrors
+   Kokoro): quantizing the single 32→1024 `input_linear` alone = +12–20%
+   duration drift (EOS fires late). Percentile calibration strictly worse
+   than MinMax. Eval noise floor is huge (fp32 reseeded 4.65 dB mel, ±8%
+   dur) — always compare temp-0 or same-seed.
+3. **x86 speed: QDQ ties dynamic** (21.4 vs 22.5 ms/AR-step; fp32 27.6).
+   No ConvInteger slow path in this model — the Kokoro-sized win may not
+   exist. **Pixel 8a decides.**
+4. **Device decider SHIPPED** (`f3f97b1`): PocketQuantBench on the debug
+   Benchmark screen — isolates flow_lm_main AR steps (manifest state loop,
+   80 steps, cond prefill), variants: int8dyn±XNNPACK, qdq-x1 (CPU EP only
+   — XNNPACK+QDQ segfault guardrail), fp32±XNNPACK optional. Side-load:
+   `adb push` bundle.json + variant onnx → `files/pocket-quant/` (int8 +
+   bundle.json fall back to the installed engine dir). Results persist to
+   `files/pocket-quant/results.json`; logcat tag PocketQuantBench. Strings
+   ×7 locales. Unit tests green, APK built
+   (`app/build/outputs/apk/fdroid/debug/`).
+5. **Ear lab UP** (Max verdict pending):
+   http://marmalade:8095/pocket-qdq/pocket-qdq-lab.html — fp32 vs int8_dyn
+   vs qdq_X1, same seed, 8 texts, voice marius.
+
+## Next steps (in order)
+
+1. Max listens to the lab (only penalise artifacts — muffle/buzz/garble;
+   pacing differences are EOS timing).
+2. Device bench (needs Max's ADB port; debug app is disposable, never touch
+   the release app): install APK, push
+   `~/coding/scratch/pocket-qdq/flow_lm_main_qdq_X1.onnx` (+ optionally
+   `flow_lm_main_fp32.onnx` and bundle v21's bundle.json + int8 if Pocket
+   isn't installed in-app) to `files/pocket-quant/` via run-as, run
+   "Pocket quant bench" in Settings → Advanced → Benchmark. Within-run
+   comparisons only (thermals).
+3. Decide: if qdq-x1 arMedian is NOT meaningfully below int8dyn → **close
+   the parity question**: record numbers in
+   docs/HARDWARE-ACCELERATION-2026-07.md, keep shipping dynamic int8, done.
+   If it IS faster → quality path continues: Max's ear verdict, then bundle
+   as engines-repo v24 (catalog sha/size, model-format marker so
+   PocketEngine skips XNNPACK for QDQ — engine change needed, see
+   KokoroDirectEngine 2669852 pattern), device end-to-end.
+
+## Prior context (previous session)
 
 ## State
 
