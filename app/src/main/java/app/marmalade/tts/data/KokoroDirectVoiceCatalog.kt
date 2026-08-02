@@ -142,9 +142,8 @@ object KokoroDirectVoiceCatalog {
     /**
      * Per-voice espeak language code. American/British map to upstream
      * `en-us`/`en-gb`; non-English voices use their language's espeak
-     * code. Hindi has no espeak-ng "hi" entry, so we fall through to
-     * `en-us` for it (the trained voice carries the accent; espeak is
-     * only responsible for grapheme→phoneme).
+     * code, including Hindi — espeak-ng 1.52 ships a working `hi` voice
+     * and `hi_dict`, both of which are in the bundle.
      *
      * Mandarin (`z*`) maps to `en-us`, NOT `cmn`: KokoroDirect phonemizes
      * Han characters through `lexicon-zh.txt` (misaki+pypinyin pre-baked),

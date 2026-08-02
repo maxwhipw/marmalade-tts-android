@@ -427,15 +427,18 @@ re-injects `"`), so this fires only if D6 is ever fixed. Fixing D6
 without splitting the vocab table would silently corrupt Kitten.
 
 **D11 — stale comments claim Japanese pitch markers are emitted.**
-*Severity: documentation.*
+*Severity: documentation. Partly fixed 2026-08-02.*
 `phonemizer/OpenJtalkPhonemizer.kt:15-17` and `cpp/openjtalk_jni.c:22-24`
 say `CutletJaG2P` produces "IPA + pitch markers". It does not, and for
-Kokoro v1.0 it should not (§2). Also stale:
-`KokoroDirectVoiceCatalog.kt:144-147` says "Hindi has no espeak-ng 'hi'
-entry, so we fall through to en-us" — the code three lines down maps
-`'h' -> "hi"`, and espeak-ng 1.52 has a working `hi` voice.
+Kokoro v1.0 it should not (§2). Still open.
 `IpaTokenVocab.kt:7-8` claims Kokoro and Kitten share one 178-symbol
-vocab; they share neither the symbol set nor two of the IDs.
+vocab; they share neither the symbol set nor two of the IDs. Still open.
+
+**Fixed:** the Hindi claim in `KokoroDirectVoiceCatalog.kt` ("Hindi has
+no espeak-ng 'hi' entry, so we fall through to en-us") contradicted the
+mapping three lines below it, which sends `'h' -> "hi"`. espeak-ng 1.52
+has a working `hi` voice and we bundle `hi_dict`; the comment now says
+so.
 
 ---
 
