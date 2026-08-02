@@ -81,6 +81,7 @@ fun AppRoutingSheet(
     state: RoutingSheetState,
     installedApps: List<InstalledApp>,
     mappings: List<AppAliasMapping>,
+    aliasNames: Map<String, String>,
     onQueryChange: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSave: () -> Unit,
@@ -115,7 +116,10 @@ fun AppRoutingSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Text(
-                text = stringResource(R.string.alias_routing_title, state.aliasId),
+                text = stringResource(
+                    R.string.alias_routing_title,
+                    state.aliasName.ifBlank { state.aliasId },
+                ),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -161,7 +165,7 @@ fun AppRoutingSheet(
                         AppRoutingRow(
                             app = app,
                             checked = app.packageName in state.selected,
-                            currentOwner = owner,
+                            currentOwner = owner?.let { aliasNames[it] ?: it },
                             // An app resolves to exactly one alias, so a row
                             // owned by another one is not tickable here.
                             // Ticking used to silently steal it, which meant
