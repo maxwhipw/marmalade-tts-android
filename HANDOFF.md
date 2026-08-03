@@ -128,7 +128,17 @@ Follow-ups Max decided after the audit (420 JVM unit tests green):
 
 Still-open non-EN quality defects: D3-D8 in docs/LANGUAGE-AUDIT-2026-07.md
 (they bite harder now that external apps can actually reach the non-EN
-voices). Device smoke of A/D/E/F pending (adb port — ask Max).
+voices). Device smoke DONE 2026-08-02 on Pixel 8a (fdroid debug build):
+E verified both ways (Kitten alias = greyed English (US) + "speaks English
+only" line, non-interactive; Kokoro alias = enabled, Auto + 8 langs, no
+Mandarin = B); F verified end-to-end (system TTS Language picker lists all
+9 Marmalade locales; selecting Spanish + demo Play → logcat shows
+onSynthesizeText picked kokoro ef_dora sid=28 with no voice named; language
+setting restored to "Use system language" after). NOT device-tested: D's
+cloud/share-sheet routing (no cloud voice configured in the debug app;
+covered by Robolectric). NOTE: the device's system-default TTS engine is
+app.marmalade.tts.**debug** — the "debug app is disposable" assumption is
+wrong on this device; don't clear its data casually.
 
 ## Task: apply the Kokoro QDQ recipe to Pocket ("Pocket parity")
 
