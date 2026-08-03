@@ -4,6 +4,11 @@
 > file is the orientation pass that lets you skip 10+ Grep/Glob calls.
 > Last updated against v0.1.17 (commit e60ab4d). Specific file:line
 > refs may drift; the *shape* of the map is stable.
+>
+> - [ ] **TODO (2026-08-02): stale refresh needed** — still documents the
+>   sherpa-onnx engines (`SherpaEngine`, `KittenEngine`, `KokoroEngine`,
+>   `KittenVoiceCatalog`) removed in June, and Kitten Mini removed in
+>   `ec79437`. Trust the code over this map until refreshed.
 
 ## In one sentence
 
