@@ -81,9 +81,13 @@ pushed to github at `f5a2397` (vc 33 — the Play AAB must build from this same
 tag); MR open at https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636
 (fork maxwhipw/fdroiddata, branch marmalade-tts). GitLab PAT: header file at
 `~/secure/gitlab-header`, use `curl -H @file` so the token stays out of
-transcripts. BLOCKED on Max's one-time gitlab.com identity verification (MR
-CI pipelines fail with zero jobs until then); after that, retry the pipeline
-via API. Lab: `docs/release/fdroid-lab.html`
+transcripts. **CI GREEN** (pipeline 2725683973, all 9 jobs incl. fdroid
+build; fixes in recipe commit ab96a7c). MR description wording signed off by
+Max 2026-08-02. Now waiting on F-Droid reviewers; a systemd user timer
+(`fdroid-mr-check.timer`, twice daily, script + state at
+`~/coding/scratch/fdroid-mr-check/`) notifies on new MR activity. Standing
+rule: public-facing text needs Max's sign-off on final wording (global
+CLAUDE.md). Lab: `docs/release/fdroid-lab.html`
 (http://<labs-server>/marmalade-tts-release/fdroid-lab.html).
 
 ## 2026-08-02 addendum — synthesis-language audit fixes (5 commits, UNPUSHED)
