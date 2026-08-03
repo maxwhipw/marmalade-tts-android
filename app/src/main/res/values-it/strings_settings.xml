@@ -44,7 +44,7 @@
 
     <string name="settings_developer">Sviluppatore</string>
     <string name="settings_show_developer_engines">Mostra i motori per sviluppatori</string>
-    <string name="settings_show_developer_engines_desc">Mostra i vecchi motori basati su sherpa-onnx (Kokoro v1.0/v1.1, Kitten Nano/Mini). Sono stati sostituiti dai motori ORT diretti e restano disponibili solo per confronto.</string>
+    <string name="settings_show_developer_engines_desc">Mostra i motori di diagnostica — attualmente la build di riferimento di Pocket TTS, mantenuta per il confronto con il motore Pocket normale.</string>
 
     <string name="settings_debug">Debug</string>
     <string name="settings_benchmark">Benchmark</string>

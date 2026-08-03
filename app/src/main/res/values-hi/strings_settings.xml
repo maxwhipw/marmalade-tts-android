@@ -44,7 +44,7 @@
 
     <string name="settings_developer">डेवलपर</string>
     <string name="settings_show_developer_engines">डेवलपर इंजन दिखाएँ</string>
-    <string name="settings_show_developer_engines_desc">पुराने sherpa-onnx इंजन दिखाएँ (Kokoro v1.0/v1.1, Kitten Nano/Mini)। इनकी जगह अब डायरेक्ट-ORT इंजन आ चुके हैं; ये सिर्फ़ तुलना के लिए रखे गए हैं।</string>
+    <string name="settings_show_developer_engines_desc">डायग्नोस्टिक इंजन दिखाएँ — फ़िलहाल Pocket TTS का क्लीन-रेफ़रेंस बिल्ड, जिसे सामान्य Pocket इंजन से तुलना के लिए रखा गया है।</string>
 
     <string name="settings_debug">डीबग</string>
     <string name="settings_benchmark">बेंचमार्क</string>

@@ -44,7 +44,7 @@
 
     <string name="settings_developer">开发者</string>
     <string name="settings_show_developer_engines">显示开发者引擎</string>
-    <string name="settings_show_developer_engines_desc">显示较旧的 sherpa-onnx 引擎（Kokoro v1.0/v1.1、Kitten Nano/Mini）。它们已被直连 ORT 的引擎取代，保留仅供对比。</string>
+    <string name="settings_show_developer_engines_desc">显示诊断用引擎——目前为 Pocket TTS 的纯净参考版本，保留用于与常规 Pocket 引擎对比。</string>
 
     <string name="settings_debug">调试</string>
     <string name="settings_benchmark">性能测试</string>

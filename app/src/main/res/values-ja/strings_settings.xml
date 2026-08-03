@@ -44,7 +44,7 @@
 
     <string name="settings_developer">開発者向け</string>
     <string name="settings_show_developer_engines">開発者向けエンジンを表示</string>
-    <string name="settings_show_developer_engines_desc">旧来の sherpa-onnx エンジン（Kokoro v1.0/v1.1、Kitten Nano/Mini）を表示します。直接 ORT を使うエンジンに置き換えられましたが、比較用に残してあります。</string>
+    <string name="settings_show_developer_engines_desc">診断用エンジンを表示します。現在は Pocket TTS のクリーンリファレンス版で、通常の Pocket エンジンとの比較用に残してあります。</string>
 
     <string name="settings_debug">デバッグ</string>
     <string name="settings_benchmark">ベンチマーク</string>

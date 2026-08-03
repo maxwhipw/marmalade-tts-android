@@ -44,7 +44,7 @@
 
     <string name="settings_developer">Developer</string>
     <string name="settings_show_developer_engines">Show developer engines</string>
-    <string name="settings_show_developer_engines_desc">Reveal the older sherpa-onnx engines (Kokoro v1.0/v1.1, Kitten Nano/Mini). The direct-ORT engines replaced them; these are kept for comparison.</string>
+    <string name="settings_show_developer_engines_desc">Reveal diagnostic developer engines — currently the Pocket TTS clean-reference build, kept for comparison with the regular Pocket engine.</string>
 
     <string name="settings_debug">Debug</string>
     <string name="settings_benchmark">Benchmark</string>
