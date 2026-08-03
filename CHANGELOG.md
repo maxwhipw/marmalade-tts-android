@@ -5,6 +5,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+- **Kitten Mini (v0.8)** is gone. Upstream KittenML only ever published
+  the mini and micro 0.8 models as dynamic-int8 ONNX exports, and on
+  listening they are audibly *worse* than the fp32 Kitten Nano they were
+  advertised as a step up from — and slower to synthesize as well. Kitten
+  Nano is now the only Kitten engine. If you had Mini installed, the app
+  moves your aliases (and per-app routes) onto the matching Nano voice —
+  the same eight speakers, same names — and reclaims the ~100 MB bundle
+  on next launch.
+
 ### Added
 - **Cloud voices (hosted TTS)**: a new bundle-less engine that
   synthesizes over any OpenAI-compatible `/audio/speech` provider with

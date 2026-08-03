@@ -1,14 +1,13 @@
 # Kitten Direct — third-party license notice
 
-Covers both Kitten Direct engines — **Kitten Direct** (nano, 15M params,
-`kitten-direct-v0_8`) and **Kitten Direct Mini** (80M params,
-`kitten-direct-mini-v0_8`). Both run the upstream KittenML acoustic
-model directly on `com.microsoft.onnxruntime:onnxruntime-android`, with
-espeak-ng as the phonemizer. espeak-ng (GPL-3.0-or-later) is compiled
-from source into the APK; the bundles carry its `espeak-ng-data`
-dictionaries plus the Apache-2.0 model files.
+Covers **Kitten Direct** (nano, 15M params, `kitten-direct-v0_8`), which
+runs the upstream KittenML acoustic model directly on
+`com.microsoft.onnxruntime:onnxruntime-android`, with espeak-ng as the
+phonemizer. espeak-ng (GPL-3.0-or-later) is compiled from source into the
+APK; the bundle carries its `espeak-ng-data` dictionaries plus the
+Apache-2.0 model files.
 
-The bundles are downloaded from `marmalade-tts-android-engines` (release
+The bundle is downloaded from `marmalade-tts-android-engines` (release
 pinned in `EngineCatalog.kt`) into `${filesDir}/engines/<engine>/` when
 the user opts in.
 
@@ -41,7 +40,7 @@ the pinned `third_party/espeak-ng` submodule. See
   `app/src/main/cpp/espeak-ng/CMakeLists.txt`.
 - **Data:** `phonemizer/espeak-ng-data/` (full tree) — in the bundle;
   derives from Debian package `espeak-ng-data 1.51+dfsg-12build1`.
-- **Legacy:** bundles ≤v16 also carry `phonemizer/<abi>/libttsespeak.so`
+- **Legacy:** bundles ≤v16 also carried `phonemizer/<abi>/libttsespeak.so`
   (lifted from espeak-ng's official 1.52.0 Android APK). The app no
   longer loads it; it remains covered by the same GPL terms.
 - **Upstream:** https://github.com/espeak-ng/espeak-ng
@@ -65,6 +64,6 @@ the pinned `third_party/espeak-ng` submodule. See
 The distributed APK compiles in espeak-ng, so the APK as a whole is a
 GPL-3.0-or-later combined work; all other APK components are
 GPL-compatible (MIT/Apache-2.0/BSD) and Marmalade's own source files
-remain MIT. The Kitten bundles add GPL-licensed espeak-ng-data; the
+remain MIT. The Kitten bundle adds GPL-licensed espeak-ng-data; the
 install screen discloses this before download. See
 [`../NOTICE.md`](../NOTICE.md).

@@ -1,7 +1,6 @@
 package app.marmalade.tts.service
 
 import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
@@ -33,7 +32,6 @@ class MarmaladeSynthServiceTest {
         val engines = listOf(
             KokoroDirectVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
-            KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE,
             CloudApiVoiceCatalog.ENGINE,

@@ -838,7 +838,6 @@ open class EngineInstaller @Inject constructor(
             "pocket-tts-en-v2026_04",
             "pocket-tts-en-v2026_04-dev" -> verifyPocketLayout(dir)
             "kitten-direct-v0_8"       -> verifyKittenDirectLayout(dir)
-            "kitten-direct-mini-v0_8"  -> verifyKittenDirectLayout(dir)
             "kokoro-direct-v1_0"       -> verifyKokoroDirectLayout(dir)
             // Unknown engine — no layout we know how to verify. Treat as
             // corrupt so the UI steers the user to reinstall rather than

@@ -113,17 +113,15 @@ data class EngineDescriptor(
 /**
  * Static catalog of installable engines.
  *
- * Ships Kokoro Direct (recommended default), Kitten Direct + Kitten Direct
- * Mini, and Pocket TTS — all running on `onnxruntime-android` directly. The
- * list order is also the display order in the onboarding wizard and
- * Engines tab.
+ * Ships Kokoro Direct (recommended default), Kitten Direct, and Pocket TTS —
+ * all running on `onnxruntime-android` directly. The list order is also the
+ * display order in the onboarding wizard and Engines tab.
  */
 object EngineCatalog {
 
     // Unpacked sizes (sum of file sizes after tar extraction). Compute via
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
-    private const val KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES: Long = 99_919_078L
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_873L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
@@ -161,37 +159,6 @@ object EngineCatalog {
             sha256 = "591e1e163f7804c9673c8d2b63d6eb5f43bb2f2b620580af84dd32c55b283199",
             sizeBytes = 64_218_626L,
             archiveRoot = "kitten-direct-v0_8/",
-        ),
-        licenseNotice = "LICENSES/kitten-direct.md",
-        licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
-    )
-
-    /**
-     * Kitten Direct Mini v0.8 (`kitten-direct-mini-v0_8`) — the 80M-parameter
-     * KittenML model on the same direct-ORT path as [KITTEN_DIRECT] (nano,
-     * 15M). Larger model, marginally better audio; same 8 voices, same
-     * espeak-ng phonemizer.
-     *
-     * Speed prior differs from nano: Mini is correctly paced at speed=1.0,
-     * so [KittenDirectMiniEngine] applies no compensation — see its kdoc.
-     */
-    private val KITTEN_DIRECT_MINI: EngineDescriptor = EngineDescriptor(
-        name = "kitten-direct-mini-v0_8",
-        displayName = "Kitten Mini (v0.8)",
-        description = "A step up in quality from Kitten Nano while staying fast " +
-            "and light — the same 8 English voices with a larger model, and still " +
-            "a small download. Runs fully on your device with a bundled espeak-ng " +
-            "phonemizer. (80M-parameter model vs Kitten Nano's 15M.)",
-        downloadSizeBytes = 68_682_800L,
-        installedSizeBytes = KITTEN_DIRECT_MINI_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
-        archive = EngineArchive(
-            // v22: legacy libttsespeak.so removed; espeak-ng-data rebuilt from
-            // the 1.52.0 tag (see KITTEN_DIRECT).
-            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v22/kitten-direct-mini-v0_8.tar.gz",
-            sha256 = "603aad5ec2eac370b7d69338aa296e0de1276bae91487993f0a8a7d231f855e1",
-            sizeBytes = 68_682_800L,
-            archiveRoot = "kitten-direct-mini-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
         licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
@@ -336,7 +303,6 @@ object EngineCatalog {
     val all: List<EngineDescriptor> = listOf(
         KOKORO_DIRECT,
         KITTEN_DIRECT,
-        KITTEN_DIRECT_MINI,
         POCKET_TTS_EN,
         POCKET_TTS_EN_DEV,
     )

@@ -196,7 +196,7 @@ class SpeakViewModel @Inject constructor(
             // (installed) engine — via an alias chip or a manual pick, both of
             // which change defaultVoiceId — must clear it, or the banner re-renders
             // with the NEW engine's name and falsely claims an installed engine is
-            // missing (observed: pick uninstalled Kitten Mini, then switch to
+            // missing (observed: pick uninstalled Kitten Nano, then switch to
             // installed Pocket → "Tap to install Pocket TTS" + Speak stuck disabled).
             // Mirrors onTextChanged's retry-intent reset.
             val ps = _playbackState.value

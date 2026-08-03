@@ -223,7 +223,7 @@ object LicenseCatalog {
         ),
         Component(
             key = "kittentts",
-            name = "KittenTTS (nano / mini)", role = "Neural voice model",
+            name = "KittenTTS (nano)", role = "Neural voice model",
             shipsIn = "Engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) KittenML contributors"),

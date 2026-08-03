@@ -35,10 +35,8 @@ import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
@@ -157,7 +155,6 @@ import kotlinx.coroutines.withContext
 class MarmaladeSynthService : Service() {
 
     @Inject lateinit var kittenDirect: KittenDirectEngine
-    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
     @Inject lateinit var pocketDev: PocketDevEngine
@@ -332,7 +329,6 @@ class MarmaladeSynthService : Service() {
     internal fun knownEngineOrDefault(name: String): String = when (name) {
         KokoroDirectVoiceCatalog.ENGINE,
         KittenDirectVoiceCatalog.ENGINE,
-        KittenDirectMiniVoiceCatalog.ENGINE,
         PocketVoiceCatalog.ENGINE,
         PocketDevVoiceCatalog.ENGINE,
         CloudApiVoiceCatalog.ENGINE -> name
@@ -560,7 +556,6 @@ class MarmaladeSynthService : Service() {
     ): SynthAudio = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
         CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
@@ -578,7 +573,6 @@ class MarmaladeSynthService : Service() {
     ): Flow<SynthAudio> = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
         CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
@@ -589,7 +583,6 @@ class MarmaladeSynthService : Service() {
     private fun displayNameFor(engineName: String): String = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> "Kokoro"
         KittenDirectVoiceCatalog.ENGINE -> "Kitten Nano"
-        KittenDirectMiniVoiceCatalog.ENGINE -> "Kitten Mini"
         PocketVoiceCatalog.ENGINE -> "Pocket TTS"
         PocketDevVoiceCatalog.ENGINE -> "Pocket TTS (clean)"
         CloudApiVoiceCatalog.ENGINE -> "Cloud"

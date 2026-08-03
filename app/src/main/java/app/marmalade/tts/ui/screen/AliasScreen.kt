@@ -81,7 +81,6 @@ import app.marmalade.tts.R
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
@@ -793,7 +792,7 @@ private fun AliasEditorSheet(
 /**
  * The alias editor's single voice field.
  *
- * Shows the voice name with its collapsed path underneath — "Kitten Mini"
+ * Shows the voice name with its collapsed path underneath — "Kitten Nano"
  * for an on-device voice, "Venice › ElevenLabs Turbo v2.5" for a cloud one.
  * Identical for both kinds: the editor deliberately does not branch on
  * whether a voice needs the network, which is what keeps one code path for
@@ -1049,7 +1048,6 @@ private fun PhonemizationLanguageDropdown(
 private val PHONEMIZATION_ENGINES: Set<String> = setOf(
     KokoroDirectVoiceCatalog.ENGINE,
     KittenDirectVoiceCatalog.ENGINE,
-    KittenDirectMiniVoiceCatalog.ENGINE,
     PocketVoiceCatalog.ENGINE,
     PocketDevVoiceCatalog.ENGINE,
 )

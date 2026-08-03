@@ -67,8 +67,7 @@ object EngineProfiles {
     )
 
     /**
-     * Default preprocessing rule sets per engine name. The Kitten Direct
-     * variants share the same upstream phoneme conventions, so both use the
+     * Default preprocessing rule sets per engine name. Kitten Direct uses the
      * Kitten defaults; Kokoro Direct uses the Kokoro defaults. Pocket TTS
      * does no native text normalization upstream (per NekoSpeak's
      * reverse-engineering of the pipeline), so it gets the full Kitten rule
@@ -76,7 +75,6 @@ object EngineProfiles {
      */
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
         "kitten-direct-v0_8" to KITTEN_DEFAULTS,
-        "kitten-direct-mini-v0_8" to KITTEN_DEFAULTS,
         "kokoro-direct-v1_0" to KOKORO_DEFAULTS,
         "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
         // Developer-only clean-room Pocket engine — same profile as production Pocket.

@@ -6,7 +6,6 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.activity.ComponentActivity
 import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
@@ -14,7 +13,6 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import dagger.hilt.android.AndroidEntryPoint
@@ -48,7 +46,6 @@ class CheckVoiceDataActivity : ComponentActivity() {
     @Inject lateinit var voiceDao: VoiceMetaDao
 
     @Inject lateinit var kittenDirect: KittenDirectEngine
-    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
     @Inject lateinit var cloudApi: CloudApiEngine
@@ -67,7 +64,6 @@ class CheckVoiceDataActivity : ComponentActivity() {
         val installedEngines = buildSet {
             if (kokoroDirect.isInstalled()) add(KokoroDirectVoiceCatalog.ENGINE)
             if (kittenDirect.isInstalled()) add(KittenDirectVoiceCatalog.ENGINE)
-            if (kittenDirectMini.isInstalled()) add(KittenDirectMiniVoiceCatalog.ENGINE)
             if (pocket.isInstalled()) add(PocketVoiceCatalog.ENGINE)
             if (cloudApi.isInstalled()) add(CloudApiVoiceCatalog.ENGINE)
         }

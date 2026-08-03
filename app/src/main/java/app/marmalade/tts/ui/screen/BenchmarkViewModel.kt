@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.R
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
@@ -12,7 +11,6 @@ import app.marmalade.tts.engine.EnginePhaseTimings
 import app.marmalade.tts.engine.PhaseSpan
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.install.EngineCatalog
@@ -46,7 +44,6 @@ import kotlinx.coroutines.launch
 class BenchmarkViewModel @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
     private val kittenDirect: KittenDirectEngine,
-    private val kittenDirectMini: KittenDirectMiniEngine,
     private val pocket: PocketEngine,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
@@ -63,7 +60,6 @@ class BenchmarkViewModel @Inject constructor(
     private val engineHandles: Map<String, Pair<TtsEngine, String>> = mapOf(
         KokoroDirectVoiceCatalog.ENGINE to (kokoroDirect to KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID),
         KittenDirectVoiceCatalog.ENGINE to (kittenDirect to KittenDirectVoiceCatalog.DEFAULT_VOICE_ID),
-        KittenDirectMiniVoiceCatalog.ENGINE to (kittenDirectMini to KittenDirectMiniVoiceCatalog.DEFAULT_VOICE_ID),
         PocketVoiceCatalog.ENGINE to (pocket to PocketVoiceCatalog.DEFAULT_VOICE_ID),
     )
 

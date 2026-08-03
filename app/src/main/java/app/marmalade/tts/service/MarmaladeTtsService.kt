@@ -20,11 +20,9 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
@@ -150,7 +148,6 @@ import kotlinx.coroutines.runBlocking
 class MarmaladeTtsService : TextToSpeechService() {
 
     @Inject lateinit var kittenDirect: KittenDirectEngine
-    @Inject lateinit var kittenDirectMini: KittenDirectMiniEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var pocket: PocketEngine
     @Inject lateinit var cloudApi: CloudApiEngine
@@ -338,7 +335,6 @@ class MarmaladeTtsService : TextToSpeechService() {
             val knownEngines = listOf(
                 KokoroDirectVoiceCatalog.ENGINE,
                 KittenDirectVoiceCatalog.ENGINE,
-                KittenDirectMiniVoiceCatalog.ENGINE,
                 PocketVoiceCatalog.ENGINE,
                 // Cloud belongs here too even though it has no model to
                 // warm: without it the rules cache never gets a cloud
@@ -922,7 +918,6 @@ class MarmaladeTtsService : TextToSpeechService() {
     private fun isEngineInstalled(engineName: String): Boolean = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.isInstalled()
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.isInstalled()
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.isInstalled()
         PocketVoiceCatalog.ENGINE -> pocket.isInstalled()
         CloudApiVoiceCatalog.ENGINE -> cloudApi.isInstalled()
         // Developer-only rows (Pocket dev) and anything else unknown are
@@ -995,7 +990,6 @@ class MarmaladeTtsService : TextToSpeechService() {
     private fun engineDefaultSampleRate(engineName: String): Int = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.sampleRate
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.sampleRate
         PocketVoiceCatalog.ENGINE -> pocket.sampleRate
         CloudApiVoiceCatalog.ENGINE -> cloudApi.sampleRate
         else -> kokoroDirect.sampleRate
@@ -1021,7 +1015,6 @@ class MarmaladeTtsService : TextToSpeechService() {
         val audio = when (engineName) {
             KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
             KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesize(text, voiceId, speed, phonemizationLanguage)
             PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
             CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
             else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
@@ -1044,7 +1037,6 @@ class MarmaladeTtsService : TextToSpeechService() {
         val stream = when (engineName) {
             KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
@@ -1081,7 +1073,6 @@ class MarmaladeTtsService : TextToSpeechService() {
     private fun isKnownEngine(name: String): Boolean =
         name == KokoroDirectVoiceCatalog.ENGINE ||
             name == KittenDirectVoiceCatalog.ENGINE ||
-            name == KittenDirectMiniVoiceCatalog.ENGINE ||
             name == PocketVoiceCatalog.ENGINE ||
             name == CloudApiVoiceCatalog.ENGINE
 

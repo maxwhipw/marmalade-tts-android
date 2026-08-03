@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.BuiltinEffects
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
@@ -607,7 +606,6 @@ class OnboardingViewModel @Inject constructor(
     private fun defaultVoiceIdFor(engine: String): String = when (engine) {
         KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         KittenDirectVoiceCatalog.ENGINE -> KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
-        KittenDirectMiniVoiceCatalog.ENGINE -> KittenDirectMiniVoiceCatalog.DEFAULT_VOICE_ID
         PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID
         else -> ""
     }

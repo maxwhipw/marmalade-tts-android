@@ -59,7 +59,7 @@ class VoicePathTest {
 
         assertFalse(path.isCloud)
         // The engine IS the model, so `collapsed` must not repeat it —
-        // "Kitten Mini › Kitten Mini" would be the giveaway of a bad merge.
+        // "Kitten Nano › Kitten Nano" would be the giveaway of a bad merge.
         assertEquals(path.source, path.model)
         assertEquals(path.model, path.collapsed)
     }

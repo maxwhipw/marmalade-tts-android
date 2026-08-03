@@ -236,6 +236,16 @@ internal class FakeAliasDao(
         deletedIds += id
         state.value = state.value.filterNot { it.id == id }
     }
+
+    override suspend fun repointEngine(fromEngine: String, toEngine: String) {
+        state.value = state.value.map { alias ->
+            if (alias.engine != fromEngine) alias
+            else alias.copy(
+                engine = toEngine,
+                voiceId = toEngine + alias.voiceId.removePrefix(fromEngine),
+            )
+        }
+    }
 }
 
 /**

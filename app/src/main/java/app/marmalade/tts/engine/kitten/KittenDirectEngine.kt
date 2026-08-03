@@ -131,6 +131,10 @@ private val SPEED_PRIORS = mapOf(
  */
 private const val MAX_PHONEMES_PER_CHUNK = 500
 
+// `open` solely so the JVM unit tests can subclass it with a fake that
+// returns fixture PCM instead of standing up an ORT session — see
+// FakeKittenDirectEngine in MarmaladeTtsServiceTest. Nothing in production
+// extends it (the Kitten Mini subclass was retired in 1.0.0-beta.1).
 @Singleton
 open class KittenDirectEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
@@ -140,20 +144,15 @@ open class KittenDirectEngine @Inject constructor(
     override val engineName: String = ENGINE_NAME
     override val sampleRate: Int = KittenDirectVoiceCatalog.SAMPLE_RATE
 
-    /**
-     * Voices this engine serves. Open so the Mini variant
-     * ([KittenDirectMiniEngine]) can substitute its own catalog — the names
-     * and ordering match nano, but it's a distinct engine string.
-     */
-    protected open val voiceMetas: List<app.marmalade.tts.data.db.VoiceMeta> =
+    /** Voices this engine serves. */
+    private val voiceMetas: List<app.marmalade.tts.data.db.VoiceMeta> =
         KittenDirectVoiceCatalog.voices
 
     /**
-     * Per-voice speed prior. Nano runs ~25% fast at speed=1.0 so it needs
-     * 0.84 (0.9 for Hugo); Mini's sherpa metadata reports all-1.0 priors
-     * (correctly paced), so [KittenDirectMiniEngine] overrides this to 1.0.
+     * Per-voice speed prior. Nano runs ~25% fast at speed=1.0, so it needs
+     * 0.84 (0.9 for Hugo) to land at natural pace.
      */
-    protected open fun speedPriorFor(voiceName: String): Float =
+    private fun speedPriorFor(voiceName: String): Float =
         SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
 
     /**

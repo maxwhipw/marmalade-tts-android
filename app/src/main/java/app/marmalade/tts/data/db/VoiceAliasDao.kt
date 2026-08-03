@@ -39,4 +39,20 @@ interface VoiceAliasDao {
 
     @Query("DELETE FROM voice_alias WHERE id = :id")
     suspend fun delete(id: String)
+
+    /**
+     * Move every alias on [fromEngine] onto [toEngine], preserving the
+     * `:VoiceName` suffix of each `voiceId`.
+     *
+     * Only sound when the two engines expose the same voice names — the
+     * Kitten Mini → Kitten Nano retirement is the case it exists for
+     * (identical 8 KittenML speakers, different acoustic model). Aliases
+     * keep their id, so per-app routes and fallback pointers survive.
+     */
+    @Query(
+        "UPDATE voice_alias SET engine = :toEngine, " +
+            "voiceId = :toEngine || substr(voiceId, length(:fromEngine) + 1) " +
+            "WHERE engine = :fromEngine"
+    )
+    suspend fun repointEngine(fromEngine: String, toEngine: String)
 }

@@ -18,7 +18,6 @@ import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -121,7 +120,6 @@ class MarmaladeTtsServiceTest {
         setField(service, "engineWarmup", EngineWarmup(
             kokoroDirect = fakeKokoroDirectEngine,
             kittenDirect = fakeEngine,
-            kittenDirectMini = KittenDirectMiniEngine(ctx, fakeSettings),
             pocket = PocketEngine(ctx, fakeSettings),
         ))
     }
@@ -142,6 +140,7 @@ class MarmaladeTtsServiceTest {
         override suspend fun findByName(name: String) = null
         override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
         override suspend fun delete(id: String) = Unit
+        override suspend fun repointEngine(fromEngine: String, toEngine: String) = Unit
     }
 
     // -- 1. happy path: start → audioAvailable* → done --------------------
@@ -340,6 +339,7 @@ class MarmaladeTtsServiceTest {
             override suspend fun findByName(name: String) = alias.takeIf { it.name == name }
             override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
             override suspend fun delete(id: String) = Unit
+            override suspend fun repointEngine(fromEngine: String, toEngine: String) = Unit
         }
         kotlinx.coroutines.runBlocking { fakeSettings.setPrimaryAliasId(alias.id) }
         setField(service, "router", TtsRouter(

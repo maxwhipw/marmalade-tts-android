@@ -456,7 +456,7 @@ private fun supportingText(voice: VoiceMeta): String = stringResource(
 
 /**
  * Engine section-header label — the catalog's user-facing display name
- * (e.g. "Kitten Mini (v0.8)") so the header matches the rest of the app
+ * (e.g. "Kitten Nano (v0.8)") so the header matches the rest of the app
  * instead of the raw engine id. Falls back to a title-cased id for any
  * engine not present in [EngineCatalog].
  */

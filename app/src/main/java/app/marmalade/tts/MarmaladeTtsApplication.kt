@@ -5,14 +5,15 @@ import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.EffectDao
+import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.service.KeepaliveCoordinator
 import dagger.hilt.android.HiltAndroidApp
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
@@ -93,6 +94,9 @@ class MarmaladeTtsApplication : Application() {
     lateinit var settings: Provider<SettingsRepository>
 
     @Inject
+    lateinit var aliasDao: Provider<VoiceAliasDao>
+
+    @Inject
     lateinit var effectDao: Provider<EffectDao>
 
     @Inject
@@ -109,6 +113,9 @@ class MarmaladeTtsApplication : Application() {
      * so would be correct.
      */
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Engine id of the retired Kitten Mini engine. See [retireKittenMini]. */
+    private val RETIRED_KITTEN_MINI_ENGINE = "kitten-direct-mini-v0_8"
 
     override fun onCreate() {
         // Hilt populates @Inject fields during super.onCreate() — must run
@@ -134,7 +141,6 @@ class MarmaladeTtsApplication : Application() {
                 // expansion) without ever wiping the table.
                 dao.upsertAll(KokoroDirectVoiceCatalog.voices)
                 dao.upsertAll(KittenDirectVoiceCatalog.voices)
-                dao.upsertAll(KittenDirectMiniVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
                 // Built-in effects. REPLACE-on-conflict refreshes them on each
@@ -145,6 +151,7 @@ class MarmaladeTtsApplication : Application() {
                 // upgrades.
                 effectDao.get().upsertAll(BuiltinEffects.seedRows)
                 effectDao.get().pruneBuiltinsNotIn(BuiltinEffects.seedIds)
+                retireKittenMini(dao, aliasDao.get(), prefs)
                 prefs.setCatalogVersion(CATALOG_VERSION)
             }
             // Cloud API voices are not seeded from a static catalog — the
@@ -154,6 +161,46 @@ class MarmaladeTtsApplication : Application() {
             // 2-part-id rows on upgrade.
             cloudProviders.get().sync()
         }
+    }
+
+    /**
+     * One-shot cleanup for installs that carry the retired Kitten Mini
+     * engine (`kitten-direct-mini-v0_8`), dropped in 1.0.0-beta.1.
+     *
+     * Unlike the sherpa retirement — which had no equivalent replacement and
+     * so left aliases inert — Mini and Nano expose the *same* eight KittenML
+     * speakers, so every Mini alias has an exact Nano counterpart. That makes
+     * a silent re-point strictly better than a broken alias:
+     *
+     *  1. Aliases (and with them per-app routes, which key off alias id) move
+     *     to `kitten-direct-v0_8:<same name>`.
+     *  2. A Mini default voice moves the same way.
+     *  3. The orphaned `voice_meta` rows go, so the picker and the system-TTS
+     *     voice enumeration stop offering voices nothing can synthesize.
+     *  4. The ~100 MB bundle under `engines/` is deleted. It has to happen
+     *     here: with the descriptor gone from [app.marmalade.tts.install.EngineCatalog]
+     *     the Engines screen can't list Mini, so the user has no way to
+     *     uninstall it themselves.
+     *
+     * Runs inside the CATALOG_VERSION gate, so it fires exactly once per
+     * install and is a no-op for everyone who never had Mini.
+     */
+    private suspend fun retireKittenMini(
+        voices: VoiceMetaDao,
+        aliases: VoiceAliasDao,
+        prefs: SettingsRepository,
+    ) {
+        aliases.repointEngine(RETIRED_KITTEN_MINI_ENGINE, KittenDirectVoiceCatalog.ENGINE)
+        val defaultVoice = prefs.defaultVoiceId.first()
+        if (defaultVoice.startsWith("$RETIRED_KITTEN_MINI_ENGINE:")) {
+            prefs.setDefaultVoiceId(
+                KittenDirectVoiceCatalog.ENGINE +
+                    defaultVoice.removePrefix(RETIRED_KITTEN_MINI_ENGINE)
+            )
+        }
+        voices.deleteByEngine(RETIRED_KITTEN_MINI_ENGINE)
+        val bundle = File(filesDir, "engines/$RETIRED_KITTEN_MINI_ENGINE")
+        if (bundle.exists()) bundle.deleteRecursively()
     }
 
     companion object {
@@ -269,7 +316,14 @@ class MarmaladeTtsApplication : Application() {
          *    serve both registers, and two thirds of the cloud voices carry no
          *    gender to resolve it from. `builtin:deadpan` and
          *    `builtin:next_room` are pruned.
+         *  - v31: 1.0.0-beta.1 — Kitten Mini (`kitten-direct-mini-v0_8`)
+         *    retired. Upstream KittenML only ever exported micro/mini 0.8 as
+         *    dynamic-int8, which is audibly worse *and* slower than the fp32
+         *    nano it was billed as a step up from. [retireKittenMini] runs on
+         *    this bump: aliases and the default voice move to the matching
+         *    Nano voice, the `voice_meta` rows go, and the on-disk bundle is
+         *    deleted.
          */
-        const val CATALOG_VERSION: Int = 30
+        const val CATALOG_VERSION: Int = 31
     }
 }

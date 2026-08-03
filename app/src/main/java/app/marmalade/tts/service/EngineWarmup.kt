@@ -3,7 +3,6 @@ package app.marmalade.tts.service
 import android.util.Log
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,7 +32,6 @@ import kotlinx.coroutines.launch
 class EngineWarmup @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
     private val kittenDirect: KittenDirectEngine,
-    private val kittenDirectMini: KittenDirectMiniEngine,
     private val pocket: PocketEngine,
 ) {
     // Application-lifetime scope; never cancelled (singletons live as long
@@ -47,7 +45,6 @@ class EngineWarmup @Inject constructor(
             val engines = listOf(
                 "kokoro-direct" to kokoroDirect,
                 "kitten-direct" to kittenDirect,
-                "kitten-direct-mini" to kittenDirectMini,
                 "pocket" to pocket,
             )
             for ((name, engine) in engines) {

@@ -14,10 +14,8 @@ import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kitten.KittenDirectMiniEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KittenDirectMiniVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
@@ -178,7 +176,6 @@ interface SpeechPlayer {
 @Singleton
 class Synthesizer @Inject constructor(
     private val kittenDirect: KittenDirectEngine,
-    private val kittenDirectMini: KittenDirectMiniEngine,
     private val kokoroDirect: KokoroDirectEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
@@ -446,7 +443,7 @@ class Synthesizer @Inject constructor(
         // settings (e.g. ONNX thread count) that are only read at load time.
         cancel()
         listOf(
-            kittenDirect, kittenDirectMini, kokoroDirect, pocket, pocketDev,
+            kittenDirect, kokoroDirect, pocket, pocketDev,
         ).forEach { runCatching { it.release() } }
     }
 
@@ -479,7 +476,6 @@ class Synthesizer @Inject constructor(
         return when (name) {
             KokoroDirectVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
-            KittenDirectMiniVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE,
             CloudApiVoiceCatalog.ENGINE -> name
@@ -491,7 +487,6 @@ class Synthesizer @Inject constructor(
     private fun engineFor(engineName: String): TtsEngine = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
-        KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev
         CloudApiVoiceCatalog.ENGINE -> cloudApi
@@ -517,7 +512,6 @@ class Synthesizer @Inject constructor(
         val stream = when (engineName) {
             KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            KittenDirectMiniVoiceCatalog.ENGINE -> kittenDirectMini.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
             CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
