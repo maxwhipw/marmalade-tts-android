@@ -655,37 +655,23 @@ class MarmaladeSynthService : Service() {
 
     private fun requestFocus(): Boolean {
         val am = audioManager ?: return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(attrs)
-                .setOnAudioFocusChangeListener(focusListener)
-                .setWillPauseWhenDucked(true)
-                .build()
-            focusRequest = req
-            am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            am.requestAudioFocus(
-                focusListener,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN,
-            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        }
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(attrs)
+            .setOnAudioFocusChangeListener(focusListener)
+            .setWillPauseWhenDucked(true)
+            .build()
+        focusRequest = req
+        return am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun releaseFocus() {
         val am = audioManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest?.let { am.abandonAudioFocusRequest(it) }
-            focusRequest = null
-        } else {
-            @Suppress("DEPRECATION")
-            am.abandonAudioFocus(focusListener)
-        }
+        focusRequest?.let { am.abandonAudioFocusRequest(it) }
+        focusRequest = null
     }
 
     // -- playback -------------------------------------------------------------
