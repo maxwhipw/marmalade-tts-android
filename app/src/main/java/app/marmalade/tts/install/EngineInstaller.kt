@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -327,6 +329,19 @@ open class EngineInstaller @Inject constructor(
     private val statesLock = Any()
 
     /**
+     * Per-engine lock serializing operations that mutate `engines/<name>` and
+     * `engines/<name>.tmp` — namely [installViaDescriptor] (download) and
+     * [seedFromAssets] (first-run asset copy). Without it the fire-and-forget
+     * first-run seed could interleave with an onboarding download on the same
+     * paths (racing `deleteRecursively`/`renameTo`) and clobber each other's
+     * state-flow value.
+     */
+    private val installMutexes = mutableMapOf<String, Mutex>()
+    private fun installMutex(engineName: String): Mutex = synchronized(installMutexes) {
+        installMutexes.getOrPut(engineName) { Mutex() }
+    }
+
+    /**
      * Returns a hot [Flow] of [InstallState] for [engineName]. The initial
      * value is computed eagerly by inspecting the on-disk engine directory:
      *
@@ -388,6 +403,7 @@ open class EngineInstaller @Inject constructor(
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val descriptor = EngineCatalog.byName(engineName)
             ?: return@withContext Result.success(Unit)
+        installMutex(engineName).withLock {
         val sf = stateFlow(engineName)
         val finalDir = engineDirFor(engineName)
         val scratchDir = scratchDirFor(engineName)
@@ -395,13 +411,13 @@ open class EngineInstaller @Inject constructor(
         // Already installed (downloaded or previously seeded) — leave it.
         if (verifyLayout(descriptor, finalDir) is InstallState.Installed) {
             sf.value = InstallState.Installed
-            return@withContext Result.success(Unit)
+            return@withLock Result.success(Unit)
         }
 
         val assetRoot = "$SEED_ASSET_DIR/$engineName"
         // No baked tree for this engine — nothing to do.
         if (assets.list(assetRoot).isNullOrEmpty()) {
-            return@withContext Result.success(Unit)
+            return@withLock Result.success(Unit)
         }
 
         if (scratchDir.exists()) scratchDir.deleteRecursively()
@@ -434,6 +450,7 @@ open class EngineInstaller @Inject constructor(
             sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
             Result.failure(if (t is IOException) t else IOException(t))
         }
+        } // installMutex.withLock
     }
 
     /**
@@ -470,6 +487,7 @@ open class EngineInstaller @Inject constructor(
         descriptor: EngineDescriptor,
         onProgress: (InstallState.Downloading) -> Unit,
     ): Result<Unit> = withContext(Dispatchers.IO) {
+      installMutex(descriptor.name).withLock {
         val engineName = descriptor.name
         val sf = stateFlow(engineName)
         val finalDir = engineDirFor(engineName)
@@ -609,6 +627,7 @@ open class EngineInstaller @Inject constructor(
             sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
             Result.failure(if (t is IOException) t else IOException(t))
         }
+      } // installMutex.withLock
     }
 
     /**

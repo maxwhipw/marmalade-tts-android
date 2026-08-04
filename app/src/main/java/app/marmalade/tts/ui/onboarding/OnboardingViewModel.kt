@@ -25,9 +25,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 
 // -----------------------------------------------------------------------------
@@ -71,6 +73,14 @@ import kotlinx.coroutines.launch
 //     ├── refuses while aliasCreated == false (no-op)
 //     └── settings.setOnboarded(true)
 // -----------------------------------------------------------------------------
+
+/**
+ * Max wait for the first-run baked-default seed to finish before onboarding
+ * decides whether to install (download) it. The seed copies ~58 MB from assets
+ * — a couple of seconds — so this only ever elapses if the seed genuinely
+ * failed, in which case the normal download path takes over.
+ */
+private const val SEED_WAIT_TIMEOUT_MS = 15_000L
 
 /** Five-step onboarding flow. */
 enum class OnboardingStep {
@@ -286,10 +296,23 @@ class OnboardingViewModel @Inject constructor(
      * before the final emission lands.
      */
     private suspend fun runInstall(engineName: String) {
+        // The baked default (Kitten) is seeded from APK assets by a
+        // fire-and-forget coroutine at app start. If the user reaches this
+        // step before that copy finishes, wait for it rather than racing it
+        // into a download — otherwise a fresh OFFLINE install would attempt a
+        // (failing) network fetch. Bounded so a genuine seed failure still
+        // falls through to the normal download path instead of hanging.
+        if (engineName == KittenDirectVoiceCatalog.ENGINE) {
+            // firstOrNull (not first): production's DataStore flow is infinite
+            // so it suspends until `true`; a finite test flow that only ever
+            // emits `false` returns null instead of throwing NoSuchElement.
+            withTimeoutOrNull(SEED_WAIT_TIMEOUT_MS) {
+                settings.bakedDefaultSeeded.firstOrNull { it }
+            }
+        }
         // Skip the download if the engine is already installed — notably the
-        // baked default (Kitten), seeded from APK assets at app start before
-        // onboarding is reached. Re-downloading it would need the network and
-        // defeat the "works offline on first run" guarantee.
+        // baked default just seeded above. Re-downloading it would need the
+        // network and defeat the "works offline on first run" guarantee.
         if (installer.verify(engineName) is InstallState.Installed) {
             updateInstallState(engineName, InstallState.Installed)
             return

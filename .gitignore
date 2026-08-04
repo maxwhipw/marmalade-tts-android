@@ -2,6 +2,14 @@
 *.apk
 *.aab
 *.ap_
+
+# Baked-engine seed assets are Apache-only (kitten.onnx + voices). The
+# espeak-ng-data is GPL-3.0-or-later and MUST NOT be committed — it's generated
+# at build time into build/generated/ (see tools/espeak-hostgen + the
+# generateEspeakData task). Guard against a manual "drop a full downloaded
+# bundle here + git add -A" mistake that would inject GPL into the MIT repo.
+app/src/main/assets/engines-seed/**/phonemizer/
+app/src/main/assets/engines-seed/**/espeak-ng-data/
 *.dex
 .gradle/
 local.properties

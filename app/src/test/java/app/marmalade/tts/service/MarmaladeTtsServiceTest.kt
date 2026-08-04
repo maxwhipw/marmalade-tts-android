@@ -356,7 +356,7 @@ class MarmaladeTtsServiceTest {
 
         // The request carries the catalog default — the auto-fill echo, not
         // a deliberate pick — so the kitten primary must win.
-        val request = newRequestWithVoice("hello", KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        val request = newRequestWithVoice("hello", KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
         assertEquals(1, fakeEngine.calls.size)
@@ -643,15 +643,16 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_unsupportedRequestLanguageKeepsTheDefaultVoice() {
-        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+        fakeEngine.nextPcm = ShortArray(1024)
 
         val request = newRequestWithLanguage("guten Tag", "deu", "DEU")
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        // No German voice exists → the engine default speaks, as before.
+        // No German voice exists → the default voice speaks. The default is
+        // now Kitten (baked, always present), so it routes to the kitten engine.
         assertEquals(
-            KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
-            fakeKokoroDirectEngine.calls.single().second,
+            KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
+            fakeEngine.calls.single().second,
         )
     }
 

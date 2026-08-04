@@ -73,7 +73,7 @@ import kotlinx.coroutines.withContext
 //     EXTRA_VOICE  (String, optional)   — voice id e.g.
 //                                          "kokoro-direct-v1_0:af_bella" or
 //                                          "kitten-direct-v0_8:Bella". Defaults
-//                                          to KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID.
+//                                          to KittenDirectVoiceCatalog.DEFAULT_VOICE_ID.
 //     EXTRA_SPEED  (Float, optional)    — length-scale style; 1.0 = native,
 //                                          > 1 = faster. Default 1.0.
 //     EXTRA_EFFECT (String, optional)   — EffectPreset name (NONE / CAVE /
@@ -274,7 +274,7 @@ class MarmaladeSynthService : Service() {
         // ':'); the explicit EXTRA_ENGINE wins if present so legacy
         // callers that send engine without voice still work.
         val explicitEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() }
-        val voice = explicitVoice ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
+        val voice = explicitVoice ?: KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
         val engineName = explicitEngine ?: engineFromVoiceId(voice)
         val speed = if (intent.hasExtra(EXTRA_SPEED)) {
             intent.getFloatExtra(EXTRA_SPEED, 1.0f)

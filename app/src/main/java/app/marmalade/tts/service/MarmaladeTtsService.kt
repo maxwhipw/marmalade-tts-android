@@ -435,7 +435,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // runBlocking is fine: this is a rare negotiation callback on a
         // binder thread, not the per-utterance synthesis hot path.
         return runBlocking { router.resolveAlias(null)?.voiceId }
-            ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
+            ?: KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
     }
 
     // Widened to public so MarmaladeTtsServiceTest can exercise the
@@ -770,7 +770,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             val deliberate = requested != null && (
                 primary == null ||
                     (requested != primary.voiceId &&
-                        requested != KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
+                        requested != KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
                 )
             if (requested != null && deliberate) {
                 val cachedEngine = voiceEngineCache[requested]?.engine
@@ -807,12 +807,15 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
         if (resolved != null) return applyClientRate(request, resolved)
 
-        // 4. Absolute fallback — the engine's default voice with
-        // unchanged speed and no effect. Matches v0.1.10 behaviour.
+        // 4. Absolute fallback — the engine's default voice with unchanged
+        // speed and no effect. Kitten (not Kokoro): it's baked into the APK,
+        // so it's the one engine guaranteed present even on a fresh offline
+        // install before any primary alias exists. A Kokoro fallback here
+        // would error on a baked-only install (Kokoro is an optional download).
         return applyClientRate(
             request,
             SynthParams(
-                voiceId = KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID,
+                voiceId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
                 speed = 1.0f,
                 effectBlocks = emptyList(),
             ),
