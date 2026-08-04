@@ -77,13 +77,12 @@ commit we submit. Green = done · amber = I/others can do · red = needs Max.</p
   Pocket QDQ parity). These change the shipped APK, so the release tag must include the final engine
   builds. This is the real "not quite ready yet" gate.</p></div></div>
 
-<div class="wstep max"><div class="hd"><span class="n">G4</span><span class="t">Versioning decision — go to 1.0.0 + a real scheme</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
-  <div class="body"><p>Recommendation (details in chat + KB): ship <b>1.0.0</b> (drop <code>-beta</code>;
-  the app is feature-complete and daily-usable — perpetual 0.x is a habit, not a rule), and adopt
-  <b><code>versionCode = MAJOR*10000 + MINOR*100 + PATCH</code></b> → 1.0.0 = <b>10000</b>. This
-  replaces the ad-hoc counter (we're at 33; 10000 &gt; 33 so it's a clean monotonic jump). Optional
-  now-or-never: reserve the lowest digit for ABI splits if we ever split the large native APK.
-  <b>Your call needed.</b></p></div></div>
+<div class="wstep done"><div class="hd"><span class="n">G4</span><span class="t">Versioning — DECIDED (1.0.0 + widened scheme, ABI reserved)</span><span class="tag done">done</span><span class="chev">▸</span></div>
+  <div class="body"><p>Ship <b>1.0.0</b> (feature-complete; perpetual 0.x is a habit, not a rule).
+  <code>versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI</code> → 1.0.0 universal =
+  <b>10000000</b>, ABI digit reserved from the start (0=universal … 4=x86_64, F-Droid sort order).
+  Widened to 3-digit MINOR/PATCH so a long patch run can't collide (ceiling is 2.1e9, so free).
+  Encode as a Gradle helper + comment; <b>apply at the 1.0.0 cut</b>, not now.</p></div></div>
 
 <h2 class="sec">R — Reproducible builds (new workstream, decided: do it)</h2>
 <p class="lede">Near one-way door: Android forbids a signing-key change without reinstall, so RB
@@ -111,12 +110,16 @@ F-Droid / GitHub / Obtainium share one signature and cross-update; higher supply
 
 <h2 class="sec">Decisions — status 2026-08-03</h2>
 <div class="note">
-<b>1. Versioning</b> (1.0.0 / versionCode 10000 + MAJOR*10000+MINOR*100+PATCH, ABI digit y/n) —
-<b>under review</b>: 3 Sonnet agents assessing; synthesis to follow before locking.<br>
-<b>2. Reproducible-build signing key</b> — <b>gated on key backup first.</b> Max's concern: not
-confident keys won't be lost. Get a rock-solid, cross-device, easy-to-use backup in place
-(KeePassXC or self-hosted Vaultwarden + 3-2-1) BEFORE committing to a permanent distribution key;
-then decide reuse <code>marmalade-upload.jks</code> vs mint dedicated.<br>
+<b>1. Versioning — DECIDED 2026-08-03</b> (3 Sonnet reviewers, Max approved): ship <b>1.0.0</b> at the
+finished tag; <code>versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI</code> →
+1.0.0 universal = <b>10000000</b> (reads as MAJOR|MINOR|PATCH|ABI, e.g. 2.15.7 arm64 = 20150072);
+ABI digit reserved now (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64). Encode as a Gradle helper
++ comment; apply at the 1.0.0 cut (not now — would bump in-flight engine builds). Safe: 32-bit int
+max 2.1e9, we're at 1e7.<br>
+<b>2. Reproducible-build signing key</b> — key-backup <b>in progress</b>: KeePassXC (keystore already
+attached to a vault entry) + a Syncthing <code>keys</code> folder now shared marmalade↔pixel-8a
+(accept on phone when it next connects). Optional 3rd location: share the folder with george.
+Then decide reuse <code>marmalade-upload.jks</code> vs mint a dedicated distribution key.<br>
 <b>3. Holding note to linsui</b> — <b>DEFERRED (Max): no note for now, revisit 2026-08-04.</b>
 Move fast instead.<br>
 <b>4. Sequence</b> — Max: "get it done quick." Order stands: finalize engines (G3) → lock versioning
