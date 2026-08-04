@@ -1,3 +1,68 @@
+# HANDOFF — Kitten baked as offline default + licensing verified, 2026-08-04 (branch `main`, UNPUSHED)
+
+## State (head `79edd4b`)
+
+Two threads landed this session; both code-complete, unit suite green (420),
+`assembleFdroidDebug` succeeds (~172 MB debug / ~107 MB release-equiv, under
+Play's 200 MB). **UNPUSHED** — github needs Max's all-clear.
+
+### 1. Licensing verified (3 agents converged) — the MIT-source / GPL-APK split is VALID
+Repo stays MIT + espeak-free; the distributed APK is GPL only because it links
+espeak. Full verdict + conditions in memory `espeak-repo-boundary`. Cleanups:
+`9458d22` (dead Play-Billing comment removed — verified no billing dep; espeak_jni
+MIT rationale corrected). Optional, NOT done (Max's call): a scope line on the
+root `LICENSE`.
+
+### 2. Kitten baked into the APK as the offline default (commits 97b7b1c, 6144b0a, 86e4d0c, 79edd4b)
+The default engine now works instantly + offline on first run — no download.
+- **Repo stays espeak-free**: only Apache-2.0 `kitten.onnx` + voices committed
+  under `app/src/main/assets/engines-seed/`. GPL `espeak-ng-data` is GENERATED
+  at build from the pinned submodule by `tools/espeak-hostgen/` (English-only,
+  ~2 MB) via the `generateEspeakData` Gradle task → `build/generated/`
+  (gitignored) → merged into APK assets. Offline/F-Droid-safe (bypasses the
+  submodule's libsonic FetchContent). Verified byte-identical to the shipped
+  v22 espeak data. `.gitignore` blocks `engines-seed/**/{phonemizer,espeak-ng-data}/`.
+- **Runtime**: `EngineInstaller.seedFromAssets` copies the tree on first run
+  (per-engine Mutex serializes vs downloads); gated on
+  `SettingsRepository.bakedDefaultSeeded` (one-time — a later uninstall stays
+  uninstalled). `verifyKittenDirectLayout` now checks core espeak files, not a
+  ≥100 count. **Kitten is the default + recommended engine** (voice fallback +
+  isRecommended flipped Kokoro→Kitten, incl. the system-TTS service fallbacks).
+  Onboarding waits for the seed before deciding, so offline first-run never
+  attempts a download.
+- **Adversarial review done** (Max's "do it correctly" ask): SHIP-WITH-FIXES;
+  the HIGH (service fallbacks) + 3 MED (race, gitignore) fixed in `79edd4b`.
+
+## NEXT (in priority order)
+
+1. **Offline clean-install DEVICE TEST** (the real proof, not yet run): fully
+   `adb uninstall app.marmalade.tts.debug`, install the fresh APK
+   (`app/build/outputs/apk/fdroid/debug/`), turn **wifi OFF**, launch, run
+   onboarding, confirm it speaks on first run with ZERO download. Watch
+   `logcat | grep -i "Seeded\|seedFromAssets"`. Needs Max's ADB port (rotates).
+   NEVER connectedAndroidTest; debug app only.
+2. **Deferred review follow-ups** (none block core correctness): (#5) a
+   Robolectric test for `seedFromAssets` (recursive copy / no-op-when-installed
+   / flag-set-on-success) — no coverage yet; (#6) the seed writes the catalog
+   descriptor's meta over the committed bytes — add a check that committed
+   `kitten.onnx`/voices stay in lockstep with `EngineCatalog.KITTEN_DIRECT`'s
+   version; (#7) `generateEspeakData` uses `exec{}` in `doLast` (breaks under
+   `--configuration-cache`, not currently enabled); the fdroiddata recipe needs
+   a host `cmake`+C toolchain + `submodules: true`; 55 MB `kitten.onnx` now in
+   git history (accepted).
+3. **Engine-select redesign lab** — Opus 5 built 4 directions (A1 compact rows /
+   A2 speed gauge / A3 spec columns / A4 hero badge), light+dark, at
+   http://<labs-server>/marmalade-tts-design/engine-select-lab.html. Files
+   UNCOMMITTED (design review first). Max picks a direction → implement.
+4. **Onboarding still installs the baked Kitten via the seed-then-skip path** —
+   works, but a future polish is to show Kitten as "included" rather than an
+   install row.
+
+Build: `./gradlew assembleFdroidDebug` · tests: `:app:testFdroidDebugUnitTest`
+(420 green). Regenerate espeak data alone: `./gradlew :app:generateEspeakData`.
+
+---
+
 # HANDOFF — V2 launcher icon SHIPPED, 2026-08-04 (branch `main`)
 
 ## State (head `6064c31`, UNPUSHED — 4 commits ahead of origin)
