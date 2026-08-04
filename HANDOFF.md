@@ -25,6 +25,7 @@ that shipped earlier the same day — that one is superseded, not in the build.
 | `docs/design/icon-art.js` | Shared path geometry — the labs and the generator both read it |
 | `app/src/main/res/drawable/ic_launcher_foreground.xml` | GENERATED, do not hand-edit |
 | `app/src/main/res/drawable/ic_launcher_background.xml` | GENERATED, do not hand-edit. **New** — the adaptive background moved from a colour resource to a drawable |
+| `app/src/main/res/drawable/ic_launcher_monochrome.xml` | GENERATED, do not hand-edit. Themed-icon layer, only used when the user enables themed icons |
 | `docs/release/play-assets/icon-512.png`, `fastlane/.../icon.png` | Rendered from `docs/design/assets/launcher-icon-512.svg` |
 | `docs/design/icon-v2-lab.html` | Live lab, all controls intact, defaults = the shipped recipe |
 
@@ -54,12 +55,19 @@ NOT a clean install, and `connectedAndroidTest` was not run).
   agent as a large flat jar filling the disc.
 
 ## Open / next
-- [ ] `app/src/main/res/values/colors.xml` now holds only the unreferenced
-      `ic_launcher_background` colour. Dead resource; deleting it was declined
-      this session.
-- [ ] No monochrome/themed-icon layer (there never was one) — Android 13+
-      themed launchers fall back to the full-colour icon. Worth adding; not
-      exercised on device this session.
+- [x] Dead code removed: `values/colors.xml` (its only entry, the
+      `ic_launcher_background` colour, went unreferenced when the background
+      became a drawable) and two unreachable `SDK_INT < 26` branches in
+      `MarmaladeSynthService` (minSdk is 28). 420 unit tests pass.
+      **Note:** lint also flags `mipmap-anydpi-v26` as an unnecessary
+      qualifier — that suggestion is WRONG. Renaming it to `mipmap-anydpi`
+      makes aapt fail to resolve `@mipmap/ic_launcher` at all. Tried, reverted;
+      don't retry.
+- [ ] **Themed icon added but NOT seen on device.** `ic_launcher_monochrome.xml`
+      is generated and ships in both flavours, but the wireless-adb session
+      dropped before it could be checked with themed icons enabled. Turn on
+      Settings > Wallpaper & style > Themed icons and confirm the silhouette
+      reads. The colour icon remains the default in every other case.
 - [ ] Idea from Max, not started: port the mascot geometry to a **Compose
       composable** for an animated in-app mascot (waves pulsing during
       synthesis, mouth switching to the speaking shape). `icon-art.js` is
