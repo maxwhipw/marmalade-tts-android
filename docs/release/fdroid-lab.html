@@ -89,18 +89,25 @@ commit we submit. Green = done · amber = I/others can do · red = needs Max.</p
 can't be enabled after first publishing F-Droid-signed. Max: "do it right the first time." Payoff:
 F-Droid / GitHub / Obtainium share one signature and cross-update; higher supply-chain trust.</p>
 
-<div class="wstep claude"><div class="hd"><span class="n">R1</span><span class="t">CI signs the release APK with apksigner + a stable release keystore</span><span class="tag claude">I set up</span><span class="chev">▸</span></div>
-  <div class="body"><p>The GitHub-released <code>fdroid</code>-flavor APK must be signed with a <b>stable
-  release keystore Max keeps</b> (NOT the Play upload key — Play re-signs — and not debug), using
-  <b>apksigner</b> (F-Droid copies signatures apksigner-style). We already have a release keystore
-  (<code>~/secure/marmalade-upload.jks</code>) — decide whether that key is the F-Droid/GitHub
-  distribution key too, or mint a dedicated one. <b>Once chosen it's permanent.</b></p></div></div>
+<div class="wstep max"><div class="hd"><span class="n">R1</span><span class="t">Fix the release CI — it has NEVER produced a signed APK</span><span class="tag max">needs Max + me</span><span class="chev">▸</span></div>
+  <div class="body"><p><b>Finding 2026-08-03:</b> <code>release.yml</code> is designed right (builds a
+  signed <code>fdroid</code> APK with the release key, attaches to the GitHub Release at a stable URL
+  + SHA256SUMS) — exactly the RB scaffolding. But it has <b>never worked</b>: (1) an empty
+  <code>${{ }}</code> in a <code>run:</code> comment caused a 0s "workflow file issue" startup failure
+  on every tag — <b>fixed 2026-08-03 (<code>1169c0f</code>, on Forgejo; needs a GitHub push to take
+  effect)</b>; (2) the <b>four signing secrets are not configured</b> on GitHub (verified empty) —
+  Max's one-time setup per <code>docs/release/CI-SIGNING.md</code> (needs the keystore password +
+  base64 of the jks). Until both land, <b>no signed APK ships on GitHub/Obtainium either</b> — this
+  was silently broken. Key decision resolved: <b>reuse <code>marmalade-upload.jks</code></b> (strong
+  PKCS12, now backed up) as the permanent F-Droid/GitHub distribution key.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">R2</span><span class="t">Recipe: <code>Binaries</code> + <code>AllowedAPKSigningKeys</code></span><span class="tag claude">I do</span><span class="chev">▸</span></div>
-  <div class="body"><p><code>Binaries: https://github.com/…/releases/download/%v/…_%v.apk</code> (a stable URL
-  pattern per release) and <code>AllowedAPKSigningKeys: &lt;sha256&gt;</code> from
-  <code>apksigner verify --print-certs</code>. Requires the release-asset URL scheme to be fixed
-  forever.</p></div></div>
+  <div class="body"><p><code>Binaries: https://github.com/maxwhipw/marmalade-tts-android/releases/download/v%v/marmalade-tts-%v-fdroid.apk</code>
+  (matches release.yml's existing asset naming) and <code>AllowedAPKSigningKeys: &lt;sha256&gt;</code>.
+  <b>Blocked on R1:</b> the fingerprint needs a release-key-signed APK — the only local build is
+  debug-signed (fell back with no <code>keystore.properties</code>). Get it via
+  <code>apksigner verify --print-certs</code> on the first real CI APK, or one
+  <code>keytool -list -v</code> on the keystore (the SHA-256 is public, safe to share).</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">R3</span><span class="t">Prove byte-for-byte reproducibility</span><span class="tag claude">I verify</span><span class="chev">▸</span></div>
   <div class="body"><p>Native code (NDK, ONNX, espeak) is the hard part. Verify locally with
