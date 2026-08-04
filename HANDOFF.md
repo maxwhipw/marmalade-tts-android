@@ -1,10 +1,72 @@
-# HANDOFF — Kitten baked as offline default + licensing verified, 2026-08-04 (branch `main`, UNPUSHED)
+# HANDOFF — Kitten baked default + licensing verified + A3 engine-select redesign, 2026-08-04 (branch `main`, UNPUSHED)
 
-## State (head `79edd4b`)
+## State (head `f9aca5b`)
 
-Two threads landed this session; both code-complete, unit suite green (420),
-`assembleFdroidDebug` succeeds (~172 MB debug / ~107 MB release-equiv, under
-Play's 200 MB). **UNPUSHED** — github needs Max's all-clear.
+Three threads landed this session; all code-complete, unit suite green (423),
+`assembleFdroidDebug` succeeds (~174 MB debug / ~107 MB release-equiv, under
+Play's 200 MB). **UNPUSHED** — github needs Max's explicit all-clear (many
+commits now, incl. a concurrent icon/i18n session's — review `git log` before
+any push).
+
+## OPEN ITEMS (next session — priority order)
+
+1. **Two device tests (both need Max present + the ADB port — it rotates):**
+   - **A3 visual review** — see the new engine-select cards + the languages
+     info button on device (this session's UI change; not yet seen on hardware).
+     APK is built at `app/build/outputs/apk/fdroid/debug/`.
+   - **Offline clean-install bake test** (the real proof): `adb uninstall
+     app.marmalade.tts.debug`, reinstall, **wifi OFF**, run onboarding, confirm
+     it speaks on first run with ZERO download. Watch `logcat | grep -i
+     "Seeded\|seedFromAssets"`. Debug app ONLY; never connectedAndroidTest.
+2. **A3 judgment calls for Max's eye** (agent flagged, all defensible): speed
+   meter uses `colorScheme.tertiary` (mode-aware amber/peach), NOT a hardcoded
+   peach hex — exact-peach is a one-line brand-color add if wanted; the
+   "Recommended" pill reuses the existing all-caps string (lab showed title
+   case); selection checkbox stays M3 primary/orange.
+3. **Deferred bake-review follow-ups** (none block correctness): a Robolectric
+   test for `seedFromAssets`; a check keeping the committed `kitten.onnx`/voices
+   in lockstep with `EngineCatalog.KITTEN_DIRECT`'s version; `generateEspeakData`
+   uses `exec{}` in `doLast` (fine now — config cache isn't enabled — but breaks
+   under `--configuration-cache`); the fdroiddata recipe needs a host `cmake`+C
+   toolchain + `submodules: true`.
+4. **Pocket opening-thump prompt-clean fix** — still OPEN (independent of the
+   closed quant question). Clean the `voices/*.wav` (voice-prompt low-band
+   leakage; recipe in `~/coding/scratch/pocket-qdq/REPORT.md`); **alba's
+   aggressively-cleaned timbre still needs Max's ear** (lab section 2).
+5. **Store listing copy** — the promotion note (multilingual + the 9 locales)
+   is in `docs/release/PLAY-RELEASE-PLAN.md` Phase 3; the actual `fastlane`
+   copy still needs writing/fixing (also: earlier note that short/full desc
+   "No cloud"/"never leaves your phone" is FALSE since the API engine). **Final
+   public copy needs Max's sign-off.**
+6. **Engine-select lab** (`docs/design/engine-select-lab.html`, + `labs.json`)
+   is UNCOMMITTED — design is decided (A3), so commit it as the decision record
+   or leave it; Max's call.
+
+## ACKNOWLEDGED GOTCHAS / STANDING RULES (do not relearn the hard way)
+
+- **github push needs Max's explicit all-clear, EVERY time** (public surface).
+  Never `git push origin`/Forgejo by hand. Review the diff for internal hosts
+  first (use `<labs-server>`/`<phone-ip>` placeholders in committed docs).
+- **Repo MUST stay espeak-free / MIT.** GPL espeak enters ONLY at build
+  (submodule→`.so`, and now the generated espeak-ng-data). NEVER commit
+  `espeak-ng-data` (a full Kitten bundle contains it; `.gitignore` guards the
+  seed dir). The MIT-source / GPL-APK split is VERIFIED valid (memory
+  `espeak-repo-boundary`) — keep it: MIT-inbound only, never `#include`/paste
+  espeak into a Marmalade file, keep the submodule pinned to tag 1.52.0.
+- **Max's daily driver is the RELEASE app** (`app.marmalade.tts`). NEVER
+  uninstall it, NEVER `connectedAndroidTest` (wipes engines + config). The
+  **debug** app (`app.marmalade.tts.debug`) is disposable.
+- **Never retune the Trailer effect preset** (signed off 2026-07-26). Any
+  built-in effect-chain change bumps `CATALOG_VERSION` and **must be mirrored in
+  the CLI** (`marmalade-tts-cli`) — presets live in both, change together.
+- **Pocket: keep shipping dynamic int8** (QDQ-parity question CLOSED with device
+  data 2026-08-04). Pocket **streaming is already fully on**. Kitten is the
+  **baked default**, Bella the default voice.
+- **Kokoro ships fp32 or our selective-QDQ v23** — never the int8 v1.0
+  (unblessed, tinny).
+- Big scratch under `~/coding/scratch/`, never `/tmp` (7.7G tmpfs).
+
+## What landed this session
 
 ### 1. Licensing verified (3 agents converged) — the MIT-source / GPL-APK split is VALID
 Repo stays MIT + espeak-free; the distributed APK is GPL only because it links
@@ -33,33 +95,27 @@ The default engine now works instantly + offline on first run — no download.
 - **Adversarial review done** (Max's "do it correctly" ask): SHIP-WITH-FIXES;
   the HIGH (service fallbacks) + 3 MED (race, gitignore) fixed in `79edd4b`.
 
-## NEXT (in priority order)
-
-1. **Offline clean-install DEVICE TEST** (the real proof, not yet run): fully
-   `adb uninstall app.marmalade.tts.debug`, install the fresh APK
-   (`app/build/outputs/apk/fdroid/debug/`), turn **wifi OFF**, launch, run
-   onboarding, confirm it speaks on first run with ZERO download. Watch
-   `logcat | grep -i "Seeded\|seedFromAssets"`. Needs Max's ADB port (rotates).
-   NEVER connectedAndroidTest; debug app only.
-2. **Deferred review follow-ups** (none block core correctness): (#5) a
-   Robolectric test for `seedFromAssets` (recursive copy / no-op-when-installed
-   / flag-set-on-success) — no coverage yet; (#6) the seed writes the catalog
-   descriptor's meta over the committed bytes — add a check that committed
-   `kitten.onnx`/voices stay in lockstep with `EngineCatalog.KITTEN_DIRECT`'s
-   version; (#7) `generateEspeakData` uses `exec{}` in `doLast` (breaks under
-   `--configuration-cache`, not currently enabled); the fdroiddata recipe needs
-   a host `cmake`+C toolchain + `submodules: true`; 55 MB `kitten.onnx` now in
-   git history (accepted).
-3. **Engine-select redesign lab** — Opus 5 built 4 directions (A1 compact rows /
-   A2 speed gauge / A3 spec columns / A4 hero badge), light+dark, at
-   http://<labs-server>/marmalade-tts-design/engine-select-lab.html. Files
-   UNCOMMITTED (design review first). Max picks a direction → implement.
-4. **Onboarding still installs the baked Kitten via the seed-then-skip path** —
-   works, but a future polish is to show Kitten as "included" rather than an
-   install row.
+### 3. A3 "spec columns" engine-select redesign (commit `f9aca5b`)
+Max reviewed the 4-direction lab and picked **A3**. Both the onboarding engine
+picker AND the Engines tab now use a shared `EngineSpecColumn`: left column
+(checkbox, name, Recommended pill, one `tagline` line, demoted size) + fixed
+right spec column stacking **Speed / Quality / Languages**. Speed is the hero
+(tier word + 3-segment meter). espeak/phonemizer prose is gone from the resting
+card; the license summary moved behind "Show more" on the Engines tab.
+- `EngineDescriptor` gained `speedTier`/`qualityTier`/`languageCodes`/`tagline`
+  (one source of truth). Kitten=FASTEST/NATURAL/en, Kokoro=FAST/BEST_OVERALL/9
+  locales, Pocket=HEAVY/MOST_EXPRESSIVE/en.
+- **Languages info button** (Max's ask): Kokoro's "9 languages" opens a
+  TalkBack-navigable dialog listing them — English (US), English (UK), Spanish,
+  French, Italian, Hindi, Portuguese (Brazil), Japanese, Mandarin. It's "9"
+  because US/UK English count separately. A new test
+  (`kokoroLanguageCodesMatchVoiceCatalog`) pins those to
+  `KokoroDirectVoiceCatalog` so the count can't silently drift.
+- New UI strings resourced + translated across all 7 locales. Also added the
+  **multilingual promotion note** (commit `c7e34c2`) to `PLAY-RELEASE-PLAN.md`.
 
 Build: `./gradlew assembleFdroidDebug` · tests: `:app:testFdroidDebugUnitTest`
-(420 green). Regenerate espeak data alone: `./gradlew :app:generateEspeakData`.
+(423 green). Regenerate espeak data alone: `./gradlew :app:generateEspeakData`.
 
 ---
 
