@@ -137,4 +137,32 @@
     <string name="pocket_bench_ar_ms">AR चरण %1$.1f ms</string>
     <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d चरण  ·  कंडीशनिंग %3$d ms</string>
     <string name="pocket_bench_no_bundle">bundle.json नहीं मिला — Pocket इंजन इंस्टॉल करें या उसे files/pocket-quant/ में डालें</string>
+
+    <!-- इंजन-चयन स्पेक कॉलम (A3) -->
+    <string name="engine_spec_speed">गति</string>
+    <string name="engine_spec_quality">गुणवत्ता</string>
+    <string name="engine_spec_languages">भाषाएँ</string>
+    <string name="engine_speed_fastest">सबसे तेज़</string>
+    <string name="engine_speed_fast">तेज़</string>
+    <string name="engine_speed_heavy">भारी</string>
+    <string name="engine_quality_natural">स्वाभाविक</string>
+    <string name="engine_quality_best">कुल मिलाकर सर्वश्रेष्ठ</string>
+    <string name="engine_quality_expressive">सर्वाधिक अभिव्यंजक</string>
+    <plurals name="engine_languages_count">
+        <item quantity="one">%1$d भाषा</item>
+        <item quantity="other">%1$d भाषाएँ</item>
+    </plurals>
+    <string name="engine_languages_info_cd">समर्थित भाषाएँ दिखाएँ</string>
+    <string name="engine_languages_dialog_title">समर्थित भाषाएँ</string>
+    <string name="engine_languages_dialog_close">बंद करें</string>
+    <string name="language_english">अंग्रेज़ी</string>
+    <string name="language_en_us">अंग्रेज़ी (अमेरिकी)</string>
+    <string name="language_en_gb">अंग्रेज़ी (ब्रिटिश)</string>
+    <string name="language_es">स्पेनिश</string>
+    <string name="language_fr">फ़्रेंच</string>
+    <string name="language_it">इतालवी</string>
+    <string name="language_hi">हिन्दी</string>
+    <string name="language_pt_br">पुर्तगाली (ब्राज़ील)</string>
+    <string name="language_ja">जापानी</string>
+    <string name="language_zh">मैंडरिन चीनी</string>
 </resources>

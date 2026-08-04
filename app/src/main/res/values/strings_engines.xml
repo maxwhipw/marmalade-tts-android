@@ -10,6 +10,34 @@
     <string name="engines_downloading_progress">Downloading · %1$s / %2$s</string>
     <string name="engines_installing_progress">Installing · %1$s / %2$s</string>
 
+    <!-- A3 engine-select spec columns (shared: onboarding picker + Engines tab) -->
+    <string name="engine_spec_speed">Speed</string>
+    <string name="engine_spec_quality">Quality</string>
+    <string name="engine_spec_languages">Languages</string>
+    <string name="engine_speed_fastest">Fastest</string>
+    <string name="engine_speed_fast">Fast</string>
+    <string name="engine_speed_heavy">Heavy</string>
+    <string name="engine_quality_natural">Natural</string>
+    <string name="engine_quality_best">Best overall</string>
+    <string name="engine_quality_expressive">Most expressive</string>
+    <plurals name="engine_languages_count">
+        <item quantity="one">%1$d language</item>
+        <item quantity="other">%1$d languages</item>
+    </plurals>
+    <string name="engine_languages_info_cd">Show supported languages</string>
+    <string name="engine_languages_dialog_title">Supported languages</string>
+    <string name="engine_languages_dialog_close">Close</string>
+    <string name="language_english">English</string>
+    <string name="language_en_us">English (US)</string>
+    <string name="language_en_gb">English (UK)</string>
+    <string name="language_es">Spanish</string>
+    <string name="language_fr">French</string>
+    <string name="language_it">Italian</string>
+    <string name="language_hi">Hindi</string>
+    <string name="language_pt_br">Portuguese (Brazil)</string>
+    <string name="language_ja">Japanese</string>
+    <string name="language_zh">Mandarin Chinese</string>
+
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>
     <string name="engines_engine_settings">Engine settings</string>

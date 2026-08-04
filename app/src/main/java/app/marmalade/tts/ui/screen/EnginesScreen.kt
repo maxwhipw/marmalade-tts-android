@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
@@ -30,6 +31,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.ui.components.EngineSpecColumn
 import app.marmalade.tts.ui.onboarding.formatBytes
 
 // -----------------------------------------------------------------------------
@@ -185,91 +187,86 @@ private fun EngineCard(
     onRetry: () -> Unit,
     onEngineSettings: () -> Unit,
 ) {
-    // Collapsed resting state stays light: a 2-line description plus
-    // the download sizes (which inform the install decision). "Show
-    // more" reveals the full description and the license details —
-    // the license legalese is too verbose to sit in the resting card.
+    // Resting card leads with the A3 spec column (Speed / Quality / Languages)
+    // + one line of prose + the download/installed sizes. "Show more" reveals
+    // the full description and the license — the GPL disclosure has to stay
+    // reachable for install consent, but it's too verbose to sit in the resting
+    // card (it's also on the install-confirm dialog and Settings → About →
+    // Licenses).
     var expanded by remember(engine.name) { mutableStateOf(false) }
 
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Name, description, sizes and license are one thing to read, so
-            // they're one accessibility stop rather than six. The expand
-            // toggle rides along as that stop's action — the inner Texts stay
-            // tappable for sighted users but no longer focus individually.
-            val expandLabel = stringResource(
-                if (expanded) R.string.engines_show_less else R.string.engines_show_more,
-            )
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        onClick(label = expandLabel) {
-                            expanded = !expanded
-                            true
-                        }
-                    },
+                    .height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Header row: display name + a status chip on the right.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = engine.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    // The "Developer" tag occupies the slot the install-state chip
-                    // used to — the install/uninstall/update buttons below already
-                    // communicate download state, so the status chip was redundant.
-                    // Only the legacy sherpa engines carry a tag; production engines
-                    // leave the slot empty.
-                    if (engine.developerOnly) {
-                        DeveloperBadge()
+                Column(modifier = Modifier.weight(1f)) {
+                    // Header row: display name + an optional developer tag.
+                    // The install/uninstall/update buttons below communicate
+                    // download state, so no status chip here. Only the legacy
+                    // sherpa engines carry a tag; production engines leave the
+                    // slot empty.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = engine.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (engine.developerOnly) {
+                            DeveloperBadge()
+                        }
                     }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = engine.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expanded = !expanded },
-                )
-                Text(
-                    text = expandLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .clickable { expanded = !expanded },
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = stringResource(
-                        R.string.engines_size_summary,
-                        formatBytes(engine.downloadSizeBytes),
-                        formatBytes(engine.installedSizeBytes),
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // License details live behind "Show more" — present for the
-                // install-consent UX (esp. GPL disclosure) without cluttering
-                // the resting card.
-                if (expanded) {
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        text = engine.licenseSummary,
+                        text = engine.tagline,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.engines_size_summary,
+                            formatBytes(engine.downloadSizeBytes),
+                            formatBytes(engine.installedSizeBytes),
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Spacer(Modifier.width(12.dp))
+                VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                Spacer(Modifier.width(12.dp))
+                EngineSpecColumn(engine = engine)
+            }
+
+            // Show more → full description + license details (install consent).
+            Text(
+                text = stringResource(
+                    if (expanded) R.string.engines_show_less else R.string.engines_show_more,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable { expanded = !expanded },
+            )
+            if (expanded) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = engine.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = engine.licenseSummary,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // In-progress strip + label. Kept identical to the v0.1.10

@@ -394,6 +394,10 @@ class EngineInstallerTest {
         ),
         licenseNotice = "n/a",
         licenseSummary = "n/a",
+        tagline = "test engine",
+        speedTier = SpeedTier.FAST,
+        qualityTier = QualityTier.NATURAL,
+        languageCodes = listOf("en"),
     )
 
     companion object {

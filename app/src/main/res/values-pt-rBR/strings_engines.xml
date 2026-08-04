@@ -137,4 +137,32 @@
     <string name="pocket_bench_ar_ms">Passo AR %1$.1f ms</string>
     <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d passos  ·  cond %3$d ms</string>
     <string name="pocket_bench_no_bundle">bundle.json não encontrado — instale o motor Pocket ou copie-o para files/pocket-quant/</string>
+
+    <!-- Colunas de especificações do seletor de motores (A3) -->
+    <string name="engine_spec_speed">Velocidade</string>
+    <string name="engine_spec_quality">Qualidade</string>
+    <string name="engine_spec_languages">Idiomas</string>
+    <string name="engine_speed_fastest">Ultrarrápido</string>
+    <string name="engine_speed_fast">Rápido</string>
+    <string name="engine_speed_heavy">Pesado</string>
+    <string name="engine_quality_natural">Natural</string>
+    <string name="engine_quality_best">Melhor no geral</string>
+    <string name="engine_quality_expressive">Mais expressivo</string>
+    <plurals name="engine_languages_count">
+        <item quantity="one">%1$d idioma</item>
+        <item quantity="other">%1$d idiomas</item>
+    </plurals>
+    <string name="engine_languages_info_cd">Mostrar idiomas compatíveis</string>
+    <string name="engine_languages_dialog_title">Idiomas compatíveis</string>
+    <string name="engine_languages_dialog_close">Fechar</string>
+    <string name="language_english">Inglês</string>
+    <string name="language_en_us">Inglês (EUA)</string>
+    <string name="language_en_gb">Inglês (Reino Unido)</string>
+    <string name="language_es">Espanhol</string>
+    <string name="language_fr">Francês</string>
+    <string name="language_it">Italiano</string>
+    <string name="language_hi">Híndi</string>
+    <string name="language_pt_br">Português (Brasil)</string>
+    <string name="language_ja">Japonês</string>
+    <string name="language_zh">Chinês mandarim</string>
 </resources>

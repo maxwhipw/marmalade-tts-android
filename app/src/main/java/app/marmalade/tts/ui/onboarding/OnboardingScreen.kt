@@ -7,8 +7,10 @@ import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -46,6 +49,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -74,6 +79,7 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.ui.components.EngineSpecColumn
 import app.marmalade.tts.ui.components.JarMascot
 import app.marmalade.tts.ui.components.JarMascotState
 
@@ -334,6 +340,14 @@ private fun EnginePickStep(
     }
 }
 
+/**
+ * A3 "spec columns" engine card. Left: checkbox + name (+ Recommended pill) +
+ * one honest line of prose + a demoted download size. Right: the shared
+ * [EngineSpecColumn] stacking Speed / Quality / Languages so the three engines
+ * compare axis-to-axis down the list. The espeak/phonemizer/license prose is
+ * gone from the resting card — the license still lives on the Engines-tab card
+ * (behind "Show more") and in Settings → About → Licenses.
+ */
 @Composable
 private fun EngineCard(
     engine: EngineDescriptor,
@@ -359,9 +373,15 @@ private fun EngineCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp)
+                .height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = null,
+            )
+            Spacer(Modifier.size(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -370,40 +390,50 @@ private fun EngineCard(
                         fontWeight = FontWeight.SemiBold,
                     )
                     if (engine.isRecommended) {
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            text = stringResource(R.string.onboarding_recommended),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        Spacer(Modifier.size(6.dp))
+                        RecommendedTag()
                     }
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = engine.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = engine.tagline,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = stringResource(
                         R.string.onboarding_download_size,
                         formatBytes(engine.downloadSizeBytes),
                     ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    text = engine.licenseSummary,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = null,
-            )
+            Spacer(Modifier.size(12.dp))
+            VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            Spacer(Modifier.size(12.dp))
+            EngineSpecColumn(engine = engine)
         }
     }
+}
+
+/**
+ * Small "Recommended" pill. Toast-family container (never the precious accent
+ * orange) so it stays warm without flooding the card.
+ */
+@Composable
+private fun RecommendedTag() {
+    Text(
+        text = stringResource(R.string.onboarding_recommended),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
 }
 
 // -- step 3 -----------------------------------------------------------------

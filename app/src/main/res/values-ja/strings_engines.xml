@@ -136,4 +136,31 @@
     <string name="pocket_bench_ar_ms">AR ステップ %1$.1f ms</string>
     <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d ステップ  ·  条件付け %3$d ms</string>
     <string name="pocket_bench_no_bundle">bundle.json が見つかりません — Pocket エンジンをインストールするか files/pocket-quant/ に配置してください</string>
+
+    <!-- エンジン選択のスペック列 (A3) -->
+    <string name="engine_spec_speed">速度</string>
+    <string name="engine_spec_quality">品質</string>
+    <string name="engine_spec_languages">言語</string>
+    <string name="engine_speed_fastest">最速</string>
+    <string name="engine_speed_fast">高速</string>
+    <string name="engine_speed_heavy">重い</string>
+    <string name="engine_quality_natural">自然</string>
+    <string name="engine_quality_best">総合的に最高</string>
+    <string name="engine_quality_expressive">最も表現豊か</string>
+    <plurals name="engine_languages_count">
+        <item quantity="other">%1$d 言語</item>
+    </plurals>
+    <string name="engine_languages_info_cd">対応言語を表示</string>
+    <string name="engine_languages_dialog_title">対応言語</string>
+    <string name="engine_languages_dialog_close">閉じる</string>
+    <string name="language_english">英語</string>
+    <string name="language_en_us">英語（米国）</string>
+    <string name="language_en_gb">英語（英国）</string>
+    <string name="language_es">スペイン語</string>
+    <string name="language_fr">フランス語</string>
+    <string name="language_it">イタリア語</string>
+    <string name="language_hi">ヒンディー語</string>
+    <string name="language_pt_br">ポルトガル語（ブラジル）</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_zh">中国語（標準語）</string>
 </resources>

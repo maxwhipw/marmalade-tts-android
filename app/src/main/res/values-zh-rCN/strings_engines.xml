@@ -136,4 +136,31 @@
     <string name="pocket_bench_ar_ms">AR 步 %1$.1f ms</string>
     <string name="pocket_bench_detail">p90 %1$.1f ms  ·  %2$d 步  ·  条件化 %3$d ms</string>
     <string name="pocket_bench_no_bundle">未找到 bundle.json — 请安装 Pocket 引擎或将其推送到 files/pocket-quant/</string>
+
+    <!-- 引擎选择规格栏 (A3) -->
+    <string name="engine_spec_speed">速度</string>
+    <string name="engine_spec_quality">质量</string>
+    <string name="engine_spec_languages">语言</string>
+    <string name="engine_speed_fastest">最快</string>
+    <string name="engine_speed_fast">快速</string>
+    <string name="engine_speed_heavy">重载</string>
+    <string name="engine_quality_natural">自然</string>
+    <string name="engine_quality_best">综合最佳</string>
+    <string name="engine_quality_expressive">最富表现力</string>
+    <plurals name="engine_languages_count">
+        <item quantity="other">%1$d 种语言</item>
+    </plurals>
+    <string name="engine_languages_info_cd">显示支持的语言</string>
+    <string name="engine_languages_dialog_title">支持的语言</string>
+    <string name="engine_languages_dialog_close">关闭</string>
+    <string name="language_english">英语</string>
+    <string name="language_en_us">英语（美国）</string>
+    <string name="language_en_gb">英语（英国）</string>
+    <string name="language_es">西班牙语</string>
+    <string name="language_fr">法语</string>
+    <string name="language_it">意大利语</string>
+    <string name="language_hi">印地语</string>
+    <string name="language_pt_br">葡萄牙语（巴西）</string>
+    <string name="language_ja">日语</string>
+    <string name="language_zh">普通话</string>
 </resources>

@@ -53,6 +53,33 @@ data class EngineArchive(
 )
 
 /**
+ * Relative synthesis-speed tier — the hero axis on the engine-select card
+ * (the "A3 spec columns" design). [meterFill] is how many of the card's
+ * three meter segments light up.
+ */
+enum class SpeedTier(val meterFill: Int) {
+    FASTEST(3),
+    FAST(2),
+    HEAVY(1),
+}
+
+/**
+ * How an engine's output quality is framed on the card. Deliberately NOT a
+ * linear ranking — each engine leads on a different strength, so the "heavy"
+ * Pocket engine is "most expressive", never "worst".
+ */
+enum class QualityTier {
+    /** Kitten — good, natural. */
+    NATURAL,
+
+    /** Kokoro — best all-round quality + widest language coverage. */
+    BEST_OVERALL,
+
+    /** Pocket — most expressive, characterful English. */
+    MOST_EXPRESSIVE,
+}
+
+/**
  * Description of a downloadable engine bundle.
  *
  * Static metadata only — no I/O. The installer + UI both consume this; it
@@ -90,6 +117,22 @@ data class EngineArchive(
  *                             shown on the license expand panel.
  * @property licenseSummary    One-liner shown on the install card, e.g.
  *                             "Includes GPL-3.0 components (espeak-ng)."
+ * @property tagline           Short one-line pitch shown on the spec-column
+ *                             engine card. This is the residual prose after
+ *                             the structured Speed/Quality/Languages chrome
+ *                             takes over the card — English-only by design,
+ *                             like [description].
+ * @property speedTier         Relative synthesis-speed tier — the hero axis
+ *                             on the engine-select card.
+ * @property qualityTier       How this engine's output quality is framed (a
+ *                             strength, not a ranking).
+ * @property languageCodes     BCP-47 codes this engine can speak. Size 1 →
+ *                             the card shows the single language's name; size
+ *                             > 1 → it shows "<n> languages" with an info
+ *                             affordance that lists them. For Kokoro this must
+ *                             match the distinct locales in
+ *                             [app.marmalade.tts.data.KokoroDirectVoiceCatalog]
+ *                             (pinned by EngineCatalogTest).
  */
 data class EngineDescriptor(
     val name: String,
@@ -101,6 +144,10 @@ data class EngineDescriptor(
     val archive: EngineArchive,
     val licenseNotice: String,
     val licenseSummary: String,
+    val tagline: String,
+    val speedTier: SpeedTier,
+    val qualityTier: QualityTier,
+    val languageCodes: List<String>,
     val developerOnly: Boolean = false,
 ) {
     init {
@@ -165,6 +212,10 @@ object EngineCatalog {
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
         licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
+        tagline = "The quickest to start speaking, and the smallest download.",
+        speedTier = SpeedTier.FASTEST,
+        qualityTier = QualityTier.NATURAL,
+        languageCodes = listOf("en"),
     )
 
     /**
@@ -218,6 +269,17 @@ object EngineCatalog {
         licenseNotice = "LICENSES/kokoro-direct.md",
         licenseSummary = "Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); " +
             "European langs phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
+        tagline = "The widest language coverage and the best all-round voices.",
+        speedTier = SpeedTier.FAST,
+        qualityTier = QualityTier.BEST_OVERALL,
+        // The nine distinct locales KokoroDirectVoiceCatalog exposes. American
+        // and British English count separately, which is why it's 9 and not 8.
+        // Ordered for the info dialog: English (US/UK), then Spanish, French,
+        // Italian, Hindi, Portuguese (Brazil), Japanese, Mandarin. Pinned to
+        // the voice catalog by EngineCatalogTest.
+        languageCodes = listOf(
+            "en-US", "en-GB", "es-ES", "fr-FR", "it-IT", "hi-IN", "pt-BR", "ja-JP", "zh-CN",
+        ),
     )
 
     /**
@@ -262,6 +324,10 @@ object EngineCatalog {
         licenseNotice = "LICENSES/pocket-tts.md",
         licenseSummary = "MIT model code + MIT runtime (onnxruntime-android); " +
             "voices CC0 / CC-BY-4.0. No GPL components.",
+        tagline = "The most expressive, characterful English voices.",
+        speedTier = SpeedTier.HEAVY,
+        qualityTier = QualityTier.MOST_EXPRESSIVE,
+        languageCodes = listOf("en"),
     )
 
     /**
@@ -297,6 +363,10 @@ object EngineCatalog {
         licenseNotice = "LICENSES/pocket-tts.md",
         licenseSummary = "MIT model code + MIT runtime; voices CC0 / CC-BY-4.0. " +
             "Diagnostic build — same bundle as Pocket TTS.",
+        tagline = "Diagnostic clean-room build of the Pocket TTS pipeline.",
+        speedTier = SpeedTier.HEAVY,
+        qualityTier = QualityTier.MOST_EXPRESSIVE,
+        languageCodes = listOf("en"),
     )
 
     /**

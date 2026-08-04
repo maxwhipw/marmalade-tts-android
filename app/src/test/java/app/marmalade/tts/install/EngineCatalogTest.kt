@@ -1,5 +1,6 @@
 package app.marmalade.tts.install
 
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -232,6 +233,10 @@ class EngineCatalogTest {
                 ),
                 licenseNotice = "",
                 licenseSummary = "",
+                tagline = "",
+                speedTier = SpeedTier.FAST,
+                qualityTier = QualityTier.NATURAL,
+                languageCodes = listOf("en"),
             )
             throw AssertionError("expected IllegalArgumentException for empty archive url")
         } catch (_: IllegalArgumentException) {
@@ -256,10 +261,61 @@ class EngineCatalogTest {
                 ),
                 licenseNotice = "",
                 licenseSummary = "",
+                tagline = "",
+                speedTier = SpeedTier.FAST,
+                qualityTier = QualityTier.NATURAL,
+                languageCodes = listOf("en"),
             )
             throw AssertionError("expected IllegalArgumentException for zero archive size")
         } catch (_: IllegalArgumentException) {
             // pass
+        }
+    }
+
+    // -- A3 spec-column data ------------------------------------------------
+
+    @Test
+    fun kokoroLanguageCodesMatchVoiceCatalog() {
+        // The languages the Kokoro card advertises (and its info dialog lists)
+        // must be exactly the distinct locales its voice catalog exposes — so
+        // "9 languages" can never drift from what the engine actually speaks.
+        // American + British English count separately, which is why it's 9.
+        val fromVoices = KokoroDirectVoiceCatalog.voices
+            .map { it.languageCode }
+            .toSet()
+        val fromDescriptor = EngineCatalog.byName("kokoro-direct-v1_0")!!.languageCodes
+        assertEquals(
+            "Kokoro descriptor languageCodes must match the voice catalog's distinct locales",
+            fromVoices,
+            fromDescriptor.toSet(),
+        )
+        assertEquals(
+            "no duplicate language codes on the Kokoro descriptor",
+            fromDescriptor.size,
+            fromDescriptor.toSet().size,
+        )
+        assertEquals("Kokoro should advertise 9 languages", 9, fromDescriptor.size)
+    }
+
+    @Test
+    fun speedTiersMatchTheDesign() {
+        // The A3 spec-column card leads with speed; pin the tier per engine so
+        // a stray edit can't silently demote the fastest default.
+        assertEquals(SpeedTier.FASTEST, EngineCatalog.byName("kitten-direct-v0_8")!!.speedTier)
+        assertEquals(SpeedTier.FAST, EngineCatalog.byName("kokoro-direct-v1_0")!!.speedTier)
+        assertEquals(SpeedTier.HEAVY, EngineCatalog.byName("pocket-tts-en-v2026_04")!!.speedTier)
+    }
+
+    @Test
+    fun singleLanguageEnginesHaveExactlyOneCode() {
+        // Kitten + Pocket are English-only; their card shows the language name,
+        // not a count, so they must carry exactly one code.
+        for (name in listOf("kitten-direct-v0_8", "pocket-tts-en-v2026_04")) {
+            assertEquals(
+                "$name should advertise exactly one language",
+                1,
+                EngineCatalog.byName(name)!!.languageCodes.size,
+            )
         }
     }
 }
