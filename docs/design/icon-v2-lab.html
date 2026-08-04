@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — V2 Sound-Waves Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<script src="icon-art.js"></script>
+<style>
+  .ctrls{display:grid;gap:18px;margin:10px 0 4px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row > .lbl{font-family:var(--mono);font-size:12px;color:var(--dimmer);
+      text-transform:uppercase;letter-spacing:.1em;width:100px;flex:none}
+  .opt{display:flex;align-items:center;gap:9px;padding:7px 13px;border-radius:10px;
+      border:1px solid var(--line);background:var(--panel);cursor:pointer;
+      font-size:14px;color:var(--dim)}
+  .opt.on{border-color:var(--orange);color:var(--toast)}
+  .opt .chip{width:22px;height:22px;border-radius:7px;border:1px solid #0006}
+  .stage{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);
+      border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:6px}
+  .stage figure{margin:0;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .stage figcaption{font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
+  .stage svg{display:block}
+  .stage .big svg{width:220px;height:220px;border-radius:48px}
+  .stage .round svg{width:150px;height:150px;border-radius:50%}
+  .stage .sm svg{width:64px;height:64px;border-radius:50%}
+  .stage .xs svg{width:40px;height:40px;border-radius:50%}
+  .matrix{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .mcell{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+      padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer}
+  .mcell.on{border-color:var(--orange)}
+  .mcell svg{width:104px;height:104px;border-radius:50%;display:block}
+  .mcell span{font-family:var(--mono);font-size:11px;color:var(--dimmer);text-align:center}
+  .dlbtn{background:var(--panel2);border:1px solid var(--line);color:var(--toast);
+      border-radius:8px;padding:8px 15px;font-size:13.5px;cursor:pointer}
+  .dlbtn:hover{border-color:var(--orange)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>V2 Sound-Waves Lab</span></h1>
+    <div class="sub">Centring fix · background gradients · wave gradient &amp; shadow</div>
+  </div>
+  <div class="meta">marmalade-tts-android<br><b>docs/design/icon-v2-lab.html</b><br>2026-08-01</div>
+</header>
+<main>
+
+<h2 class="sec">What changed</h2>
+<p class="lede"><b>The waves were off-centre.</b> In the shipped V2 the arcs sit at canvas
+y&nbsp;60 while the jar's visual centre lands near y&nbsp;54 — about 6 units low — and the
+jar+waves group as a whole sat right of the canvas centre. Every variant here recomputes
+the layout: the arcs are anchored to a chosen line on the jar, and the whole composition
+is centred on x&nbsp;54.</p>
+<div class="note">All gradients interpolate <b>between locked palette shades</b> — no new
+hexes. Orange <code>#F97316</code>, deep amber <code>#C2410C</code>, marmalade amber
+<code>#D97706</code>, peach <code>#FDBA74</code>, lid cream <code>#FFF8EE</code>, toast
+<code>#FED7AA</code>.</div>
+
+<h2 class="sec">Controls</h2>
+<div class="ctrls">
+  <div class="row"><span class="lbl">Background</span><span id="bgOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Waves</span><span id="wvOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Anchor</span><span id="anOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Count</span><span id="cnOpts" class="row"></span></div>
+</div>
+<div class="stage" id="stage"></div>
+<div class="row" style="margin-top:16px">
+  <button class="dlbtn" id="dl">Download this SVG</button>
+  <span class="sub" id="recipe"></span>
+</div>
+
+<h2 class="sec">Matrix — background × wave treatment</h2>
+<p class="lede">Every combination at round-mask size with the current anchor and count.
+Click a cell to load it into the stage above.</p>
+<div class="matrix" id="matrix"></div>
+
+<h2 class="sec">Notes</h2>
+<div class="note"><b>Portability:</b> minSdk is 28, so vector <b>gradients</b> port
+straight into <code>ic_launcher_foreground.xml</code> (and a gradient background needs the
+adaptive icon's <code>&lt;background&gt;</code> to become a drawable instead of a colour).
+<b>SVG drop-shadow filters do not port</b> — VectorDrawable has no filter support, so the
+shadow here is a real offset duplicate path in deep amber at low alpha, which does port
+1:1.</div>
+<textarea class="tracker" data-k="tts-icon-v2-notes" rows="4"
+  placeholder="Verdict — which background + wave treatment, any tweaks…"></textarea>
+
+</main>
+<script>
+const JARH = [...JAR, ...FACE_HAPPY];
+let uidV2 = 0;   // icon-art.js owns the global `uid`
+
+const BGS_V2 = [
+  {id:"flat",     name:"Flat orange",      chip:"#F97316"},
+  {id:"vignette", name:"Radial vignette",  chip:"linear-gradient(135deg,#F97316,#C2410C)"},
+  {id:"amber",    name:"Radial amber",     chip:"linear-gradient(135deg,#F97316,#D97706)"},
+  {id:"diag",     name:"Peach diagonal",   chip:"linear-gradient(135deg,#FDBA74,#F97316)"},
+  {id:"glow",     name:"Soft glow behind jar", chip:"radial-gradient(circle at 38% 40%,#FDBA74,#F97316 70%)"},
+];
+const WVS = [
+  {id:"flat",   name:"Flat cream"},
+  {id:"grad",   name:"Gradient (cream → toast)"},
+  {id:"shadow", name:"Drop shadow"},
+  {id:"both",   name:"Gradient + shadow"},
+];
+const ANCHORS = [
+  {id:59.7, name:"Jar centre"},
+  {id:69,   name:"Mouth line"},
+  {id:60.2, name:"Eye line"},
+];
+const COUNTS = [
+  {id:3, name:"3 arcs"},
+  {id:4, name:"4 arcs"},
+];
+
+let st = Object.assign({bg:"vignette", wave:"both", anchor:59.7, count:3},
+  JSON.parse(localStorage.getItem("tts-icon-v2-state") || "{}"));
+const save = () => localStorage.setItem("tts-icon-v2-state", JSON.stringify(st));
+
+function waveSpecs(cy, x0, count){
+  const g = count === 4
+    ? {step:4.5, h0:5, dh:3.6, b0:4.5, db:2}
+    : {step:5,   h0:5.5, dh:4.5, b0:5, db:2.5};
+  const ops = [1, 0.7, 0.45, 0.3];
+  const out = [];
+  for (let i = 0; i < count; i++){
+    const x = x0 + i*g.step, h = g.h0 + i*g.dh, b = g.b0 + i*g.db;
+    out.push({
+      d: "M"+x.toFixed(1)+","+(cy-h).toFixed(1)+" Q"+(x+b).toFixed(1)+","+cy.toFixed(1)+" "+x.toFixed(1)+","+(cy+h).toFixed(1),
+      op: ops[i], sw: 2.2
+    });
+  }
+  return out;
+}
+
+// Centre jar+waves as one group on x=54. Jar art spans 28..80 locally.
+function layout(js, gap, count){
+  const g = count === 4 ? {step:4.5, b0:4.5, db:2} : {step:5, b0:5, db:2.5};
+  const jarW = 52*js;
+  const wavesW = (count-1)*g.step + g.b0 + (count-1)*g.db + 1;
+  const left = 54 - (jarW + gap + wavesW)/2;
+  return {jx: left + jarW/2, x0: left + jarW + gap};
+}
+
+function compose(s, mode){
+  const js = 0.78, jy = 54, gap = 5, n = s.count;
+  const L = layout(js, gap, n);
+  const jt = "translate("+L.jx.toFixed(2)+","+jy+") scale("+js+") translate(-54,-60)";
+  const cy = jy + (s.anchor - 60)*js;
+  const W = waveSpecs(cy, L.x0, n);
+  const u = "v2" + (++uidV2);
+  let defs = "", bg;
+
+  if (s.bg === "vignette"){
+    defs += '<radialGradient id="bg'+u+'" cx="42%" cy="38%" r="78%"><stop offset="0" stop-color="#F97316"/><stop offset="1" stop-color="#C2410C"/></radialGradient>';
+    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
+  } else if (s.bg === "amber"){
+    defs += '<radialGradient id="bg'+u+'" cx="42%" cy="38%" r="80%"><stop offset="0" stop-color="#F97316"/><stop offset="1" stop-color="#D97706"/></radialGradient>';
+    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
+  } else if (s.bg === "diag"){
+    defs += '<linearGradient id="bg'+u+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FDBA74"/><stop offset="1" stop-color="#F97316"/></linearGradient>';
+    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
+  } else if (s.bg === "glow"){
+    defs += '<radialGradient id="bg'+u+'" cx="38%" cy="40%" r="62%"><stop offset="0" stop-color="#FDBA74"/><stop offset="1" stop-color="#F97316"/></radialGradient>';
+    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
+  } else {
+    bg = '<rect x="0" y="0" width="108" height="108" fill="#F97316"/>';
+  }
+
+  let art = "";
+  if (s.wave === "shadow" || s.wave === "both")
+    art += W.map(w => '<path d="'+w.d+'" transform="translate(0.9,1.1)" fill="none" stroke="#7C2D12" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+(w.op*0.35).toFixed(2)+'"/>').join("");
+  if (s.wave === "grad" || s.wave === "both"){
+    defs += '<linearGradient id="wg'+u+'" x1="'+L.x0.toFixed(1)+'" y1="0" x2="'+(L.x0+22).toFixed(1)+'" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#FED7AA"/></linearGradient>';
+    art += W.map(w => '<path d="'+w.d+'" fill="none" stroke="url(#wg'+u+')" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+w.op+'"/>').join("");
+  } else {
+    art += W.map(w => '<path d="'+w.d+'" fill="none" stroke="#FFF8EE" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+w.op+'"/>').join("");
+  }
+
+  const inner = bg + '<g transform="'+jt+'">'+JARH.map(pathEl).join("")+'</g>' + art;
+  if (mode === "round")
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72"><defs>'+defs+'<clipPath id="c'+u+'"><circle cx="54" cy="54" r="36"/></clipPath></defs><g clip-path="url(#c'+u+')">'+inner+'</g></svg>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><defs>'+defs+'</defs>'+inner+'</svg>';
+}
+
+function opt(o, on, key){
+  return '<button class="opt'+(on?" on":"")+'" data-k="'+key+'" data-v="'+o.id+'">' +
+    (o.chip ? '<span class="chip" style="background:'+o.chip+'"></span>' : '') + o.name + '</button>';
+}
+function render(){
+  document.getElementById("bgOpts").innerHTML = BGS_V2.map(o => opt(o, st.bg===o.id, "bg")).join("");
+  document.getElementById("wvOpts").innerHTML = WVS.map(o => opt(o, st.wave===o.id, "wave")).join("");
+  document.getElementById("anOpts").innerHTML = ANCHORS.map(o => opt(o, st.anchor==o.id, "anchor")).join("");
+  document.getElementById("cnOpts").innerHTML = COUNTS.map(o => opt(o, st.count==o.id, "count")).join("");
+  document.getElementById("stage").innerHTML =
+    '<figure class="big">'+compose(st,"full")+'<figcaption>full 108 (Play)</figcaption></figure>' +
+    '<figure class="round">'+compose(st,"round")+'<figcaption>round mask</figcaption></figure>' +
+    '<figure class="sm">'+compose(st,"round")+'<figcaption>64px</figcaption></figure>' +
+    '<figure class="xs">'+compose(st,"round")+'<figcaption>40px</figcaption></figure>';
+  document.getElementById("recipe").textContent =
+    "bg:" + st.bg + " · waves:" + st.wave + " · anchor:" + st.anchor + " · " + st.count + " arcs";
+  document.getElementById("matrix").innerHTML = BGS_V2.flatMap(b => WVS.map(w => {
+    const s = Object.assign({}, st, {bg:b.id, wave:w.id});
+    const on = st.bg===b.id && st.wave===w.id;
+    return '<div class="mcell'+(on?" on":"")+'" data-bg="'+b.id+'" data-wave="'+w.id+'">' +
+      compose(s,"round") + '<span>'+b.id+' · '+w.id+'</span></div>';
+  })).join("");
+}
+document.addEventListener("click", e => {
+  const o = e.target.closest(".opt");
+  if (o){
+    const v = o.dataset.v;
+    st[o.dataset.k] = (o.dataset.k === "anchor" || o.dataset.k === "count") ? Number(v) : v;
+    save(); render(); return;
+  }
+  const c = e.target.closest(".mcell");
+  if (c){ st.bg = c.dataset.bg; st.wave = c.dataset.wave; save(); render();
+    window.scrollTo({top:0, behavior:"smooth"}); return; }
+  if (e.target.id === "dl"){
+    const blob = new Blob([compose(st,"full")], {type:"image/svg+xml"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "V2-" + st.bg + "-" + st.wave + "-a" + st.anchor + "-n" + st.count + ".svg";
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+});
+document.querySelectorAll("textarea.tracker").forEach(t => {
+  t.value = localStorage.getItem(t.dataset.k) || "";
+  t.addEventListener("input", () => localStorage.setItem(t.dataset.k, t.value));
+});
+render();
+</script>
+</body>
+</html>
