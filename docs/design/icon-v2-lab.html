@@ -57,15 +57,17 @@
 jar's eyes. <span class="locked">✓ 3 arcs</span>. Both are baked in.</p>
 <div class="note"><b>Why it read flat:</b> the ramp interpolated <b>linearly</b> between two
 stops, which the eye reads as a even wash, and it bottomed out at
-<code>#7C2D12</code>. Now the gradient emits <b>five stops shaped by a curve</b>, the ramp
-runs one step deeper to rich brown <code>#422006</code>, and the geometry is adjustable —
-linear at any angle, or radial from any point. Still entirely locked-palette colours:
-peach <code>#FDBA74</code> → orange <code>#F97316</code> → <code>#7C2D12</code> →
-<code>#422006</code>.</div>
+<code>#7C2D12</code>. Now the gradient emits <b>five stops shaped by a curve</b>, the geometry is
+adjustable — linear at any angle, or radial from any point — and the ramp's
+<b>dark end is selectable</b>: deep amber <code>#C2410C</code> (default, the lightest
+floor), toast ink <code>#7C2D12</code>, or rich brown <code>#422006</code> if you ever
+want it heavy. Still entirely locked-palette colours, starting from peach
+<code>#FDBA74</code> through orange <code>#F97316</code>.</div>
 
 <h2 class="sec">Controls</h2>
 <div class="ctrls">
   <div class="row"><span class="lbl">Geometry</span><span id="geOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Dark end</span><span id="deOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Shape</span>
     <span class="row" style="gap:20px">
       <span class="sl" id="angleW">Angle <input type="range" id="angle" min="0" max="360" step="5"><span class="val" id="anglev"></span></span>
@@ -131,31 +133,39 @@ const JARH = [...JAR, ...FACE_HAPPY];
 let uidV2 = 0;                    // icon-art.js owns the global `uid`
 const ANCHOR = 60.2, ARCS = 3;    // LOCKED 2026-08-01
 
-// One locked-palette ramp, four anchors deep. `depth` positions the centre of
-// a window on it, `spread` is the window's width, `curve` shapes how fast the
-// colour travels across that window (1 = linear, <1 = holds light then drops,
-// >1 = drops early then holds dark).
-const RAMP = ["#FDBA74", "#F97316", "#7C2D12", "#422006"];
+// One locked-palette ramp, given as explicit (position, colour) stops so the
+// meaning of `depth` stays stable when the dark end changes. `depth` positions
+// the centre of a window on it, `spread` is the window's width, `curve` shapes
+// how fast colour travels across the window (1 = linear, <1 = holds light then
+// drops, >1 = drops early then holds).
+const DARK_ENDS = [
+  {id:"amber", name:"Deep amber #C2410C", ramp:[[0,"#FDBA74"],[0.38,"#F97316"],[1,"#C2410C"]]},
+  {id:"ink",   name:"Toast ink #7C2D12",  ramp:[[0,"#FDBA74"],[0.38,"#F97316"],[0.72,"#C2410C"],[1,"#7C2D12"]]},
+  {id:"brown", name:"Rich brown #422006", ramp:[[0,"#FDBA74"],[0.35,"#F97316"],[0.62,"#C2410C"],[0.82,"#7C2D12"],[1,"#422006"]]},
+];
 const hex2rgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
 const rgb2hex = c => "#" + c.map(v => Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("");
 const mix = (a,b,t) => rgb2hex(hex2rgb(a).map((v,i) => v + (hex2rgb(b)[i]-v)*t));
 const clamp01 = t => Math.max(0, Math.min(1, t));
-function ramp(t){
-  t = clamp01(t) * (RAMP.length - 1);
-  const i = Math.min(Math.floor(t), RAMP.length - 2);
-  return mix(RAMP[i], RAMP[i+1], t - i);
+function ramp(t, endId){
+  const R = (DARK_ENDS.find(d => d.id === endId) || DARK_ENDS[0]).ramp;
+  t = clamp01(t);
+  for (let i = 0; i < R.length - 1; i++){
+    const [p0, c0] = R[i], [p1, c1] = R[i+1];
+    if (t <= p1) return mix(c0, c1, (t - p0) / (p1 - p0));
+  }
+  return R[R.length-1][1];
 }
 // Five stops across the window, positioned linearly, coloured on an eased t.
 function gradStops(s){
   const out = [];
   for (let i = 0; i < 5; i++){
     const u = i/4;
-    const eased = Math.pow(u, s.curve);
-    out.push({off: u, col: ramp(s.depth - s.spread/2 + s.spread*eased)});
+    out.push({off: u, col: ramp(s.depth - s.spread/2 + s.spread*Math.pow(u, s.curve), s.darkEnd)});
   }
   return out;
 }
-const endStops = s => ({from: ramp(s.depth - s.spread/2), to: ramp(s.depth + s.spread/2)});
+const endStops = s => ({from: ramp(s.depth - s.spread/2, s.darkEnd), to: ramp(s.depth + s.spread/2, s.darkEnd)});
 
 const GEOMS = [
   {id:"lin45",  name:"Diagonal ↘",      gtype:"linear", angle:45},
@@ -182,14 +192,14 @@ const FADES = [
 ];
 
 const DEFAULTS = {
-  gtype:"linear", angle:45, cx:40, cy:40, rad:78,
+  gtype:"linear", angle:45, cx:40, cy:40, rad:78, darkEnd:"amber",
   depth:0.56, spread:0.40, curve:1,
   wave:"both", fade:"slight",
   dx:3.5, dy:0, js:0.78, ws:1, gap:5.5,
 };
 let st = Object.assign({}, DEFAULTS,
-  JSON.parse(localStorage.getItem("tts-icon-v2-state5") || "{}"));
-const save = () => localStorage.setItem("tts-icon-v2-state5", JSON.stringify(st));
+  JSON.parse(localStorage.getItem("tts-icon-v2-state6") || "{}"));
+const save = () => localStorage.setItem("tts-icon-v2-state6", JSON.stringify(st));
 
 const BASE = {step:5, h0:5.5, dh:4.5, b0:5, db:2.5, sw:2.2};
 const wavesWidth = ws => ((ARCS-1)*BASE.step + BASE.b0 + (ARCS-1)*BASE.db + 1) * ws;
@@ -207,7 +217,7 @@ function waveSpecs(cy, x0, ws, ops){
 
 function bgDef(s, u){
   if (s.gtype === "flat" || s.spread === 0)
-    return {defs:"", fill: ramp(s.depth)};
+    return {defs:"", fill: ramp(s.depth, s.darkEnd)};
   const stops = gradStops(s).map(x =>
     '<stop offset="'+x.off+'" stop-color="'+x.col+'"/>').join("");
   if (s.gtype === "radial"){
@@ -266,6 +276,8 @@ const geomOn = g => g.gtype === st.gtype &&
 function render(){
   document.getElementById("geOpts").innerHTML = GEOMS.map(g =>
     '<button class="opt'+(geomOn(g)?" on":"")+'" data-ge="'+g.id+'">'+g.name+'</button>').join("");
+  document.getElementById("deOpts").innerHTML = DARK_ENDS.map(o =>
+    '<button class="opt'+(st.darkEnd===o.id?" on":"")+'" data-k="darkEnd" data-v="'+o.id+'">'+o.name+'</button>').join("");
   document.getElementById("wvOpts").innerHTML = WVS.map(o =>
     '<button class="opt'+(st.wave===o.id?" on":"")+'" data-k="wave" data-v="'+o.id+'">'+o.name+'</button>').join("");
   document.getElementById("fdOpts").innerHTML = FADES.map(o =>
@@ -294,7 +306,7 @@ function render(){
     '<figure class="xs">'+compose(st,"round")+'<figcaption>40px</figcaption></figure>';
   document.getElementById("recipe").textContent =
     st.gtype + (st.gtype==="linear" ? " "+st.angle+"°" : st.gtype==="radial" ? " "+st.cx+","+st.cy+" r"+st.rad : "") +
-    " · depth "+Number(st.depth).toFixed(2)+" spread "+Number(st.spread).toFixed(2)+" curve "+Number(st.curve).toFixed(2) +
+    " · "+st.darkEnd+" · depth "+Number(st.depth).toFixed(2)+" spread "+Number(st.spread).toFixed(2)+" curve "+Number(st.curve).toFixed(2) +
     " · waves:"+st.wave+"/"+st.fade+" · dx"+st.dx+" jar "+Number(st.js).toFixed(2)+" waves "+Number(st.ws).toFixed(2);
 
   document.getElementById("geoms").innerHTML = GEOMS.map(g => {
@@ -335,7 +347,7 @@ document.addEventListener("click", e => {
     const blob = new Blob([compose(st,"full")], {type:"image/svg+xml"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "V2-"+st.gtype+"-d"+Number(st.depth).toFixed(2)+"-s"+Number(st.spread).toFixed(2)+"-c"+Number(st.curve).toFixed(2)+".svg";
+    a.download = "V2-"+st.gtype+"-"+st.darkEnd+"-d"+Number(st.depth).toFixed(2)+"-s"+Number(st.spread).toFixed(2)+"-c"+Number(st.curve).toFixed(2)+".svg";
     a.click(); URL.revokeObjectURL(a.href);
   }
   if (e.target.id === "reset"){ Object.assign(st, DEFAULTS); save(); render(); }
