@@ -51,7 +51,7 @@ class SpeakClipboardTileService : TileService() {
         super.onStartListening()
         val tile = qsTile ?: return
         tile.label = getString(R.string.quick_tile_label)
-        tile.icon = Icon.createWithResource(this, R.drawable.mascot_happy)
+        tile.icon = Icon.createWithResource(this, R.drawable.ic_stat_marmalade)
         tile.state = Tile.STATE_INACTIVE
         tile.updateTile()
     }

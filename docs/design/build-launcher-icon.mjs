@@ -111,53 +111,78 @@ function gradientPath(d, gradXml, indent = "    ") {
     `${indent}  <aapt:attr name="android:fillColor">\n${gradXml(indent + "    ")}\n` +
     `${indent}  </aapt:attr>\n${indent}</path>`;
 }
+// Trailing-newline-safe join for a list of already-indented XML lines.
+const lines = a => a.join("\n");
 const stopsXml = (stops, indent) =>
   stops.map(s => `${indent}  <item android:offset="${s.off}" android:color="${s.col}"/>`).join("\n");
 
-/* ---------------------------------------------------------------- FOREGROUND */
-const fg = [];
+/* ------------------------------------------------------------ mascot builder
+ * Shared by the launcher foreground and the in-app mascot drawables, so the
+ * jar can only ever be defined once.
+ *   outline  sticker ring width (0 = none — the in-app mascot has none)
+ *   face     "happy" | "speaking"
+ *   indent   base indent, since the launcher nests it inside a <group>
+ */
+function mascotVPaths({ outline = 0, face = "happy", indent = "    " } = {}) {
+  const inner = indent + "  ";
+  const out = [];
 
-// Drop shadow — two offset silhouette passes (VectorDrawable has no blur).
-// Group alpha isn't supported, so the opacity is baked into each fillAlpha.
-for (const [k, a] of [[1, 0.55], [0.5, 0.45]]) {
-  const tx = (RECIPE.shDist * k * 0.75).toFixed(2), ty = (RECIPE.shDist * k).toFixed(2);
-  fg.push(`    <group android:translateX="${tx}" android:translateY="${ty}">`);
-  for (const d of JAR_SILHOUETTE)
-    fg.push(vpath({ d, fill: "#3D2B1F", fillAlpha: +(RECIPE.shadow * a).toFixed(3) }, "      "));
-  fg.push(`    </group>`);
+  // Drop shadow — two offset silhouette passes (VectorDrawable has no blur).
+  // Group alpha isn't supported, so the opacity is baked into each fillAlpha.
+  if (RECIPE.shadow > 0 && RECIPE.shDist > 0) {
+    for (const [k, a] of [[1, 0.55], [0.5, 0.45]]) {
+      const tx = (RECIPE.shDist * k * 0.75).toFixed(2), ty = (RECIPE.shDist * k).toFixed(2);
+      out.push(`${indent}<group android:translateX="${tx}" android:translateY="${ty}">`);
+      for (const d of JAR_SILHOUETTE)
+        out.push(vpath({ d, fill: "#3D2B1F", fillAlpha: +(RECIPE.shadow * a).toFixed(3) }, inner));
+      out.push(`${indent}</group>`);
+    }
+  }
+  // Sticker outline — silhouette filled and stroked so the pieces union cleanly.
+  if (outline > 0) {
+    for (const d of JAR_SILHOUETTE)
+      out.push(vpath({
+        d, fill: RECIPE.outlineCol, stroke: RECIPE.outlineCol,
+        strokeWidth: +(outline * 2).toFixed(2), join: "round",
+      }, indent));
+  }
+  // Jar body with the gloss gradient.
+  out.push(gradientPath(P(JAR_IDX.body), ind =>
+    `${ind}<gradient android:type="linear"` +
+    ` android:startX="${bbX(0.1).toFixed(2)}" android:startY="${bbY(0).toFixed(2)}"` +
+    ` android:endX="${bbX(0.85).toFixed(2)}" android:endY="${bbY(1).toFixed(2)}">\n` +
+    stopsXml([{ off: 0, col: GLOSS_LITE }, { off: 0.45, col: JAR_BASE }, { off: 1, col: GLOSS_DARK }], ind) +
+    `\n${ind}</gradient>`, indent));
+  out.push(vpath({ d: P(JAR_IDX.marmalade), fill: "#D4831E", fillAlpha: 0.5 }, indent));
+  out.push(vpath({ d: P(JAR_IDX.shine), fill: "#FFFFFF", fillAlpha: +(0.15 + 0.30 * RECIPE.sheen).toFixed(3) }, indent));
+  out.push(vpath({ d: P(JAR_IDX.neck), fill: "#E8D5B0" }, indent));
+  out.push(vpath({ d: P(JAR_IDX.lid), fill: "#FFF8EE", stroke: "#D4C4A0", strokeWidth: 0.4 }, indent));
+  out.push(vpath({ d: P(JAR_IDX.ridge), fill: "#FFF5E6", stroke: "#D4C4A0", strokeWidth: 0.3 }, indent));
+  for (const i of JAR_IDX.lidLines)
+    out.push(vpath({ d: P(i), stroke: "#E0D0B0", strokeWidth: 0.2, strokeAlpha: 0.5 }, indent));
+  out.push(vpath({ d: P(JAR_IDX.label), fill: "#FFF8EE", stroke: "#D4B896", strokeWidth: 0.3 }, indent));
+  for (const i of JAR_IDX.labelLines)
+    out.push(vpath({ d: P(i), stroke: "#E8C9A0", strokeWidth: 0.2 }, indent));
+  out.push(vpath({ d: P(JAR_IDX.slice), fill: JAR_BASE, stroke: "#D4831E", strokeWidth: 0.3 }, indent));
+  for (const i of JAR_IDX.sliceLines)
+    out.push(vpath({ d: P(i), stroke: "#FFF5E6", strokeWidth: 0.2, strokeAlpha: 0.6 }, indent));
+  for (const [cx, cy] of EYE_C) out.push(vpath({ d: ell(cx, cy, 4.6, 5.4), fill: "#3D2B1F" }, indent));
+  for (const [cx, cy] of GLOSS_C)
+    out.push(vpath({ d: ell(cx, cy, 1.9 * RECIPE.eyeGloss, 1.9 * RECIPE.eyeGloss), fill: "#FFFFFF" }, indent));
+  if (face === "speaking") {
+    // Open oval mouth + interior, matching the original mascot_speaking.
+    out.push(vpath({ d: ell(54.0, 70.0, 4.0, 2.5), fill: "#3D2B1F" }, indent));
+    out.push(vpath({ d: ell(54.0, 70.2, 3.0, 1.5), fill: "#2A1810" }, indent));
+  } else {
+    out.push(vpath({ d: "M48.5,69.6 Q54.0,72.0 59.5,69.6", stroke: "#3D2B1F", strokeWidth: 0.5, cap: "round" }, indent));
+  }
+  for (const [cx, cy] of [[40.0, 63.5], [68.0, 63.5]])
+    out.push(vpath({ d: ell(cx, cy, 3.5, 1.8), fill: "#FF6B6B", fillAlpha: 0.08 }, indent));
+  return out;
 }
-// Sticker outline — silhouette filled and stroked so the pieces union cleanly.
-for (const d of JAR_SILHOUETTE)
-  fg.push(vpath({
-    d, fill: RECIPE.outlineCol, stroke: RECIPE.outlineCol,
-    strokeWidth: +(RECIPE.outline * 2).toFixed(2), join: "round",
-  }));
-// Jar body with the gloss gradient.
-fg.push(gradientPath(P(JAR_IDX.body), ind =>
-  `${ind}<gradient android:type="linear"` +
-  ` android:startX="${bbX(0.1).toFixed(2)}" android:startY="${bbY(0).toFixed(2)}"` +
-  ` android:endX="${bbX(0.85).toFixed(2)}" android:endY="${bbY(1).toFixed(2)}">\n` +
-  stopsXml([{ off: 0, col: GLOSS_LITE }, { off: 0.45, col: JAR_BASE }, { off: 1, col: GLOSS_DARK }], ind) +
-  `\n${ind}</gradient>`));
-fg.push(vpath({ d: P(JAR_IDX.marmalade), fill: "#D4831E", fillAlpha: 0.5 }));
-fg.push(vpath({ d: P(JAR_IDX.shine), fill: "#FFFFFF", fillAlpha: +(0.15 + 0.30 * RECIPE.sheen).toFixed(3) }));
-fg.push(vpath({ d: P(JAR_IDX.neck), fill: "#E8D5B0" }));
-fg.push(vpath({ d: P(JAR_IDX.lid), fill: "#FFF8EE", stroke: "#D4C4A0", strokeWidth: 0.4 }));
-fg.push(vpath({ d: P(JAR_IDX.ridge), fill: "#FFF5E6", stroke: "#D4C4A0", strokeWidth: 0.3 }));
-for (const i of JAR_IDX.lidLines)
-  fg.push(vpath({ d: P(i), stroke: "#E0D0B0", strokeWidth: 0.2, strokeAlpha: 0.5 }));
-fg.push(vpath({ d: P(JAR_IDX.label), fill: "#FFF8EE", stroke: "#D4B896", strokeWidth: 0.3 }));
-for (const i of JAR_IDX.labelLines)
-  fg.push(vpath({ d: P(i), stroke: "#E8C9A0", strokeWidth: 0.2 }));
-fg.push(vpath({ d: P(JAR_IDX.slice), fill: JAR_BASE, stroke: "#D4831E", strokeWidth: 0.3 }));
-for (const i of JAR_IDX.sliceLines)
-  fg.push(vpath({ d: P(i), stroke: "#FFF5E6", strokeWidth: 0.2, strokeAlpha: 0.6 }));
-for (const [cx, cy] of EYE_C) fg.push(vpath({ d: ell(cx, cy, 4.6, 5.4), fill: "#3D2B1F" }));
-for (const [cx, cy] of GLOSS_C)
-  fg.push(vpath({ d: ell(cx, cy, 1.9 * RECIPE.eyeGloss, 1.9 * RECIPE.eyeGloss), fill: "#FFFFFF" }));
-fg.push(vpath({ d: "M48.5,69.6 Q54.0,72.0 59.5,69.6", stroke: "#3D2B1F", strokeWidth: 0.5, cap: "round" }));
-for (const [cx, cy] of [[40.0, 63.5], [68.0, 63.5]])
-  fg.push(vpath({ d: ell(cx, cy, 3.5, 1.8), fill: "#FF6B6B", fillAlpha: 0.08 }));
+
+/* ---------------------------------------------------------------- FOREGROUND */
+const fg = mascotVPaths({ outline: RECIPE.outline, face: "happy" });
 
 // Waves live in canvas space, outside the jar group.
 const waveArt = [];
@@ -231,6 +256,36 @@ ${stopsXml(bgStops(), "      ")}
       </gradient>
     </aapt:attr>
   </path>
+</vector>
+`;
+
+/* ------------------------------------------------------------ IN-APP MASCOT
+ * Same jar, same gloss and drop shadow as the launcher icon, but WITHOUT the
+ * sticker outline — in-app it sits on the app surface, not on a coloured
+ * field, so the ring has nothing to separate it from.
+ *
+ * These are the drawables the UI uses (SpeakScreen, onboarding). Notification
+ * and Quick-Settings icons deliberately do NOT use them: those surfaces
+ * flatten a drawable to its alpha and tint it, which would turn the drop
+ * shadow into a ghosted second jar. They point at ic_stat_marmalade* instead.
+ */
+const mascotDrawable = (face) => `<?xml version="1.0" encoding="utf-8"?>
+<!--
+  GENERATED by docs/design/build-launcher-icon.mjs — do not hand-edit.
+  In-app mascot (${face}): gloss-gradient body + drop shadow, no sticker
+  outline. 108x108 viewport, same geometry as the launcher icon.
+
+  NOT for notifications or the QS tile — those tint by alpha and would render
+  the drop shadow as a ghost. Use @drawable/ic_stat_marmalade* there.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+${lines(mascotVPaths({ outline: 0, face, indent: "  " }))}
 </vector>
 `;
 
@@ -341,8 +396,10 @@ ${wavesSvg}
 writeFileSync(join(REPO, "app/src/main/res/drawable/ic_launcher_foreground.xml"), foreground);
 writeFileSync(join(REPO, "app/src/main/res/drawable/ic_launcher_background.xml"), bg);
 writeFileSync(join(REPO, "app/src/main/res/drawable/ic_launcher_monochrome.xml"), monochrome);
+writeFileSync(join(REPO, "app/src/main/res/drawable/mascot_happy.xml"), mascotDrawable("happy"));
+writeFileSync(join(REPO, "app/src/main/res/drawable/mascot_speaking.xml"), mascotDrawable("speaking"));
 writeFileSync(join(HERE, "assets/launcher-icon-512.svg"), svg);
 writeFileSync(join(HERE, "assets/launcher-icon-monochrome.svg"), monoSvg);
-console.log("wrote foreground + background + monochrome VectorDrawables and both SVGs");
+console.log("wrote launcher (fg/bg/monochrome) + in-app mascot drawables and both SVGs");
 console.log("background stops:", bgStops().map(s => s.col).join(" "));
 console.log("jar gloss:", GLOSS_LITE, "->", JAR_BASE, "->", GLOSS_DARK);

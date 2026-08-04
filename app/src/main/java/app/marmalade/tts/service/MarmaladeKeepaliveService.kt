@@ -153,7 +153,7 @@ class MarmaladeKeepaliveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.drawable.mascot_happy)
+            .setSmallIcon(R.drawable.ic_stat_marmalade)
             .setContentIntent(openApp)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

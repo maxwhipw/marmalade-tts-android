@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -62,6 +63,11 @@ private fun fakeAmp(tMs: Float): Float =
 // ── Palette (asset colors from mascot_happy.xml — not theme-dependent) ──────
 
 private val BODY = Color(0xFFF5A623)
+// Gloss gradient, matching the static mascot drawables. Keep in sync with
+// RECIPE.gloss in docs/design/build-launcher-icon.mjs, which derives these
+// from BODY the same way (mix toward white / #B45309).
+private val BODY_GLOSS_LITE = Color(0xFFF7BA55)
+private val BODY_GLOSS_DARK = Color(0xFFDF8A1A)
 private val MARMALADE = Color(0x80D4831E)
 private val SHINE = Color(0x26FFFFFF)
 private val NECK = Color(0xFFE8D5B0)
@@ -214,8 +220,22 @@ fun JarMascot(
 
 // ── Draw helpers (all in 108×108 viewBox units) ─────────────────────────────
 
+/**
+ * Gloss gradient over the jar body's bounding box (28,35.3)–(79.9,97.6).
+ * The drop shadow the static drawables carry is deliberately NOT reproduced
+ * here: this mascot already has a ground-contact shadow drawn outside the
+ * squash transform, and a second offset copy would swim against the bounce.
+ */
+private val bodyGloss = Brush.linearGradient(
+    0f to BODY_GLOSS_LITE,
+    .45f to BODY,
+    1f to BODY_GLOSS_DARK,
+    start = Offset(33.19f, 35.3f),
+    end = Offset(72.12f, 97.6f),
+)
+
 private fun DrawScope.drawJarBody(geo: JarGeometry) {
-    drawPath(geo.body, BODY)
+    drawPath(geo.body, bodyGloss)
     drawPath(geo.marmalade, MARMALADE)
     drawPath(geo.shine, SHINE)
     drawPath(geo.neck, NECK)
