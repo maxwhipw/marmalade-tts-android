@@ -68,7 +68,7 @@ jobs:
           printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           # Sanity check — keytool exits non-zero on a corrupted/wrong-password
           # keystore, surfacing the misconfig before gradle wastes 5 minutes.
-          # Secret passed via env (not ${{ }} into the run-line) so a
+          # Secret passed via env (not templated into the run-line) so a
           # password containing shell metachars stays inert.
           keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
             -storepass:env KEYSTORE_PASSWORD >/dev/null
