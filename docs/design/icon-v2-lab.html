@@ -57,7 +57,7 @@
 <p class="lede">
 <span class="locked">✓ Eye-line anchor</span> &nbsp;
 <span class="locked">✓ 3 arcs</span> &nbsp;
-<span class="locked">✓ Layout</span> — X offset +3, Y 0, jar 0.78, waves 1.00, gap 5.5.
+<span class="locked">✓ Layout</span> — X offset +4, Y 0, jar 0.78, waves 1.00, gap 5.5.
 All baked in; the sliders are gone.</p>
 
 <h2 class="sec">Background</h2>
@@ -142,7 +142,7 @@ stepped edge rather than a true gaussian. That's deliberate: it survives the por
 <script>
 let uidV2 = 0;                    // icon-art.js owns the global `uid`
 const ANCHOR = 60.2, ARCS = 3;    // LOCKED 2026-08-01
-const LOCK = {dx:3, dy:0, js:0.78, ws:1, gap:5.5};   // LOCKED 2026-08-01
+const LOCK = {dx:4, dy:0, js:0.78, ws:1, gap:5.5};   // LOCKED 2026-08-01
 
 /* ---------- background ramp ---------- */
 const DARK_ENDS = [
@@ -200,19 +200,21 @@ const MASCOT_PRESETS = [
   {id:"lifted",  name:"Drop shadow only",   outline:0,   shadow:0.32, shDist:2.4, gloss:0,    sheen:0,    rim:0,    eyeGloss:1,   eyeDepth:0,   eyeStyle:"solid"},
   {id:"glossy",  name:"Glossy",             outline:0,   shadow:0.22, shDist:1.8, gloss:0.7,  sheen:0.75, rim:0.5,  eyeGloss:1.2, eyeDepth:0.6, eyeStyle:"grad"},
   {id:"full",    name:"Sticker + glossy",   outline:2.2, shadow:0.24, shDist:1.8, gloss:0.65, sheen:0.7,  rim:0.45, eyeGloss:1.25,eyeDepth:0.55,eyeStyle:"double"},
+  {id:"pick",    name:"★ Current pick",     outline:2.4, shadow:0.18, shDist:1.6, gloss:0.75, sheen:0,    rim:0,    eyeGloss:1,   eyeDepth:0,   eyeStyle:"solid"},
 ];
 
+// Defaults are Max's signed-off starting point (2026-08-01).
 const DEFAULTS = Object.assign({
   gtype:"linear", angle:45, cx:40, cy:40, rad:78, darkEnd:"amber",
-  depth:0.56, spread:0.40, curve:1,
+  depth:0.56, spread:0.62, curve:1,
   wave:"both", fade:"slight",
-  outlineCol:"white",
-}, MASCOT_PRESETS.find(p => p.id === "full"));
+  outlineCol:"cream",
+}, MASCOT_PRESETS.find(p => p.id === "pick"));
 delete DEFAULTS.id; delete DEFAULTS.name;
 
 let st = Object.assign({}, DEFAULTS,
-  JSON.parse(localStorage.getItem("tts-icon-v2-state7") || "{}"));
-const save = () => localStorage.setItem("tts-icon-v2-state7", JSON.stringify(st));
+  JSON.parse(localStorage.getItem("tts-icon-v2-state8") || "{}"));
+const save = () => localStorage.setItem("tts-icon-v2-state8", JSON.stringify(st));
 
 /* ---------- waves ---------- */
 const WBASE = {step:5, h0:5.5, dh:4.5, b0:5, db:2.5, sw:2.2};
