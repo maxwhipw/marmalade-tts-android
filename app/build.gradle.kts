@@ -253,3 +253,80 @@ dependencies {
 tasks.withType<Test>().configureEach {
     useJUnit()
 }
+
+// -----------------------------------------------------------------------------
+// Baked default engine — build-time espeak-ng-data generation.
+//
+// The default engine (Kitten Nano) is baked into the APK so it works instantly
+// and offline on first run. Its Apache-2.0 model + voices are committed under
+// src/main/assets/engines-seed/kitten-direct-v0_8/ (model.onnx + voices/). The
+// GPL espeak-ng-data it needs is NOT committed — it's compiled here from the
+// pinned third_party/espeak-ng submodule (English only) by
+// tools/espeak-hostgen, exactly the way libespeak-ng.so is compiled-in but
+// never committed. The repo stays espeak-free; the APK is already GPL via the
+// linked .so, so adding the espeak *data* to it changes nothing license-wise.
+//
+// Output lands in build/generated/espeakAssets/ (gitignored) and is merged
+// into the APK assets next to the committed model+voices. Offline + F-Droid-
+// reproducible: the host CMake deliberately avoids the submodule's deps.cmake
+// (which network-fetches libsonic). See tools/espeak-hostgen/CMakeLists.txt.
+// -----------------------------------------------------------------------------
+run {
+    val hostgenSrc = rootProject.file("tools/espeak-hostgen")
+    val submodule = rootProject.file("third_party/espeak-ng")
+    val cmakeBuildDir = layout.buildDirectory.dir("espeak-hostgen")
+    val seedAssetsDir = layout.buildDirectory.dir("generated/espeakAssets")
+    val bakedEngineRel = "engines-seed/kitten-direct-v0_8/phonemizer/espeak-ng-data"
+
+    val generateEspeakData = tasks.register("generateEspeakData") {
+        group = "build"
+        description = "Compile English espeak-ng-data from the espeak-ng submodule for the baked default engine."
+        // Incrementality: rerun only when the generator or the espeak sources change.
+        inputs.dir(hostgenSrc).withPropertyName("hostgen")
+        inputs.dir(File(submodule, "dictsource")).withPropertyName("dictsource")
+        inputs.dir(File(submodule, "phsource")).withPropertyName("phsource")
+        inputs.dir(File(submodule, "espeak-ng-data")).withPropertyName("dataSrc")
+        val outDir = seedAssetsDir.get().dir(bakedEngineRel).asFile
+        outputs.dir(outDir).withPropertyName("espeakData")
+        doLast {
+            if (!File(submodule, "src/libespeak-ng/CMakeLists.txt").exists()) {
+                throw GradleException(
+                    "espeak-ng submodule missing at $submodule — run: git submodule update --init",
+                )
+            }
+            val buildDir = cmakeBuildDir.get().asFile.apply { mkdirs() }
+            exec {
+                commandLine(
+                    "cmake", "-S", hostgenSrc.absolutePath, "-B", buildDir.absolutePath,
+                    "-DCMAKE_BUILD_TYPE=Release",
+                )
+            }
+            exec {
+                commandLine(
+                    "cmake", "--build", buildDir.absolutePath, "--target", "espeakdata",
+                    "-j", Runtime.getRuntime().availableProcessors().toString(),
+                )
+            }
+            val generated = File(buildDir, "espeak-ng-data")
+            if (!File(generated, "en_dict").exists()) {
+                throw GradleException("espeak data generation produced no en_dict at $generated")
+            }
+            outDir.parentFile.mkdirs()
+            if (outDir.exists()) outDir.deleteRecursively()
+            copy {
+                from(generated)
+                into(outDir)
+            }
+        }
+    }
+
+    // The generated dir is an extra assets source root; AGP unions it with
+    // src/main/assets (disjoint paths under the same engine dir — model+voices
+    // committed, espeak-ng-data generated — so no collision).
+    android.sourceSets.getByName("main").assets.srcDir(seedAssetsDir)
+
+    // Every flavor×buildType's asset merge must wait for generation.
+    tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
+        dependsOn(generateEspeakData)
+    }
+}
