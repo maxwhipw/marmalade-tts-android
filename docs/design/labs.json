@@ -5,6 +5,22 @@
     "status": "archived",
     "date": "2026-08-01",
     "summary": "Differentiate the TTS launcher icon from the marmalade agent app icon (identical jar + orange field). 9 mark variants x 5 background fields.",
-    "decision": "V5-e5 on B0: jar lower-left with rounded-corner flat-top :D grin (no tongue, no orange-slice decoration), cream speech bubble with amber waveform, on the existing #F97316 field. Shipped to ic_launcher_foreground.xml, play-assets/icon-512.png, and fastlane icon. Runner-up: V2 sound waves."
+    "decision": "Mark = V2, the jar with sound waves. (V5-e5, the speech-bubble jar, shipped first and was then superseded when V2 was revisited with a tuned background.) Composition, gradient and mascot finishing moved to icon-position-lab and icon-v2-lab."
+  },
+  {
+    "slug": "icon-position-lab",
+    "title": "Icon Composition Lab",
+    "status": "archived",
+    "date": "2026-08-01",
+    "summary": "Jar size and corner position vs speech-bubble placement, under the circular launcher mask.",
+    "decision": "Superseded — the speech-bubble mark (V5) lost to V2 sound waves, so its composition study no longer feeds the shipping icon. Kept for the finding it produced: the round mask cuts the top-right corner first, so growing the jar requires pulling the corner element inward."
+  },
+  {
+    "slug": "icon-v2-lab",
+    "title": "V2 Sound-Waves Lab",
+    "status": "archived",
+    "date": "2026-08-01",
+    "summary": "Final tuning of the shipping icon: wave centring, background gradient (geometry, ramp depth/spread/curve), and mascot finishing (sticker outline, drop shadow, gloss, eye treatments).",
+    "decision": "SHIPPED 2026-08-01. Layout locked at X +4, Y 0, jar 0.78, waves 1.00, gap 5.5, arcs on the eye line, 3 arcs. Background: 45 degree linear, deep-amber ramp end, depth 0.56 / spread 0.62 / curve 1.00. Mascot: lid-cream sticker outline 2.4, drop shadow 0.18 at distance 1.6, body gloss 0.75, no sheen or rim, solid eye gloss at 1.0. Generated into the app by docs/design/build-launcher-icon.mjs."
   }
 ]
