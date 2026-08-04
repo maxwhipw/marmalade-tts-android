@@ -241,10 +241,10 @@ object EngineCatalog {
     private val POCKET_TTS_EN: EngineDescriptor = EngineDescriptor(
         name = "pocket-tts-en-v2026_04",
         displayName = "Pocket TTS (English, 2026-04)",
-        description = "The most expressive English voices — 6 built-in voices. " +
-            "English only. This is the heaviest engine: it streams smoothly on " +
-            "flagship phones, but can stutter on mid-range and older hardware. " +
-            "Kyutai Labs' model in a mixed-precision build for clean output.",
+        description = "Heavy, but the most expressive English voices — 6 built-in " +
+            "voices. Streams smoothly on flagship phones; can stutter on mid-range " +
+            "and older hardware. English only. Kyutai Labs' model in a " +
+            "mixed-precision build for clean output.",
         downloadSizeBytes = 97_291_178L,
         installedSizeBytes = POCKET_TTS_INSTALLED_SIZE_BYTES,
         isRecommended = false,
