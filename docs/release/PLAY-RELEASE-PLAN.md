@@ -91,6 +91,16 @@ everything else Claude can do or has done.
     until the on-device TalkBack pass is done; grounding in
     `docs/ACCESSIBILITY-AUDIT-2026-08.md` and
     `docs/WCAG-2.1-AA-SWEEP-2026-08.md`).
+    - **[Max, 2026-08-04] Promotion note — call out that the app is
+      MULTILINGUAL and name the languages.** The listing copy should say the
+      app speaks multiple languages and specify which: via Kokoro it's **9
+      locales — English (US), English (UK), Spanish, French, Italian, Hindi,
+      Portuguese (Brazil), Japanese, Mandarin Chinese** (source of truth =
+      distinct BCP-47 codes in `KokoroDirectVoiceCatalog`; it's "9" because
+      American + British English count separately — 8 language names, 9
+      locales). Kitten/Pocket are English-only. Also localize the store
+      listing itself into the 7 shipped UI locales over time. Don't leave
+      "English TTS app" implied. Final public copy needs Max's sign-off.
 
 ## Phase 4 — submit
 
