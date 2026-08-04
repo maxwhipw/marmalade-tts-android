@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Icon Composition Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<script src="icon-art.js"></script>
+<style>
+  .pgrid{display:grid;gap:20px;grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+  .pcard .renders{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .pcard figure{margin:0;display:flex;flex-direction:column;gap:6px;align-items:center}
+  .pcard figcaption{font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
+  .pcard svg{display:block}
+  .pcard .full svg{width:130px;height:130px;border-radius:28px}
+  .pcard .round svg{width:96px;height:96px;border-radius:50%}
+  .pcard .tiny svg{width:48px;height:48px;border-radius:50%}
+  .pcard .nums{font-family:var(--mono);font-size:12px;color:var(--dimmer)}
+  .pcard.win{border-color:var(--orange)}
+  .dlbtn{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);
+      color:var(--toast);border-radius:8px;padding:6px 13px;font-size:13px;cursor:pointer}
+  .dlbtn:hover{border-color:var(--orange)}
+  .strip48{display:flex;gap:18px;flex-wrap:wrap;background:var(--panel);
+      border:1px solid var(--line);border-radius:12px;padding:18px}
+  .strip48 figure{margin:0;display:flex;flex-direction:column;gap:6px;align-items:center}
+  .strip48 svg{width:48px;height:48px;border-radius:50%;display:block}
+  .strip48 figcaption{font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Icon Composition Lab</span></h1>
+    <div class="sub">V5-e5 layout: jar size + corner position, bubble size + position</div>
+  </div>
+  <div class="meta">marmalade-tts-android<br><b>docs/design/icon-position-lab.html</b><br>2026-08-01</div>
+</header>
+<main>
+
+<h2 class="sec">Brief</h2>
+<p class="lede">The mark is settled (<a href="icon-lab.html">V5-e5 in the icon lab</a>).
+This page tunes the <b>composition only</b>: jar <b>bigger and into the bottom-left
+corner</b>, bubble staying top-right. Face, colors and field are fixed.</p>
+<div class="note"><b>The round mask is the binding constraint.</b> Launchers show roughly
+the center 72 of the 108 canvas as a circle, so the top-right corner — exactly where the
+bubble lives — is the first thing cut. Growing the jar without pulling the bubble inward
+costs you the tail and the top waveform bars (see the P-round). The Q-round compensates.</div>
+
+<h2 class="sec">P — grow &amp; push (naive)</h2>
+<p class="lede">Jar scaled up and moved toward the corner; bubble pushed <b>further out</b>
+into its corner. Watch the round column — the bubble starts losing its tail.</p>
+<div class="pgrid" id="pgrid"></div>
+
+<h2 class="sec">Q — grow &amp; compensate</h2>
+<p class="lede">Same jar growth, but the bubble is scaled down and pulled <b>inward</b> as
+the jar grows, so it survives the circle intact.</p>
+<div class="pgrid" id="qgrid"></div>
+
+<h2 class="sec">Shelf test — 48 px</h2>
+<p class="lede">The decision distance. A composition that mushes here is out, however good
+it looks at 130 px.</p>
+<div class="strip48" id="strip"></div>
+
+<h2 class="sec">Notes</h2>
+<textarea class="tracker" data-k="tts-icon-pos-notes" rows="4"
+  placeholder="Which composition, and any tweak — e.g. 'q4 but bubble a touch bigger'…"></textarea>
+
+</main>
+<script>
+const JARF = [...JAR_NOSLICE, ...FACE_GRIN_FINAL];
+
+// jx/jy: where the jar's (54,60) anchor lands. js: jar scale.
+// bx/by: bubble nudge. bs: bubble scale (pivot 76,30).
+function compose(o, mode){
+  const jt = 'translate('+o.jx+','+o.jy+') scale('+o.js+') translate(-54,-60)';
+  const bt = 'translate('+(o.bx||0)+','+(o.by||0)+') translate(76,30) scale('+(o.bs||1)+') translate(-76,-30)';
+  const inner = '<rect x="0" y="0" width="108" height="108" fill="#F97316"/>' +
+    '<g transform="'+jt+'">'+JARF.map(pathEl).join("")+'</g>' +
+    '<g transform="'+bt+'">'+BUBBLE.map(pathEl).join("")+'</g>';
+  if (mode === "round"){
+    const id = "pc" + (Math.round(o.jx*100) + Math.round(o.js*1000) + (mode==="round"?1:0)) + (o.id||"");
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72">' +
+      '<defs><clipPath id="'+id+'"><circle cx="54" cy="54" r="36"/></clipPath></defs>' +
+      '<g clip-path="url(#'+id+')">'+inner+'</g></svg>';
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">'+inner+'</svg>';
+}
+
+const P = [
+  {id:"p1", jx:45, jy:64, js:0.72,                       desc:"Current shipped composition."},
+  {id:"p2", jx:43, jy:66, js:0.80,                       desc:"Jar up to 0.80, nudged lower-left. Bubble untouched."},
+  {id:"p3", jx:41, jy:68, js:0.86,                       desc:"Jar 0.86, further into the corner."},
+  {id:"p4", jx:43, jy:66, js:0.80, bx:3, by:-3, bs:1.05, desc:"0.80 jar plus a bigger bubble pushed up-right."},
+  {id:"p5", jx:41, jy:68, js:0.86, bx:4, by:-4, bs:0.92, desc:"0.86 jar, smaller bubble deeper in the corner — tail clips."},
+  {id:"p6", jx:40, jy:69, js:0.92, bx:5, by:-4, bs:0.90, desc:"Jar 0.92. Bubble badly cut by the mask."},
+  {id:"p7", jx:42, jy:67, js:0.86, bx:2, by:-2, bs:1.10, desc:"0.86 jar with an oversized bubble."},
+  {id:"p8", jx:43, jy:66, js:0.84, bx:0, by:2,  bs:1.0,  desc:"Bubble dropped closer to the jar — they start to crowd."},
+  {id:"p9", jx:39, jy:70, js:0.90, bx:6, by:-6, bs:1.0,  desc:"Maximum corner-to-corner spread. Worst mask casualty."},
+];
+const Q = [
+  {id:"q1", jx:45, jy:64, js:0.72,                        desc:"Current, for reference."},
+  {id:"q2", jx:44, jy:63, js:0.82, bx:-2, by:1,  bs:0.92, desc:"Modest growth; closest to what ships today."},
+  {id:"q3", jx:43, jy:64, js:0.86, bx:-3, by:2,  bs:0.88, desc:"Jar clearly bigger, bubble comfortably inside the circle."},
+  {id:"q4", jx:42, jy:65, js:0.90, bx:-4, by:3,  bs:0.84, desc:"Jar 0.90 in the corner, whole bubble survives the mask. Best balance.", win:true},
+  {id:"q5", jx:42, jy:64, js:0.90, bx:-2, by:1,  bs:0.80, desc:"Same jar, smaller bubble sitting higher — airier, bubble reads less."},
+  {id:"q6", jx:41, jy:65, js:0.95, bx:-3, by:3,  bs:0.78, desc:"Biggest jar. Bubble small enough that the waveform mushes at 48 px."},
+  {id:"q7", jx:43, jy:64, js:0.86, bx:-1, by:0,  bs:1.00, desc:"Full-size bubble, boldest voice cue; tail grazes the mask edge."},
+  {id:"q8", jx:44, jy:66, js:0.86, bx:-3, by:-1, bs:0.88, desc:"q3 with the jar dropped lower — more bottom bleed."},
+  {id:"q9", jx:42, jy:66, js:0.92, bx:-4, by:2,  bs:0.82, desc:"Jar 0.92 sunk into the corner."},
+];
+
+const card = o =>
+  '<div class="card pcard'+(o.win?" win":"")+'"><h3><span class="id">'+o.id+'</span>' +
+  'jar '+o.js.toFixed(2)+' @ '+o.jx+','+o.jy+(o.bs?' · bubble '+o.bs.toFixed(2):'')+'</h3>' +
+  '<div class="renders">' +
+  '<figure class="full">'+compose(o,"full")+'<figcaption>full 108</figcaption></figure>' +
+  '<figure class="round">'+compose(o,"round")+'<figcaption>round mask</figcaption></figure>' +
+  '<figure class="tiny">'+compose(o,"round")+'<figcaption>48px</figcaption></figure>' +
+  '</div><p>'+o.desc+'</p>' +
+  '<button class="dlbtn" data-id="'+o.id+'">Download '+o.id+'.svg</button></div>';
+
+document.getElementById("pgrid").innerHTML = P.map(card).join("");
+document.getElementById("qgrid").innerHTML = Q.map(card).join("");
+document.getElementById("strip").innerHTML = [...P, ...Q].map(o =>
+  '<figure>'+compose(o,"round")+'<figcaption>'+o.id+'</figcaption></figure>').join("");
+
+document.addEventListener("click", e => {
+  const b = e.target.closest(".dlbtn");
+  if (!b) return;
+  const o = [...P, ...Q].find(x => x.id === b.dataset.id);
+  const blob = new Blob([compose(o,"full")], {type:"image/svg+xml"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = o.id + ".svg";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.querySelectorAll("textarea.tracker").forEach(t => {
+  t.value = localStorage.getItem(t.dataset.k) || "";
+  t.addEventListener("input", () => localStorage.setItem(t.dataset.k, t.value));
+});
+</script>
+</body>
+</html>
