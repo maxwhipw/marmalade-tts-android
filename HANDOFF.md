@@ -1,3 +1,76 @@
+# HANDOFF — V2 launcher icon SHIPPED, 2026-08-04 (branch `main`)
+
+## State (head `6064c31`, UNPUSHED — 4 commits ahead of origin)
+
+The app icon is **done and in the build**. `assembleFdroidDebug` succeeds;
+aapt2 compiles all four icon XMLs; the resources and their extracted gradients
+are present in the APK and the manifest icon resolves to the adaptive XML.
+
+**The icon (Max signed off 2026-08-04):** the kawaii jar with three sound-wave
+arcs, on a gradient orange field. This replaces the V5-e5 speech-bubble icon
+that shipped earlier the same day — that one is superseded, not in the build.
+
+- Layout LOCKED: X +4, Y 0, jar 0.78, waves 1.00, gap 5.5, arcs on the eye
+  line, 3 arcs.
+- Background: 45 degree linear, deep-amber ramp end, depth 0.56 / spread 0.62
+  / curve 1.00 -> `#FA8B36 -> #F77116 -> #E96413 -> #DB5811 -> #CE4B0E`.
+- Mascot: lid-cream sticker outline 2.4, drop shadow 0.18 at distance 1.6,
+  body gloss 0.75, no sheen/rim, solid eye gloss 1.0.
+
+### Files
+
+| Path | What |
+|---|---|
+| `docs/design/build-launcher-icon.mjs` | **Generator. Edit its RECIPE block and re-run to revise the icon.** |
+| `docs/design/icon-art.js` | Shared path geometry — the labs and the generator both read it |
+| `app/src/main/res/drawable/ic_launcher_foreground.xml` | GENERATED, do not hand-edit |
+| `app/src/main/res/drawable/ic_launcher_background.xml` | GENERATED, do not hand-edit. **New** — the adaptive background moved from a colour resource to a drawable |
+| `docs/release/play-assets/icon-512.png`, `fastlane/.../icon.png` | Rendered from `docs/design/assets/launcher-icon-512.svg` |
+| `docs/design/icon-v2-lab.html` | Live lab, all controls intact, defaults = the shipped recipe |
+
+Regenerate with `node docs/design/build-launcher-icon.mjs`, then
+`inkscape docs/design/assets/launcher-icon-512.svg -w 512 -h 512 -o <png>`
+(flatten to RGB — the originals are RGB, not RGBA).
+
+The generator's output was verified **pixel-identical** to the lab's default
+state (max channel diff 0), so the shipped art cannot silently drift from what
+was approved.
+
+**Untouched:** `mascot_happy.xml` / `mascot_speaking.xml` still drive the
+in-app mascot and notifications. Only the launcher art changed.
+
+## Device check — DONE 2026-08-04 (Pixel 8a, akita)
+
+Installed with `adb install -r` (update in place, engines/config preserved —
+NOT a clean install, and `connectedAndroidTest` was not run).
+
+- Renders correctly under the system circular mask. Compared the on-device
+  render against a center-72 reference render: **mean abs difference 7.6/255,
+  and every pixel over threshold is an antialiasing edge** — no layout shift,
+  no unexpected cropping. All three arcs survive the mask.
+- **Differentiation confirmed**: side by side with `app.marmalade.android.debug`
+  (the agent app) the two are unmistakable at 183, 96 and 48 px — the TTS icon
+  reads as a smaller outlined jar with waves on a deeper gradient field, the
+  agent as a large flat jar filling the disc.
+
+## Open / next
+- [ ] `app/src/main/res/values/colors.xml` now holds only the unreferenced
+      `ic_launcher_background` colour. Dead resource; deleting it was declined
+      this session.
+- [ ] No monochrome/themed-icon layer (there never was one) — Android 13+
+      themed launchers fall back to the full-colour icon. Worth adding; not
+      exercised on device this session.
+- [ ] Idea from Max, not started: port the mascot geometry to a **Compose
+      composable** for an animated in-app mascot (waves pulsing during
+      synthesis, mouth switching to the speaking shape). `icon-art.js` is
+      already the single source, so it's a mechanical port. The launcher icon
+      itself must stay a VectorDrawable — Android reads the XML, not Compose.
+
+Labs (all archived, decisions in `docs/design/labs.json`):
+http://marmalade:8095/marmalade-tts-design/icon-v2-lab.html
+
+---
+
 # HANDOFF — Pocket QDQ parity: desktop half DONE, device bench next, 2026-08-02 (branch `main`)
 
 ## State (this session, head `f3f97b1`, UNPUSHED)
