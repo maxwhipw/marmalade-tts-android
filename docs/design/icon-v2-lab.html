@@ -15,10 +15,11 @@
       border:1px solid var(--line);background:var(--panel);cursor:pointer;
       font-size:14px;color:var(--dim)}
   .opt.on{border-color:var(--orange);color:var(--toast)}
-  .opt .chip{width:22px;height:22px;border-radius:7px;border:1px solid #0006}
   .sl{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--dim)}
-  .sl input[type=range]{width:210px;accent-color:var(--orange)}
+  .sl input[type=range]{width:190px;accent-color:var(--orange)}
   .sl .val{font-family:var(--mono);font-size:12.5px;color:var(--toast);width:52px}
+  .sl.off{opacity:.35;pointer-events:none}
+  .swatch{width:34px;height:24px;border-radius:6px;border:1px solid #0006}
   .stage{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);
       border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:6px}
   .stage figure{margin:0;display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -28,12 +29,11 @@
   .stage .round svg{width:150px;height:150px;border-radius:50%}
   .stage .sm svg{width:64px;height:64px;border-radius:50%}
   .stage .xs svg{width:40px;height:40px;border-radius:50%}
-  .pals{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(158px,1fr))}
+  .pals{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .pcell{background:var(--panel);border:1px solid var(--line);border-radius:12px;
       padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer}
   .pcell.on{border-color:var(--orange)}
-  .pcell.warn{border-style:dashed}
-  .pcell svg{width:112px;height:112px;border-radius:50%;display:block}
+  .pcell svg{width:112px;height:112px;border-radius:26px;display:block}
   .pcell b{font-size:13px;color:var(--toast);font-weight:600}
   .pcell span{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);text-align:center}
   .dlbtn{background:var(--panel2);border:1px solid var(--line);color:var(--toast);
@@ -46,7 +46,7 @@
 <header>
   <div>
     <h1>Marmalade TTS — <span>V2 Sound-Waves Lab</span></h1>
-    <div class="sub">Locked: eye-line anchor · 3 arcs — tuning gradient depth, fade, offset and sizes</div>
+    <div class="sub">Locked: eye-line anchor · 3 arcs — tuning gradient shape, depth, fade and layout</div>
   </div>
   <div class="meta">marmalade-tts-android<br><b>docs/design/icon-v2-lab.html</b><br>2026-08-01</div>
 </header>
@@ -54,37 +54,44 @@
 
 <h2 class="sec">Locked decisions</h2>
 <p class="lede"><span class="locked">✓ Eye-line anchor</span> — the arcs align with the
-jar's eyes, not its geometric centre or mouth.
-<span class="locked">✓ 3 arcs</span>. Both are baked in and no longer adjustable here.</p>
-<div class="note"><b>The background keeps the peach gradient's shape</b> — a diagonal
-running lighter top-left to deeper bottom-right. It's a window sliding along one ramp:
-peach <code>#FDBA74</code> → orange <code>#F97316</code> → rich brown
-<code>#7C2D12</code>, all locked palette colours. <b>Depth</b> moves the window down the
-ramp (darker); <b>Spread</b> is how far apart the two stops sit (0 = flat). Depth 0.25 /
-spread 0.50 <b>is</b> the original peach gradient — slide depth right from there to get
-the same look, darker.</div>
+jar's eyes. <span class="locked">✓ 3 arcs</span>. Both are baked in.</p>
+<div class="note"><b>Why it read flat:</b> the ramp interpolated <b>linearly</b> between two
+stops, which the eye reads as a even wash, and it bottomed out at
+<code>#7C2D12</code>. Now the gradient emits <b>five stops shaped by a curve</b>, the ramp
+runs one step deeper to rich brown <code>#422006</code>, and the geometry is adjustable —
+linear at any angle, or radial from any point. Still entirely locked-palette colours:
+peach <code>#FDBA74</code> → orange <code>#F97316</code> → <code>#7C2D12</code> →
+<code>#422006</code>.</div>
 
 <h2 class="sec">Controls</h2>
 <div class="ctrls">
-  <div class="row"><span class="lbl">Preset</span><span id="psOpts" class="row"></span></div>
-  <div class="row"><span class="lbl">Depth</span>
-    <span class="row" style="gap:22px">
+  <div class="row"><span class="lbl">Geometry</span><span id="geOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Shape</span>
+    <span class="row" style="gap:20px">
+      <span class="sl" id="angleW">Angle <input type="range" id="angle" min="0" max="360" step="5"><span class="val" id="anglev"></span></span>
+      <span class="sl" id="cxW">Centre X <input type="range" id="cx" min="0" max="100" step="1"><span class="val" id="cxv"></span></span>
+      <span class="sl" id="cyW">Centre Y <input type="range" id="cy" min="0" max="100" step="1"><span class="val" id="cyv"></span></span>
+      <span class="sl" id="radW">Radius <input type="range" id="rad" min="25" max="130" step="1"><span class="val" id="radv"></span></span>
+    </span>
+  </div>
+  <div class="row"><span class="lbl">Ramp</span>
+    <span class="row" style="gap:20px">
       <span class="sl">Depth <input type="range" id="depth" min="0" max="1" step="0.01"><span class="val" id="depthv"></span></span>
-      <span class="sl">Spread <input type="range" id="spread" min="0" max="0.9" step="0.01"><span class="val" id="spreadv"></span></span>
+      <span class="sl">Spread <input type="range" id="spread" min="0" max="1" step="0.01"><span class="val" id="spreadv"></span></span>
+      <span class="sl">Curve <input type="range" id="curve" min="0.35" max="2.8" step="0.05"><span class="val" id="curvev"></span></span>
       <span class="sl" id="stopsw"></span>
     </span>
   </div>
-  <div class="row"><span class="lbl">Gradient</span><span id="grOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Waves</span><span id="wvOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Arc fade</span><span id="fdOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Layout</span>
-    <span class="row" style="gap:22px">
+    <span class="row" style="gap:20px">
       <span class="sl">X offset <input type="range" id="dx" min="-10" max="14" step="0.5"><span class="val" id="dxv"></span></span>
       <span class="sl">Y offset <input type="range" id="dy" min="-8" max="8" step="0.5"><span class="val" id="dyv"></span></span>
     </span>
   </div>
   <div class="row"><span class="lbl">Sizes</span>
-    <span class="row" style="gap:22px">
+    <span class="row" style="gap:20px">
       <span class="sl">Jar <input type="range" id="js" min="0.55" max="1.05" step="0.01"><span class="val" id="jsv"></span></span>
       <span class="sl">Waves <input type="range" id="ws" min="0.55" max="1.75" step="0.01"><span class="val" id="wsv"></span></span>
       <span class="sl">Gap <input type="range" id="gap" min="0" max="14" step="0.5"><span class="val" id="gapv"></span></span>
@@ -94,24 +101,29 @@ the same look, darker.</div>
 <div class="stage" id="stage"></div>
 <div class="row" style="margin-top:16px">
   <button class="dlbtn" id="dl">Download this SVG</button>
-  <button class="dlbtn" id="reset">Reset sliders</button>
+  <button class="dlbtn" id="reset">Reset</button>
   <span class="sub" id="recipe"></span>
 </div>
 
-<h2 class="sec">Depth presets</h2>
-<p class="lede">Points along the same ramp, rendered with your current wave, fade and
-layout settings. Click one to load it, then fine-tune with the Contrast and Darkness
-sliders above.</p>
-<div class="pals" id="pals"></div>
+<h2 class="sec">Gradient geometries</h2>
+<p class="lede">The same ramp under different geometry, at your current Depth / Spread /
+Curve. Click to load one, then fine-tune above.</p>
+<div class="pals" id="geoms"></div>
+
+<h2 class="sec">Depth &amp; curve ladder</h2>
+<p class="lede">Your current geometry at increasing depth (top row of labels) and at
+different falloff curves — the quickest read on "how much gradient is too much".</p>
+<div class="pals" id="ladder"></div>
 
 <h2 class="sec">Notes</h2>
-<div class="note"><b>Portability:</b> minSdk is 28, so vector <b>gradients</b> port straight
-into <code>ic_launcher_foreground.xml</code>; a gradient background means the adaptive
+<div class="note"><b>Portability:</b> minSdk is 28. VectorDrawable supports linear and
+radial gradients with <b>multiple stops</b>, so everything here ports into
+<code>ic_launcher_foreground.xml</code> 1:1; a gradient background means the adaptive
 icon's <code>&lt;background&gt;</code> becomes a drawable instead of a colour resource.
-<b>SVG drop-shadow filters do not port</b> — VectorDrawable has no filter support, so the
-shadow here is a real offset duplicate path at low alpha, which ports 1:1.</div>
+<b>SVG drop-shadow filters do not port</b> — the shadow here is a real offset duplicate
+path at low alpha, which does.</div>
 <textarea class="tracker" data-k="tts-icon-v2-notes" rows="4"
-  placeholder="Verdict — palette, wave treatment, slider values…"></textarea>
+  placeholder="Verdict — geometry, depth/spread/curve, layout…"></textarea>
 
 </main>
 <script>
@@ -119,34 +131,42 @@ const JARH = [...JAR, ...FACE_HAPPY];
 let uidV2 = 0;                    // icon-art.js owns the global `uid`
 const ANCHOR = 60.2, ARCS = 3;    // LOCKED 2026-08-01
 
-// The background is a window sliding along one locked-palette ramp:
-//   t=0 peach #FDBA74 · t=0.5 marmalade orange #F97316 · t=1 rich brown #7C2D12
-// `depth` positions the centre of the window on that ramp, `spread` is its
-// width (0 = flat single colour). depth 0.25 / spread 0.50 reproduces the
-// original peach diagonal exactly; sliding depth down darkens it without
-// changing the gradient's shape.
-const RAMP = ["#FDBA74", "#F97316", "#7C2D12"];
-const PRESETS = [
-  {id:"flat",    name:"Flat orange (current)", depth:0.50, spread:0},
-  {id:"peach",   name:"Peach (original)",      depth:0.25, spread:0.50},
-  {id:"peachdk", name:"Peach, deeper",         depth:0.42, spread:0.44},
-  {id:"ember",   name:"Ember",                 depth:0.56, spread:0.40},
-  {id:"deep",    name:"Deep",                  depth:0.72, spread:0.40},
-];
+// One locked-palette ramp, four anchors deep. `depth` positions the centre of
+// a window on it, `spread` is the window's width, `curve` shapes how fast the
+// colour travels across that window (1 = linear, <1 = holds light then drops,
+// >1 = drops early then holds dark).
+const RAMP = ["#FDBA74", "#F97316", "#7C2D12", "#422006"];
 const hex2rgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
 const rgb2hex = c => "#" + c.map(v => Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("");
 const mix = (a,b,t) => rgb2hex(hex2rgb(a).map((v,i) => v + (hex2rgb(b)[i]-v)*t));
 const clamp01 = t => Math.max(0, Math.min(1, t));
-const ramp = t => (t = clamp01(t)) < 0.5
-  ? mix(RAMP[0], RAMP[1], t/0.5)
-  : mix(RAMP[1], RAMP[2], (t-0.5)/0.5);
-function stops(s){
-  return {from: ramp(s.depth - s.spread/2), to: ramp(s.depth + s.spread/2)};
+function ramp(t){
+  t = clamp01(t) * (RAMP.length - 1);
+  const i = Math.min(Math.floor(t), RAMP.length - 2);
+  return mix(RAMP[i], RAMP[i+1], t - i);
 }
-const GRADS = [
-  {id:"diag",   name:"Diagonal"},
-  {id:"radial", name:"Radial"},
-  {id:"flat",   name:"Flat"},
+// Five stops across the window, positioned linearly, coloured on an eased t.
+function gradStops(s){
+  const out = [];
+  for (let i = 0; i < 5; i++){
+    const u = i/4;
+    const eased = Math.pow(u, s.curve);
+    out.push({off: u, col: ramp(s.depth - s.spread/2 + s.spread*eased)});
+  }
+  return out;
+}
+const endStops = s => ({from: ramp(s.depth - s.spread/2), to: ramp(s.depth + s.spread/2)});
+
+const GEOMS = [
+  {id:"lin45",  name:"Diagonal ↘",      gtype:"linear", angle:45},
+  {id:"lin90",  name:"Vertical ↓",      gtype:"linear", angle:90},
+  {id:"lin135", name:"Diagonal ↙",      gtype:"linear", angle:135},
+  {id:"lin0",   name:"Horizontal →",    gtype:"linear", angle:0},
+  {id:"radC",   name:"Radial centre",   gtype:"radial", cx:50, cy:50, rad:78},
+  {id:"radTL",  name:"Radial top-left", gtype:"radial", cx:30, cy:26, rad:92},
+  {id:"radJar", name:"Spotlight on jar",gtype:"radial", cx:40, cy:46, rad:62},
+  {id:"radTight",name:"Tight vignette", gtype:"radial", cx:46, cy:40, rad:50},
+  {id:"flat",   name:"Flat (no gradient)", gtype:"flat"},
 ];
 const WVS = [
   {id:"flat",   name:"Flat cream"},
@@ -154,7 +174,6 @@ const WVS = [
   {id:"shadow", name:"Drop shadow"},
   {id:"both",   name:"Gradient + shadow"},
 ];
-// Arc opacities, outermost last. "None" keeps the 3rd arc at full strength.
 const FADES = [
   {id:"none",   name:"None",   ops:[1, 1, 1]},
   {id:"slight", name:"Slight", ops:[1, 0.94, 0.86]},
@@ -162,16 +181,18 @@ const FADES = [
   {id:"strong", name:"Strong (old)", ops:[1, 0.7, 0.45]},
 ];
 
-const DEFAULTS = {depth:0.42, spread:0.44, grad:"diag", wave:"both", fade:"slight",
-                  dx:3, dy:0, js:0.78, ws:1, gap:5};
+const DEFAULTS = {
+  gtype:"linear", angle:45, cx:40, cy:40, rad:78,
+  depth:0.56, spread:0.40, curve:1,
+  wave:"both", fade:"slight",
+  dx:3.5, dy:0, js:0.78, ws:1, gap:5.5,
+};
 let st = Object.assign({}, DEFAULTS,
-  JSON.parse(localStorage.getItem("tts-icon-v2-state4") || "{}"));
-const save = () => localStorage.setItem("tts-icon-v2-state4", JSON.stringify(st));
+  JSON.parse(localStorage.getItem("tts-icon-v2-state5") || "{}"));
+const save = () => localStorage.setItem("tts-icon-v2-state5", JSON.stringify(st));
 
-// Base 3-arc geometry, multiplied by the wave-size slider.
 const BASE = {step:5, h0:5.5, dh:4.5, b0:5, db:2.5, sw:2.2};
 const wavesWidth = ws => ((ARCS-1)*BASE.step + BASE.b0 + (ARCS-1)*BASE.db + 1) * ws;
-
 function waveSpecs(cy, x0, ws, ops){
   const out = [];
   for (let i = 0; i < ARCS; i++){
@@ -184,6 +205,25 @@ function waveSpecs(cy, x0, ws, ops){
   return out;
 }
 
+function bgDef(s, u){
+  if (s.gtype === "flat" || s.spread === 0)
+    return {defs:"", fill: ramp(s.depth)};
+  const stops = gradStops(s).map(x =>
+    '<stop offset="'+x.off+'" stop-color="'+x.col+'"/>').join("");
+  if (s.gtype === "radial"){
+    return {
+      defs: '<radialGradient id="bg'+u+'" cx="'+(s.cx/100)+'" cy="'+(s.cy/100)+'" r="'+(s.rad/100)+'">'+stops+'</radialGradient>',
+      fill: "url(#bg"+u+")"
+    };
+  }
+  const a = s.angle * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
+  return {
+    defs: '<linearGradient id="bg'+u+'" x1="'+(0.5-0.5*co).toFixed(4)+'" y1="'+(0.5-0.5*si).toFixed(4) +
+          '" x2="'+(0.5+0.5*co).toFixed(4)+'" y2="'+(0.5+0.5*si).toFixed(4)+'">'+stops+'</linearGradient>',
+    fill: "url(#bg"+u+")"
+  };
+}
+
 function compose(s, mode){
   const js = s.js, ws = s.ws, jarW = 52*js;
   const total = jarW + s.gap + wavesWidth(ws);
@@ -191,23 +231,11 @@ function compose(s, mode){
   const jx = left + jarW/2, x0 = left + jarW + s.gap;
   const jy = 54 + s.dy;
   const cy = jy + (ANCHOR - 60)*js;
-  const pal = stops(s);
   const ops = FADES.find(f => f.id === s.fade).ops;
   const W = waveSpecs(cy, x0, ws, ops);
   const u = "v2" + (++uidV2);
-  let defs = "", bg;
-
-  if (s.grad === "flat" || s.spread === 0){
-    bg = '<rect x="0" y="0" width="108" height="108" fill="'+pal.from+'"/>';
-  } else if (s.grad === "radial"){
-    defs += '<radialGradient id="bg'+u+'" cx="40%" cy="36%" r="80%">' +
-      '<stop offset="0" stop-color="'+pal.from+'"/><stop offset="1" stop-color="'+pal.to+'"/></radialGradient>';
-    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
-  } else {
-    defs += '<linearGradient id="bg'+u+'" x1="0" y1="0" x2="1" y2="1">' +
-      '<stop offset="0" stop-color="'+pal.from+'"/><stop offset="1" stop-color="'+pal.to+'"/></linearGradient>';
-    bg = '<rect x="0" y="0" width="108" height="108" fill="url(#bg'+u+')"/>';
-  }
+  const bg = bgDef(s, u);
+  let defs = bg.defs;
 
   let art = "";
   if (s.wave === "shadow" || s.wave === "both")
@@ -222,7 +250,8 @@ function compose(s, mode){
   }
 
   const jt = "translate("+jx.toFixed(2)+","+jy.toFixed(2)+") scale("+js+") translate(-54,-60)";
-  const inner = bg + '<g transform="'+jt+'">'+JARH.map(pathEl).join("")+'</g>' + art;
+  const inner = '<rect x="0" y="0" width="108" height="108" fill="'+bg.fill+'"/>' +
+    '<g transform="'+jt+'">'+JARH.map(pathEl).join("")+'</g>' + art;
   if (mode === "round")
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72"><defs>'+defs +
       '<clipPath id="c'+u+'"><circle cx="54" cy="54" r="36"/></clipPath></defs>' +
@@ -230,65 +259,90 @@ function compose(s, mode){
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><defs>'+defs+'</defs>'+inner+'</svg>';
 }
 
-const opt = (o, on, key) =>
-  '<button class="opt'+(on?" on":"")+'" data-k="'+key+'" data-v="'+o.id+'">'+o.name+'</button>';
+const geomOn = g => g.gtype === st.gtype &&
+  (g.gtype !== "linear" || g.angle === st.angle) &&
+  (g.gtype !== "radial" || (g.cx === st.cx && g.cy === st.cy && g.rad === st.rad));
 
 function render(){
-  document.getElementById("psOpts").innerHTML = PRESETS.map(p =>
-    '<button class="opt" data-ps="'+p.id+'">'+p.name+'</button>').join("");
-  const sc = stops(st);
-  document.getElementById("stopsw").innerHTML =
-    '<span class="chip" style="width:30px;height:22px;border-radius:6px;background:linear-gradient(135deg,'+sc.from+','+sc.to+')"></span>' +
-    '<code>'+sc.from+' → '+sc.to+'</code>';
-  document.getElementById("grOpts").innerHTML = GRADS.map(o => opt(o, st.grad===o.id, "grad")).join("");
-  document.getElementById("wvOpts").innerHTML = WVS.map(o => opt(o, st.wave===o.id, "wave")).join("");
-  document.getElementById("fdOpts").innerHTML = FADES.map(o => opt(o, st.fade===o.id, "fade")).join("");
-  for (const k of ["depth","spread","dx","dy","js","ws","gap"]){
+  document.getElementById("geOpts").innerHTML = GEOMS.map(g =>
+    '<button class="opt'+(geomOn(g)?" on":"")+'" data-ge="'+g.id+'">'+g.name+'</button>').join("");
+  document.getElementById("wvOpts").innerHTML = WVS.map(o =>
+    '<button class="opt'+(st.wave===o.id?" on":"")+'" data-k="wave" data-v="'+o.id+'">'+o.name+'</button>').join("");
+  document.getElementById("fdOpts").innerHTML = FADES.map(o =>
+    '<button class="opt'+(st.fade===o.id?" on":"")+'" data-k="fade" data-v="'+o.id+'">'+o.name+'</button>').join("");
+
+  for (const k of ["angle","cx","cy","rad","depth","spread","curve","dx","dy","js","ws","gap"]){
     document.getElementById(k).value = st[k];
+    const two = ["depth","spread","curve","js","ws"].includes(k);
     document.getElementById(k+"v").textContent =
-      (k==="js"||k==="ws"||k==="depth"||k==="spread")
-        ? Number(st[k]).toFixed(2) : (st[k] > 0 ? "+" : "") + st[k];
+      two ? Number(st[k]).toFixed(2) : ((k==="dx"||k==="dy") && st[k] > 0 ? "+" : "") + st[k];
   }
+  document.getElementById("angleW").classList.toggle("off", st.gtype !== "linear");
+  for (const id of ["cxW","cyW","radW"])
+    document.getElementById(id).classList.toggle("off", st.gtype !== "radial");
+
+  const es = endStops(st);
+  document.getElementById("stopsw").innerHTML =
+    '<span class="swatch" style="background:linear-gradient(135deg,' +
+      gradStops(st).map(x => x.col).join(",") + ')"></span>' +
+    '<code>'+es.from+' → '+es.to+'</code>';
+
   document.getElementById("stage").innerHTML =
     '<figure class="big">'+compose(st,"full")+'<figcaption>full 108 (Play)</figcaption></figure>' +
     '<figure class="round">'+compose(st,"round")+'<figcaption>round mask</figcaption></figure>' +
     '<figure class="sm">'+compose(st,"round")+'<figcaption>64px</figcaption></figure>' +
     '<figure class="xs">'+compose(st,"round")+'<figcaption>40px</figcaption></figure>';
   document.getElementById("recipe").textContent =
-    "depth"+Number(st.depth).toFixed(2)+" spread"+Number(st.spread).toFixed(2)+" · "+st.grad+" · waves:"+st.wave+" · fade:"+st.fade+
-    " · dx"+st.dx+" dy"+st.dy+" · jar "+Number(st.js).toFixed(2)+" · waves "+Number(st.ws).toFixed(2)+" · gap "+st.gap;
-  document.getElementById("pals").innerHTML = PRESETS.map(p => {
-    const s = Object.assign({}, st, {depth:p.depth, spread:p.spread});
-    const sp = stops(s);
-    const on = Math.abs(st.depth-p.depth) < 0.005 && Math.abs(st.spread-p.spread) < 0.005;
-    return '<div class="pcell'+(on?" on":"")+'" data-ps="'+p.id+'">' +
-      compose(s,"round") + '<b>'+p.name+'</b>' +
-      '<span>depth '+p.depth.toFixed(2)+' · spread '+p.spread.toFixed(2)+'<br>'+sp.from+' → '+sp.to+'</span></div>';
+    st.gtype + (st.gtype==="linear" ? " "+st.angle+"°" : st.gtype==="radial" ? " "+st.cx+","+st.cy+" r"+st.rad : "") +
+    " · depth "+Number(st.depth).toFixed(2)+" spread "+Number(st.spread).toFixed(2)+" curve "+Number(st.curve).toFixed(2) +
+    " · waves:"+st.wave+"/"+st.fade+" · dx"+st.dx+" jar "+Number(st.js).toFixed(2)+" waves "+Number(st.ws).toFixed(2);
+
+  document.getElementById("geoms").innerHTML = GEOMS.map(g => {
+    const s = Object.assign({}, st, g); delete s.id; delete s.name;
+    return '<div class="pcell'+(geomOn(g)?" on":"")+'" data-ge="'+g.id+'">' +
+      compose(s,"full") + '<b>'+g.name+'</b></div>';
+  }).join("");
+
+  const ladder = [];
+  for (const d of [0.35, 0.5, 0.65, 0.8])
+    ladder.push({label:"depth "+d.toFixed(2), s:Object.assign({}, st, {depth:d})});
+  for (const c of [0.5, 1, 1.8, 2.6])
+    ladder.push({label:"curve "+c.toFixed(2), s:Object.assign({}, st, {curve:c})});
+  document.getElementById("ladder").innerHTML = ladder.map(l => {
+    const es2 = endStops(l.s);
+    return '<div class="pcell" data-set=\'' + JSON.stringify({depth:l.s.depth, curve:l.s.curve}) + '\'>' +
+      compose(l.s,"full") + '<b>'+l.label+'</b><span>'+es2.from+' → '+es2.to+'</span></div>';
   }).join("");
 }
 
 document.addEventListener("click", e => {
-  const o = e.target.closest(".opt");
-  if (o){ st[o.dataset.k] = o.dataset.v; save(); render(); return; }
-  const ps = e.target.closest("[data-ps]");
-  if (ps){
-    const p = PRESETS.find(x => x.id === ps.dataset.ps);
-    st.depth = p.depth; st.spread = p.spread;
+  const ge = e.target.closest("[data-ge]");
+  if (ge){
+    const g = GEOMS.find(x => x.id === ge.dataset.ge);
+    st.gtype = g.gtype;
+    if (g.gtype === "linear") st.angle = g.angle;
+    if (g.gtype === "radial"){ st.cx = g.cx; st.cy = g.cy; st.rad = g.rad; }
     save(); render();
-    if (ps.classList.contains("pcell")) window.scrollTo({top:0, behavior:"smooth"});
+    if (ge.classList.contains("pcell")) window.scrollTo({top:0, behavior:"smooth"});
     return;
   }
+  const set = e.target.closest("[data-set]");
+  if (set){ Object.assign(st, JSON.parse(set.dataset.set)); save(); render();
+    window.scrollTo({top:0, behavior:"smooth"}); return; }
+  const o = e.target.closest(".opt[data-k]");
+  if (o){ st[o.dataset.k] = o.dataset.v; save(); render(); return; }
   if (e.target.id === "dl"){
     const blob = new Blob([compose(st,"full")], {type:"image/svg+xml"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "V2-d"+Number(st.depth).toFixed(2)+"-s"+Number(st.spread).toFixed(2)+"-"+st.wave+".svg";
+    a.download = "V2-"+st.gtype+"-d"+Number(st.depth).toFixed(2)+"-s"+Number(st.spread).toFixed(2)+"-c"+Number(st.curve).toFixed(2)+".svg";
     a.click(); URL.revokeObjectURL(a.href);
   }
   if (e.target.id === "reset"){ Object.assign(st, DEFAULTS); save(); render(); }
 });
 document.addEventListener("input", e => {
-  if (!["depth","spread","dx","dy","js","ws","gap"].includes(e.target.id)) return;
+  const ids = ["angle","cx","cy","rad","depth","spread","curve","dx","dy","js","ws","gap"];
+  if (!ids.includes(e.target.id)) return;
   st[e.target.id] = Number(e.target.value);
   save(); render();
 });
