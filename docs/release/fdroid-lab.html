@@ -25,21 +25,104 @@
     <a href="launch-lab.html">Launch Lab</a> (Play + campaign). Checkboxes persist in this browser.</div>
   </div>
   <div class="meta">
-    <b>1.0.0-beta.1</b> · versionCode <b>33</b> · ndk <b>r26d</b><br>
+    proposed release: <b>1.0.0</b> · versionCode <b>10000</b> · ndk <b>r26d</b><br>
     APK license <b>GPL-3.0-or-later</b> · source <b>MIT</b><br>
-    expect anti-feature: <b>NonFreeNet</b> (accept it)
+    anti-feature <b>NonFreeNet</b> · reproducible build <b>planned</b>
   </div>
 </header>
 
 <main>
 
-<div class="note"><b>How F-Droid works.</b> F-Droid builds and signs the APK <em>themselves</em>, on
-their buildserver, from a signed git tag on the public GitHub repo — no keystore, no AAB, no upload.
-Our side is: (1) tag and push, (2) write a build recipe into their
-<a href="https://gitlab.com/fdroid/fdroiddata">fdroiddata</a> repo via merge request, (3) answer
-reviewer feedback. Review latency is days→months, which is exactly why this files <b>in parallel</b>
-with the Play closed test, not after it. F-Droid signs with their own key, so Play↔F-Droid installs
-can never cross-update — same applicationId, coordinated versionCodes, reinstall required to switch.</div>
+<div class="note"><b>How F-Droid works.</b> F-Droid builds the APK <em>themselves</em>, on their
+buildserver, from the exact commit named in a build recipe we commit to their
+<a href="https://gitlab.com/fdroid/fdroiddata">fdroiddata</a> repo via merge request — no AAB, no
+upload. <b>Critically, they also read the icon, screenshots, feature graphic and descriptions from
+the fastlane folder in that commit</b> — outdated screenshots in the tag ship as-is; you cannot fix
+graphics by editing the MR. So the app must be <em>finished</em> before the tag we submit. With
+<b>reproducible builds</b> (planned, see R-section) F-Droid verifies their build byte-matches our
+signed APK and publishes <em>ours</em> — unifying the F-Droid / GitHub / Obtainium signature so they
+cross-update. Full durable KB: agent-wiki <code>tech/coding/fdroid-publishing.md</code> + the
+<code>fdroid-publishing</code> skill.</div>
+
+<div class="warnbox" style="margin:18px 0;padding:14px 16px;border-radius:10px">
+<b>Status: ON HOLD — corrected plan (2026-08-03).</b> The open MR
+<a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636">!44636</a> is green but
+<b>premature</b>: it points at the <code>1.0.0-beta.1</code> tag whose fastlane screenshots are a
+visually older app, and it predates the reproducible-build + versioning decisions. We keep it open
+(reviewer <code>linsui</code> already engaged) and <b>re-point its recipe at the finalized 1.0.0
+release tag</b> once the gates below clear. Nothing is pushed to the MR until Max signs off.
+What we got wrong the first time is now written down (skill + KB) so it doesn't recur:
+tag-not-hash in <code>commit:</code>, <code>submodules: yes</code> vs <code>true</code>, missing
+App-Inclusion template — all already fixed; the deeper miss was submitting before the app was
+release-final.</div>
+
+<h2 class="sec">Blocking gates — must land before we cut the 1.0.0 tag</h2>
+<p class="lede">F-Droid builds + shoots graphics from the tag, so every item here has to be in the
+commit we submit. Green = done · amber = I/others can do · red = needs Max.</p>
+
+<div class="wstep max"><div class="hd"><span class="n">G1</span><span class="t">Screenshots — re-shoot on the final UI</span><span class="tag max">needs Max + me</span><span class="chev">▸</span></div>
+  <div class="body"><p>Current <code>fastlane/…/phoneScreenshots/</code> (5 shots, 2026-07-11) are a
+  visually older build. F-Droid publishes exactly these from the tag. Re-shoot after the UI is final
+  (post engine work + icon). No hard dimension rule for F-Droid phone shots (unlike Play), PNG/JPEG,
+  keep them real and current. I can drive capture via ADB on the Pixel once you tell me the build is
+  final; you pick the keepers.</p></div></div>
+
+<div class="wstep max"><div class="hd"><span class="n">G2</span><span class="t">App icon — slight refinement</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
+  <div class="body"><p>Icon is good, wants "ever so slightly more" refinement (Max). F-Droid reads
+  <code>images/icon.png</code> (512×512) from the tag and also the in-APK launcher icon. The
+  <a href="../design/icon-lab.html">icon lab</a> is the place to iterate. Lock before the tag.</p></div></div>
+
+<div class="wstep claude"><div class="hd"><span class="n">G3</span><span class="t">Kitten nano + Pocket TTS optimization — finalizing</span><span class="tag claude">in flight</span><span class="chev">▸</span></div>
+  <div class="body"><p>Both engine optimizations are being finalized as of 2026-08-03 (Kitten nano;
+  Pocket QDQ parity). These change the shipped APK, so the release tag must include the final engine
+  builds. This is the real "not quite ready yet" gate.</p></div></div>
+
+<div class="wstep max"><div class="hd"><span class="n">G4</span><span class="t">Versioning decision — go to 1.0.0 + a real scheme</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
+  <div class="body"><p>Recommendation (details in chat + KB): ship <b>1.0.0</b> (drop <code>-beta</code>;
+  the app is feature-complete and daily-usable — perpetual 0.x is a habit, not a rule), and adopt
+  <b><code>versionCode = MAJOR*10000 + MINOR*100 + PATCH</code></b> → 1.0.0 = <b>10000</b>. This
+  replaces the ad-hoc counter (we're at 33; 10000 &gt; 33 so it's a clean monotonic jump). Optional
+  now-or-never: reserve the lowest digit for ABI splits if we ever split the large native APK.
+  <b>Your call needed.</b></p></div></div>
+
+<h2 class="sec">R — Reproducible builds (new workstream, decided: do it)</h2>
+<p class="lede">Near one-way door: Android forbids a signing-key change without reinstall, so RB
+can't be enabled after first publishing F-Droid-signed. Max: "do it right the first time." Payoff:
+F-Droid / GitHub / Obtainium share one signature and cross-update; higher supply-chain trust.</p>
+
+<div class="wstep claude"><div class="hd"><span class="n">R1</span><span class="t">CI signs the release APK with apksigner + a stable release keystore</span><span class="tag claude">I set up</span><span class="chev">▸</span></div>
+  <div class="body"><p>The GitHub-released <code>fdroid</code>-flavor APK must be signed with a <b>stable
+  release keystore Max keeps</b> (NOT the Play upload key — Play re-signs — and not debug), using
+  <b>apksigner</b> (F-Droid copies signatures apksigner-style). We already have a release keystore
+  (<code>~/secure/marmalade-upload.jks</code>) — decide whether that key is the F-Droid/GitHub
+  distribution key too, or mint a dedicated one. <b>Once chosen it's permanent.</b></p></div></div>
+
+<div class="wstep claude"><div class="hd"><span class="n">R2</span><span class="t">Recipe: <code>Binaries</code> + <code>AllowedAPKSigningKeys</code></span><span class="tag claude">I do</span><span class="chev">▸</span></div>
+  <div class="body"><p><code>Binaries: https://github.com/…/releases/download/%v/…_%v.apk</code> (a stable URL
+  pattern per release) and <code>AllowedAPKSigningKeys: &lt;sha256&gt;</code> from
+  <code>apksigner verify --print-certs</code>. Requires the release-asset URL scheme to be fixed
+  forever.</p></div></div>
+
+<div class="wstep claude"><div class="hd"><span class="n">R3</span><span class="t">Prove byte-for-byte reproducibility</span><span class="tag claude">I verify</span><span class="chev">▸</span></div>
+  <div class="body"><p>Native code (NDK, ONNX, espeak) is the hard part. Verify locally with
+  <code>fdroid build</code> + <code>reproducible-apk-tools</code> (CRLF, ZIP ordering,
+  <code>resources.arsc</code>) <b>before</b> claiming RB, or the MR bounces. If it can't be made
+  reproducible, fall back to F-Droid-signed for 1.0.0 and note it — but we try first.</p></div></div>
+
+<h2 class="sec">Decisions I need from you</h2>
+<div class="note">
+<b>1. Versioning:</b> approve <b>1.0.0 / versionCode 10000</b> + the MAJOR*10000+MINOR*100+PATCH
+scheme? And reserve an ABI digit now (yes/no)?<br>
+<b>2. Reproducible builds signing key:</b> reuse <code>marmalade-upload.jks</code> as the permanent
+F-Droid/GitHub distribution key, or mint a dedicated release key? (Play's upload key is separate
+either way.)<br>
+<b>3. The open MR:</b> OK to post a short holding note to <code>linsui</code> ("finalizing updated
+screenshots + reproducible-build setup, will push the corrected recipe against the 1.0.0 tag
+shortly") so it doesn't read as abandoned? Text goes to you for sign-off first.<br>
+<b>4. Sequence:</b> confirm the order — finalize engines (G3) → lock versioning (G4) + icon (G2) →
+re-shoot screenshots (G1) → cut 1.0.0 tag → RB setup (R1–R3) → corrected recipe + App-Inclusion
+template on the MR → your sign-off → push.
+</div>
 
 <h2 class="sec">State check — verified 2026-08-02</h2>
 <p class="lede">Everything below was re-verified against the repo today, not copied from the plan.</p>
@@ -61,15 +144,18 @@ can never cross-update — same applicationId, coordinated versionCodes, reinsta
   <b>GitHub main is current</b> (<code>f5a2397</code> pushed). <code>CHANGELOG.md</code>,
   <code>PRIVACY.md</code>, <code>CREDITS.md</code> all present at repo root.</p></div></div>
 
-<div class="wstep done"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 — DONE 2026-08-02</span><span class="tag done">done</span><span class="chev">▸</span></div>
-  <div class="body"><p>Annotated tag <code>v1.0.0-beta.1</code> created at <code>f5a2397</code> (the public
-  GitHub HEAD, versionCode 33) and pushed on Max's go. <b>Standing constraint:</b> the Play closed-test
-  AAB must be built from this same tag so both stores ship identical code at versionCode 33.</p></div></div>
+<div class="wstep"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 (2026-08-02) — SUPERSEDED by the 1.0.0 re-cut</span><span class="tag">superseded</span><span class="chev">▸</span></div>
+  <div class="body"><p>Annotated tag <code>v1.0.0-beta.1</code> at <code>f5a2397</code> (versionCode 33)
+  exists on GitHub, and the current MR builds it. Under the corrected plan it is replaced by a
+  finalized <b>1.0.0 / versionCode 10000</b> tag cut after the blocking gates. The beta tag stays in
+  history; no need to delete it.</p></div></div>
 
-<h2 class="sec">Submission — who does what</h2>
-<p class="lede">Green = done · amber = I can do when asked · red = needs you (account/browser work I
-can't do for you). The recipe and MR text are pre-written in the copy deck below — you transcribe,
-not compose.</p>
+<h2 class="sec">Submission — first pass (record; re-run against the 1.0.0 tag)</h2>
+<div class="note" style="margin-bottom:14px">These steps are the <b>first submission pass</b> — done
+2026-08-02, now paused. The fork/branch/MR all stay; when the 1.0.0 tag exists I update the recipe
+commit (full hash, RB fields, App-Inclusion template) on the same branch and the same MR updates in
+place. Kept here as the record of what's already wired.</div>
+<p class="lede">Green = done · amber = I can do when asked · red = needs you.</p>
 
 <details class="phase" open>
 <summary><h2><span class="id">S1</span> GitLab side — fork + branch (you)</h2><span class="prog"></span></summary>
@@ -102,7 +188,7 @@ GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI tooling
 (F-Droid has no policy against it — unlike IzzyOnDroid, which is out per the 2026-07-26 decision).</p>
 <label class="step"><input type="checkbox" data-k="s3-mr"><span class="t"><b>MR OPENED 2026-08-02: <a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636">fdroiddata!44636</a></b> <small>Title "New app: Marmalade TTS", description = copy M1, via API.</small></span></label>
 <label class="step"><input type="checkbox" data-k="s3-ci"><span class="t"><b>MR pipeline GREEN (2026-08-02, pipeline 2725683973, all 9 jobs incl. fdroid build)</b> <small>Fixes that got it green (commit <code>ab96a7c</code>): identity verification (Max), <code>submodules: true</code> not <code>yes</code>, canonical field order + <code>AutoName</code>, and <code>scanignore: third_party/espeak-ng/phsource</code> (same fix as eSpeak NG's own listing).</small></span></label>
-<label class="step"><input type="checkbox" data-k="s3-review"><span class="t"><b>Respond to reviewer feedback</b> <small>Typical round-trips: anti-feature wording, NDK pinning, reproducibility nits. Paste comments to me; I draft replies and any repo-side fixes.</small></span></label>
+<label class="step"><input type="checkbox" data-k="s3-review"><span class="t"><b>Reviewer <code>linsui</code> commented 2026-08-03 (<a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636#note_3636858285">note</a>)</b> <small>Asks: (1) use the App-Inclusion template + tick the boxes, (2) full commit hash not the tag/branch in <code>commit:</code>. Both fold into the corrected 1.0.0 recipe; not answered yet — holding note pending Max sign-off (Decision 3).</small></span></label>
 <label class="step"><input type="checkbox" data-k="s3-merged"><span class="t"><b>MR merged — listing appears after their next build cycle</b> <small>No further action; index publication is automatic (can take a few days post-merge).</small></span></label>
 <b style="font-size:14px;color:var(--toast)">Review tracker</b> <span style="font-size:13px;color:var(--dimmer)">(persists here — date · reviewer ask · resolution)</span>
 <textarea class="tracker" data-k="s3-tracker" placeholder="2026-08-.. · MR opened: [URL]
