@@ -48,11 +48,11 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun defaultValueFallsBackToKokoroDirectWhenUnset() = runTest {
+    fun defaultValueFallsBackToKittenDirectWhenUnset() = runTest {
         val repo = newRepo()
-        // Nothing written yet → fallback to the catalog default. Must be the
-        // recommended engine (Kokoro Direct).
-        assertEquals(KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
+        // Nothing written yet → fallback to the baked default (Kitten Direct),
+        // the one engine guaranteed present on a fresh/offline install.
+        assertEquals(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID, repo.defaultVoiceId.first())
     }
 
     @Test

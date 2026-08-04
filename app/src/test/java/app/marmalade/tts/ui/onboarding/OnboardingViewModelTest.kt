@@ -72,14 +72,14 @@ class OnboardingViewModelTest {
     @Test
     fun toggleFlipsSelection() = runTest {
         val vm = newViewModel()
-        // Kokoro is the recommended default → pre-selected.
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
+        // Kitten is the recommended default (baked) → pre-selected.
+        assertTrue(vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
 
-        vm.toggle("kokoro-direct-v1_0")
-        assertTrue(!vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
+        vm.toggle("kitten-direct-v0_8")
+        assertTrue(!vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
 
-        vm.toggle("kokoro-direct-v1_0")
-        assertTrue(vm.selectedEngineIds.value.contains("kokoro-direct-v1_0"))
+        vm.toggle("kitten-direct-v0_8")
+        assertTrue(vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
     }
 
     @Test
@@ -90,16 +90,16 @@ class OnboardingViewModelTest {
         vm.installSelected()
 
         assertEquals(OnboardingStep.Installing, vm.step.value)
-        // Only the recommended engine (kokoro) is pre-selected.
-        assertEquals(listOf("kokoro-direct-v1_0"), installer.installCalls)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-direct-v1_0"])
+        // Only the recommended engine (kitten) is pre-selected.
+        assertEquals(listOf("kitten-direct-v0_8"), installer.installCalls)
+        assertEquals(InstallState.Installed, vm.installStates.value["kitten-direct-v0_8"])
     }
 
     @Test
     fun installSelectedWithNoSelectionsIsNoop() = runTest {
         val installer = RecordingInstaller(behaviour = { Result.success(Unit) })
         val vm = newViewModel(installer = installer)
-        vm.toggle("kokoro-direct-v1_0") // un-select the recommended default
+        vm.toggle("kitten-direct-v0_8") // un-select the recommended default
 
         vm.installSelected()
 
@@ -116,7 +116,7 @@ class OnboardingViewModelTest {
 
         vm.installSelected()
 
-        val state = vm.installStates.value["kokoro-direct-v1_0"]
+        val state = vm.installStates.value["kitten-direct-v0_8"]
         assertTrue("expected Failed, got $state", state is InstallState.Failed)
         assertEquals("net dropped", (state as InstallState.Failed).reason)
     }
@@ -129,10 +129,10 @@ class OnboardingViewModelTest {
         assertEquals(1, installer.installCalls.size)
 
         // Retry the same engine the recommended default lands on
-        // (kokoro), so the running count grows by exactly one.
-        vm.retry("kokoro-direct-v1_0")
+        // (kitten), so the running count grows by exactly one.
+        vm.retry("kitten-direct-v0_8")
         assertEquals(2, installer.installCalls.size)
-        assertEquals(InstallState.Installed, vm.installStates.value["kokoro-direct-v1_0"])
+        assertEquals(InstallState.Installed, vm.installStates.value["kitten-direct-v0_8"])
     }
 
     @Test
@@ -238,8 +238,8 @@ class OnboardingViewModelTest {
         )
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(settings = settings, aliasDao = aliasDao)
-        // Recommended engine (kokoro) is pre-selected → install lands it
-        // as Installed which makes useDefaultsAndContinue pick kokoro.
+        // Recommended engine (kitten) is pre-selected → install lands it
+        // as Installed which makes useDefaultsAndContinue pick kitten.
         vm.installSelected()
 
         vm.useDefaultsAndContinue()
@@ -248,7 +248,7 @@ class OnboardingViewModelTest {
         val row = aliasDao.upsertedAliases.single()
         assertEquals("default", row.name)
         assertEquals(row.id, settings.primaryAliasId.first())
-        assertEquals("kokoro-direct-v1_0", row.engine)
+        assertEquals("kitten-direct-v0_8", row.engine)
         // Fast-defaults path skips the battery prompt by design, but now
         // routes through the notification-permission ask before the final
         // system-TTS step (Smart keep-warm is the default → needs the grant).
@@ -302,6 +302,13 @@ private class RecordingInstaller(
     httpFetcher = { _ -> throw java.io.IOException("not used") },
 ) {
     val installCalls = mutableListOf<String>()
+
+    // Nothing on disk in these tests — a fresh onboarding. Overridden (rather
+    // than inheriting the base disk check) so it resolves synchronously on the
+    // test dispatcher instead of hopping to Dispatchers.IO, which runInstall's
+    // "skip if already installed" guard now calls before installing.
+    override suspend fun verify(engineName: String): InstallState =
+        InstallState.NotInstalled
 
     override suspend fun install(
         engineName: String,

@@ -149,7 +149,10 @@ object EngineCatalog {
             "fully on your device with a bundled espeak-ng phonemizer.",
         downloadSizeBytes = 64_218_626L,
         installedSizeBytes = KITTEN_DIRECT_INSTALLED_SIZE_BYTES,
-        isRecommended = false,
+        // Recommended + onboarding-preselected default: it's baked into the
+        // APK (works instantly + offline on first run) and the fastest engine
+        // on any device. Kokoro/Pocket are optional higher-quality downloads.
+        isRecommended = true,
         archive = EngineArchive(
             // v22: legacy libttsespeak.so removed (bundles carry no executable
             // code at rest) and espeak-ng-data rebuilt from the 1.52.0 tag —
@@ -199,7 +202,9 @@ object EngineCatalog {
             "all loaded at runtime.",
         downloadSizeBytes = 194_353_174L,
         installedSizeBytes = KOKORO_DIRECT_INSTALLED_SIZE_BYTES,
-        isRecommended = true,
+        // No longer the default — Kitten is baked + recommended. Kokoro stays
+        // the top optional download for best quality + widest language support.
+        isRecommended = false,
         archive = EngineArchive(
             // v23: selectively-quantized QDQ int8 model (see class doc above).
             // v22: legacy libttsespeak.so removed; espeak-ng-data rebuilt from

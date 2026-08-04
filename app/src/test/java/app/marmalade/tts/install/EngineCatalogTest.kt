@@ -37,7 +37,7 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun kokoroDirectIsRecommended_othersAreNot() {
+    fun kittenDirectIsRecommended_othersAreNot() {
         // Exactly one recommended engine — the onboarding pre-selection
         // logic reads the boolean per engine; multiple recommendations
         // would over-pre-select on first launch.
@@ -47,8 +47,8 @@ class EngineCatalogTest {
             EngineCatalog.all.count { it.isRecommended },
         )
         assertTrue(
-            "kokoro-direct-v1_0 should be the recommended default",
-            EngineCatalog.byName("kokoro-direct-v1_0")!!.isRecommended,
+            "kitten-direct-v0_8 should be the recommended default (baked, offline-ready)",
+            EngineCatalog.byName("kitten-direct-v0_8")!!.isRecommended,
         )
         // The recommended engine must always be visible to non-developers,
         // else fresh release installs would onboard with nothing pre-checked.

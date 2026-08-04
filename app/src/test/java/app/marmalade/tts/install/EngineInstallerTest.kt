@@ -249,9 +249,16 @@ class EngineInstallerTest {
         File(dir, "phonemizer/arm64-v8a").mkdirs()
         File(dir, "phonemizer/arm64-v8a/libttsespeak.so").writeText("elf")
         val dataDir = File(dir, "phonemizer/espeak-ng-data").apply { mkdirs() }
-        for (i in 0 until 120) {
-            File(dataDir, "entry_$i").writeText("$i")
+        // The core files English phonemization needs — verifyKittenDirectLayout
+        // checks for these specifically (so the baked English-only tree passes),
+        // not a raw entry count.
+        for (f in listOf("phondata", "phonindex", "phontab", "intonations", "en_dict")) {
+            File(dataDir, f).writeText(f)
         }
+        File(dataDir, "lang").mkdirs()
+        File(dataDir, "lang/en").writeText("en")
+        File(dataDir, "voices").mkdirs()
+        File(dataDir, "voices/f1").writeText("f1")
         val voicesDir = File(dir, "voices").apply { mkdirs() }
         for (name in listOf("bella", "jasper", "luna", "bruno", "rosie", "hugo", "kiki", "leo")) {
             File(voicesDir, "$name.bin").writeText("voice-$name")
@@ -411,10 +418,14 @@ class EngineInstallerTest {
             // archive's sha, not the model's contents.
             put("kitten.onnx", ByteArray(1_500_000) { (it and 0xFF).toByte() })
             put("phonemizer/arm64-v8a/libttsespeak.so", "elf".toByteArray())
-            // > 100 entries under phonemizer/espeak-ng-data/ to clear MIN_ESPEAK_ENTRIES.
-            for (i in 0 until 110) {
-                put("phonemizer/espeak-ng-data/entry_$i", "dict-$i".toByteArray())
+            // The core espeak files English phonemization needs — checked
+            // specifically by verifyKittenDirectLayout (so the baked English-
+            // only tree passes) rather than a raw entry count.
+            for (f in listOf("phondata", "phonindex", "phontab", "intonations", "en_dict")) {
+                put("phonemizer/espeak-ng-data/$f", f.toByteArray())
             }
+            put("phonemizer/espeak-ng-data/lang/en", "en".toByteArray())
+            put("phonemizer/espeak-ng-data/voices/f1", "f1".toByteArray())
             for (name in KITTEN_DIRECT_VOICES) {
                 put("voices/$name.bin", "voice-$name".toByteArray())
             }

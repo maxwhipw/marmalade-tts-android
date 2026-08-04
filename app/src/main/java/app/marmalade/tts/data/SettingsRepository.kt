@@ -64,12 +64,13 @@ open class SettingsRepository @Inject constructor(
      * the open modifier — final isn't required for `@Inject` providers.)
      */
     open val defaultVoiceId: Flow<String> = dataStore.data.map { prefs ->
-        // Default to the recommended, release-visible engine. The old default
-        // (Kitten Nano) is a sherpa engine hidden in release builds, so a fresh
-        // release user could never install it — leaving the default pointing at
-        // an un-installable engine. Kokoro Direct is the onboarding-preselected
-        // default and is always visible.
-        prefs[KEY_DEFAULT_VOICE_ID] ?: KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
+        // Default to Kitten (Bella): it's baked into the APK, so it's the one
+        // engine guaranteed present on a fresh install — even fully offline,
+        // before any download. A Kokoro default would fail the first synth on
+        // a fresh offline install because Kokoro isn't installed yet. (The old
+        // comment here predates Kitten Direct + baking: the current Kitten is a
+        // real direct-ORT engine, not the retired sherpa Kitten Mini.)
+        prefs[KEY_DEFAULT_VOICE_ID] ?: KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
     }
 
     /**
@@ -103,6 +104,24 @@ open class SettingsRepository @Inject constructor(
     open suspend fun setOnboarded(value: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_ONBOARDED] = value
+        }
+    }
+
+    /**
+     * Whether the baked default engine (Kitten) has been seeded from the APK
+     * assets. Seeding runs exactly once (first run) — see
+     * `MarmaladeTtsApplication`. Gating on this rather than "is Kitten
+     * installed" means a user who deliberately uninstalls Kitten to reclaim
+     * space isn't re-seeded on the next launch.
+     */
+    open val bakedDefaultSeeded: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_BAKED_DEFAULT_SEEDED] ?: false
+    }
+
+    /** Records that the baked default engine seed has run. Idempotent. */
+    open suspend fun setBakedDefaultSeeded(value: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_BAKED_DEFAULT_SEEDED] = value
         }
     }
 
@@ -492,6 +511,7 @@ open class SettingsRepository @Inject constructor(
         // Removing this would cause every existing install to re-run
         // onboarding after an update; renaming would do the same.
         private val KEY_ONBOARDED = booleanPreferencesKey("onboarded")
+        private val KEY_BAKED_DEFAULT_SEEDED = booleanPreferencesKey("baked_default_seeded")
 
         // Theme preset name (stored as ThemePreset.name, not ordinal — see
         // [themePreset] kdoc).

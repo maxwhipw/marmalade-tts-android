@@ -1,5 +1,6 @@
 package app.marmalade.tts.install
 
+import android.content.res.AssetManager
 import android.util.Log
 import java.io.BufferedInputStream
 import java.io.File
@@ -364,6 +365,99 @@ open class EngineInstaller @Inject constructor(
     }
 
     /**
+     * Seed [engineName] from a bundle baked into the APK assets under
+     * `assets/engines-seed/<engineName>/`, instead of downloading it. Used to
+     * make the default engine work instantly and offline on first run.
+     *
+     * No-op (returns success) if the engine is already installed — the copy
+     * is a first-run cost, not a per-launch one. Otherwise recursively copies
+     * the asset tree into a scratch dir, atomically swaps it into place,
+     * stamps the install meta from the catalog descriptor, and runs the same
+     * post-install layout check the download path uses.
+     *
+     * Returns success (a no-op) if the engine isn't a catalog entry or has no
+     * baked asset tree — callers seed opportunistically and shouldn't treat
+     * "nothing to seed" as an error.
+     *
+     * [assets] is passed in (rather than injected) so the installer stays
+     * free of an Android `Context` dependency for unit tests.
+     */
+    open suspend fun seedFromAssets(
+        assets: AssetManager,
+        engineName: String,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val descriptor = EngineCatalog.byName(engineName)
+            ?: return@withContext Result.success(Unit)
+        val sf = stateFlow(engineName)
+        val finalDir = engineDirFor(engineName)
+        val scratchDir = scratchDirFor(engineName)
+
+        // Already installed (downloaded or previously seeded) — leave it.
+        if (verifyLayout(descriptor, finalDir) is InstallState.Installed) {
+            sf.value = InstallState.Installed
+            return@withContext Result.success(Unit)
+        }
+
+        val assetRoot = "$SEED_ASSET_DIR/$engineName"
+        // No baked tree for this engine — nothing to do.
+        if (assets.list(assetRoot).isNullOrEmpty()) {
+            return@withContext Result.success(Unit)
+        }
+
+        if (scratchDir.exists()) scratchDir.deleteRecursively()
+        scratchDir.mkdirs()
+        try {
+            copyAssetTree(assets, assetRoot, scratchDir)
+
+            if (finalDir.exists()) {
+                runCatching { engineHandle.release() }
+                finalDir.deleteRecursively()
+            }
+            if (!scratchDir.renameTo(finalDir)) {
+                throw IOException(
+                    "Could not rename ${scratchDir.absolutePath} to ${finalDir.absolutePath}",
+                )
+            }
+            writeInstallMeta(finalDir, descriptor)
+
+            val verified = verifyLayout(descriptor, finalDir)
+            if (verified is InstallState.Corrupt) {
+                finalDir.deleteRecursively()
+                throw IOException("Seeded layout for $engineName failed verification")
+            }
+            sf.value = InstallState.Installed
+            Log.i(TAG, "Seeded $engineName from APK assets")
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Seeding $engineName from assets failed", t)
+            if (scratchDir.exists()) scratchDir.deleteRecursively()
+            sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
+            Result.failure(if (t is IOException) t else IOException(t))
+        }
+    }
+
+    /**
+     * Recursively copy an APK asset subtree at [assetPath] into [dest].
+     * `AssetManager.list()` returns child names for a directory and an empty
+     * array for a file (APKs carry no empty directories), so an empty list
+     * means "copy this asset as a file".
+     */
+    private fun copyAssetTree(assets: AssetManager, assetPath: String, dest: File) {
+        val children = assets.list(assetPath) ?: emptyArray()
+        if (children.isEmpty()) {
+            dest.parentFile?.mkdirs()
+            assets.open(assetPath).use { input ->
+                dest.outputStream().use { input.copyTo(it) }
+            }
+        } else {
+            dest.mkdirs()
+            for (child in children) {
+                copyAssetTree(assets, "$assetPath/$child", File(dest, child))
+            }
+        }
+    }
+
+    /**
      * Test-friendly install that operates against a caller-supplied
      * descriptor instead of looking it up in [EngineCatalog]. Used by
      * `EngineInstallerTest` to drive the installer against a loopback
@@ -604,6 +698,17 @@ open class EngineInstaller @Inject constructor(
             return sf
         }
     }
+
+    /**
+     * True if [espeakData] contains the files English phonemization needs:
+     * the three phoneme tables, the intonation data, and the English
+     * dictionary. Works for both the baked English-only tree and a full
+     * downloaded multi-language tree (which is a superset).
+     */
+    private fun hasCoreEspeakData(espeakData: File): Boolean =
+        CORE_ESPEAK_FILES.all { File(espeakData, it).isFile } &&
+            File(espeakData, "lang").isDirectory &&
+            File(espeakData, "voices").isDirectory
 
     private fun engineDirFor(engineName: String): File =
         File(filesDir.get(), "engines/$engineName")
@@ -897,8 +1002,12 @@ open class EngineInstaller @Inject constructor(
 
         val espeakData = File(dir, "phonemizer/espeak-ng-data")
         if (!espeakData.isDirectory) return InstallState.Corrupt
-        val dataEntries = espeakData.list()?.size ?: 0
-        if (dataEntries < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
+        // Kitten is English-only; the BAKED bundle carries just the English
+        // espeak data (~8 top-level entries: en_dict + the phoneme tables +
+        // lang/ + voices/), while a DOWNLOADED bundle carries the full ~110-
+        // language set. So check for the specific files English phonemization
+        // needs rather than a raw entry count — passes for both.
+        if (!hasCoreEspeakData(espeakData)) return InstallState.Corrupt
 
         val voicesDir = File(dir, "voices")
         if (!voicesDir.isDirectory) return InstallState.Corrupt
@@ -1058,6 +1167,18 @@ open class EngineInstaller @Inject constructor(
         // numbers (which would force a code change every bundle bump).
         private const val MIN_MODEL_BYTES: Long = 1L * 1024L * 1024L
         private const val MIN_ESPEAK_ENTRIES: Int = 100
+
+        // The espeak-ng-data files English phonemization needs — checked
+        // instead of a raw entry count so the baked English-only tree (which
+        // the download path's full multi-language tree is a superset of)
+        // still verifies. See [hasCoreEspeakData].
+        private val CORE_ESPEAK_FILES = listOf(
+            "phondata", "phonindex", "phontab", "intonations", "en_dict",
+        )
+
+        // APK assets subdir holding baked engine trees (Apache model+voices
+        // committed; espeak-ng-data merged in at build). See [seedFromAssets].
+        private const val SEED_ASSET_DIR = "engines-seed"
 
         // String shown in the per-engine progress UI while the archive is
         // downloading. v0.1's per-file labels are gone with the per-file

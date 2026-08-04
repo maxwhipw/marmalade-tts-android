@@ -105,6 +105,9 @@ class MarmaladeTtsApplication : Application() {
     @Inject
     lateinit var cloudProviders: Provider<CloudProviderStore>
 
+    @Inject
+    lateinit var engineInstaller: Provider<app.marmalade.tts.install.EngineInstaller>
+
     /**
      * Application-lifetime scope. SupervisorJob so a seed failure doesn't
      * propagate out of this scope and tear down anything else launched on
@@ -130,6 +133,20 @@ class MarmaladeTtsApplication : Application() {
         // the engine warm-up still proceeds, which is the part that kills
         // first-utterance latency. No-op when keepalive is Off.
         applicationScope.launch { keepalive.get().applyCurrentMode() }
+        // Seed the baked default engine (Kitten) from the APK assets on first
+        // run so a fresh install can speak immediately and offline — no
+        // download. Gated on a one-time flag, NOT on "is Kitten missing": a
+        // user who later uninstalls Kitten to reclaim space must stay
+        // uninstalled, so we seed exactly once ever. The flag is only set on
+        // a successful seed, so a transient failure retries next launch.
+        applicationScope.launch {
+            val prefs = settings.get()
+            if (!prefs.bakedDefaultSeeded.first()) {
+                val seeded = engineInstaller.get()
+                    .seedFromAssets(assets, KittenDirectVoiceCatalog.ENGINE)
+                if (seeded.isSuccess) prefs.setBakedDefaultSeeded(true)
+            }
+        }
         applicationScope.launch {
             val dao = voiceDao.get()
             val prefs = settings.get()

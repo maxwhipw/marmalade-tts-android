@@ -286,6 +286,14 @@ class OnboardingViewModel @Inject constructor(
      * before the final emission lands.
      */
     private suspend fun runInstall(engineName: String) {
+        // Skip the download if the engine is already installed — notably the
+        // baked default (Kitten), seeded from APK assets at app start before
+        // onboarding is reached. Re-downloading it would need the network and
+        // defeat the "works offline on first run" guarantee.
+        if (installer.verify(engineName) is InstallState.Installed) {
+            updateInstallState(engineName, InstallState.Installed)
+            return
+        }
         val stateJob = viewModelScope.launch {
             installer.state(engineName).collect { s ->
                 updateInstallState(engineName, s)
