@@ -121,24 +121,31 @@ cleaned `voices/*.wav` in the next bundle rev (composes with the qdq
 decision; check the app's voice_cache invalidation on bundle update).
 Details: ~/coding/scratch/pocket-qdq/REPORT.md.
 
-## Next steps (in order)
+## 2026-08-04 — DEVICE BENCH DONE, PARITY QUESTION CLOSED
 
-1. ~~Max listens to the lab~~ DONE — approved (see above). Still open in the
-   lab: section 2, alba cleaned-prompt timbre verdict.
-2. Device bench (needs Max's ADB port; debug app is disposable, never touch
-   the release app): install APK, push
-   `~/coding/scratch/pocket-qdq/flow_lm_main_qdq_X1.onnx` (+ optionally
-   `flow_lm_main_fp32.onnx` and bundle v21's bundle.json + int8 if Pocket
-   isn't installed in-app) to `files/pocket-quant/` via run-as, run
-   "Pocket quant bench" in Settings → Advanced → Benchmark. Within-run
-   comparisons only (thermals).
-3. Decide: if qdq-x1 arMedian is NOT meaningfully below int8dyn → **close
-   the parity question**: record numbers in
-   docs/HARDWARE-ACCELERATION-2026-07.md, keep shipping dynamic int8, done.
-   If it IS faster → quality path continues: Max's ear verdict, then bundle
-   as engines-repo v24 (catalog sha/size, model-format marker so
-   PocketEngine skips XNNPACK for QDQ — engine change needed, see
-   KokoroDirectEngine 2669852 pattern), device end-to-end.
+Ran PocketQuantBench on the Pixel 8a (2 same-device runs, memory-tight ~2 GB
+free). AR-step median ms: shipping int8dyn 39.9/53.4, int8dyn+XNNPACK
+42.6/43.3, **qdq-X1 46.3/51.3**, fp32 ~54–81. **Static QDQ is never faster
+than the shipping dynamic int8** (16% slower clean run, tie in the noisy one)
+— matches the x86 tie. Pocket's int8 flow_lm has no ConvInteger slow path to
+escape (that was Kokoro's win), so dynamic MatMulInteger is already near-
+optimal for this bandwidth-bound M=1 AR loop.
+
+**DECISION: keep shipping dynamic int8 for Pocket. No quant re-spin, no v24
+for quantization.** Numbers recorded in docs/HARDWARE-ACCELERATION-2026-07.md
+(new "Pocket flow_lm_main: static QDQ vs shipping dynamic int8" subsection).
+Phone cleaned (side-loaded files removed; debug app left installed).
+
+### Still open (independent of the closed quant question)
+
+- **Opening-thump prompt-clean fix** — worth a small Pocket bundle rev on its
+  own (NOT tied to quant): clean the `voices/*.wav` (voice-prompt low-band
+  leakage; recipe in `scratch/pocket-qdq/REPORT.md`). Check the app's
+  voice_cache invalidation on bundle update. Alba's aggressively-cleaned
+  timbre still needs Max's ear (lab section 2:
+  http://<labs-server>/pocket-qdq/pocket-qdq-lab.html).
+- The PocketQuantBench debug screen (`f3f97b1`) stays — reusable for any
+  future Pocket precision experiment.
 
 ## Prior context (previous session)
 

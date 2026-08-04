@@ -175,6 +175,47 @@ at an 18% speed cost while still under realtime — a candidate for a low-storag
 not a replacement. The desktop q8f16 ORT-optimizer segfault did not reproduce on
 ORT-Android 1.26 (it ran — just absurdly slowly).
 
+### Pocket flow_lm_main: static QDQ vs shipping dynamic int8 — PARITY QUESTION CLOSED (Pixel 8a, 2026-08-04)
+
+Follow-on to the Kokoro win above: does the same static-QDQ recipe help Pocket?
+First finding — the shipped `flow_lm_main_int8.onnx` is **dynamic** int8
+(DynamicQuantizeLinear + MatMulInteger, from upstream's `quantize_dynamic`), NOT
+static QDQ. So the hypothesis was that re-quantizing static-QDQ (per-channel, the
+format that hit ORT's fast ARM kernels for Kokoro) might be faster — exactly the
+Kokoro win. Built `flow_lm_main_qdq_X1.onnx` (static QDQ, 24 transformer linears
+int8, `input_linear` + EOS head fp32 — full recipe in
+`scratch/pocket-qdq/REPORT.md`), quality ≈ shipping int8 (Max ear-approved the
+quants on desktop).
+
+On-device via the debug "Pocket quant bench" (isolated flow_lm_main AR-step
+timing, 80 steps, manifest state loop; QDQ on CPU EP per the XNNPACK+QDQ segfault
+constraint). AR-step median ms, two same-device runs (device was memory-tight,
+~2 GB free + heavy zram — p90s ran 2–3× median, so read the *ordering*, not
+absolute ms):
+
+| variant | run 1 | run 2 |
+|---|---|---|
+| int8dyn CPU EP (shipping) | **39.9** | 53.4 |
+| int8dyn + XNNPACK | 42.6 | 43.3 |
+| **qdq-X1 CPU EP (candidate)** | 46.3 | 51.3 |
+| fp32 CPU EP | 80.7 | 60.7 |
+| fp32 + XNNPACK | 81.7 | 53.9 |
+
+**Verdict: static QDQ gives NO speed win over the shipping dynamic int8** — 16%
+slower in the clean run, a tie in the noisy one, never faster. Matches the x86
+desktop tie (21.4 vs 22.5 ms). Root cause exactly as predicted for a bandwidth-
+bound M=1 AR loop: unlike Kokoro, Pocket's int8 flow_lm has **no ConvInteger slow
+path to escape** — dynamic MatMulInteger is already near-optimal, and both int8
+formats read the same 4×-smaller weights. fp32 is ~2× slower (run 1; run 2's
+fp32 numbers are noise-collapsed toward int8 — the device was thrashing), which
+still confirms int8 is doing real bandwidth work. XNNPACK on int8dyn is a wash
+(MatMulInteger falls back to CPU EP anyway; XNNPACK just adds pool overhead).
+
+**Decision: keep shipping dynamic int8 for Pocket. No quant re-spin.** The
+separate opening-"inhale" fix (voice-prompt low-band leakage — clean the
+`voices/*.wav`, see `scratch/pocket-qdq/REPORT.md`) is independent of this and
+still worth a small bundle rev on its own.
+
 ## ExecuTorch: parked, revisit on a development branch
 
 Status per the 2026-06 investigation (full detail in project memory): Pocket-on-ET
