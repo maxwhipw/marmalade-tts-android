@@ -234,7 +234,6 @@ dependencies {
     // + TarArchiveInputStream. Apache-2.0.
     implementation("org.apache.commons:commons-compress:1.27.1")
 
-    // Google Play Billing — **play flavor only**. Drives the
     // Testing — JVM
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

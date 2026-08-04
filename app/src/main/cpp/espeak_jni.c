@@ -4,10 +4,12 @@
 // Loads libespeak-ng.so (GPL-3.0-or-later, compiled from source out of the
 // third_party/espeak-ng submodule into this APK) at runtime via dlopen,
 // from a path provided by Kotlin — normally the APK's own nativeLibraryDir.
-// espeak-ng-data ships in the engine bundle (data, not code). This shim
-// contains no espeak code and links no espeak symbols at build time, so its
-// source stays MIT; the combined APK is GPL because of the espeak lib it
-// carries.
+// espeak-ng-data ships in the engine bundle (data, not code). This shim is
+// Marmalade's own code and contains no espeak source (no espeak headers, no
+// copied code), so the FILE is cleanly MIT — that follows from its authorship
+// plus MIT being GPL-compatible, NOT from the dlopen/arm's-length linking. The
+// distributed APK as a whole is a GPL-3.0-or-later combined work regardless of
+// link method, because it carries the espeak lib.
 //
 // The chosen subset of the espeak C API:
 //   espeak_Initialize        — start the engine, point it at espeak-ng-data
