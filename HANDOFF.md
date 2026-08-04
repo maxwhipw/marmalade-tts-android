@@ -81,14 +81,17 @@ pushed to github at `f5a2397` (vc 33 — the Play AAB must build from this same
 tag); MR open at https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636
 (fork maxwhipw/fdroiddata, branch marmalade-tts). GitLab PAT: header file at
 `~/secure/gitlab-header`, use `curl -H @file` so the token stays out of
-transcripts. **CI GREEN** (pipeline 2725683973, all 9 jobs incl. fdroid
-build; fixes in recipe commit ab96a7c). MR description wording signed off by
-Max 2026-08-02. Now waiting on F-Droid reviewers; a systemd user timer
-(`fdroid-mr-check.timer`, twice daily, script + state at
-`~/coding/scratch/fdroid-mr-check/`) notifies on new MR activity. Standing
+transcripts. CI green but **MR is ON HOLD / premature** (2026-08-03): F-Droid
+reads screenshots+icon+graphics from the tag it builds, so the app must be
+release-final first. Corrected plan lives in `docs/release/fdroid-lab.html`
+(status banner + blocking gates G1-G4 + reproducible-builds R1-R3 + decisions)
+and agent-wiki `tech/coding/fdroid-publishing.md` + the `fdroid-publishing`
+skill. Re-cut against a finalized **1.0.0 / versionCode 10000** tag with
+reproducible builds; update the SAME MR; Max sign-off before any public post.
+Reviewer linsui asked for App-Inclusion template + full-commit-hash (fold into
+re-cut). MR watch: systemd `fdroid-mr-check.timer` (twice daily). Standing
 rule: public-facing text needs Max's sign-off on final wording (global
-CLAUDE.md). Lab: `docs/release/fdroid-lab.html`
-(http://<labs-server>/marmalade-tts-release/fdroid-lab.html).
+CLAUDE.md).
 
 ## 2026-08-02 addendum — synthesis-language audit fixes (5 commits, UNPUSHED)
 
