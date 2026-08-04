@@ -24,6 +24,16 @@ const JAR = [
   ["M52.3,74.8 L53.2,79.4",null,"#FFF5E6",0.2,0.6],
   ["M55.7,74.8 L54.8,79.4",null,"#FFF5E6",0.2,0.6],
 ];
+// Named indices into JAR, so pages can restyle individual pieces (gloss
+// gradients, sticker silhouette, shadow) instead of re-declaring the paths.
+const JAR_IDX = {
+  ground: 0, body: 1, marmalade: 2, shine: 3, neck: 4, lid: 5, ridge: 6,
+  lidLines: [7, 8, 9, 10, 11], label: 12, labelLines: [13, 14],
+  slice: 15, sliceLines: [16, 17, 18],
+};
+// The pieces whose union forms the jar's outer silhouette.
+const JAR_SILHOUETTE = [1, 4, 5, 6].map(i => JAR[i][0]);
+
 const EYES = [
   ["M40.0,60.2 a4.6,5.4 0 1,0 9.2,0 a4.6,5.4 0 1,0 -9.2,0 Z","#3D2B1F"],
   ["M58.7,60.2 a4.6,5.4 0 1,0 9.2,0 a4.6,5.4 0 1,0 -9.2,0 Z","#3D2B1F"],

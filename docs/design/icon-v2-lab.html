@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/_assets/lab.css">
 <script src="icon-art.js"></script>
 <style>
-  .ctrls{display:grid;gap:16px;margin:10px 0 4px}
+  .ctrls{display:grid;gap:15px;margin:10px 0 4px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .row > .lbl{font-family:var(--mono);font-size:12px;color:var(--dimmer);
       text-transform:uppercase;letter-spacing:.1em;width:104px;flex:none}
@@ -15,9 +15,9 @@
       border:1px solid var(--line);background:var(--panel);cursor:pointer;
       font-size:14px;color:var(--dim)}
   .opt.on{border-color:var(--orange);color:var(--toast)}
-  .sl{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--dim)}
-  .sl input[type=range]{width:190px;accent-color:var(--orange)}
-  .sl .val{font-family:var(--mono);font-size:12.5px;color:var(--toast);width:52px}
+  .sl{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--dim)}
+  .sl input[type=range]{width:172px;accent-color:var(--orange)}
+  .sl .val{font-family:var(--mono);font-size:12.5px;color:var(--toast);width:46px}
   .sl.off{opacity:.35;pointer-events:none}
   .swatch{width:34px;height:24px;border-radius:6px;border:1px solid #0006}
   .stage{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);
@@ -25,10 +25,11 @@
   .stage figure{margin:0;display:flex;flex-direction:column;gap:8px;align-items:center}
   .stage figcaption{font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
   .stage svg{display:block}
-  .stage .big svg{width:220px;height:220px;border-radius:48px}
+  .stage .big svg{width:230px;height:230px;border-radius:50px}
   .stage .round svg{width:150px;height:150px;border-radius:50%}
   .stage .sm svg{width:64px;height:64px;border-radius:50%}
   .stage .xs svg{width:40px;height:40px;border-radius:50%}
+  .stage .zoom svg{width:230px;height:230px;border-radius:14px}
   .pals{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .pcell{background:var(--panel);border:1px solid var(--line);border-radius:12px;
       padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer}
@@ -46,30 +47,25 @@
 <header>
   <div>
     <h1>Marmalade TTS — <span>V2 Sound-Waves Lab</span></h1>
-    <div class="sub">Locked: eye-line anchor · 3 arcs — tuning gradient shape, depth, fade and layout</div>
+    <div class="sub">Layout locked — tuning the background gradient and the mascot itself</div>
   </div>
   <div class="meta">marmalade-tts-android<br><b>docs/design/icon-v2-lab.html</b><br>2026-08-01</div>
 </header>
 <main>
 
 <h2 class="sec">Locked decisions</h2>
-<p class="lede"><span class="locked">✓ Eye-line anchor</span> — the arcs align with the
-jar's eyes. <span class="locked">✓ 3 arcs</span>. Both are baked in.</p>
-<div class="note"><b>Why it read flat:</b> the ramp interpolated <b>linearly</b> between two
-stops, which the eye reads as a even wash, and it bottomed out at
-<code>#7C2D12</code>. Now the gradient emits <b>five stops shaped by a curve</b>, the geometry is
-adjustable — linear at any angle, or radial from any point — and the ramp's
-<b>dark end is selectable</b>: deep amber <code>#C2410C</code> (default, the lightest
-floor), toast ink <code>#7C2D12</code>, or rich brown <code>#422006</code> if you ever
-want it heavy. Still entirely locked-palette colours, starting from peach
-<code>#FDBA74</code> through orange <code>#F97316</code>.</div>
+<p class="lede">
+<span class="locked">✓ Eye-line anchor</span> &nbsp;
+<span class="locked">✓ 3 arcs</span> &nbsp;
+<span class="locked">✓ Layout</span> — X offset +3, Y 0, jar 0.78, waves 1.00, gap 5.5.
+All baked in; the sliders are gone.</p>
 
-<h2 class="sec">Controls</h2>
+<h2 class="sec">Background</h2>
 <div class="ctrls">
   <div class="row"><span class="lbl">Geometry</span><span id="geOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Dark end</span><span id="deOpts" class="row"></span></div>
   <div class="row"><span class="lbl">Shape</span>
-    <span class="row" style="gap:20px">
+    <span class="row" style="gap:18px">
       <span class="sl" id="angleW">Angle <input type="range" id="angle" min="0" max="360" step="5"><span class="val" id="anglev"></span></span>
       <span class="sl" id="cxW">Centre X <input type="range" id="cx" min="0" max="100" step="1"><span class="val" id="cxv"></span></span>
       <span class="sl" id="cyW">Centre Y <input type="range" id="cy" min="0" max="100" step="1"><span class="val" id="cyv"></span></span>
@@ -77,29 +73,46 @@ want it heavy. Still entirely locked-palette colours, starting from peach
     </span>
   </div>
   <div class="row"><span class="lbl">Ramp</span>
-    <span class="row" style="gap:20px">
+    <span class="row" style="gap:18px">
       <span class="sl">Depth <input type="range" id="depth" min="0" max="1" step="0.01"><span class="val" id="depthv"></span></span>
       <span class="sl">Spread <input type="range" id="spread" min="0" max="1" step="0.01"><span class="val" id="spreadv"></span></span>
       <span class="sl">Curve <input type="range" id="curve" min="0.35" max="2.8" step="0.05"><span class="val" id="curvev"></span></span>
       <span class="sl" id="stopsw"></span>
     </span>
   </div>
-  <div class="row"><span class="lbl">Waves</span><span id="wvOpts" class="row"></span></div>
-  <div class="row"><span class="lbl">Arc fade</span><span id="fdOpts" class="row"></span></div>
-  <div class="row"><span class="lbl">Layout</span>
-    <span class="row" style="gap:20px">
-      <span class="sl">X offset <input type="range" id="dx" min="-10" max="14" step="0.5"><span class="val" id="dxv"></span></span>
-      <span class="sl">Y offset <input type="range" id="dy" min="-8" max="8" step="0.5"><span class="val" id="dyv"></span></span>
-    </span>
-  </div>
-  <div class="row"><span class="lbl">Sizes</span>
-    <span class="row" style="gap:20px">
-      <span class="sl">Jar <input type="range" id="js" min="0.55" max="1.05" step="0.01"><span class="val" id="jsv"></span></span>
-      <span class="sl">Waves <input type="range" id="ws" min="0.55" max="1.75" step="0.01"><span class="val" id="wsv"></span></span>
-      <span class="sl">Gap <input type="range" id="gap" min="0" max="14" step="0.5"><span class="val" id="gapv"></span></span>
-    </span>
-  </div>
 </div>
+
+<h2 class="sec">Mascot</h2>
+<p class="lede">Three independent ways to make the jar pop: <b>lift it off the
+background</b> (sticker outline, drop shadow), <b>give it volume</b> (body gloss, glass
+sheen, rim light), and <b>sharpen the face</b> (eye gloss size, style, eye depth).</p>
+<div class="ctrls">
+  <div class="row"><span class="lbl">Preset</span><span id="mpOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Lift</span>
+    <span class="row" style="gap:18px">
+      <span class="sl">Outline <input type="range" id="outline" min="0" max="4" step="0.1"><span class="val" id="outlinev"></span></span>
+      <span class="sl">Shadow <input type="range" id="shadow" min="0" max="0.6" step="0.01"><span class="val" id="shadowv"></span></span>
+      <span class="sl">Sh. dist <input type="range" id="shDist" min="0" max="5" step="0.1"><span class="val" id="shDistv"></span></span>
+    </span>
+  </div>
+  <div class="row"><span class="lbl">Volume</span>
+    <span class="row" style="gap:18px">
+      <span class="sl">Gloss <input type="range" id="gloss" min="0" max="1" step="0.01"><span class="val" id="glossv"></span></span>
+      <span class="sl">Sheen <input type="range" id="sheen" min="0" max="1" step="0.01"><span class="val" id="sheenv"></span></span>
+      <span class="sl">Rim light <input type="range" id="rim" min="0" max="1" step="0.01"><span class="val" id="rimv"></span></span>
+    </span>
+  </div>
+  <div class="row"><span class="lbl">Eyes</span>
+    <span class="row" style="gap:18px">
+      <span class="sl">Gloss size <input type="range" id="eyeGloss" min="0.4" max="2" step="0.05"><span class="val" id="eyeGlossv"></span></span>
+      <span class="sl">Eye depth <input type="range" id="eyeDepth" min="0" max="1" step="0.01"><span class="val" id="eyeDepthv"></span></span>
+    </span>
+  </div>
+  <div class="row"><span class="lbl">Eye style</span><span id="esOpts" class="row"></span></div>
+  <div class="row"><span class="lbl">Outline col</span><span id="ocOpts" class="row"></span></div>
+</div>
+
+<h2 class="sec">Preview</h2>
 <div class="stage" id="stage"></div>
 <div class="row" style="margin-top:16px">
   <button class="dlbtn" id="dl">Download this SVG</button>
@@ -107,37 +120,31 @@ want it heavy. Still entirely locked-palette colours, starting from peach
   <span class="sub" id="recipe"></span>
 </div>
 
-<h2 class="sec">Gradient geometries</h2>
-<p class="lede">The same ramp under different geometry, at your current Depth / Spread /
-Curve. Click to load one, then fine-tune above.</p>
-<div class="pals" id="geoms"></div>
+<h2 class="sec">Mascot presets</h2>
+<p class="lede">On your current background. Click to load, then fine-tune above.</p>
+<div class="pals" id="mgrid"></div>
 
-<h2 class="sec">Depth &amp; curve ladder</h2>
-<p class="lede">Your current geometry at increasing depth (top row of labels) and at
-different falloff curves — the quickest read on "how much gradient is too much".</p>
-<div class="pals" id="ladder"></div>
+<h2 class="sec">Gradient geometries</h2>
+<p class="lede">The same ramp under different geometry, with your current mascot settings.</p>
+<div class="pals" id="geoms"></div>
 
 <h2 class="sec">Notes</h2>
 <div class="note"><b>Portability:</b> minSdk is 28. VectorDrawable supports linear and
-radial gradients with <b>multiple stops</b>, so everything here ports into
-<code>ic_launcher_foreground.xml</code> 1:1; a gradient background means the adaptive
-icon's <code>&lt;background&gt;</code> becomes a drawable instead of a colour resource.
-<b>SVG drop-shadow filters do not port</b> — the shadow here is a real offset duplicate
-path at low alpha, which does.</div>
+radial gradients with <b>multiple stops</b> and strokes, so the gloss gradients, the
+sticker outline and the eye treatments all port into
+<code>ic_launcher_foreground.xml</code> 1:1. <b>There is no blur</b> — the drop shadow is
+built from offset silhouette copies at low alpha, which is why it reads as a soft
+stepped edge rather than a true gaussian. That's deliberate: it survives the port.</div>
 <textarea class="tracker" data-k="tts-icon-v2-notes" rows="4"
-  placeholder="Verdict — geometry, depth/spread/curve, layout…"></textarea>
+  placeholder="Verdict — background recipe + mascot settings…"></textarea>
 
 </main>
 <script>
-const JARH = [...JAR, ...FACE_HAPPY];
 let uidV2 = 0;                    // icon-art.js owns the global `uid`
 const ANCHOR = 60.2, ARCS = 3;    // LOCKED 2026-08-01
+const LOCK = {dx:3, dy:0, js:0.78, ws:1, gap:5.5};   // LOCKED 2026-08-01
 
-// One locked-palette ramp, given as explicit (position, colour) stops so the
-// meaning of `depth` stays stable when the dark end changes. `depth` positions
-// the centre of a window on it, `spread` is the window's width, `curve` shapes
-// how fast colour travels across the window (1 = linear, <1 = holds light then
-// drops, >1 = drops early then holds).
+/* ---------- background ramp ---------- */
 const DARK_ENDS = [
   {id:"amber", name:"Deep amber #C2410C", ramp:[[0,"#FDBA74"],[0.38,"#F97316"],[1,"#C2410C"]]},
   {id:"ink",   name:"Toast ink #7C2D12",  ramp:[[0,"#FDBA74"],[0.38,"#F97316"],[0.72,"#C2410C"],[1,"#7C2D12"]]},
@@ -156,7 +163,6 @@ function ramp(t, endId){
   }
   return R[R.length-1][1];
 }
-// Five stops across the window, positioned linearly, coloured on an eased t.
 function gradStops(s){
   const out = [];
   for (let i = 0; i < 5; i++){
@@ -178,116 +184,220 @@ const GEOMS = [
   {id:"radTight",name:"Tight vignette", gtype:"radial", cx:46, cy:40, rad:50},
   {id:"flat",   name:"Flat (no gradient)", gtype:"flat"},
 ];
-const WVS = [
-  {id:"flat",   name:"Flat cream"},
-  {id:"grad",   name:"Gradient"},
-  {id:"shadow", name:"Drop shadow"},
-  {id:"both",   name:"Gradient + shadow"},
+const EYE_STYLES = [
+  {id:"solid",  name:"Solid dot"},
+  {id:"grad",   name:"Gradient gloss"},
+  {id:"double", name:"Double (big + small)"},
 ];
-const FADES = [
-  {id:"none",   name:"None",   ops:[1, 1, 1]},
-  {id:"slight", name:"Slight", ops:[1, 0.94, 0.86]},
-  {id:"medium", name:"Medium", ops:[1, 0.85, 0.70]},
-  {id:"strong", name:"Strong (old)", ops:[1, 0.7, 0.45]},
+const OUTLINE_COLS = [
+  {id:"white", name:"White #FFFFFF", hex:"#FFFFFF"},
+  {id:"cream", name:"Lid cream #FFF8EE", hex:"#FFF8EE"},
+  {id:"toast", name:"Toast #FED7AA", hex:"#FED7AA"},
+];
+const MASCOT_PRESETS = [
+  {id:"flat",    name:"Flat (current art)", outline:0,   shadow:0,    shDist:0,   gloss:0,    sheen:0,    rim:0,    eyeGloss:1,   eyeDepth:0,   eyeStyle:"solid"},
+  {id:"sticker", name:"Sticker",            outline:2.4, shadow:0.18, shDist:1.6, gloss:0,    sheen:0,    rim:0,    eyeGloss:1,   eyeDepth:0,   eyeStyle:"solid"},
+  {id:"lifted",  name:"Drop shadow only",   outline:0,   shadow:0.32, shDist:2.4, gloss:0,    sheen:0,    rim:0,    eyeGloss:1,   eyeDepth:0,   eyeStyle:"solid"},
+  {id:"glossy",  name:"Glossy",             outline:0,   shadow:0.22, shDist:1.8, gloss:0.7,  sheen:0.75, rim:0.5,  eyeGloss:1.2, eyeDepth:0.6, eyeStyle:"grad"},
+  {id:"full",    name:"Sticker + glossy",   outline:2.2, shadow:0.24, shDist:1.8, gloss:0.65, sheen:0.7,  rim:0.45, eyeGloss:1.25,eyeDepth:0.55,eyeStyle:"double"},
 ];
 
-const DEFAULTS = {
+const DEFAULTS = Object.assign({
   gtype:"linear", angle:45, cx:40, cy:40, rad:78, darkEnd:"amber",
   depth:0.56, spread:0.40, curve:1,
   wave:"both", fade:"slight",
-  dx:3.5, dy:0, js:0.78, ws:1, gap:5.5,
-};
-let st = Object.assign({}, DEFAULTS,
-  JSON.parse(localStorage.getItem("tts-icon-v2-state6") || "{}"));
-const save = () => localStorage.setItem("tts-icon-v2-state6", JSON.stringify(st));
+  outlineCol:"white",
+}, MASCOT_PRESETS.find(p => p.id === "full"));
+delete DEFAULTS.id; delete DEFAULTS.name;
 
-const BASE = {step:5, h0:5.5, dh:4.5, b0:5, db:2.5, sw:2.2};
-const wavesWidth = ws => ((ARCS-1)*BASE.step + BASE.b0 + (ARCS-1)*BASE.db + 1) * ws;
-function waveSpecs(cy, x0, ws, ops){
+let st = Object.assign({}, DEFAULTS,
+  JSON.parse(localStorage.getItem("tts-icon-v2-state7") || "{}"));
+const save = () => localStorage.setItem("tts-icon-v2-state7", JSON.stringify(st));
+
+/* ---------- waves ---------- */
+const WBASE = {step:5, h0:5.5, dh:4.5, b0:5, db:2.5, sw:2.2};
+const wavesWidth = ws => ((ARCS-1)*WBASE.step + WBASE.b0 + (ARCS-1)*WBASE.db + 1) * ws;
+const FADE_OPS = [1, 0.94, 0.86];
+function waveSpecs(cy, x0, ws){
   const out = [];
   for (let i = 0; i < ARCS; i++){
-    const x = x0 + i*BASE.step*ws, h = (BASE.h0 + i*BASE.dh)*ws, b = (BASE.b0 + i*BASE.db)*ws;
+    const x = x0 + i*WBASE.step*ws, h = (WBASE.h0 + i*WBASE.dh)*ws, b = (WBASE.b0 + i*WBASE.db)*ws;
     out.push({
       d: "M"+x.toFixed(1)+","+(cy-h).toFixed(1)+" Q"+(x+b).toFixed(1)+","+cy.toFixed(1)+" "+x.toFixed(1)+","+(cy+h).toFixed(1),
-      op: ops[i], sw: (BASE.sw*ws).toFixed(2)
+      op: FADE_OPS[i], sw: (WBASE.sw*ws).toFixed(2)
     });
   }
   return out;
 }
 
+/* ---------- mascot ---------- */
+const JAR_BASE = "#F5A623";
+const P = i => JAR[i][0];
+// Eye geometry (matches mascot_happy.xml): pupils at y 60.2, r 4.6 x 5.4.
+const EYE_C = [[44.6, 60.2], [63.3, 60.2]];
+const GLOSS_C = [[46.5, 58.2], [65.2, 58.2]];        // main highlight centres
+const GLOSS_C2 = [[42.7, 62.7], [61.4, 62.7]];       // secondary dot, "double" style
+
+function mascot(s, u){
+  const out = [];
+  const sil = JAR_SILHOUETTE;
+
+  // Drop shadow: offset silhouette copies. No blur in VectorDrawable, so two
+  // passes (broad + tight) stand in for a soft edge.
+  if (s.shadow > 0 && s.shDist > 0){
+    for (const [k, a] of [[1, 0.55], [0.5, 0.45]]){
+      const dx = (s.shDist*k*0.75).toFixed(2), dy = (s.shDist*k).toFixed(2);
+      out.push('<g transform="translate('+dx+','+dy+')" opacity="'+(s.shadow*a).toFixed(3)+'">' +
+        sil.map(d => '<path d="'+d+'" fill="#3D2B1F"/>').join("") + '</g>');
+    }
+  }
+  // Sticker outline: the silhouette filled AND stroked, so overlaps union up.
+  if (s.outline > 0){
+    const col = OUTLINE_COLS.find(c => c.id === s.outlineCol).hex;
+    out.push(sil.map(d => '<path d="'+d+'" fill="'+col+'" stroke="'+col+'" stroke-width="' +
+      (s.outline*2).toFixed(2)+'" stroke-linejoin="round"/>').join(""));
+  } else {
+    out.push('<path d="'+P(JAR_IDX.ground)+'" fill="#3D2B1F" opacity="0.10"/>');
+  }
+
+  // Jar body — flat fill, or a gloss gradient lightening toward the top-left.
+  if (s.gloss > 0){
+    const lite = mix(JAR_BASE, "#FFFFFF", 0.30*s.gloss);
+    const dark = mix(JAR_BASE, "#B45309", 0.45*s.gloss);
+    out.push('<defs><linearGradient id="jb'+u+'" x1="0.1" y1="0" x2="0.85" y2="1">' +
+      '<stop offset="0" stop-color="'+lite+'"/>' +
+      '<stop offset="0.45" stop-color="'+JAR_BASE+'"/>' +
+      '<stop offset="1" stop-color="'+dark+'"/></linearGradient></defs>');
+    out.push('<path d="'+P(JAR_IDX.body)+'" fill="url(#jb'+u+')"/>');
+  } else {
+    out.push('<path d="'+P(JAR_IDX.body)+'" fill="'+JAR_BASE+'"/>');
+  }
+
+  out.push('<path d="'+P(JAR_IDX.marmalade)+'" fill="#D4831E" opacity="0.5"/>');
+  out.push('<path d="'+P(JAR_IDX.shine)+'" fill="#FFFFFF" opacity="'+(0.15 + 0.30*s.sheen).toFixed(3)+'"/>');
+
+  // Specular sheen across the shoulder of the jar.
+  if (s.sheen > 0)
+    out.push('<ellipse cx="47" cy="44" rx="8.5" ry="4" transform="rotate(-28 47 44)" ' +
+      'fill="#FFFFFF" opacity="'+(0.26*s.sheen).toFixed(3)+'"/>');
+
+  // Rim light down the right edge.
+  if (s.rim > 0)
+    out.push('<path d="M76.6,44 L76.6,88" stroke="#FFE0B2" stroke-width="2.4" ' +
+      'stroke-linecap="round" fill="none" opacity="'+(0.42*s.rim).toFixed(3)+'"/>');
+
+  out.push('<path d="'+P(JAR_IDX.neck)+'" fill="#E8D5B0"/>');
+  out.push('<path d="'+P(JAR_IDX.lid)+'" fill="#FFF8EE" stroke="#D4C4A0" stroke-width="0.4"/>');
+  out.push('<path d="'+P(JAR_IDX.ridge)+'" fill="#FFF5E6" stroke="#D4C4A0" stroke-width="0.3"/>');
+  for (const i of JAR_IDX.lidLines)
+    out.push('<path d="'+P(i)+'" fill="none" stroke="#E0D0B0" stroke-width="0.2" opacity="0.5"/>');
+  out.push('<path d="'+P(JAR_IDX.label)+'" fill="#FFF8EE" stroke="#D4B896" stroke-width="0.3"/>');
+  for (const i of JAR_IDX.labelLines)
+    out.push('<path d="'+P(i)+'" fill="none" stroke="#E8C9A0" stroke-width="0.2"/>');
+  out.push('<path d="'+P(JAR_IDX.slice)+'" fill="'+JAR_BASE+'" stroke="#D4831E" stroke-width="0.3"/>');
+  for (const i of JAR_IDX.sliceLines)
+    out.push('<path d="'+P(i)+'" fill="none" stroke="#FFF5E6" stroke-width="0.2" opacity="0.6"/>');
+
+  // Eyes — pupil shape is fixed; depth and gloss are adjustable.
+  let pupilFill = "#3D2B1F";
+  if (s.eyeDepth > 0){
+    out.push('<defs><linearGradient id="ey'+u+'" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="'+mix("#3D2B1F", "#6B4A33", s.eyeDepth)+'"/>' +
+      '<stop offset="1" stop-color="'+mix("#3D2B1F", "#1A1009", s.eyeDepth)+'"/></linearGradient></defs>');
+    pupilFill = "url(#ey"+u+")";
+  }
+  for (const [cx, cy] of EYE_C)
+    out.push('<ellipse cx="'+cx+'" cy="'+cy+'" rx="4.6" ry="5.4" fill="'+pupilFill+'"/>');
+
+  const r = 1.9 * s.eyeGloss;
+  if (s.eyeStyle === "grad"){
+    out.push('<defs><radialGradient id="eg'+u+'" cx="0.35" cy="0.32" r="0.8">' +
+      '<stop offset="0" stop-color="#FFFFFF"/>' +
+      '<stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0.92"/>' +
+      '<stop offset="1" stop-color="#FFE9CC" stop-opacity="0.55"/></radialGradient></defs>');
+  }
+  const glossFill = s.eyeStyle === "grad" ? "url(#eg"+u+")" : "#FFFFFF";
+  for (const [cx, cy] of GLOSS_C)
+    out.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(2)+'" fill="'+glossFill+'"/>');
+  if (s.eyeStyle === "double")
+    for (const [cx, cy] of GLOSS_C2)
+      out.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.42).toFixed(2)+'" fill="#FFFFFF" opacity="0.9"/>');
+
+  out.push('<path d="M48.5,69.6 Q54.0,72.0 59.5,69.6" fill="none" stroke="#3D2B1F" stroke-width="0.5" stroke-linecap="round"/>');
+  for (const [cx, cy] of [[40.0, 63.5], [68.0, 63.5]])
+    out.push('<ellipse cx="'+cx+'" cy="'+cy+'" rx="3.5" ry="1.8" fill="#FF6B6B" opacity="0.08"/>');
+  return out.join("");
+}
+
+/* ---------- background fill ---------- */
 function bgDef(s, u){
   if (s.gtype === "flat" || s.spread === 0)
     return {defs:"", fill: ramp(s.depth, s.darkEnd)};
-  const stops = gradStops(s).map(x =>
-    '<stop offset="'+x.off+'" stop-color="'+x.col+'"/>').join("");
-  if (s.gtype === "radial"){
-    return {
-      defs: '<radialGradient id="bg'+u+'" cx="'+(s.cx/100)+'" cy="'+(s.cy/100)+'" r="'+(s.rad/100)+'">'+stops+'</radialGradient>',
-      fill: "url(#bg"+u+")"
-    };
-  }
+  const stops = gradStops(s).map(x => '<stop offset="'+x.off+'" stop-color="'+x.col+'"/>').join("");
+  if (s.gtype === "radial")
+    return {defs: '<radialGradient id="bg'+u+'" cx="'+(s.cx/100)+'" cy="'+(s.cy/100)+'" r="'+(s.rad/100)+'">'+stops+'</radialGradient>',
+            fill: "url(#bg"+u+")"};
   const a = s.angle * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
-  return {
-    defs: '<linearGradient id="bg'+u+'" x1="'+(0.5-0.5*co).toFixed(4)+'" y1="'+(0.5-0.5*si).toFixed(4) +
-          '" x2="'+(0.5+0.5*co).toFixed(4)+'" y2="'+(0.5+0.5*si).toFixed(4)+'">'+stops+'</linearGradient>',
-    fill: "url(#bg"+u+")"
-  };
+  return {defs: '<linearGradient id="bg'+u+'" x1="'+(0.5-0.5*co).toFixed(4)+'" y1="'+(0.5-0.5*si).toFixed(4) +
+                '" x2="'+(0.5+0.5*co).toFixed(4)+'" y2="'+(0.5+0.5*si).toFixed(4)+'">'+stops+'</linearGradient>',
+          fill: "url(#bg"+u+")"};
 }
 
 function compose(s, mode){
-  const js = s.js, ws = s.ws, jarW = 52*js;
-  const total = jarW + s.gap + wavesWidth(ws);
-  const left = 54 - total/2 + s.dx;
-  const jx = left + jarW/2, x0 = left + jarW + s.gap;
-  const jy = 54 + s.dy;
+  const {dx, dy, js, ws, gap} = LOCK;
+  const jarW = 52*js;
+  const left = 54 - (jarW + gap + wavesWidth(ws))/2 + dx;
+  const jx = left + jarW/2, x0 = left + jarW + gap, jy = 54 + dy;
   const cy = jy + (ANCHOR - 60)*js;
-  const ops = FADES.find(f => f.id === s.fade).ops;
-  const W = waveSpecs(cy, x0, ws, ops);
+  const W = waveSpecs(cy, x0, ws);
   const u = "v2" + (++uidV2);
   const bg = bgDef(s, u);
   let defs = bg.defs;
 
   let art = "";
-  if (s.wave === "shadow" || s.wave === "both")
-    art += W.map(w => '<path d="'+w.d+'" transform="translate(0.9,1.1)" fill="none" stroke="#3D2B1F" ' +
-      'stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+(w.op*0.30).toFixed(2)+'"/>').join("");
-  if (s.wave === "grad" || s.wave === "both"){
-    defs += '<linearGradient id="wg'+u+'" x1="'+x0.toFixed(1)+'" y1="0" x2="'+(x0+wavesWidth(ws)).toFixed(1)+'" y2="0" gradientUnits="userSpaceOnUse">' +
-      '<stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#FED7AA"/></linearGradient>';
-    art += W.map(w => '<path d="'+w.d+'" fill="none" stroke="url(#wg'+u+')" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+w.op+'"/>').join("");
-  } else {
-    art += W.map(w => '<path d="'+w.d+'" fill="none" stroke="#FFF8EE" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+w.op+'"/>').join("");
-  }
+  art += W.map(w => '<path d="'+w.d+'" transform="translate(0.9,1.1)" fill="none" stroke="#3D2B1F" ' +
+    'stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+(w.op*0.30).toFixed(2)+'"/>').join("");
+  defs += '<linearGradient id="wg'+u+'" x1="'+x0.toFixed(1)+'" y1="0" x2="'+(x0+wavesWidth(ws)).toFixed(1)+'" y2="0" gradientUnits="userSpaceOnUse">' +
+    '<stop offset="0" stop-color="#FFF8EE"/><stop offset="1" stop-color="#FED7AA"/></linearGradient>';
+  art += W.map(w => '<path d="'+w.d+'" fill="none" stroke="url(#wg'+u+')" stroke-width="'+w.sw+'" stroke-linecap="round" opacity="'+w.op+'"/>').join("");
 
   const jt = "translate("+jx.toFixed(2)+","+jy.toFixed(2)+") scale("+js+") translate(-54,-60)";
   const inner = '<rect x="0" y="0" width="108" height="108" fill="'+bg.fill+'"/>' +
-    '<g transform="'+jt+'">'+JARH.map(pathEl).join("")+'</g>' + art;
+    '<g transform="'+jt+'">'+mascot(s, u)+'</g>' + art;
   if (mode === "round")
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72"><defs>'+defs +
       '<clipPath id="c'+u+'"><circle cx="54" cy="54" r="36"/></clipPath></defs>' +
       '<g clip-path="url(#c'+u+')">'+inner+'</g></svg>';
+  if (mode === "face")   // tight crop on the face, for judging eye treatments
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 34 42 42"><defs>'+defs+'</defs>'+inner+'</svg>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><defs>'+defs+'</defs>'+inner+'</svg>';
 }
 
+/* ---------- ui ---------- */
 const geomOn = g => g.gtype === st.gtype &&
   (g.gtype !== "linear" || g.angle === st.angle) &&
   (g.gtype !== "radial" || (g.cx === st.cx && g.cy === st.cy && g.rad === st.rad));
+const MKEYS = ["outline","shadow","shDist","gloss","sheen","rim","eyeGloss","eyeDepth","eyeStyle"];
+const presetOn = p => MKEYS.every(k => st[k] === p[k]);
 
 function render(){
   document.getElementById("geOpts").innerHTML = GEOMS.map(g =>
     '<button class="opt'+(geomOn(g)?" on":"")+'" data-ge="'+g.id+'">'+g.name+'</button>').join("");
   document.getElementById("deOpts").innerHTML = DARK_ENDS.map(o =>
     '<button class="opt'+(st.darkEnd===o.id?" on":"")+'" data-k="darkEnd" data-v="'+o.id+'">'+o.name+'</button>').join("");
-  document.getElementById("wvOpts").innerHTML = WVS.map(o =>
-    '<button class="opt'+(st.wave===o.id?" on":"")+'" data-k="wave" data-v="'+o.id+'">'+o.name+'</button>').join("");
-  document.getElementById("fdOpts").innerHTML = FADES.map(o =>
-    '<button class="opt'+(st.fade===o.id?" on":"")+'" data-k="fade" data-v="'+o.id+'">'+o.name+'</button>').join("");
+  document.getElementById("esOpts").innerHTML = EYE_STYLES.map(o =>
+    '<button class="opt'+(st.eyeStyle===o.id?" on":"")+'" data-k="eyeStyle" data-v="'+o.id+'">'+o.name+'</button>').join("");
+  document.getElementById("ocOpts").innerHTML = OUTLINE_COLS.map(o =>
+    '<button class="opt'+(st.outlineCol===o.id?" on":"")+'" data-k="outlineCol" data-v="'+o.id+'">' +
+    '<span class="swatch" style="width:20px;height:16px;background:'+o.hex+'"></span>'+o.name+'</button>').join("");
+  document.getElementById("mpOpts").innerHTML = MASCOT_PRESETS.map(p =>
+    '<button class="opt'+(presetOn(p)?" on":"")+'" data-mp="'+p.id+'">'+p.name+'</button>').join("");
 
-  for (const k of ["angle","cx","cy","rad","depth","spread","curve","dx","dy","js","ws","gap"]){
+  for (const k of ["angle","cx","cy","rad","depth","spread","curve",
+                   "outline","shadow","shDist","gloss","sheen","rim","eyeGloss","eyeDepth"]){
     document.getElementById(k).value = st[k];
-    const two = ["depth","spread","curve","js","ws"].includes(k);
-    document.getElementById(k+"v").textContent =
-      two ? Number(st[k]).toFixed(2) : ((k==="dx"||k==="dy") && st[k] > 0 ? "+" : "") + st[k];
+    document.getElementById(k+"v").textContent = Number(st[k]).toFixed(
+      ["angle","cx","cy","rad"].includes(k) ? 0 : 2);
   }
   document.getElementById("angleW").classList.toggle("off", st.gtype !== "linear");
   for (const id of ["cxW","cyW","radW"])
@@ -295,35 +405,31 @@ function render(){
 
   const es = endStops(st);
   document.getElementById("stopsw").innerHTML =
-    '<span class="swatch" style="background:linear-gradient(135deg,' +
-      gradStops(st).map(x => x.col).join(",") + ')"></span>' +
+    '<span class="swatch" style="background:linear-gradient(135deg,'+gradStops(st).map(x=>x.col).join(",")+')"></span>' +
     '<code>'+es.from+' → '+es.to+'</code>';
 
   document.getElementById("stage").innerHTML =
     '<figure class="big">'+compose(st,"full")+'<figcaption>full 108 (Play)</figcaption></figure>' +
     '<figure class="round">'+compose(st,"round")+'<figcaption>round mask</figcaption></figure>' +
     '<figure class="sm">'+compose(st,"round")+'<figcaption>64px</figcaption></figure>' +
-    '<figure class="xs">'+compose(st,"round")+'<figcaption>40px</figcaption></figure>';
+    '<figure class="xs">'+compose(st,"round")+'<figcaption>40px</figcaption></figure>' +
+    '<figure class="zoom">'+compose(st,"face")+'<figcaption>face zoom</figcaption></figure>';
   document.getElementById("recipe").textContent =
     st.gtype + (st.gtype==="linear" ? " "+st.angle+"°" : st.gtype==="radial" ? " "+st.cx+","+st.cy+" r"+st.rad : "") +
-    " · "+st.darkEnd+" · depth "+Number(st.depth).toFixed(2)+" spread "+Number(st.spread).toFixed(2)+" curve "+Number(st.curve).toFixed(2) +
-    " · waves:"+st.wave+"/"+st.fade+" · dx"+st.dx+" jar "+Number(st.js).toFixed(2)+" waves "+Number(st.ws).toFixed(2);
+    " · " + st.darkEnd + " d"+Number(st.depth).toFixed(2)+" s"+Number(st.spread).toFixed(2)+" c"+Number(st.curve).toFixed(2) +
+    " · outline "+Number(st.outline).toFixed(1)+" shadow "+Number(st.shadow).toFixed(2) +
+    " · gloss "+Number(st.gloss).toFixed(2)+" sheen "+Number(st.sheen).toFixed(2)+" rim "+Number(st.rim).toFixed(2) +
+    " · eyes "+st.eyeStyle+" "+Number(st.eyeGloss).toFixed(2);
 
+  document.getElementById("mgrid").innerHTML = MASCOT_PRESETS.map(p => {
+    const s = Object.assign({}, st); MKEYS.forEach(k => s[k] = p[k]);
+    return '<div class="pcell'+(presetOn(p)?" on":"")+'" data-mp="'+p.id+'">' +
+      compose(s,"full") + '<b>'+p.name+'</b></div>';
+  }).join("");
   document.getElementById("geoms").innerHTML = GEOMS.map(g => {
     const s = Object.assign({}, st, g); delete s.id; delete s.name;
     return '<div class="pcell'+(geomOn(g)?" on":"")+'" data-ge="'+g.id+'">' +
       compose(s,"full") + '<b>'+g.name+'</b></div>';
-  }).join("");
-
-  const ladder = [];
-  for (const d of [0.35, 0.5, 0.65, 0.8])
-    ladder.push({label:"depth "+d.toFixed(2), s:Object.assign({}, st, {depth:d})});
-  for (const c of [0.5, 1, 1.8, 2.6])
-    ladder.push({label:"curve "+c.toFixed(2), s:Object.assign({}, st, {curve:c})});
-  document.getElementById("ladder").innerHTML = ladder.map(l => {
-    const es2 = endStops(l.s);
-    return '<div class="pcell" data-set=\'' + JSON.stringify({depth:l.s.depth, curve:l.s.curve}) + '\'>' +
-      compose(l.s,"full") + '<b>'+l.label+'</b><span>'+es2.from+' → '+es2.to+'</span></div>';
   }).join("");
 }
 
@@ -338,22 +444,28 @@ document.addEventListener("click", e => {
     if (ge.classList.contains("pcell")) window.scrollTo({top:0, behavior:"smooth"});
     return;
   }
-  const set = e.target.closest("[data-set]");
-  if (set){ Object.assign(st, JSON.parse(set.dataset.set)); save(); render();
-    window.scrollTo({top:0, behavior:"smooth"}); return; }
+  const mp = e.target.closest("[data-mp]");
+  if (mp){
+    const p = MASCOT_PRESETS.find(x => x.id === mp.dataset.mp);
+    MKEYS.forEach(k => st[k] = p[k]);
+    save(); render();
+    if (mp.classList.contains("pcell")) window.scrollTo({top:0, behavior:"smooth"});
+    return;
+  }
   const o = e.target.closest(".opt[data-k]");
   if (o){ st[o.dataset.k] = o.dataset.v; save(); render(); return; }
   if (e.target.id === "dl"){
     const blob = new Blob([compose(st,"full")], {type:"image/svg+xml"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "V2-"+st.gtype+"-"+st.darkEnd+"-d"+Number(st.depth).toFixed(2)+"-s"+Number(st.spread).toFixed(2)+"-c"+Number(st.curve).toFixed(2)+".svg";
+    a.download = "V2-"+st.gtype+"-"+st.darkEnd+"-o"+Number(st.outline).toFixed(1)+"-g"+Number(st.gloss).toFixed(2)+".svg";
     a.click(); URL.revokeObjectURL(a.href);
   }
   if (e.target.id === "reset"){ Object.assign(st, DEFAULTS); save(); render(); }
 });
 document.addEventListener("input", e => {
-  const ids = ["angle","cx","cy","rad","depth","spread","curve","dx","dy","js","ws","gap"];
+  const ids = ["angle","cx","cy","rad","depth","spread","curve",
+               "outline","shadow","shDist","gloss","sheen","rim","eyeGloss","eyeDepth"];
   if (!ids.includes(e.target.id)) return;
   st[e.target.id] = Number(e.target.value);
   save(); render();
