@@ -244,9 +244,14 @@ ${stopsXml(bgStops(), "      ")}
  *   - the waves stay strokes.
  * No shadow, no sticker outline, no gloss — none of that survives tinting.
  */
-// Deliberately fatter than the colour icon's hairline smile: as a knocked-out
-// hole under a flat tint, a 2-unit lens disappears by 48 px.
-const MONO_MOUTH = "M47.6,68.6 Q54.0,73.8 60.4,68.6 Q54.0,70.6 47.6,68.6 Z";
+// The e5 :D grin (icon-art.js MOUTH_GRIN_E5), REVERSED. The original is wound
+// clockwise like the jar shapes, so as-is it would union with the silhouette
+// instead of punching out; traversing it backwards (arc first, sweep flag
+// flipped 1 -> 0, then the flat top right-to-left) makes it a hole. A closed
+// grin also reads far better than a hairline smile once it is a knocked-out
+// shape under a flat tint.
+const MONO_MOUTH = "M49.0,69.2 A5.0,3.8 0 0 0 59.0,69.2 " +
+                   "Q59.0,68.0 57.8,68.0 L50.2,68.0 Q49.0,68.0 49.0,69.2 Z";
 const monoSilhouette = [
   ...JAR_SILHOUETTE,                                   // clockwise -> union
   ...EYE_C.map(([cx, cy]) => ell(cx, cy, 4.6, 5.4)),   // ccw -> holes
