@@ -95,33 +95,30 @@ private const val TRIM_SAMPLES = 5000
 private const val RUN_GAP_MS = 150
 
 /**
- * Per-voice speed multipliers derived from Sherpa-onnx's
- * `speaker_speed_priors` ONNX metadata, lightly tuned from device A/B.
- * The raw KittenML model produces audio that's ~20% too fast at
- * speed=1.0; without applying these priors the output sounds rushed
- * and words run together.
+ * Per-voice speed multipliers. The voices differ in inherent pace, so a
+ * single global prior can't work: at the old uniform 0.84, Bella read
+ * as slow-motion while Kiki read as rushed.
  *
- * Sherpa's priors are 0.8 for everyone except Hugo at 0.9. Local
- * listening tests found 0.8 a touch too slow, so the 0.8 voices land
- * at 0.84 here. Hugo stays at 0.9.
+ * Values are Max's per-voice picks from the 2026-08-07 speed-sweep
+ * ear-lab (all 8 voices × net speeds 0.72–1.00, one un-chunked render
+ * each; Bella/Leo extrapolated above the sweep's 1.00 ceiling).
+ * Upstream's only per-speaker data — `speed_priors` in KittenML's HF
+ * config.json (0.8 everyone, 0.9 Hugo) — was checked 2026-08-07 and
+ * offers nothing finer; these picks supersede it.
  *
  * The user's [speed] argument multiplies these — alias speed=1.2 on
- * Bella becomes 1.2 × 0.84 = 1.008. The prior is the per-voice
+ * Jasper becomes 1.2 × 0.84 = 1.008. The prior is the per-voice
  * baseline; the alias speed is the user's deliberate adjustment on top.
- *
- * Source: `speaker_speed_priors` metadata field in sherpa's repackaged
- * `kitten-nano-en-v0_8-fp32` ONNX, extracted via
- * `onnx.load(...).metadata_props` and tuned per device A/B.
  */
 private val SPEED_PRIORS = mapOf(
-    "bella"  to 0.84f,  // expr-voice-2-f
+    "bella"  to 1.24f,  // expr-voice-2-f
     "jasper" to 0.84f,  // expr-voice-2-m
-    "luna"   to 0.84f,  // expr-voice-3-f
-    "bruno"  to 0.84f,  // expr-voice-3-m
-    "rosie"  to 0.84f,  // expr-voice-4-f
-    "hugo"   to 0.9f,   // expr-voice-4-m — sherpa outlier, kept as-is
+    "luna"   to 0.92f,  // expr-voice-3-f
+    "bruno"  to 0.88f,  // expr-voice-3-m
+    "rosie"  to 0.96f,  // expr-voice-4-f
+    "hugo"   to 0.84f,  // expr-voice-4-m
     "kiki"   to 0.84f,  // expr-voice-5-f
-    "leo"    to 0.84f,  // expr-voice-5-m
+    "leo"    to 1.25f,  // expr-voice-5-m
 )
 
 /**
@@ -151,8 +148,7 @@ open class KittenDirectEngine @Inject constructor(
         KittenDirectVoiceCatalog.voices
 
     /**
-     * Per-voice speed prior. Nano runs ~25% fast at speed=1.0, so it needs
-     * 0.84 (0.9 for Hugo) to land at natural pace.
+     * Per-voice speed prior — see [SPEED_PRIORS] for provenance.
      */
     private fun speedPriorFor(voiceName: String): Float =
         SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
