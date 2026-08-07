@@ -101,13 +101,19 @@ practical upshot:
 - Losing the upload key isn't terminal. Losing both an upload key *and*
   failing to enroll in Play App Signing on first upload is.
 
-## Why F-Droid doesn't need any of this
+## How F-Droid uses this (reproducible builds — decided 2026-08-03)
 
-F-Droid builds and signs on their own buildserver from the tag — the
-APK they distribute is *their* signature, not yours. Users who install
-via F-Droid stay on F-Droid signature; users who install via Play stay
-on Play signature. The two installs aren't cross-update-compatible
-(different signatures), which is intentional.
+By default F-Droid builds and signs on their own buildserver, giving
+their APK a different signature from ours. We're instead doing
+**reproducible builds**: F-Droid rebuilds from the tag, verifies the
+result byte-matches the CI-signed fdroid-flavor APK on the GitHub
+Release (`Binaries:` + `AllowedAPKSigningKeys:` in the recipe), and
+publishes *our* signed APK — so F-Droid, GitHub and Obtainium installs
+share one signature and cross-update. This makes the release keystore
+(`marmalade-upload.jks`, reused as the permanent distribution key) and
+this CI workflow load-bearing for F-Droid too. Play remains separate:
+Google re-signs with their app-signing key regardless. Details:
+[FDROID-RELEASE-PLAN.md](FDROID-RELEASE-PLAN.md) §R.
 
 ## Failure modes
 

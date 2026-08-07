@@ -25,7 +25,7 @@
     <a href="launch-lab.html">Launch Lab</a> (Play + campaign). Checkboxes persist in this browser.</div>
   </div>
   <div class="meta">
-    proposed release: <b>1.0.0</b> · versionCode <b>10000</b> · ndk <b>r26d</b><br>
+    proposed release: <b>1.0.0</b> · versionCode <b>10000000</b> · ndk <b>r26d</b><br>
     APK license <b>GPL-3.0-or-later</b> · source <b>MIT</b><br>
     anti-feature <b>NonFreeNet</b> · reproducible build <b>planned</b>
   </div>
@@ -157,7 +157,7 @@ corrected recipe + App-Inclusion template on the MR → sign-off → push.
 <div class="wstep"><div class="hd"><span class="n">F1</span><span class="t">Tag v1.0.0-beta.1 (2026-08-02) — SUPERSEDED by the 1.0.0 re-cut</span><span class="tag">superseded</span><span class="chev">▸</span></div>
   <div class="body"><p>Annotated tag <code>v1.0.0-beta.1</code> at <code>f5a2397</code> (versionCode 33)
   exists on GitHub, and the current MR builds it. Under the corrected plan it is replaced by a
-  finalized <b>1.0.0 / versionCode 10000</b> tag cut after the blocking gates. The beta tag stays in
+  finalized <b>1.0.0 / versionCode 10000000</b> tag cut after the blocking gates. The beta tag stays in
   history; no need to delete it.</p></div></div>
 
 <h2 class="sec">Submission — first pass (record; re-run against the 1.0.0 tag)</h2>
@@ -216,8 +216,13 @@ GPL-3.0-or-later APK, opt-in model downloads (pre-tagged NonFreeNet), AI tooling
 </details>
 
 <h2 class="sec">Copy deck</h2>
-<p class="lede">R1 is the recipe file verbatim; M1 is the MR description. Both reflect repo state as
-of 2026-08-02 — if versionCode moves before submission, tell me and I'll regenerate.</p>
+<p class="lede"><b style="color:#c0392b">⚠ STALE — do not paste (2026-08-07 review).</b> These blocks are the
+2026-08-02 first-pass record only. They contradict every current decision: <code>commit:</code> tag
+instead of full hash, <code>submodules: yes</code> instead of <code>true</code>, versionCode 33,
+Categories Multimedia/Reading instead of <b>Text to Speech</b>, bare-list AntiFeatures instead of
+per-locale dict syntax, no RB fields — and M2 says "we don't claim reproducible builds", the
+opposite of the R-section decision. Regenerate everything from the corrected plan
+(FDROID-RELEASE-PLAN.md) at the 1.0.0 re-cut; get Max's sign-off on the regenerated text.</p>
 
 <div class="copyblock"><div class="ch"><span class="id">R1</span><b>metadata/app.marmalade.tts.yml</b><button class="cp">Copy</button></div>
 <pre>Categories:

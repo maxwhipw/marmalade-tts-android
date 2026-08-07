@@ -1,117 +1,172 @@
 # F-Droid release plan — marmalade-tts-android
 
-Step-by-step path to an F-Droid listing. F-Droid builds and signs the
-APK themselves from a tagged commit, so no keystore is needed — but the
-build must succeed on their buildserver from a clean checkout.
+Corrected plan as of 2026-08-07. Live tracker with checkboxes + copy
+deck: [fdroid-lab.html](fdroid-lab.html). Durable app-agnostic
+knowledge: agent-wiki `tech/coding/fdroid-publishing.md` + the
+`fdroid-publishing` skill.
 
-> **F-Droid builds the `fdroid` product flavor.** Both flavors are now
-> fully free — the paywall was withdrawn on 2026-07-26 and the billing
-> dependency removed entirely, so no build contains Google Billing
-> classes (see [PAYWALL-PLAN.md](PAYWALL-PLAN.md)). The `fdroid` flavor
-> still differs in one respect: it carries the GitHub Sponsors link in
-> About, which the Play build omits. The fdroiddata recipe must specify
-> `gradle: [fdroid]`.
+**Current state: MR !44636 is OPEN and ON HOLD.** Opened 2026-08-02
+(fork `maxwhipw/fdroiddata`, branch `marmalade-tts`), CI fully green
+including `fdroid build`. **That green run is stale evidence** (Opus
+review 2026-08-07): main is 60+ commits past the built tag and now
+contains the build-time espeak-data generator
+(`tools/espeak-hostgen/`, `generateEspeakData` in
+`app/build.gradle.kts`), which the buildserver has never exercised —
+it shells out to a bare host `cmake` from `$PATH`, which the F-Droid
+buildserver may not provide. Before the re-cut: either make the Gradle
+task resolve the SDK's own cmake, or add
+`sudo: apt-get install -y cmake build-essential` to the recipe — and
+re-run `fdroid build` (their CI or local buildserver) against the new
+tag before pinging the reviewer. It builds the `v1.0.0-beta.1` tag
+(versionCode 33), which is premature: F-Droid reads icon, screenshots
+and descriptions from the fastlane folder **in the tag it builds**, and
+that tag's screenshots show a visually older app. Reviewer `linsui`
+(2026-08-03, label `waiting-on-response`) asked for two things, both
+deliberately unanswered until the re-cut:
 
-## Phase 0 — code prerequisites
+1. Use the **App Inclusion** MR template and tick its boxes.
+2. `commit:` must be the **full 40-char commit hash**, not a tag.
 
-1. **Repo hygiene: already passing.** `git ls-files` contains no
-   prebuilt `.aar/.so/.onnx/.bin` (only the standard
-   `gradle-wrapper.jar`, which fdroidserver validates). The vendored
-   Open JTalk/MeCab C is *source* (BSD-3), espeak JNI shim compiles
-   from source in-tree, deps come from allowlisted Maven repos, and
-   the hardcoded `org.gradle.java.home` was moved out of the repo's
-   `gradle.properties` (would have broken their buildserver). espeak-ng
-   is compiled from source out of the pinned `third_party/espeak-ng`
-   submodule — the fdroiddata recipe must set `submodules: yes`. The
-   custom CMake glue (`app/src/main/cpp/espeak-ng/`) deliberately avoids
-   upstream's FetchContent network clone of libsonic, so the build is
-   fully offline after dependency resolution.
-2. **Runtime engine downloads are acceptable** with explicit opt-in
-   consent (which the per-engine Install screen satisfies). Precedent:
-   SherpaTTS downloads ONNX models at runtime and is listed (with a
-   **NonFreeNet** anti-feature for downloading from a proprietary
-   service); Termux downloads executable packages and is listed with
-   no anti-feature. Expect maintainers to tag **NonFreeNet** — accept
-   it. The Play fix landed 2026-06-11 (espeak built from source into
-   the APK), so the strongest objection — downloading executable code —
-   is gone; bundles now carry only models and data. (Resolved 2026-07-11:
-   the v22 bundle re-spin removed the leftover `.so` — bundles now
-   carry no executable code at rest.)
-3. **GPL §6 gap: CLOSED 2026-07-11.** Engines release v22 removed the
-   legacy `libttsespeak.so` from all bundles and rebuilt
-   espeak-ng-data from the 1.52.0 tag (same tag the APK compiles); the
-   engines repo README now carries the full §6 provenance block
-   (upstream tag, CMake `data` target, reproduction steps).
-4. **Commit + tag.** F-Droid builds from a signed/annotated git tag
-   (e.g. `v1.0.0-beta.1`) on a public repo —
-   https://github.com/maxwhipw/marmalade-tts-android. Push main + the
-   tag when ready.
+The fork/branch/MR stay open; when the finalized tag exists, the recipe
+is updated **on the same branch** and the same MR proceeds. Nothing is
+pushed to the MR without Max's sign-off (public surface).
 
-## Phase 1 — metadata in this repo
+> **F-Droid builds the `fdroid` product flavor** (`gradle: [fdroid]`).
+> Both flavors are fully free (paywall withdrawn 2026-07-26, billing
+> dependency removed); the fdroid flavor only adds the GitHub Sponsors
+> link in About.
 
-5. Fastlane structure already correct:
-   `fastlane/metadata/android/en-US/{title,short_description,full_description}.txt`
-   and `changelogs/33.txt` all exist and are accurate (the
-   full_description plainly states the opt-in GitHub download —
-   reviewers want that disclosed).
-6. Done: `images/icon.png` (512×512) + 5 fresh `phoneScreenshots/*.png`
-   (2026-07-11 set). Same assets as the Play listing.
+## Blocking gates before cutting the 1.0.0 tag
 
-## Phase 2 — submission
+Everything below must be in the commit we submit — graphics and
+metadata ship from the tag.
 
-7. Fork https://gitlab.com/fdroid/fdroiddata and add
-   `metadata/app.marmalade.tts.yml`:
+- **G1 Screenshots** — re-shoot on the final UI (current 2026-07-11 set
+  is outdated). Claude drives ADB capture; Max picks keepers.
+- **G2 Icon** — final refinement pass (Max), lock before the tag.
+- **G3 Engines** — Kitten nano + Pocket finalization; the tag must
+  contain the final engine builds.
+- **G5 Fastlane translations** — the app UI ships 8 locales but
+  fastlane has only `en-US`, and F-Droid's Latest-tab visibility gate
+  requires **at least one translation** of the listing texts. Because
+  fastlane ships from the built tag, adding a locale later costs a
+  whole release. Add at least one non-en-US
+  `fastlane/metadata/android/<locale>/` (title, short + full
+  description; ideally all 7 in-app languages) before the tag —
+  translations exist in-app already.
+- **G4 Versioning** — DECIDED 2026-08-03: ship **1.0.0**,
+  `versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI`
+  → 1.0.0 universal = **10000000**. ABI digit reserved from the start
+  (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64). Encode as a Gradle
+  helper + comment at the 1.0.0 cut. Drop the `-beta` suffix for the
+  public release.
 
-   ```yaml
-   Categories: [Multimedia, Reading]
-   License: GPL-3.0-or-later   # espeak-ng is compiled into the APK; source files MIT
-   AuthorName: Max
-   SourceCode: https://github.com/maxwhipw/marmalade-tts-android
-   IssueTracker: https://github.com/maxwhipw/marmalade-tts-android/issues
-   Changelog: https://github.com/maxwhipw/marmalade-tts-android/blob/main/CHANGELOG.md
+## R — Reproducible builds (decided: do it)
 
-   AntiFeatures: [NonFreeNet]   # engine bundles download from GitHub
+Near one-way door: F-Droid can't switch an app to developer-signed
+after first publishing F-Droid-signed. Payoff: F-Droid / GitHub /
+Obtainium APKs share one signature and cross-update.
 
-   RepoType: git
-   Repo: https://github.com/maxwhipw/marmalade-tts-android.git
+- **R1 Fix release CI** — release.yml design is right (signed fdroid
+  APK attached to the GitHub Release at a stable URL + SHA256SUMS) but
+  had never produced a signed APK: workflow-file bug fixed 2026-08-03
+  (`1169c0f`, needs GitHub push) and the four signing secrets are not
+  yet configured (Max, per [CI-SIGNING.md](CI-SIGNING.md)). Key
+  decision: reuse `marmalade-upload.jks` (strong PKCS12, backed up) as
+  the permanent distribution key. **Restructure required (2026-08-07):
+  apksigner from build-tools ≥35 produces APKs apksigcopier can't
+  verify (fdroidserver#3299), and our AGP 8.9.3 pin requires
+  build-tools ≥35, so Gradle's `signingConfig` cannot emit a verifiable
+  signature at all. The fdroid-flavor artifact must be built unsigned,
+  then `zipalign` + `apksigner sign` in a separate workflow step using
+  an explicitly installed `build-tools;34.0.0`.** (Re-check whether
+  #3299 is fixed upstream before building this.)
+- **R0 Reproducibility risk register** (what breaks first, in order):
+  (a) host-compiled espeak dictionaries — produced by a host gcc/glibc
+  binary, the least-controlled input in the build; (b)
+  `generateEspeakData` runs `cmake --build -j <availableProcessors>`
+  with all dicts sharing one `dictsource` working dir —
+  core-count-dependent ordering; (c) no Gradle dependency locking — a
+  transitive published between our CI run and F-Droid's rebuild
+  changes bytes; (d) NDK object determinism across ABIs; (e) R8
+  (least risky — pinned by AGP). Fixing (b) and adding dependency
+  locking are worth doing regardless of RB.
+- **R2 Recipe fields** —
+  `Binaries: https://github.com/maxwhipw/marmalade-tts-android/releases/download/v%v/marmalade-tts-%v-fdroid.apk`
+  + `AllowedAPKSigningKeys: <sha256>` (from `apksigner verify
+  --print-certs` on the first CI-signed APK, or `keytool -list -v`).
+- **R3 Prove reproducibility** — verify with `fdroid build` +
+  `reproducible-apk-tools` against the R0 register before claiming it.
+  If it fails, the RB fields (R2) are **omitted** from the recipe, not
+  included.
+- **OPEN DECISION (Max): does RB failure gate the listing?** The
+  one-way door means falling back to F-Droid-signed forfeits RB for
+  `app.marmalade.tts` permanently (no signing-key change without
+  reinstall). Option A: hold the MR and iterate until the build
+  reproduces (defensible given irreversibility; costs reviewer wait
+  time). Option B: ship 1.0.0 F-Droid-signed and accept the split
+  signature forever. The plan previously said both "we try first" and
+  "fallback is normal" without choosing — this is the actual call.
+  Context: RB is rare in this app class (only Muse among comparable
+  recipes), so Option B is respectable; but note RB also carries a
+  **permanent per-release cost** (see Maintenance).
 
-   Builds:
-     - versionName: 1.0.0-beta.1
-       versionCode: 33
-       commit: v1.0.0-beta.1        # the tag
-       subdir: app
-       submodules: yes              # third_party/espeak-ng (built from source)
-       gradle: [fdroid]              # build the F-Droid product flavor (no billing)
-       ndk: r26d                    # match ndkVersion in build.gradle.kts
+## Submission re-cut (after gates + R)
 
-   AutoUpdateMode: Version
-   UpdateCheckMode: Tags
-   CurrentVersion: 1.0.0-beta.1
-   CurrentVersionCode: 33
-   ```
+1. Cut annotated `v1.0.0` tag (versionCode 10000000) with final UI,
+   screenshots, icon, engines, `changelogs/10000000.txt`.
+2. Update `metadata/app.marmalade.tts.yml` on the `marmalade-tts`
+   branch: full 40-char commit hash (`git rev-parse v1.0.0^{commit}`),
+   versionName/versionCode **and `CurrentVersion`/
+   `CurrentVersionCode`**, RB fields (R2, only if R3 passed),
+   `UpdateCheckMode: Tags ^v\d+\.\d+\.\d+$` (bare `Tags` would
+   auto-publish the next `-beta` tag), keep `submodules: true`
+   (literal boolean), `gradle: [fdroid]`,
+   `scanignore: third_party/espeak-ng/phsource`, `ndk: r26d`, canonical
+   field order via `fdroid rewritemeta`. Two upgrades from the
+   comparable-app survey (2026-08-07): switch the anti-feature to the
+   per-locale dict syntax so the reason renders on the listing —
+   `AntiFeatures: {NonFreeNet: {en-US: "Downloads voice models from
+   GitHub Releases on explicit opt-in."}}` (SherpaTTS/Supertonic
+   convention) — and use the **Text to Speech** category (SherpaTTS
+   precedent; better discoverability than Multimedia/Reading).
+   eSpeak NG's own recipe (`com.reecedunn.espeak.yml`) is the closest
+   native-build precedent — it compiles the same espeak-ng from source
+   in the F-Droid build.
+3. Rewrite the MR description with the **App Inclusion template**,
+   boxes ticked honestly (author = submitter). Reply to linsui.
+   **Max signs off on all public MR text first.**
+4. Respond to review; listing appears automatically post-merge.
 
-8. Test the recipe locally if possible (`fdroid build -v -l
-   app.marmalade.tts` inside fdroidserver, or just rely on their CI),
-   then open a merge request against fdroiddata. Title:
-   "New app: Marmalade TTS". In the MR description, state up front:
-   MIT source, GPL-3.0-or-later APK (espeak-ng compiled from the pinned
-   submodule), models/data downloaded on explicit opt-in (NonFreeNet
-   pre-tagged), no executable code downloaded at runtime.
-9. Respond to reviewer feedback (typical round-trips: anti-feature
-   wording, NDK pinning, reproducibility nits). Listing appears
-   automatically once merged + built.
+## Maintenance after listing
 
-## Phase 3 — maintenance
-
-10. Future releases: bump versionCode/versionName, tag, push —
-    `AutoUpdateMode: Version` picks it up without another MR.
-11. Keep the engines repo releases immutable (the catalog pins
-    SHA-256 per asset; replacing an asset breaks installs and F-Droid
-    users' trust).
+- Future releases: bump versionCode/versionName per the G4 formula,
+  tag, push — `AutoUpdateMode: Version` + tag-regex UpdateCheckMode
+  handle updates with no new MR.
+- **If RB shipped, every future release carries it forever:** the
+  GitHub Actions run must finish and upload the release asset before
+  F-Droid's build cycle picks up the tag (else the `Binaries:` URL
+  404s), and every release must reproduce byte-for-byte — an
+  irreproducible release means F-Droid users get *nothing* for that
+  version (no fallback to F-Droid signing; key changes are forbidden).
+  Also the `Binaries:` template hard-couples tag name to
+  `v<versionName>` and release.yml derives the asset filename from the
+  tag — any tag not exactly `v<versionName>` silently breaks the URL.
+- Engines-repo releases stay immutable (catalog pins SHA-256 per
+  asset).
+- Keep Play/F-Droid **base** versionCodes coordinated. (If F-Droid
+  ever ships per-ABI APKs the last digit diverges by design — Play's
+  AAB keeps one code for all ABIs. Only strict increase matters to
+  Play.)
+- Post-listing: install from F-Droid on-device, smoke-test engine
+  install + TTS output; add the F-Droid badge to the README and fill
+  the launch-lab copy placeholders.
 
 ## Reference
 
+- MR: https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636
 - Inclusion policy: https://f-droid.org/en/docs/Inclusion_Policy/
 - Anti-features: https://f-droid.org/en/docs/Anti-Features/
 - Build metadata reference: https://f-droid.org/en/docs/Build_Metadata_Reference/
+- Reproducible builds: https://f-droid.org/en/docs/Reproducible_Builds/
 - Precedent (SherpaTTS, NonFreeNet): https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/org.woheller69.ttsengine.yml
