@@ -91,7 +91,7 @@ object CloudApiVoiceCatalog {
         return VoiceMeta(
             id = voiceId(provider.id, model.id, voice),
             engine = ENGINE,
-            displayName = voice,
+            displayName = if (kokoroStyle) KokoroDirectVoiceCatalog.prettyName(voice) else voice,
             languageCode = (if (kokoroStyle) KokoroDirectVoiceCatalog.languageFor(voice) else null)
                 ?: "en-US",
             sampleRate = model.sampleRate,

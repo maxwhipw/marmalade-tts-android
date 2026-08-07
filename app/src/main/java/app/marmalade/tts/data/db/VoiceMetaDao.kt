@@ -22,10 +22,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VoiceMetaDao {
 
-    @Query("SELECT * FROM voice_meta ORDER BY engine, displayName")
+    @Query("SELECT * FROM voice_meta ORDER BY engine, sortOrder, displayName")
     fun getAll(): Flow<List<VoiceMeta>>
 
-    @Query("SELECT * FROM voice_meta WHERE engine = :engine ORDER BY displayName")
+    @Query("SELECT * FROM voice_meta WHERE engine = :engine ORDER BY sortOrder, displayName")
     fun getByEngine(engine: String): Flow<List<VoiceMeta>>
 
     @Query("SELECT * FROM voice_meta WHERE id = :id LIMIT 1")

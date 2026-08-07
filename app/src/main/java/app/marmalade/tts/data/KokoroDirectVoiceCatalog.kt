@@ -25,7 +25,7 @@ object KokoroDirectVoiceCatalog {
      */
     const val DEFAULT_VOICE_ID = "kokoro-direct-v1_0:af_bella"
 
-    fun voiceId(displayName: String): String = "$ENGINE:$displayName"
+    fun voiceId(voiceKey: String): String = "$ENGINE:$voiceKey"
 
     /**
      * The 53 Kokoro v1.0 voices, in the exact order Sherpa-ONNX's
@@ -100,19 +100,44 @@ object KokoroDirectVoiceCatalog {
         seed("zm_yunxi"),
         seed("zm_yunxia"),
         seed("zm_yunyang"),
-    )
+    ).mapIndexed { i, v -> v.copy(sortOrder = i) }
 
     /**
-     * Map a voice display name to its speaker index in `voices.bin`.
+     * Map a raw voice key (the `af_bella` part of the voice id — NOT the
+     * flagged displayName) to its speaker index in `voices.bin`.
      * O(1) HashMap lookup — the previous linear `indexOfFirst` paid
-     * O(53) per `runInference` call. Returns -1 for unknown names.
+     * O(53) per `runInference` call. Returns -1 for unknown keys.
      */
-    fun speakerIdFor(displayName: String): Int =
-        SPEAKER_INDEX[displayName] ?: -1
+    fun speakerIdFor(voiceKey: String): Int =
+        SPEAKER_INDEX[voiceKey] ?: -1
 
-    /** Pre-built name→index map; built once at class-load time. */
+    /** Pre-built key→index map; built once at class-load time. */
     private val SPEAKER_INDEX: Map<String, Int> =
-        voices.mapIndexed { i, v -> v.displayName to i }.toMap()
+        voices.mapIndexed { i, v -> v.id.substringAfter(':') to i }.toMap()
+
+    /**
+     * UI label for a raw voice key: flag + capitalized speaker handle,
+     * `"af_bella"` → `"🇺🇸 Bella"`, `"jm_kumo"` → `"🇯🇵 Kumo"`. The raw
+     * key stays in the voice id and everywhere machinery-facing
+     * ([speakerIdFor], espeak/lang routing, `voices.bin` indexing).
+     */
+    fun prettyName(voiceKey: String): String {
+        val flag = when (voiceKey.firstOrNull()) {
+            'a' -> "🇺🇸"
+            'b' -> "🇬🇧"
+            'e' -> "🇪🇸"
+            'f' -> "🇫🇷"
+            'h' -> "🇮🇳"
+            'i' -> "🇮🇹"
+            'j' -> "🇯🇵"
+            'p' -> "🇧🇷"
+            'z' -> "🇨🇳"
+            else -> return voiceKey
+        }
+        val name = voiceKey.substringAfter('_', voiceKey)
+            .replaceFirstChar { it.uppercase() }
+        return "$flag $name"
+    }
 
     /** Gender derivation from Kokoro voice-key second character (`f` / `m`). */
     fun genderFor(voiceKey: String): String? = when {
@@ -170,7 +195,7 @@ object KokoroDirectVoiceCatalog {
     private fun seed(name: String): VoiceMeta = VoiceMeta(
         id = voiceId(name),
         engine = ENGINE,
-        displayName = name,
+        displayName = prettyName(name),
         languageCode = languageFor(name)
             ?: error("Unsupported voice key prefix in catalog: '$name'"),
         sampleRate = SAMPLE_RATE,

@@ -340,7 +340,11 @@ class MarmaladeTtsApplication : Application() {
          *    this bump: aliases and the default voice move to the matching
          *    Nano voice, the `voice_meta` rows go, and the on-disk bundle is
          *    deleted.
+         *  - v32: curated voice ordering (`sortOrder`: Kitten best-first per
+         *    Max's 2026-08-07 pick, Kokoro speaker-id order) and Kokoro
+         *    display names go pretty (`af_bella` → `🇺🇸 Bella`; ids keep the
+         *    raw key). Reseed refreshes both columns on existing installs.
          */
-        const val CATALOG_VERSION: Int = 31
+        const val CATALOG_VERSION: Int = 32
     }
 }

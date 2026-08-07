@@ -377,7 +377,7 @@ open class KokoroDirectEngine @Inject constructor(
     private fun warmupSynth() {
         val t0 = System.currentTimeMillis()
         try {
-            val firstVoice = KokoroDirectVoiceCatalog.voices.first().displayName
+            val firstVoice = KokoroDirectVoiceCatalog.voices.first().id.substringAfter(':')
             runInference(text = "Hi.", voiceName = firstVoice, speed = 1.0f, lang = "en-us")
             Log.i(TAG, "warmup synth done in ${System.currentTimeMillis() - t0} ms")
         } catch (t: Throwable) {

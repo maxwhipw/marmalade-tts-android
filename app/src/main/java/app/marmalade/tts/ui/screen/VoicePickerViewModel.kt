@@ -294,7 +294,7 @@ class VoicePickerViewModel @Inject constructor(
      */
     private var previewGeneration = 0L
 
-    fun preview(voice: VoiceMeta, phrase: String = "Hello, I'm ${voice.displayName}.") {
+    fun preview(voice: VoiceMeta, phrase: String = "Hello, I'm ${voice.spokenName}.") {
         // Don't stack previews — cancel anything in flight first.
         synthesizer.cancel()
         val generation = ++previewGeneration

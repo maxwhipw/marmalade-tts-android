@@ -35,13 +35,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       `effectId` column + back-fill, respectively).
  * - v8: [MIGRATION_7_8] deletes the orphaned sherpa `voice_meta` rows
  *       after sherpa-onnx was removed (no schema change).
+ * - v10: alias identity re-key (UUID) — deliberately NO 9→10 migration;
+ *       see the destructive-fallback note in `AppModule`.
+ * - v11: [MIGRATION_10_11] adds `voice_meta.sortOrder`.
  *
  * Schemas are exported under `app/schemas/` so future versions can write
  * migrations against the v4 hash without guesswork.
  */
 @Database(
     entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class, Effect::class],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
@@ -192,6 +195,19 @@ val MIGRATION_7_8: Migration = object : Migration(7, 8) {
 val MIGRATION_8_9: Migration = object : Migration(8, 9) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `voice_alias` ADD COLUMN `fallbackAliasName` TEXT")
+    }
+}
+
+/**
+ * v10 → v11: adds `voice_meta.sortOrder` (curated per-engine voice
+ * ordering). Additive only — aliases and per-app routes survive. The
+ * real values land via the CATALOG_VERSION reseed on next cold start;
+ * until then every row sorts at the 999 default (displayName
+ * tie-break = the pre-v11 order).
+ */
+val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `voice_meta` ADD COLUMN `sortOrder` INTEGER NOT NULL DEFAULT 999")
     }
 }
 

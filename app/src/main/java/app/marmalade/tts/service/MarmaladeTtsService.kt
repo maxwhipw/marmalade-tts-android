@@ -921,7 +921,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // espeakVoiceFor is the per-voice source of truth for the espeak
         // code; for non-Kokoro engines the field is ignored anyway.
         val espeak = if (voice.engine == KokoroDirectVoiceCatalog.ENGINE) {
-            KokoroDirectVoiceCatalog.espeakVoiceFor(voice.displayName)
+            KokoroDirectVoiceCatalog.espeakVoiceFor(voice.id.substringAfter(':'))
         } else {
             params.phonemizationLanguage
         }

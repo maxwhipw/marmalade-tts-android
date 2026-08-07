@@ -24,16 +24,21 @@ object KittenDirectVoiceCatalog {
 
     fun voiceId(displayName: String): String = "$ENGINE:$displayName"
 
+    /**
+     * Max's curated best-first order (2026-08-07) — first impressions
+     * matter, so the strongest voices lead. `sortOrder` = list index;
+     * the picker sorts by it via [app.marmalade.tts.data.db.VoiceMetaDao].
+     */
     val voices: List<VoiceMeta> = listOf(
+        seed("Rosie", "female"),
+        seed("Bruno", "male"),
+        seed("Kiki", "female"),
+        seed("Hugo", "male"),
         seed("Bella", "female"),
         seed("Jasper", "male"),
         seed("Luna", "female"),
-        seed("Bruno", "male"),
-        seed("Rosie", "female"),
-        seed("Hugo", "male"),
-        seed("Kiki", "female"),
         seed("Leo", "male"),
-    )
+    ).mapIndexed { i, v -> v.copy(sortOrder = i) }
 
     private fun seed(name: String, gender: String): VoiceMeta = VoiceMeta(
         id = voiceId(name),

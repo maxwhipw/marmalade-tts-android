@@ -18,6 +18,7 @@ import app.marmalade.tts.data.db.MIGRATION_5_6
 import app.marmalade.tts.data.db.MIGRATION_6_7
 import app.marmalade.tts.data.db.MIGRATION_7_8
 import app.marmalade.tts.data.db.MIGRATION_8_9
+import app.marmalade.tts.data.db.MIGRATION_10_11
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -78,7 +79,7 @@ object AppModule {
             // MIGRATION_3_4 (additive CREATE TABLE only — no other tables
             // touched). Fallback stays as a belt-and-braces option for any
             // future hash drift.
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_10_11)
             // v10 re-keyed voice_alias from its display name to a UUID and
             // repointed every reference at it. A migration for that is four
             // statements of correlated-subquery SQL whose failure mode is
