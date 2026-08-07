@@ -518,21 +518,34 @@ class SpeakViewModel @Inject constructor(
         val generation = ++speakGeneration
         _playbackState.value = PlaybackState.Speaking
         viewModelScope.launch {
-            val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language)
-            if (generation != speakGeneration) return@launch // superseded
-            _playbackState.value = result.fold(
-                onSuccess = { PlaybackState.Idle },
-                onFailure = { err ->
-                    when (err) {
-                        is SynthesizerException.ModelMissing -> PlaybackState.ModelMissing
-                        is SynthesizerException.SynthesisFailed -> PlaybackState.Error(
-                            err.message,
-                            R.string.speak_error_synthesis_failed,
-                        )
-                        else -> PlaybackState.Error(err.message, R.string.speak_error_unknown)
-                    }
-                },
-            )
+            try {
+                val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language)
+                if (generation != speakGeneration) return@launch // superseded
+                _playbackState.value = result.fold(
+                    onSuccess = { PlaybackState.Idle },
+                    onFailure = { err ->
+                        when (err) {
+                            is SynthesizerException.ModelMissing -> PlaybackState.ModelMissing
+                            is SynthesizerException.SynthesisFailed -> PlaybackState.Error(
+                                err.message,
+                                R.string.speak_error_synthesis_failed,
+                            )
+                            else -> PlaybackState.Error(err.message, R.string.speak_error_unknown)
+                        }
+                    },
+                )
+            } finally {
+                // Backstop: if this coroutine dies without reaching the
+                // fold above — e.g. a CancellationException escaping
+                // synthesizer.speak — the button must not stay stuck on
+                // "Speaking…". Guarded on generation so a superseding
+                // speak/cancel's state is never overwritten.
+                if (generation == speakGeneration &&
+                    _playbackState.value is PlaybackState.Speaking
+                ) {
+                    _playbackState.value = PlaybackState.Idle
+                }
+            }
         }
     }
 

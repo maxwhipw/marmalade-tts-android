@@ -10,6 +10,7 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.util.MainDispatcherRule
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -376,6 +377,24 @@ class SpeakViewModelTest {
         vm.cancel()
         assertEquals(PlaybackState.Idle, vm.playbackState.value)
         assertEquals("cancel should reach the player", 1, player.cancelCount)
+    }
+
+    @Test
+    fun externalCancellation_doesNotStickOnSpeaking() = runTest {
+        // Regression: Synthesizer.cancel() invoked by another screen's
+        // ViewModel used to surface as a CancellationException out of
+        // synthesizer.speak, silently killing the speak coroutine before
+        // its terminal state write — the button stayed on "Speaking…"
+        // forever. The finally backstop must return the state to Idle.
+        val player = RecordingPlayer(behaviour = {
+            throw CancellationException("cancelled by another screen")
+        })
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        vm.onTextChanged("Test")
+        vm.speak()
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
     }
 
     // -- helpers ---------------------------------------------------------------

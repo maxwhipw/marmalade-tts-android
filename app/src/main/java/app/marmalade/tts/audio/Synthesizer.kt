@@ -27,6 +27,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -228,13 +230,22 @@ class Synthesizer @Inject constructor(
         phonemizationLanguage: String?,
     ): Result<Unit> = coroutineScope {
         cancelled = false
-        currentJob = coroutineContext[Job]
         // P-K — refresh keepalive while the UI is still in the foreground.
         // Doing this BEFORE starting the (possibly long) synth means the
         // FGS start hits Android's "started from foreground" window even
         // if the user backgrounds the app mid-synth.
         keepaliveCoordinator.onSynthCompleted()
-        try {
+        // The pipeline runs in an async CHILD and [cancel] cancels that
+        // child, never the caller's scope. Capturing the coroutineScope's
+        // own job here (the old design) meant cancel() from any OTHER
+        // screen's ViewModel (effects preview teardown, voice-picker
+        // onCleared, releaseAll) made this coroutineScope rethrow
+        // CancellationException even after the body had returned
+        // Result.success — which silently cancelled the calling
+        // ViewModel's coroutine, its terminal _playbackState write never
+        // ran, and the Speak button stayed on "Speaking…" until the user
+        // hit Stop.
+        val work = async {
             val engineName = engineNameFor(voiceId)
             val enabled = settings.enabledRules(engineName).first()
 
@@ -252,6 +263,16 @@ class Synthesizer @Inject constructor(
             } else {
                 speakBatched(text, voiceId, speed, effectBlocks, engineName, enabled, phonemizationLanguage)
             }
+        }
+        currentJob = work
+        try {
+            work.await()
+        } catch (e: CancellationException) {
+            // Caller genuinely cancelled (ViewModel teardown) → propagate.
+            // Only the child cancelled (our cancel()) → same "cancelled
+            // playback is success" contract the body itself uses.
+            coroutineContext.ensureActive()
+            Result.success(Unit)
         } finally {
             currentJob = null
         }
