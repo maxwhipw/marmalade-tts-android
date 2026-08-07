@@ -73,8 +73,9 @@ add_executable(espeak-ng-bin ${ESPEAK_ROOT}/src/espeak-ng.c)
 set_target_properties(espeak-ng-bin PROPERTIES OUTPUT_NAME espeak-ng)
 target_link_libraries(espeak-ng-bin PRIVATE espeak-ng espeak-ng-config)
 
-# ---- Data compile (English only) --------------------------------------------
-# Replicates third_party/espeak-ng/cmake/data.cmake trimmed to `en`.
+# ---- Data compile (full dictionary set) -------------------------------------
+# Replicates third_party/espeak-ng/cmake/data.cmake for every language in
+# _dict_compile_list below.
 set(DATA_DIST_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 set(DATA_DIST_DIR  ${DATA_DIST_ROOT}/espeak-ng-data)
 set(DICT_TMP_DIR   ${DATA_DIST_ROOT}/dictsource)

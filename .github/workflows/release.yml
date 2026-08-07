@@ -90,10 +90,11 @@ jobs:
 
       - name: Build signed Play AAB + Play APK + F-Droid APK
         # Play AAB is what gets uploaded to the Console; Play APK is
-        # the sideload artifact; F-Droid APK is the no-billing build
-        # attached to the GitHub release so users who don't want the
-        # paywall can install directly without waiting for F-Droid's
-        # index cycle.
+        # the sideload artifact; F-Droid APK is the fdroid flavor
+        # (differs from Play only by the GitHub Sponsors link — both
+        # flavors are fully free), attached to the GitHub release for
+        # sideloaders/Obtainium and as the reproducible-build reference
+        # binary for F-Droid.
         run: >-
           ./gradlew --no-daemon
           :app:bundlePlayRelease
