@@ -87,12 +87,20 @@ private const val STYLE_DIM = 256
 private const val TRIM_SAMPLES = 5000
 
 /**
- * Silence inserted between sentence chunks (CLI `RUN_GAP_MS`). Trimmed
- * tails keep only ~75 ms of rendered pause; this restores the
- * inter-sentence breath uniformly — the CLI lab settled uniform gaps
- * over mark-proportional ones (J2g).
+ * Silence inserted between chunks, sized by boundary type (F rules,
+ * Max's 2026-08-07 ear-lab). Trimmed chunk edges keep ~60 ms lead +
+ * ~75 ms tail of rendered pause, so effective silence ≈ gap + 135 ms:
+ *
+ *  - clause boundary (`;` `:`, dialogue intro, newline after a comma):
+ *    80 ms → ≈215 ms effective, between the model's own comma (~50 ms
+ *    in-render) and period.
+ *  - sentence boundary: 260 ms → ≈395 ms effective, matching the
+ *    model's natural in-render period pause (390 ms measured). The old
+ *    uniform 150 ms (≈285 ms effective) made chunked periods pause
+ *    LESS than unchunked ones — heard as "barely any pause" on Psalm 23.
  */
-private const val RUN_GAP_MS = 150
+private const val CLAUSE_GAP_MS = 80
+private const val SENTENCE_GAP_MS = 260
 
 /**
  * Per-voice speed multipliers. The voices differ in inherent pace, so a
@@ -154,17 +162,18 @@ open class KittenDirectEngine @Inject constructor(
         SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
 
     /**
-     * Soft cap for per-chunk char count. Since the R16 mirror, chunks
-     * are one SENTENCE each (`.!?` + newlines; never word-split), so
-     * this cap only matters for a single over-long sentence, which is
-     * emitted whole; the [MAX_PHONEMES_PER_CHUNK] guard in
-     * [runInference] catches the pathological case where the IPA would
-     * blow past Kitten's BERT 512-position limit.
+     * Soft cap for per-chunk char count. Under the F rules chunks are
+     * clause fragments (never word-split), so this cap only matters for
+     * a single over-long fragment, which is emitted whole; the
+     * [MAX_PHONEMES_PER_CHUNK] guard in [runInference] catches the
+     * pathological case where the IPA would blow past Kitten's BERT
+     * 512-position limit.
      *
-     * The per-sentence style row (text-length lookup) is deliberate:
-     * short sentences get the model's brisk short-utterance register,
-     * long ones the flowing long-form one — the CLI listening rounds
-     * settled that this upstream behaviour is the preferred sound.
+     * The per-sentence style row (text-length lookup on the PRE-SPLIT
+     * sentence, [TextChunker.ClauseChunk.rowText]) is deliberate: short
+     * sentences get the model's brisk short-utterance register, long
+     * ones the flowing long-form one, and clause fragments inherit
+     * their sentence's register instead of re-registering mid-sentence.
      */
     override val maxInputChars: Int = 255
 
@@ -382,24 +391,15 @@ open class KittenDirectEngine @Inject constructor(
         // concurrent synth on the other engine can flip it between chunks.
         phonemizer?.setVoice(KITTEN_DEFAULT_ESPEAK_VOICE)
         val voiceName = voiceId.substringAfter(':', voiceId)
-        // KittenDirect chunking rules (R16 mirror of the CLI, 2026-07-31):
-        //  - never split mid-word — even at maxChars boundary
-        //  - one SENTENCE per chunk, split only on .!? + newlines (commas,
-        //    em-dashes, colons and semicolons are internal prosody). Every
-        //    chunk then gets its own sentence's style row via the existing
-        //    text-length lookup — upstream's register rule ("Stop!" gets
-        //    the brisk interjection row, narration gets the flowing one).
-        //    Tiny sentences are deliberately NOT merged any more: merging
-        //    was there to avoid "short utterance, fast speech", but the
-        //    CLI listening rounds settled that the short-utterance register
-        //    is the point, not a defect.
-        val chunks = TextChunker.chunk(
-            text = text,
-            maxChars = maxInputChars,
-            packSentences = false,
-            allowWordSplits = false,
-            terminalMarksOnly = true,
-        )
+        // KittenDirect chunking = the F rules (Max's 2026-08-07 ear-lab
+        // pick; see TextChunker.clauseChunks): quote-aware sentence ends,
+        // newline = sentence boundary, clause cuts at `;` `:` + dialogue
+        // intro, no merging, never word-split. Fragments keep their
+        // PRE-SPLIT sentence's style row; the gap after each chunk is
+        // sized by boundary type. The old R16 whole-sentence mode also
+        // made the first chunk the whole first sentence, which put
+        // Kitten's TTFA behind Kokoro's despite 3× the inference speed.
+        val chunks = TextChunker.clauseChunks(text)
         if (chunks.isEmpty()) return@channelFlow
 
         // P-A diagnostic: track inter-chunk producer rhythm. The "gap" line
@@ -413,23 +413,25 @@ open class KittenDirectEngine @Inject constructor(
             // Single ORT session is non-reentrant, so we serialise per chunk.
             // The send() outside the lock is fine because PCM is already a
             // ShortArray; no further session access happens during emit.
-            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed) }
+            val pcm = synthLock.withLock {
+                runInference(chunk.text, voiceName, speed, rowText = chunk.rowText)
+            }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
                 val audioMs = pcm.size * 1000L / sampleRate
                 val gapMs = if (prevSendNs == 0L) -1L else (System.nanoTime() - prevSendNs) / 1_000_000
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
-                Log.d(PERF_TAG, "kitten chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} gap=${gapMs}ms textLen=${chunk.length}")
+                Log.d(PERF_TAG, "kitten chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} gap=${gapMs}ms textLen=${chunk.text.length}")
                 if (idx == 0) {
                     val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
                     Log.d(PERF_TAG, "kitten TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms + firstInfer=${inferMs}ms + overhead=${ttfaMs - loadWaitMs - inferMs}ms)")
                 }
-                // Uniform inter-sentence gap rides on the sentence that
-                // closes it (CLI RUN_GAP_MS): trimmed tails keep only
-                // ~75 ms of rendered pause, this restores the breath
-                // between sentences. Not appended after the last chunk.
+                // Boundary-typed gap rides on the chunk that closes it
+                // (see CLAUSE_GAP_MS/SENTENCE_GAP_MS). Not appended after
+                // the last chunk.
                 val out = if (idx < chunks.size - 1) {
-                    pcm.copyOf(pcm.size + sampleRate * RUN_GAP_MS / 1000)
+                    val gap = if (chunk.sentenceEnd) SENTENCE_GAP_MS else CLAUSE_GAP_MS
+                    pcm.copyOf(pcm.size + sampleRate * gap / 1000)
                 } else {
                     pcm
                 }
@@ -449,6 +451,7 @@ open class KittenDirectEngine @Inject constructor(
         text: String,
         voiceName: String,
         speed: Float,
+        rowText: String = text,
     ): ShortArray {
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
@@ -477,8 +480,10 @@ open class KittenDirectEngine @Inject constructor(
         // (onnx_model.py:108 `ref_id = min(len(text), voices[voice].shape[0] - 1)`).
         // Text and phoneme length diverge non-trivially for tech jargon
         // ("kubectl" = 7 chars but ~10 IPA chars), so this index choice
-        // affects which prosody seed Kitten uses.
-        val style = lookupVoiceStyle(voiceName, text.length)
+        // affects which prosody seed Kitten uses. [rowText] is the
+        // PRE-SPLIT sentence when [text] is a clause fragment — the
+        // fragment must keep its sentence's register (F rules).
+        val style = lookupVoiceStyle(voiceName, rowText.length)
 
         // Apply sherpa's per-voice speed prior. The raw model runs ~25%
         // too fast at speed=1.0; sherpa compensates by silently

@@ -28,6 +28,133 @@ package app.marmalade.tts.audio
 
 object TextChunker {
 
+    /**
+     * A chunk from [clauseChunks] with the prosody metadata the F rules
+     * need (Max's 2026-08-07 ear-lab verdict, marmalade-tts-cli
+     * `~/coding/scratch/kitten-clause-split`):
+     *
+     * @property text        what to synthesize.
+     * @property rowText     the PRE-SPLIT sentence this fragment came
+     *   from. Style-row lookups must use this, not [text] — a fragment's
+     *   own (short) length would select the brisk interjection register
+     *   mid-sentence (the audible "register shift" defect, lab variant D).
+     * @property sentenceEnd true when a real sentence ends after this
+     *   chunk → the engine inserts its full sentence gap. False = clause
+     *   boundary (`;` `:`, dialogue intro, newline ending in a comma) →
+     *   short comma-sized gap. Always false on the last chunk (no gap
+     *   trails the utterance).
+     */
+    data class ClauseChunk(
+        val text: String,
+        val rowText: String,
+        val sentenceEnd: Boolean,
+    )
+
+    /** Closing quotes/brackets that may sit between `.!?` and the space. */
+    private const val TERMINAL_CLOSERS = "\"'”’)]"
+
+    /** Opening quotes — a sentence may start with one after a closer. */
+    private const val SENTENCE_OPENERS = "\"“‘'"
+
+    /** Cut before an opening quote after a dialogue verb: `said, "…` / `said: "…`. */
+    private val DIALOGUE_INTRO = Regex("(?<=[,:])\\s+(?=[\"“])")
+
+    /** In-sentence clause cuts. `.!?` never appear here un-quoted — the
+     *  sentence splitter already consumed them — and quoted ones
+     *  (`"Stop!" he said`) must NOT cut, which the closer between the
+     *  mark and the space guarantees. */
+    private val CLAUSE_MARK = Regex("(?<=[:;])\\s+")
+
+    /**
+     * The F chunking rules (Kitten's mode since the 2026-08-07 ear-lab):
+     * quote-aware sentence ends, newline = sentence boundary, dialogue
+     * intro + `:` `;` are clause boundaries, NO merging — the model
+     * gives mid-render `,;:` only ~50 ms of pause vs 390 ms for `.`, so
+     * every clause mark the listener should hear must be a real chunk
+     * boundary. Gap sizing is the engine's job via [ClauseChunk.sentenceEnd].
+     *
+     * A sentence longer than [maxChars] is emitted whole (never
+     * word-split); the engine's phoneme-count guard handles pathology.
+     */
+    fun clauseChunks(text: String): List<ClauseChunk> {
+        val out = ArrayList<ClauseChunk>()
+        val sentences = sentencesQuoteAware(text.trim())
+        for ((si, s) in sentences.withIndex()) {
+            val frags = DIALOGUE_INTRO.split(s.text)
+                .flatMap { CLAUSE_MARK.split(it) }
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+            for ((fi, f) in frags.withIndex()) {
+                val lastOfSentence = fi == frags.lastIndex
+                val lastOfText = si == sentences.lastIndex && lastOfSentence
+                out.add(
+                    ClauseChunk(
+                        text = f,
+                        rowText = s.text,
+                        // A "sentence" ending in a comma is a newline-split
+                        // continuation (list item) — comma pause, not period.
+                        sentenceEnd = lastOfSentence && !lastOfText && !s.text.endsWith(","),
+                    ),
+                )
+            }
+        }
+        return out
+    }
+
+    private data class QSentence(val text: String)
+
+    /**
+     * Quote-aware sentence split. `.!?` followed by optional closing
+     * quotes/brackets ends a sentence; when closers are present the next
+     * word must start uppercase/digit/opening-quote — a lowercase next
+     * word is attribution (`"Stop!" he said`) and stays attached. Plain
+     * `.!?` + whitespace always cuts (today's rule). Newlines and CJK
+     * enders (。！？) are sentence boundaries too.
+     */
+    private fun sentencesQuoteAware(text: String): List<QSentence> {
+        val out = ArrayList<QSentence>()
+        var start = 0
+        var i = 0
+        fun emit(endExclusive: Int) {
+            val t = text.substring(start, endExclusive).trim()
+            if (t.isNotEmpty()) out.add(QSentence(t))
+        }
+        while (i < text.length) {
+            when (val c = text[i]) {
+                '\n' -> {
+                    emit(i)
+                    while (i < text.length && text[i].isWhitespace()) i++
+                    start = i
+                }
+                '。', '！', '？' -> {
+                    emit(i + 1)
+                    i++
+                    start = i
+                }
+                '.', '!', '?' -> {
+                    var j = i + 1
+                    while (j < text.length && text[j] in TERMINAL_CLOSERS) j++
+                    var k = j
+                    while (k < text.length && text[k].isWhitespace()) k++
+                    if (k > j && k < text.length) {
+                        val nxt = text[k]
+                        val plain = j == i + 1
+                        if (plain || nxt.isUpperCase() || nxt.isDigit() || nxt in SENTENCE_OPENERS) {
+                            emit(j)
+                            start = k
+                            i = k
+                            continue
+                        }
+                    }
+                    i = j
+                }
+                else -> i++
+            }
+        }
+        emit(text.length)
+        return out
+    }
+
     // CJK sentence enders (。！？, ideographic + fullwidth) take NO following
     // whitespace in Japanese/Chinese — "文。文。" — so they split as a
     // zero-width boundary after the ender rather than the ASCII `…\s+` rule.
