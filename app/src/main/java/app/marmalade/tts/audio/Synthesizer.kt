@@ -185,6 +185,7 @@ class Synthesizer @Inject constructor(
     private val preprocessor: Preprocessor,
     private val settings: SettingsRepository,
     private val keepaliveCoordinator: app.marmalade.tts.service.KeepaliveCoordinator,
+    private val residency: app.marmalade.tts.service.EngineResidency,
     private val latency: VoiceLatencyTracker,
 ) : SpeechPlayer {
 
@@ -245,8 +246,10 @@ class Synthesizer @Inject constructor(
         // ViewModel's coroutine, its terminal _playbackState write never
         // ran, and the Speak button stayed on "Speaking…" until the user
         // hit Stop.
+        // Hoisted out of the async child so residency's begin/end can bracket
+        // the whole utterance — engineNameFor is a pure string parse.
+        val engineName = engineNameFor(voiceId)
         val work = async {
-            val engineName = engineNameFor(voiceId)
             val enabled = settings.enabledRules(engineName).first()
 
             // Streaming eligibility. Effects now run ON the streaming path:
@@ -265,6 +268,7 @@ class Synthesizer @Inject constructor(
             }
         }
         currentJob = work
+        residency.beginSynth(engineName)
         try {
             work.await()
         } catch (e: CancellationException) {
@@ -274,6 +278,7 @@ class Synthesizer @Inject constructor(
             coroutineContext.ensureActive()
             Result.success(Unit)
         } finally {
+            residency.endSynth(engineName)
             currentJob = null
         }
     }
@@ -445,8 +450,15 @@ class Synthesizer @Inject constructor(
      * the engine's synthLock until natural completion.
      */
     override suspend fun preload(voiceId: String): Boolean = withContext(Dispatchers.IO) {
+        val engineName = engineNameFor(voiceId)
+        // The Speak screen pre-loads on every voice change, which makes this
+        // the in-app "currently selected engine" signal residency protects —
+        // and the moment the previously selected engine stops being special.
+        // Recorded for the cloud engine too; residency simply has nothing to
+        // evict for it.
+        residency.select(engineName)
         try {
-            engineFor(engineNameFor(voiceId)).ensureModelLoaded()
+            engineFor(engineName).ensureModelLoaded()
             true
         } catch (t: Throwable) {
             // Pre-load is best-effort. ModelMissing is the common case

@@ -53,12 +53,13 @@ class KeepaliveCoordinator @Inject constructor(
             try {
                 val mode = settings.keepaliveMode.first()
                 MarmaladeKeepaliveService.refresh(context, mode)
-                // Keepalive's whole point is a warm next request — holding
-                // the process alive with the model unloaded only saves the
-                // *re*-load. Actually load installed engines too, so the
-                // toggle-on / app-start / post-synth paths all leave the
-                // model resident. Idempotent; no-op when already loaded.
-                if (mode != KeepaliveMode.Off) {
+                // Persistent is the only mode that warms EVERY installed
+                // engine: the user has explicitly asked for zero cold starts
+                // and accepted the RAM cost. Under Smart/Off residency owns
+                // what stays loaded (selected engine + recently used), so a
+                // warm-all here would just re-load exactly what the last
+                // sweep evicted.
+                if (mode == KeepaliveMode.Persistent) {
                     engineWarmup.warmInstalledAsync()
                 }
             } catch (t: Throwable) {

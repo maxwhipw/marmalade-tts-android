@@ -27,6 +27,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -113,10 +114,12 @@ import kotlinx.coroutines.runBlocking
 //   redirected to a voice of that language by applyRequestLanguage.
 //
 //   onLoadLanguage additionally fires a background warm-up — calling
-//   ensureModelLoaded() on both engines off-thread — so that the first
-//   onSynthesizeText doesn't pay the ~2–5 s cold-start tax for loading
-//   model bytes + espeak-ng-data via JNI. Engines that aren't installed
-//   throw EngineNotInstalledException which the warm-up silently absorbs.
+//   ensureModelLoaded() off-thread — so that the first onSynthesizeText
+//   doesn't pay the ~2–5 s cold-start tax for loading model bytes +
+//   espeak-ng-data via JNI. Under Persistent keepalive that warms every
+//   installed engine; otherwise only the engine backing the routed voice,
+//   since EngineResidency evicts the rest anyway. Engines that aren't
+//   installed throw EngineNotInstalledException, which the warm-up absorbs.
 // -----------------------------------------------------------------------------
 
 /**
@@ -163,6 +166,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var effectResolver: EffectResolver
 
     @Inject lateinit var engineWarmup: EngineWarmup
+
+    @Inject lateinit var residency: EngineResidency
 
     @Inject lateinit var latency: VoiceLatencyTracker
 
@@ -308,16 +313,18 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
-     * Pre-load every installed engine on a background coroutine so the
-     * next [onSynthesizeText] is fast. Safe to call repeatedly —
-     * each engine's `ensureModelLoaded` is idempotent. Failures are logged
-     * and swallowed; the synthesis path's own catch will still surface
+     * Pre-load the engine the next [onSynthesizeText] will most likely need,
+     * on a background coroutine. Safe to call repeatedly — each engine's
+     * `ensureModelLoaded` is idempotent. Failures are logged and swallowed;
+     * the synthesis path's own catch will still surface
      * `EngineNotInstalledException` correctly if a warm-up failed.
      *
-     * We warm both Kitten and Kokoro speculatively. If the user only has
-     * one installed, the other's `isInstalled()` returns false and
-     * `ensureModelLoaded()` throws `EngineNotInstalledException`, which
-     * the catch silently absorbs.
+     * Which engines get warmed follows the residency policy: everything
+     * installed under [KeepaliveMode.Persistent], otherwise just the one
+     * behind the routed voice (per-app/primary alias, else the default
+     * voice). Warming all of them in Smart/Off mode loaded engines
+     * [EngineResidency] would evict on the next sweep, and queued the
+     * user's actual request behind those loads.
      */
     private fun warmUpEngine() {
         // Seed the per-engine preprocessing-rule cache off the synth-worker
@@ -351,10 +358,36 @@ class MarmaladeTtsService : TextToSpeechService() {
                 }
             }
         }
-        // Model warm-up: load every installed engine in the background so
-        // the first onSynthesizeText doesn't pay the model-mmap cost.
-        // Shared with KeepaliveCoordinator via EngineWarmup.
-        engineWarmup.warmInstalledAsync()
+        // Model warm-up. Only Persistent keepalive warms everything (shared
+        // with KeepaliveCoordinator via EngineWarmup); otherwise warm just
+        // the engine this device would actually route to, because a warm-all
+        // loads engines residency is about to evict — and each engine's
+        // ensureModelLoaded holds a load lock, so a speculative one can put
+        // itself in front of the utterance the user is waiting on.
+        serviceScope.launch {
+            try {
+                if (settings.keepaliveMode.first() == KeepaliveMode.Persistent) {
+                    engineWarmup.warmInstalledAsync()
+                    return@launch
+                }
+                val routedVoiceId = router.resolveAlias(callerPackage = null)?.voiceId
+                    ?: settings.defaultVoiceId.first()
+                engineHandleFor(engineNameFor(routedVoiceId)).ensureModelLoaded()
+            } catch (ex: Exception) {
+                // Not-installed is the common case; a real failure resurfaces
+                // with context on the first synthesis.
+                Log.d(TAG, "warm-up skipped: ${ex.message}")
+            }
+        }
+    }
+
+    /** Engine handle for a catalog engine name — the load/release side of [engineNameFor]. */
+    private fun engineHandleFor(engineName: String): TtsEngine = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect
+        PocketVoiceCatalog.ENGINE -> pocket
+        CloudApiVoiceCatalog.ENGINE -> cloudApi
+        else -> kokoroDirect
     }
 
     /** Widened to public for MarmaladeTtsServiceTest. */
@@ -499,6 +532,10 @@ class MarmaladeTtsService : TextToSpeechService() {
             // batched path, because ProsodyApplier shapes the whole PCM and
             // has no streaming form yet.
             val emotion = EmojiProsody.detect(rawText).emotion
+            // Marks this engine resident for the residency window — the
+            // system-TTS route has no in-app selection, so a synthesis is
+            // the only signal that this engine is the one in use.
+            residency.beginSynth(engineName)
             runBlocking {
                 synthJob = coroutineContext[Job]
                 try {
@@ -509,6 +546,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     }
                 } finally {
                     synthJob = null
+                    residency.endSynth(engineName)
                 }
             }
         } catch (e: CancellationException) {
@@ -577,6 +615,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         }
         Log.w(TAG, "synthesis failed (${cause.message}); falling back to $fallbackVoiceId")
         return try {
+            residency.beginSynth(fallbackEngine)
             runBlocking {
                 synthJob = coroutineContext[Job]
                 try {
@@ -589,6 +628,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     )
                 } finally {
                     synthJob = null
+                    residency.endSynth(fallbackEngine)
                 }
             }
             true

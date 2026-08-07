@@ -117,6 +117,14 @@ class MarmaladeTtsServiceTest {
         // onLoadLanguage fires the background warm-up. The two real engines
         // here have nothing installed, so ensureModelLoaded throws
         // EngineNotInstalledException inside the warm-up's own catch.
+        // onSynthesizeText brackets every synthesis with residency
+        // begin/end. Nothing to evict here — an empty releaser map keeps
+        // the policy inert while the lateinit stays satisfied.
+        setField(service, "residency", EngineResidency(
+            releasers = emptyMap(),
+            keepaliveMode = { KeepaliveMode.Off },
+            clock = { 0L },
+        ))
         setField(service, "engineWarmup", EngineWarmup(
             kokoroDirect = fakeKokoroDirectEngine,
             kittenDirect = fakeEngine,

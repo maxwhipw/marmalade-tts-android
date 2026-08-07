@@ -170,6 +170,8 @@ class MarmaladeSynthService : Service() {
 
     @Inject lateinit var keepaliveCoordinator: KeepaliveCoordinator
 
+    @Inject lateinit var residency: EngineResidency
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Synchronized by `lock`. Accessed from main (onStartCommand), the
@@ -414,6 +416,10 @@ class MarmaladeSynthService : Service() {
             Log.w(TAG, "Audio focus denied — skipping request")
             return
         }
+        // Marks this engine resident for the residency window, and keeps a
+        // sweep from releasing it mid-utterance (Pocket's release() cancels
+        // an in-flight synthesis). Paired in the finally below.
+        residency.beginSynth(engineName)
         // From this point on we MUST releaseFocus() before returning, on
         // every branch — otherwise the next queued request calls
         // requestFocus() again, overwrites `focusRequest`, and the previous
@@ -461,6 +467,7 @@ class MarmaladeSynthService : Service() {
                 return
             }
         } finally {
+            residency.endSynth(engineName)
             releaseFocus()
         }
     }
