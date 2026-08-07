@@ -129,6 +129,9 @@ class PocketDevEngine @Inject constructor(
         return true
     }
 
+    /** Same [env] marker [ensureModelLoaded]'s unlocked fast path reads. */
+    override fun isLoaded(): Boolean = env != null
+
     override fun ensureModelLoaded() {
         if (env != null) return
         kotlinx.coroutines.runBlocking { ensureLoadedSuspending() }

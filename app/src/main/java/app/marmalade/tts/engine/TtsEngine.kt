@@ -54,6 +54,22 @@ interface TtsEngine {
     fun isInstalled(): Boolean
 
     /**
+     * True if the model is resident right now — i.e. the next
+     * [synthesize] pays no load cost.
+     *
+     * Must be cheap and non-blocking: a plain read of the engine's
+     * publish-last "loaded" marker. It must not take the load lock, touch
+     * the filesystem, or trigger a load, because the UI calls it on the
+     * main thread to decide whether a Speak tap needs a visible
+     * "Loading <engine>…" state or can go straight to "Speaking…".
+     *
+     * Racing a concurrent load is harmless: a false negative costs one
+     * redundant (idempotent) `preload` call, a false positive is
+     * impossible because engines publish the marker last.
+     */
+    fun isLoaded(): Boolean
+
+    /**
      * Lazily load the model into memory. Idempotent and thread-safe.
      *
      * @throws EngineNotInstalledException if the bundle isn't present.

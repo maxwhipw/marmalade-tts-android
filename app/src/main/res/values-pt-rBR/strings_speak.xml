@@ -12,6 +12,7 @@
     <string name="speak_button_speak">Falar</string>
     <string name="speak_button_stop">Parar</string>
     <string name="speak_status_speaking">Falando…</string>
+    <string name="speak_status_loading">Carregando %1$s…</string>
     <string name="speak_install_cta_engine">Toque para instalar o %1$s</string>
     <string name="speak_install_cta_generic">Toque para instalar um motor de TTS</string>
     <string name="speak_change_voice">Trocar de voz</string>

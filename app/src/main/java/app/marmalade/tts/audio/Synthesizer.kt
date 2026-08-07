@@ -146,6 +146,17 @@ interface SpeechPlayer {
     suspend fun preload(voiceId: String): Boolean
 
     /**
+     * True if the engine backing [voiceId] is already resident, so a
+     * [speak] call starts synthesising immediately rather than paying a
+     * cold model load first.
+     *
+     * Cheap + non-blocking (a volatile field read per [TtsEngine.isLoaded]),
+     * so the Speak screen can call it on the main thread to decide between
+     * showing "Loading <engine>…" and going straight to "Speaking…".
+     */
+    fun isWarm(voiceId: String): Boolean
+
+    /**
      * Release every loaded engine so the next [speak]/[preload] rebuilds it.
      * Used when a setting that's only read at engine-load time changes (the
      * ONNX thread count) — without this, a warm engine keeps the old value
@@ -469,6 +480,9 @@ class Synthesizer @Inject constructor(
             false
         }
     }
+
+    override fun isWarm(voiceId: String): Boolean =
+        engineFor(engineNameFor(voiceId)).isLoaded()
 
     override suspend fun releaseAll() = withContext(Dispatchers.IO) {
         // Stop any active playback first, then drop every engine's loaded

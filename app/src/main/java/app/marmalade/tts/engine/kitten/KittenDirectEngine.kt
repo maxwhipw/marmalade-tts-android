@@ -210,6 +210,12 @@ open class KittenDirectEngine @Inject constructor(
         return true
     }
 
+    /**
+     * [env] is `doLoad`'s publish-last marker — see
+     * [app.marmalade.tts.engine.kokoro.KokoroDirectEngine.isLoaded].
+     */
+    override fun isLoaded(): Boolean = env != null
+
     override fun ensureModelLoaded() {
         if (env != null) return
         kotlinx.coroutines.runBlocking { ensureLoadedSuspending() }

@@ -13,6 +13,7 @@
     <string name="speak_button_speak">Speak</string>
     <string name="speak_button_stop">Stop</string>
     <string name="speak_status_speaking">Speaking…</string>
+    <string name="speak_status_loading">Loading %1$s…</string>
     <string name="speak_install_cta_engine">Tap to install %1$s</string>
     <string name="speak_install_cta_generic">Tap to install a TTS engine</string>
     <string name="speak_change_voice">Change voice</string>

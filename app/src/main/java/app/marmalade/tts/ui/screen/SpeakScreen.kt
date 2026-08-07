@@ -133,7 +133,8 @@ import app.marmalade.tts.ui.theme.Wordmark
  *
  * Layout (top to bottom):
  *  - Top app bar: "marmalade tts" wordmark. No trailing action.
- *  - Mascot (~64dp) — `mascot_speaking` while audio plays, `mascot_happy` otherwise.
+ *  - Mascot (~64dp) — `mascot_speaking` while a load or playback is in
+ *    flight, `mascot_happy` otherwise.
  *  - OutlinedTextField, multi-line (~5 lines visible).
  *  - CurrentVoiceRow — names the persona in play; opens PersonaSheet.
  *  - "Speak" Button — disabled when text is blank or model isn't installed.
@@ -159,7 +160,11 @@ fun SpeakScreen(
     // onScreenEntered for why no flow catches this case.
     LaunchedEffect(Unit) { viewModel.onScreenEntered() }
 
-    val isSpeaking = playbackState is PlaybackState.Speaking
+    // Loading (cold engine paging in) is Speaking's twin for every control:
+    // work the user asked for is in flight, and Stop must stay reachable so
+    // a slow load can be abandoned. Only the status line tells them apart.
+    val isSpeaking = playbackState is PlaybackState.Speaking ||
+        playbackState is PlaybackState.Loading
     val isModelMissing = playbackState is PlaybackState.ModelMissing
 
     Scaffold(
@@ -499,6 +504,7 @@ private fun PersonaSheet(
 @Composable
 private fun statusText(state: PlaybackState, installCta: String): String = when (state) {
     is PlaybackState.Idle -> ""
+    is PlaybackState.Loading -> stringResource(R.string.speak_status_loading, state.engineDisplayName)
     is PlaybackState.Speaking -> stringResource(R.string.speak_status_speaking)
     is PlaybackState.ModelMissing -> installCta
     is PlaybackState.Error -> state.message ?: stringResource(state.fallbackRes)

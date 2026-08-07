@@ -12,6 +12,7 @@
     <string name="speak_button_speak">読み上げ</string>
     <string name="speak_button_stop">停止</string>
     <string name="speak_status_speaking">読み上げ中…</string>
+    <string name="speak_status_loading">%1$s を読み込んでいます…</string>
     <string name="speak_install_cta_engine">タップして %1$s をインストール</string>
     <string name="speak_install_cta_generic">タップして TTS エンジンをインストール</string>
     <string name="speak_change_voice">ボイスを変更</string>

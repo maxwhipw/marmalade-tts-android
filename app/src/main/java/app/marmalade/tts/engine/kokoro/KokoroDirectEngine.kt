@@ -238,6 +238,14 @@ open class KokoroDirectEngine @Inject constructor(
         return true
     }
 
+    /**
+     * [env] is the publish-last marker `doLoad` writes only after every
+     * field the synth path touches is populated, and `releaseInternal`
+     * nulls first — so a plain volatile read is the whole answer, with no
+     * lock and no risk of reporting a half-loaded engine as ready.
+     */
+    override fun isLoaded(): Boolean = env != null
+
     override fun ensureModelLoaded() {
         if (env != null) return
         kotlinx.coroutines.runBlocking { ensureLoadedSuspending() }

@@ -12,6 +12,7 @@
     <string name="speak_button_speak">朗读</string>
     <string name="speak_button_stop">停止</string>
     <string name="speak_status_speaking">正在朗读…</string>
+    <string name="speak_status_loading">正在加载%1$s…</string>
     <string name="speak_install_cta_engine">点按安装 %1$s</string>
     <string name="speak_install_cta_generic">点按安装语音引擎</string>
     <string name="speak_change_voice">更换语音</string>

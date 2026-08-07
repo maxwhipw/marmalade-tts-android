@@ -12,6 +12,7 @@
     <string name="speak_button_speak">बोलें</string>
     <string name="speak_button_stop">रोकें</string>
     <string name="speak_status_speaking">बोल रहा है…</string>
+    <string name="speak_status_loading">%1$s लोड हो रहा है…</string>
     <string name="speak_install_cta_engine">%1$s इंस्टॉल करने के लिए टैप करें</string>
     <string name="speak_install_cta_generic">TTS इंजन इंस्टॉल करने के लिए टैप करें</string>
     <string name="speak_change_voice">वॉइस बदलें</string>

@@ -224,6 +224,12 @@ open class PocketEngine @Inject constructor(
         return true
     }
 
+    /**
+     * [env] is `doLoad`'s publish-last marker — the same field
+     * [ensureModelLoaded]'s unlocked fast path treats as "fully loaded".
+     */
+    override fun isLoaded(): Boolean = env != null
+
     override fun ensureModelLoaded() {
         // ensureModelLoaded is declared non-suspend by TtsEngine to keep
         // the system-TTS callback path simple. We bridge to the suspend

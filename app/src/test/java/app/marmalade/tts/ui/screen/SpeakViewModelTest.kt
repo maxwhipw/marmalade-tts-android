@@ -11,6 +11,7 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -395,6 +396,111 @@ class SpeakViewModelTest {
         vm.onTextChanged("Test")
         vm.speak()
         assertEquals(PlaybackState.Idle, vm.playbackState.value)
+    }
+
+    @Test
+    fun coldEngine_speakGoesLoadingThenSpeakingThenIdle() = runTest {
+        // The honest-status change: tapping Speak on an engine that isn't
+        // resident must say "Loading <engine>…" for as long as the model
+        // load takes, not "Speaking…" while nothing is being spoken.
+        lateinit var vm: SpeakViewModel
+        var stateDuringSpeak: PlaybackState? = null
+        val player = RecordingPlayer(behaviour = {
+            stateDuringSpeak = vm.playbackState.value
+            Result.success(Unit)
+        })
+        player.warm = false
+        vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        val gate = CompletableDeferred<Unit>()
+        player.preloadGate = gate
+        vm.onTextChanged("Hello world")
+        vm.speak()
+
+        val loading = vm.playbackState.value
+        assertTrue("Expected Loading, got $loading", loading is PlaybackState.Loading)
+        assertEquals(
+            "Kitten Nano (v0.8)",
+            (loading as PlaybackState.Loading).engineDisplayName,
+        )
+        assertTrue("Player must not be asked to speak mid-load", player.calls.isEmpty())
+
+        // Model finishes loading → straight into Speaking, then Idle.
+        gate.complete(Unit)
+        assertEquals(PlaybackState.Speaking, stateDuringSpeak)
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+        assertEquals(1, player.calls.size)
+    }
+
+    @Test
+    fun warmEngine_neverShowsLoading() = runTest {
+        // A resident engine has nothing to wait for, so the Loading state
+        // must not flash on its way to Speaking.
+        lateinit var vm: SpeakViewModel
+        var stateDuringSpeak: PlaybackState? = null
+        val player = RecordingPlayer(behaviour = {
+            stateDuringSpeak = vm.playbackState.value
+            Result.success(Unit)
+        })
+        vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+        val preloadsBeforeSpeak = player.preloadCalls.size
+
+        vm.onTextChanged("Hello world")
+        vm.speak()
+
+        assertEquals(PlaybackState.Speaking, stateDuringSpeak)
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+        assertEquals(
+            "A warm speak must not re-preload",
+            preloadsBeforeSpeak,
+            player.preloadCalls.size,
+        )
+    }
+
+    @Test
+    fun cancelDuringLoading_returnsToIdleAndOrphansTheLoad() = runTest {
+        // Stop during a slow cold load must land on Idle and stay there:
+        // the abandoned preload's continuation is generation-guarded, so
+        // it can neither resurrect Speaking nor start a late synthesis.
+        val player = RecordingPlayer(behaviour = { Result.success(Unit) })
+        player.warm = false
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        val gate = CompletableDeferred<Unit>()
+        player.preloadGate = gate
+        vm.onTextChanged("Hello world")
+        vm.speak()
+        assertTrue(vm.playbackState.value is PlaybackState.Loading)
+
+        vm.cancel()
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+
+        // The load lands after the user gave up.
+        gate.complete(Unit)
+        assertEquals(PlaybackState.Idle, vm.playbackState.value)
+        assertTrue("Superseded load must not synthesise", player.calls.isEmpty())
+    }
+
+    @Test
+    fun coldEngine_missingModelStillMapsToModelMissing() = runTest {
+        // preload returning false (engine not installed) deliberately
+        // falls through to speak(), which is the single place the
+        // ModelMissing verdict is produced.
+        val player = RecordingPlayer(behaviour = {
+            Result.failure(SynthesizerException.ModelMissing)
+        })
+        player.warm = false
+        player.preloadResult = false
+        val vm = newViewModel(player = player)
+        vm.currentVoice.firstNonNull()
+
+        vm.onTextChanged("Test")
+        vm.speak()
+
+        assertEquals(PlaybackState.ModelMissing, vm.playbackState.value)
     }
 
     // -- helpers ---------------------------------------------------------------

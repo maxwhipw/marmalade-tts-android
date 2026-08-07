@@ -88,6 +88,14 @@ class CloudApiEngine @Inject constructor(
         // runBlocks a Room read in the same spot.
         runBlocking { settings.cloudApiKeys.first() }.isNotEmpty()
 
+    /**
+     * Always warm: there is no local model to page in. The first request's
+     * latency is the network round-trip, which no amount of pre-loading
+     * removes — so the UI should never show a "Loading…" state for this
+     * engine.
+     */
+    override fun isLoaded(): Boolean = true
+
     override fun ensureModelLoaded() {
         if (!isInstalled()) throw EngineNotInstalledException(engineName)
     }

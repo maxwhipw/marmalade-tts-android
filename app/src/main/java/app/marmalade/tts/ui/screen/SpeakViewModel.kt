@@ -74,6 +74,18 @@ sealed class PlaybackState {
     /** Nothing playing. Default. */
     object Idle : PlaybackState()
 
+    /**
+     * The user tapped Speak on a voice whose engine wasn't resident, so
+     * the model is being paged in before synthesis can start.
+     * [engineDisplayName] is the catalog name shown to the user
+     * ("Kokoro", "Pocket TTS").
+     *
+     * Only ever set from [SpeakViewModel.speak] — the background
+     * pre-load that runs on voice change is invisible by design, since
+     * the user didn't ask for anything and has nothing to wait for.
+     */
+    data class Loading(val engineDisplayName: String) : PlaybackState()
+
     /** Synthesis or playback is in flight. UI shows the speaking mascot. */
     object Speaking : PlaybackState()
 
@@ -509,16 +521,36 @@ class SpeakViewModel @Inject constructor(
     fun speak() {
         val currentText = _text.value
         if (currentText.isBlank()) return
-        if (_playbackState.value is PlaybackState.Speaking) return
-        val voiceId = currentVoice.value?.id ?: return
+        val state = _playbackState.value
+        if (state is PlaybackState.Speaking || state is PlaybackState.Loading) return
+        val voice = currentVoice.value ?: return
+        val voiceId = voice.id
 
         val effectBlocks = _currentEffectBlocks.value
         val speed = _currentSpeed.value
         val language = _currentPhonemizationLanguage.value
         val generation = ++speakGeneration
-        _playbackState.value = PlaybackState.Speaking
+        // A cold engine can take seconds to page in, all of it before the
+        // first sample exists. Saying "Speaking…" through that is a lie the
+        // user hears as a hang; naming the engine that's loading is the
+        // honest version. Only on an explicit Speak tap — the background
+        // pre-load on voice change stays silent.
+        val warm = synthesizer.isWarm(voiceId)
+        _playbackState.value =
+            if (warm) PlaybackState.Speaking else PlaybackState.Loading(engineLabelFor(voice))
         viewModelScope.launch {
             try {
+                if (!warm) {
+                    // Returns when the model is resident (idempotent, and
+                    // non-throwing). A false result means the engine isn't
+                    // installed — we deliberately continue to speak()
+                    // anyway so the failure surfaces as ModelMissing
+                    // through the one mapping below rather than a second,
+                    // divergent path.
+                    synthesizer.preload(voiceId)
+                    if (generation != speakGeneration) return@launch // superseded
+                    _playbackState.value = PlaybackState.Speaking
+                }
                 val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language)
                 if (generation != speakGeneration) return@launch // superseded
                 _playbackState.value = result.fold(
@@ -537,17 +569,30 @@ class SpeakViewModel @Inject constructor(
             } finally {
                 // Backstop: if this coroutine dies without reaching the
                 // fold above — e.g. a CancellationException escaping
-                // synthesizer.speak — the button must not stay stuck on
-                // "Speaking…". Guarded on generation so a superseding
-                // speak/cancel's state is never overwritten.
+                // synthesizer.preload or synthesizer.speak — the button
+                // must not stay stuck on "Loading…" / "Speaking…".
+                // Guarded on generation so a superseding speak/cancel's
+                // state is never overwritten.
+                val live = _playbackState.value
                 if (generation == speakGeneration &&
-                    _playbackState.value is PlaybackState.Speaking
+                    (live is PlaybackState.Speaking || live is PlaybackState.Loading)
                 ) {
                     _playbackState.value = PlaybackState.Idle
                 }
             }
         }
     }
+
+    /**
+     * User-facing engine name for the [PlaybackState.Loading] label.
+     * Resolved the same way the Speak screen's install call-to-action
+     * resolves it (via [VoiceMeta.engine] through [EngineCatalog]) so the
+     * two never name the same engine differently. Falls back to the raw
+     * catalog key, which is at least truthful for an engine the catalog
+     * doesn't know.
+     */
+    private fun engineLabelFor(voice: VoiceMeta): String =
+        EngineCatalog.byName(voice.engine)?.displayName ?: voice.engine
 
     /** Stop any in-flight playback and return to Idle. Used by the UI's stop affordance. */
     fun cancel() {

@@ -12,6 +12,7 @@
     <string name="speak_button_speak">Lire</string>
     <string name="speak_button_stop">Arrêter</string>
     <string name="speak_status_speaking">Lecture en cours…</string>
+    <string name="speak_status_loading">Chargement de %1$s…</string>
     <string name="speak_install_cta_engine">Appuyez pour installer %1$s</string>
     <string name="speak_install_cta_generic">Appuyez pour installer un moteur TTS</string>
     <string name="speak_change_voice">Changer de voix</string>

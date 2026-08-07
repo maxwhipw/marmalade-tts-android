@@ -15,6 +15,7 @@ import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.preprocessing.EngineProfiles
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -74,10 +75,28 @@ internal class RecordingPlayer(
 
     /** What [preload] should report — flip to false to simulate a missing model. */
     var preloadResult: Boolean = true
+
+    /**
+     * When non-null, [preload] suspends on this before returning. Under
+     * the unconfined test dispatcher a plain fake resolves the whole
+     * speak() chain inside the `speak()` call, so a transient state like
+     * "Loading" is unobservable without a gate the test controls.
+     */
+    var preloadGate: CompletableDeferred<Unit>? = null
+
     override suspend fun preload(voiceId: String): Boolean {
         preloadCalls += voiceId
+        preloadGate?.await()
         return preloadResult
     }
+
+    /**
+     * What [isWarm] reports. Defaults to warm so existing tests take the
+     * straight-to-Speaking path; flip to false to exercise the cold
+     * "Loading <engine>…" branch.
+     */
+    var warm: Boolean = true
+    override fun isWarm(voiceId: String): Boolean = warm
 
     var releaseAllCount = 0
     override suspend fun releaseAll() {
