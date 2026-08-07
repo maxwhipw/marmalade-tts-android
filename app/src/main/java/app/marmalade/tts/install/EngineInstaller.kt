@@ -718,17 +718,6 @@ open class EngineInstaller @Inject constructor(
         }
     }
 
-    /**
-     * True if [espeakData] contains the files English phonemization needs:
-     * the three phoneme tables, the intonation data, and the English
-     * dictionary. Works for both the baked English-only tree and a full
-     * downloaded multi-language tree (which is a superset).
-     */
-    private fun hasCoreEspeakData(espeakData: File): Boolean =
-        CORE_ESPEAK_FILES.all { File(espeakData, it).isFile } &&
-            File(espeakData, "lang").isDirectory &&
-            File(espeakData, "voices").isDirectory
-
     private fun engineDirFor(engineName: String): File =
         File(filesDir.get(), "engines/$engineName")
 
@@ -972,10 +961,11 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * KokoroDirect layout: model.onnx + voices.bin + tokens.txt at top
-     * level, plus phonemizer/espeak-ng-data/. Older bundles also carry
-     * phonemizer/<abi>/libttsespeak.so — harmless leftovers; the espeak
-     * library now ships inside the APK (built from source), so the
-     * installer no longer requires or checks it.
+     * level. Bundles also carry phonemizer/espeak-ng-data (and older ones
+     * phonemizer/<abi>/libttsespeak.so) — harmless leftovers; the espeak
+     * library ships inside the APK (built from source) and the data is the
+     * app-level shared tree (SharedEspeakData), so the installer no longer
+     * requires or checks either.
      *
      * A single voices.bin packs all 53 speakers (510 × 256 floats each),
      * matching the upstream Kokoro `voices.bin` packing order.
@@ -1000,33 +990,19 @@ open class EngineInstaller @Inject constructor(
         val ojtDict = File(dir, "openjtalk_dic/sys.dic")
         if (!ojtDict.isFile || ojtDict.length() == 0L) return InstallState.Corrupt
 
-        val espeakData = File(dir, "phonemizer/espeak-ng-data")
-        if (!espeakData.isDirectory) return InstallState.Corrupt
-        val dataEntries = espeakData.list()?.size ?: 0
-        if (dataEntries < MIN_ESPEAK_ENTRIES) return InstallState.Corrupt
-
         return InstallState.Installed
     }
 
     /**
-     * KittenDirect layout: kitten.onnx + voices/<name>.bin (8 voices) +
-     * phonemizer/espeak-ng-data. Older (≤v14) bundles also carry
-     * phonemizer/<abi>/libttsespeak.so — harmless leftovers; the espeak
-     * library now ships inside the APK (built from source), so the
-     * installer no longer requires or checks it.
+     * KittenDirect layout: kitten.onnx + voices/<name>.bin (8 voices).
+     * Bundles (and pre-1.0 baked seeds) also carry phonemizer/ trees —
+     * harmless leftovers; espeak's library ships inside the APK and its
+     * data is the app-level shared tree (SharedEspeakData), so the
+     * installer no longer requires or checks them.
      */
     private fun verifyKittenDirectLayout(dir: File): InstallState {
         val acoustic = File(dir, "kitten.onnx")
         if (!acoustic.isFile || acoustic.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
-
-        val espeakData = File(dir, "phonemizer/espeak-ng-data")
-        if (!espeakData.isDirectory) return InstallState.Corrupt
-        // Kitten is English-only; the BAKED bundle carries just the English
-        // espeak data (~8 top-level entries: en_dict + the phoneme tables +
-        // lang/ + voices/), while a DOWNLOADED bundle carries the full ~110-
-        // language set. So check for the specific files English phonemization
-        // needs rather than a raw entry count — passes for both.
-        if (!hasCoreEspeakData(espeakData)) return InstallState.Corrupt
 
         val voicesDir = File(dir, "voices")
         if (!voicesDir.isDirectory) return InstallState.Corrupt
@@ -1185,18 +1161,9 @@ open class EngineInstaller @Inject constructor(
         // truncated extractions without pinning to the exact upstream
         // numbers (which would force a code change every bundle bump).
         private const val MIN_MODEL_BYTES: Long = 1L * 1024L * 1024L
-        private const val MIN_ESPEAK_ENTRIES: Int = 100
-
-        // The espeak-ng-data files English phonemization needs — checked
-        // instead of a raw entry count so the baked English-only tree (which
-        // the download path's full multi-language tree is a superset of)
-        // still verifies. See [hasCoreEspeakData].
-        private val CORE_ESPEAK_FILES = listOf(
-            "phondata", "phonindex", "phontab", "intonations", "en_dict",
-        )
 
         // APK assets subdir holding baked engine trees (Apache model+voices
-        // committed; espeak-ng-data merged in at build). See [seedFromAssets].
+        // committed). See [seedFromAssets].
         private const val SEED_ASSET_DIR = "engines-seed"
 
         // String shown in the per-engine progress UI while the archive is

@@ -10,6 +10,7 @@
 # bundle here + git add -A" mistake that would inject GPL into the MIT repo.
 app/src/main/assets/engines-seed/**/phonemizer/
 app/src/main/assets/engines-seed/**/espeak-ng-data/
+app/src/main/assets/espeak/
 *.dex
 .gradle/
 local.properties

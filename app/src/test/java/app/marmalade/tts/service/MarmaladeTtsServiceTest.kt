@@ -793,7 +793,7 @@ internal class FakeSynthesisCallback(
 internal class FakeKittenDirectEngine(
     ctx: Context,
     settings: SettingsRepository,
-) : KittenDirectEngine(ctx, settings) {
+) : KittenDirectEngine(ctx, settings, fakeSharedEspeakData()) {
 
     /** PCM to return from synthesize(); ignored if synthesizeException is set. */
     var nextPcm: ShortArray = ShortArray(0)
@@ -848,7 +848,7 @@ internal class FakeKittenDirectEngine(
 internal class FakeKokoroDirectEngine(
     ctx: Context,
     settings: SettingsRepository,
-) : KokoroDirectEngine(ctx, settings) {
+) : KokoroDirectEngine(ctx, settings, fakeSharedEspeakData()) {
 
     /** PCM to return from synthesize(); ignored if synthesizeException is set. */
     var nextPcm: ShortArray = ShortArray(0)
@@ -976,3 +976,15 @@ private val NoOpPreferencesDataStoreForService =
         ): androidx.datastore.preferences.core.Preferences =
             throw UnsupportedOperationException("test stub")
     }
+
+/**
+ * [SharedEspeakData] stand-in for the fake engines. They never load, so
+ * ensure() is never called — a temp target + no-op copy satisfies the
+ * constructor without touching AssetManager.
+ */
+private fun fakeSharedEspeakData(): app.marmalade.tts.phonemizer.SharedEspeakData =
+    app.marmalade.tts.phonemizer.SharedEspeakData(
+        targetDir = java.io.File(System.getProperty("java.io.tmpdir"), "espeak-test"),
+        dataVersion = "test",
+        copyAssets = {},
+    )

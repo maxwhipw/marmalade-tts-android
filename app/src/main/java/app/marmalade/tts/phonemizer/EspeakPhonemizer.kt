@@ -11,8 +11,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 // The shim itself only does dlopen()/dlsym(); libespeak-ng.so is compiled
 // from source (pinned submodule, GPL-3.0-or-later) and ships INSIDE the
 // APK — Play forbids downloading executable code, so the lib can't live in
-// the engine bundles the way it used to. The espeak-ng-data directory is
-// data, not code, and still ships in the downloaded engine bundle.
+// the engine bundles the way it used to. The espeak-ng-data is the
+// app-level shared full-language tree (build-generated APK asset, seeded
+// by SharedEspeakData); espeak data still present in downloaded engine
+// bundles is ignored legacy.
 // Shipping the lib makes the distributed APK a GPL-3.0-or-later combined
 // work; every source file here stays MIT. See NOTICE.md.
 //
@@ -71,12 +73,14 @@ class EspeakPhonemizer(
      *
      * espeak is ONE process-global instance behind every wrapper, so the
      * lifetime is refcounted at companion level: only the first open()
-     * actually initialises the native engine (with that instance's
-     * dataPath — every bundle ships the full standard espeak-ng-data, so
-     * whichever engine opens first serves all languages), and only the
-     * last [close] tears it down. Before refcounting, one engine's
-     * release closed espeak out from under the other loaded engine,
-     * whose phonemize() then returned "" — silent no-audio until reload.
+     * actually initialises the native engine, and only the last [close]
+     * tears it down. Every engine passes the SAME dataPath — the app-level
+     * shared full-language tree from [SharedEspeakData] — so first-opener
+     * order no longer decides which languages exist (it briefly did, when
+     * the baked English-only Kitten seed could open before Kokoro's full
+     * bundle data). Before refcounting, one engine's release closed espeak
+     * out from under the other loaded engine, whose phonemize() then
+     * returned "" — silent no-audio until reload.
      */
     fun open(): Int = synchronized(nativeLock) {
         if (opened.get()) return globalRate

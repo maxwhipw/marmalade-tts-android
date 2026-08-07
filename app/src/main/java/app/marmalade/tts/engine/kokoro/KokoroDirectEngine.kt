@@ -20,6 +20,7 @@ import app.marmalade.tts.phonemizer.CutletJaG2P
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
 import app.marmalade.tts.phonemizer.OpenJtalkPhonemizer
+import app.marmalade.tts.phonemizer.SharedEspeakData
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.RandomAccessFile
@@ -54,10 +55,9 @@ import kotlinx.coroutines.withContext
 //   model.onnx                          — acoustic model (~325 MB)
 //   voices.bin                          — float32 [53, 510, 256] style table
 //   tokens.txt                          — phoneme→ID lookup (114 entries)
-//   phonemizer/
-//     espeak-ng-data/                   — espeak data dir (GPL-3.0)
-//     arm64-v8a/libttsespeak.so         — legacy (older bundles); ignored now
-//                                         that the APK carries libespeak-ng.so
+//   phonemizer/                         — legacy (espeak data + older .so);
+//                                         ignored — the APK carries both the
+//                                         lib and the shared data
 //
 // Differences from KittenDirect (each verified against sherpa-onnx
 // `csrc/offline-tts-kokoro-*` source — see [[compare-at-model-boundary]]):
@@ -136,6 +136,7 @@ private const val ESPEAK_VOICE = "en-us"
 open class KokoroDirectEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val settings: SettingsRepository,
+    private val sharedEspeak: SharedEspeakData,
 ) : TtsEngine {
 
     override val engineName: String = ENGINE_NAME
@@ -164,7 +165,6 @@ open class KokoroDirectEngine @Inject constructor(
     private val acousticModelFile: File get() = File(engineDir, MODEL_FILE)
     private val voicesFile: File get() = File(engineDir, VOICES_FILE)
     private val tokensFile: File get() = File(engineDir, TOKENS_FILE)
-    private val phonemizerDir: File get() = File(engineDir, PHONEMIZER_DIR)
 
     private val loadLock = Mutex()
     private val synthLock = Mutex()
@@ -234,7 +234,6 @@ open class KokoroDirectEngine @Inject constructor(
         if (!acousticModelFile.isFile) return false
         if (!voicesFile.isFile) return false
         if (!tokensFile.isFile) return false
-        if (!File(phonemizerDir, ESPEAK_DATA_DIR).isDirectory) return false
         return true
     }
 
@@ -287,11 +286,12 @@ open class KokoroDirectEngine @Inject constructor(
         speedScratchBuf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         speedScratchFloat = speedScratchBuf!!.asFloatBuffer()
 
-        // libespeak-ng.so is compiled from source into the APK; the bundle
-        // supplies only espeak-ng-data. See phonemizer/EspeakPhonemizer.kt.
+        // libespeak-ng.so is compiled from source into the APK, and the data
+        // is the app-level shared full-language tree — bundle-shipped espeak
+        // data is ignored legacy. See phonemizer/SharedEspeakData.kt.
         val espeak = EspeakPhonemizer(
             libPath = EspeakPhonemizer.APK_LIB_NAME,
-            dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
+            dataPath = sharedEspeak.ensure().absolutePath,
             voice = ESPEAK_VOICE,
             fixupModel = EnPhonemeFixups.Model.KOKORO,
         )
@@ -799,8 +799,6 @@ open class KokoroDirectEngine @Inject constructor(
         private const val TOKENS_FILE = "tokens.txt"
         private const val LEXICON_ZH_FILE = "lexicon-zh.txt"
         private const val OPENJTALK_DICT_DIR = "openjtalk_dic"
-        private const val PHONEMIZER_DIR = "phonemizer"
-        private const val ESPEAK_DATA_DIR = "espeak-ng-data"
 
         /** Token ID for ASCII space in the Kokoro vocab. */
         private const val SPACE_TOKEN = 16

@@ -2,13 +2,18 @@
 # Host-side espeak-ng-data generator (BUILD TOOLING — never shipped, never
 # committed output).
 #
-# Purpose: compile the espeak-ng dictionary data the baked default engine
-# (Kitten Nano, English-only) needs, FROM the pinned third_party/espeak-ng
-# submodule, AT BUILD TIME on the build host. The generated `espeak-ng-data/`
-# is GPL-3.0-or-later and lands only in the Gradle build directory — it is
-# assembled into the APK's assets alongside the repo-committed Apache-2.0
-# model+voices, exactly the way libespeak-ng.so is compiled-in but never
-# committed. The repo stays espeak-free and MIT.
+# Purpose: compile the FULL espeak-ng data set (every language dict) FROM the
+# pinned third_party/espeak-ng submodule, AT BUILD TIME on the build host. The
+# generated `espeak-ng-data/` is GPL-3.0-or-later and lands only in the Gradle
+# build directory — it is assembled into the APK's assets, exactly the way
+# libespeak-ng.so is compiled-in but never committed. The repo stays
+# espeak-free and MIT.
+#
+# The data serves ONE app-level shared espeak-ng-data (seeded to filesDir by
+# SharedEspeakData) used by every espeak engine in the process. It must be the
+# superset: espeak_Initialize takes exactly one data path, Kokoro phonemizes
+# es/fr/hi/it/pt (+en) through espeak, and the alias editor's phonemization-
+# language override accepts any espeak language code.
 #
 # Why a bespoke host CMake instead of the submodule's own build:
 #   * The submodule top-level CMake pulls in cmake/deps.cmake, which does a
@@ -17,11 +22,10 @@
 #     NOR config.cmake and set the feature flags by hand (same set the Android
 #     lib build at app/src/main/cpp/espeak-ng/CMakeLists.txt already proves
 #     compiles from the manual flags alone).
-#   * We only need ENGLISH data, so we skip the ~110-language dict loop.
-#
 # This is a HOST build (native cmake/gcc), not the NDK cross-compile. It builds
 # a host `espeak-ng-bin` and runs it to compile the dictionaries — the same
-# mechanism as the submodule's cmake/data.cmake, trimmed to English.
+# mechanism as the submodule's cmake/data.cmake (its full dict loop, minus the
+# mbrola section since USE_MBROLA is off).
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.18)
 project(espeak-hostgen VERSION 1.52.0 LANGUAGES C CXX)
@@ -110,31 +114,69 @@ add_custom_command(
   DEPENDS "${DATA_DIST_DIR}/intonations" "$<TARGET_FILE:espeak-ng-bin>"
 )
 
-# English dict. Copy its sources into a tmp dir + run --compile=en from there
-# (matches data.cmake). en has _rules/_list plus _listx (extra) and _emoji.
-set(_en_deps "${DICT_SRC_DIR}/en_rules" "${DICT_SRC_DIR}/en_list")
-if(EXISTS "${DICT_SRC_DIR}/extra/en_listx")
-  list(APPEND _en_deps "${DICT_SRC_DIR}/extra/en_listx")
-elseif(EXISTS "${DICT_SRC_DIR}/en_listx")
-  list(APPEND _en_deps "${DICT_SRC_DIR}/en_listx")
-endif()
-if(EXISTS "${DICT_SRC_DIR}/en_emoji")
-  list(APPEND _en_deps "${DICT_SRC_DIR}/en_emoji")
-endif()
-
-add_custom_command(
-  OUTPUT "${DATA_DIST_DIR}/en_dict"
-  COMMAND ${CMAKE_COMMAND} -E copy ${_en_deps} "${DICT_TMP_DIR}/"
-  COMMAND ${ESPEAK_RUN_CMD} --compile=en
-  WORKING_DIRECTORY "${DICT_TMP_DIR}"
-  COMMENT "espeak-hostgen: compile en_dict"
-  DEPENDS "$<TARGET_FILE:espeak-ng-bin>" "${DATA_DIST_DIR}/phondata"
-          "${DATA_DIST_DIR}/intonations" ${_en_deps}
+# Per-language dicts — the full list from cmake/data.cmake. For each language:
+# copy its sources (_rules/_list, plus _listx — preferring extra/ — and _emoji
+# when present) into the shared tmp dir and run --compile=<lang> from there.
+# Same recipe data.cmake uses; the extra/ listx variants are its default-ON
+# option branch.
+list(APPEND _dict_compile_list
+  af am an ar as az
+  ba be bg bn bpy bs
+  ca chr cmn cs cv cy
+  da de
+  el en eo es et eu
+  fa fi fr
+  ga gd gn grc gu
+  hak haw he hi hr ht hu hy
+  ia id io is it
+  ja jbo
+  ka kk kl kn kok ko ku ky
+  la lb lfn lt lv
+  mi mk ml mr ms mto mt my
+  nci ne nl nog no
+  om or
+  pap pa piqd pl pt py
+  qdb quc qu qya
+  ro ru
+  sd shn si sjn sk sl smj sq sr sv sw
+  ta te ti th tk tn tr tt
+  ug uk ur uz
+  vi
+  yue
 )
+
+list(APPEND _dict_targets)
+foreach(_dict_name ${_dict_compile_list})
+  set(_dict_target "${DATA_DIST_DIR}/${_dict_name}_dict")
+  set(_dict_deps
+    "${DICT_SRC_DIR}/${_dict_name}_rules"
+    "${DICT_SRC_DIR}/${_dict_name}_list"
+  )
+  list(APPEND _dict_targets ${_dict_target})
+
+  if(EXISTS "${DICT_SRC_DIR}/extra/${_dict_name}_listx")
+    list(APPEND _dict_deps "${DICT_SRC_DIR}/extra/${_dict_name}_listx")
+  elseif(EXISTS "${DICT_SRC_DIR}/${_dict_name}_listx")
+    list(APPEND _dict_deps "${DICT_SRC_DIR}/${_dict_name}_listx")
+  endif()
+  if(EXISTS "${DICT_SRC_DIR}/${_dict_name}_emoji")
+    list(APPEND _dict_deps "${DICT_SRC_DIR}/${_dict_name}_emoji")
+  endif()
+
+  add_custom_command(
+    OUTPUT "${_dict_target}"
+    COMMAND ${CMAKE_COMMAND} -E copy ${_dict_deps} "${DICT_TMP_DIR}/"
+    COMMAND ${ESPEAK_RUN_CMD} --compile=${_dict_name}
+    WORKING_DIRECTORY "${DICT_TMP_DIR}"
+    COMMENT "espeak-hostgen: compile ${_dict_name}_dict"
+    DEPENDS "$<TARGET_FILE:espeak-ng-bin>" "${DATA_DIST_DIR}/phondata"
+            "${DATA_DIST_DIR}/intonations" ${_dict_deps}
+  )
+endforeach()
 
 add_custom_target(espeakdata ALL
   DEPENDS
     "${DATA_DIST_DIR}/intonations"
     "${DATA_DIST_DIR}/phondata"
-    "${DATA_DIST_DIR}/en_dict"
+    ${_dict_targets}
 )

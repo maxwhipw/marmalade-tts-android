@@ -255,32 +255,34 @@ tasks.withType<Test>().configureEach {
 }
 
 // -----------------------------------------------------------------------------
-// Baked default engine — build-time espeak-ng-data generation.
+// Shared espeak-ng-data — build-time generation (FULL language set).
 //
-// The default engine (Kitten Nano) is baked into the APK so it works instantly
-// and offline on first run. Its Apache-2.0 model + voices are committed under
-// src/main/assets/engines-seed/kitten-direct-v0_8/ (model.onnx + voices/). The
-// GPL espeak-ng-data it needs is NOT committed — it's compiled here from the
-// pinned third_party/espeak-ng submodule (English only) by
+// espeak is one process-global instance behind every engine, and it takes
+// exactly one data path — so the app ships ONE full espeak-ng-data (every
+// language dict, ~19 MB) at an app-level asset path, seeded once to filesDir
+// by SharedEspeakData and used by every espeak engine (Kokoro's es/fr/hi/it/pt
+// voices, Kitten's en, and any alias phonemization-language override).
+// Per-bundle espeak data is ignored legacy. The GPL data is NOT committed —
+// it's compiled here from the pinned third_party/espeak-ng submodule by
 // tools/espeak-hostgen, exactly the way libespeak-ng.so is compiled-in but
 // never committed. The repo stays espeak-free; the APK is already GPL via the
-// linked .so, so adding the espeak *data* to it changes nothing license-wise.
+// linked .so, so the espeak *data* changes nothing license-wise.
 //
 // Output lands in build/generated/espeakAssets/ (gitignored) and is merged
-// into the APK assets next to the committed model+voices. Offline + F-Droid-
-// reproducible: the host CMake deliberately avoids the submodule's deps.cmake
-// (which network-fetches libsonic). See tools/espeak-hostgen/CMakeLists.txt.
+// into the APK assets. Offline + F-Droid-reproducible: the host CMake
+// deliberately avoids the submodule's deps.cmake (which network-fetches
+// libsonic). See tools/espeak-hostgen/CMakeLists.txt.
 // -----------------------------------------------------------------------------
 run {
     val hostgenSrc = rootProject.file("tools/espeak-hostgen")
     val submodule = rootProject.file("third_party/espeak-ng")
     val cmakeBuildDir = layout.buildDirectory.dir("espeak-hostgen")
     val seedAssetsDir = layout.buildDirectory.dir("generated/espeakAssets")
-    val bakedEngineRel = "engines-seed/kitten-direct-v0_8/phonemizer/espeak-ng-data"
+    val bakedEngineRel = "espeak/espeak-ng-data"
 
     val generateEspeakData = tasks.register("generateEspeakData") {
         group = "build"
-        description = "Compile English espeak-ng-data from the espeak-ng submodule for the baked default engine."
+        description = "Compile the full espeak-ng-data set from the espeak-ng submodule for the app-level shared phonemizer data."
         // Incrementality: rerun only when the generator or the espeak sources change.
         inputs.dir(hostgenSrc).withPropertyName("hostgen")
         inputs.dir(File(submodule, "dictsource")).withPropertyName("dictsource")
@@ -308,8 +310,17 @@ run {
                 )
             }
             val generated = File(buildDir, "espeak-ng-data")
-            if (!File(generated, "en_dict").exists()) {
-                throw GradleException("espeak data generation produced no en_dict at $generated")
+            // Every language Kokoro actually feeds through espeak, plus a
+            // couple of sentinels (de/ru) that only exist when the full
+            // dict loop ran — a silently-trimmed set must fail the build,
+            // not ship an English-only APK again.
+            val requiredDicts = listOf(
+                "en_dict", "es_dict", "fr_dict", "hi_dict", "it_dict",
+                "pt_dict", "de_dict", "ru_dict",
+            )
+            val missing = requiredDicts.filterNot { File(generated, it).exists() }
+            if (missing.isNotEmpty()) {
+                throw GradleException("espeak data generation incomplete at $generated — missing: $missing")
             }
             outDir.parentFile.mkdirs()
             if (outDir.exists()) outDir.deleteRecursively()
@@ -317,12 +328,16 @@ run {
                 from(generated)
                 into(outDir)
             }
+            // Pre-1.0 this task emitted an English-only tree under the Kitten
+            // seed path. A stale build dir would keep shipping it alongside
+            // the shared tree — purge it so incremental builds self-heal.
+            File(seedAssetsDir.get().asFile, "engines-seed").deleteRecursively()
         }
     }
 
     // The generated dir is an extra assets source root; AGP unions it with
-    // src/main/assets (disjoint paths under the same engine dir — model+voices
-    // committed, espeak-ng-data generated — so no collision).
+    // src/main/assets (disjoint paths — engines-seed/ committed, espeak/
+    // generated — so no collision).
     android.sourceSets.getByName("main").assets.srcDir(seedAssetsDir)
 
     // Every flavor×buildType's asset merge must wait for generation.

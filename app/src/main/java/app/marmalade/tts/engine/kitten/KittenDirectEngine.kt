@@ -15,6 +15,7 @@ import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
+import app.marmalade.tts.phonemizer.SharedEspeakData
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.nio.ByteBuffer
@@ -42,17 +43,17 @@ import kotlinx.coroutines.withContext
 // [EspeakPhonemizer] for text→IPA. espeak-ng (GPL-3.0-or-later) is compiled
 // from source into the APK as libespeak-ng.so and dlopen'd by the MIT JNI
 // shim — Play forbids downloading executable code, so the lib can't ride in
-// the engine bundle the way it did through v14. The espeak-ng-data
-// dictionaries are data and stay in the bundle. (An earlier design used a
-// BSD-3 OpenPhonemizer ONNX to stay GPL-free; it was dropped because IPA-
-// convention mismatches degraded quality.)
+// the engine bundle the way it did through v14. The espeak-ng-data is the
+// app-level shared full-language tree (SharedEspeakData). (An earlier design
+// used a BSD-3 OpenPhonemizer ONNX to stay GPL-free; it was dropped because
+// IPA-convention mismatches degraded quality.)
 //
 // Bundle layout (`${filesDir}/engines/kitten-direct-v0_8/`):
 //   kitten.onnx                       — acoustic model (15M params)
 //   voices/<name>.bin                 — float32 [N, 256] style table per voice
-//   phonemizer/espeak-ng-data         — espeak dictionaries
-//   phonemizer/<abi>/libttsespeak.so  — legacy (≤v14 bundles); ignored now
-//                                       that the APK carries libespeak-ng.so
+//   phonemizer/                       — legacy (espeak data + ≤v14 .so);
+//                                       ignored — the APK carries both the
+//                                       lib and the shared data
 //
 // Carries over the Pocket engine perf lessons (A-G atoms):
 //   - direct ByteBuffers for ONNX inputs
@@ -139,6 +140,7 @@ private const val MAX_PHONEMES_PER_CHUNK = 500
 open class KittenDirectEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val settings: SettingsRepository,
+    private val sharedEspeak: SharedEspeakData,
 ) : TtsEngine {
 
     override val engineName: String = ENGINE_NAME
@@ -172,7 +174,6 @@ open class KittenDirectEngine @Inject constructor(
 
     private val engineDir: File get() = File(ctx.filesDir, "engines/$engineName")
     private val acousticModelFile: File get() = File(engineDir, MODEL_FILE)
-    private val phonemizerDir: File get() = File(engineDir, PHONEMIZER_DIR)
     private val voicesDir: File get() = File(engineDir, VOICES_DIR)
 
     private val loadLock = Mutex()
@@ -202,7 +203,6 @@ open class KittenDirectEngine @Inject constructor(
     override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
         if (!acousticModelFile.isFile) return false
-        if (!File(phonemizerDir, ESPEAK_DATA_DIR).isDirectory) return false
         if (!voicesDir.isDirectory) return false
         for (voice in voiceMetas) {
             if (!File(voicesDir, "${voice.displayName.lowercase()}.bin").isFile) return false
@@ -251,11 +251,12 @@ open class KittenDirectEngine @Inject constructor(
 
         acousticSession = createSession(ort, opts, acousticModelFile)
 
-        // libespeak-ng.so is compiled from source into the APK; the bundle
-        // supplies only espeak-ng-data. See phonemizer/EspeakPhonemizer.kt.
+        // libespeak-ng.so is compiled from source into the APK, and the data
+        // is the app-level shared full-language tree — bundle-shipped espeak
+        // data is ignored legacy. See phonemizer/SharedEspeakData.kt.
         val espeak = EspeakPhonemizer(
             libPath = EspeakPhonemizer.APK_LIB_NAME,
-            dataPath = File(phonemizerDir, ESPEAK_DATA_DIR).absolutePath,
+            dataPath = sharedEspeak.ensure().absolutePath,
             voice = "en-us",
             fixupModel = EnPhonemeFixups.Model.KITTEN,
         )
@@ -686,8 +687,6 @@ open class KittenDirectEngine @Inject constructor(
     companion object {
         const val ENGINE_NAME = "kitten-direct-v0_8"
         private const val MODEL_FILE = "kitten.onnx"
-        private const val PHONEMIZER_DIR = "phonemizer"
-        private const val ESPEAK_DATA_DIR = "espeak-ng-data"
         private const val VOICES_DIR = "voices"
 
         /**

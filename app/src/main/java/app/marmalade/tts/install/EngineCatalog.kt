@@ -55,11 +55,17 @@ data class EngineArchive(
 /**
  * Relative synthesis-speed tier — the hero axis on the engine-select card
  * (the "A3 spec columns" design). [meterFill] is how many of the card's
- * three meter segments light up.
+ * four meter segments render filled, and it doubles as the colour key: the
+ * meter is coloured by fill count (4 = green, 3 = light green, 2 = amber,
+ * 1 = red — see EngineSpecColumn.speedMeterColor), so a shorter bar is also
+ * a hotter colour and a single red tick reads as "slow", never as "one of
+ * four good". FASTEST leads (Kitten), then FAST (Kokoro); the amber 2-tick
+ * band is reserved for a mid engine between Kokoro and Pocket, HEAVY is the
+ * heaviest (Pocket).
  */
 enum class SpeedTier(val meterFill: Int) {
-    FASTEST(3),
-    FAST(2),
+    FASTEST(4),
+    FAST(3),
     HEAVY(1),
 }
 
@@ -160,9 +166,9 @@ data class EngineDescriptor(
 /**
  * Static catalog of installable engines.
  *
- * Ships Kokoro Direct (recommended default), Kitten Direct, and Pocket TTS —
- * all running on `onnxruntime-android` directly. The list order is also the
- * display order in the onboarding wizard and Engines tab.
+ * Ships Kitten Direct (recommended default, baked offline), Kokoro Direct,
+ * and Pocket TTS — all running on `onnxruntime-android` directly. The list
+ * order is also the display order in the onboarding wizard and Engines tab.
  */
 object EngineCatalog {
 
@@ -183,7 +189,8 @@ object EngineCatalog {
      * `onnxruntime-android`. Phonemization is espeak-ng
      * (GPL-3.0-or-later), compiled from source into the APK as
      * libespeak-ng.so and dlopen'd at runtime by the MIT JNI shim; the
-     * bundle supplies the espeak-ng-data dictionaries. (An earlier design
+     * espeak-ng-data is the app-level shared tree (SharedEspeakData) —
+     * bundle copies are ignored legacy. (An earlier design
      * used a BSD-3 OpenPhonemizer ONNX to avoid GPL entirely; it was
      * dropped because IPA-convention mismatches degraded quality.)
      */
@@ -225,7 +232,8 @@ object EngineCatalog {
      * optimizations as KittenDirect (XNNPACK EP, thread autodetect,
      * direct ByteBuffers, etc.). Espeak-ng (GPL-3.0-or-later) is compiled
      * from source into the APK and dlopen'd at runtime by a tiny MIT
-     * JNI shim; the bundle supplies espeak-ng-data.
+     * JNI shim; the espeak-ng-data is the app-level shared tree
+     * (SharedEspeakData) — bundle copies are ignored legacy.
      *
      * v17 added `lexicon-zh.txt` (sherpa's pre-baked misaki+pypinyin Han→IPA
      * table) for Mandarin. v18 adds `openjtalk_dic/` (Open JTalk's
@@ -377,8 +385,8 @@ object EngineCatalog {
      * ahead of the developer-only ones.
      */
     val all: List<EngineDescriptor> = listOf(
-        KOKORO_DIRECT,
         KITTEN_DIRECT,
+        KOKORO_DIRECT,
         POCKET_TTS_EN,
         POCKET_TTS_EN_DEV,
     )
