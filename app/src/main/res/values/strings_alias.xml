@@ -55,6 +55,7 @@
     <string name="alias_phonemization_language">Phonemization language</string>
     <string name="alias_pick_phonemization_language">Pick phonemization language</string>
     <string name="alias_lang_auto">Auto (engine decides)</string>
+    <string name="alias_lang_autodetect">Auto-detect language</string>
     <string name="alias_lang_en_us">English (US)</string>
     <string name="alias_lang_en_gb">English (UK)</string>
     <string name="alias_lang_es">Spanish</string>
@@ -63,7 +64,7 @@
     <string name="alias_lang_it">Italian</string>
     <string name="alias_lang_ja">Japanese</string>
     <string name="alias_lang_pt_br">Portuguese (BR)</string>
-    <string name="alias_lang_engine_english_only">This engine speaks English only.</string>
+    <string name="alias_lang_engine_english_only">This engine speaks English only. Auto-detect sends other languages to an installed Kokoro voice.</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">Apps that use %1$s</string>

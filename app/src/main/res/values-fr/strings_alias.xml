@@ -55,6 +55,7 @@
     <string name="alias_phonemization_language">Langue de phonémisation</string>
     <string name="alias_pick_phonemization_language">Choisir la langue de phonémisation</string>
     <string name="alias_lang_auto">Auto (le moteur décide)</string>
+    <string name="alias_lang_autodetect">Détection automatique de la langue</string>
     <string name="alias_lang_en_us">Anglais (US)</string>
     <string name="alias_lang_en_gb">Anglais (GB)</string>
     <string name="alias_lang_es">Espagnol</string>
@@ -63,7 +64,7 @@
     <string name="alias_lang_it">Italien</string>
     <string name="alias_lang_ja">Japonais</string>
     <string name="alias_lang_pt_br">Portugais (BR)</string>
-    <string name="alias_lang_engine_english_only">Ce moteur ne parle qu’anglais.</string>
+    <string name="alias_lang_engine_english_only">Ce moteur ne parle qu’anglais. La détection automatique confie les autres langues à une voix Kokoro installée.</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">Applis qui utilisent %1$s</string>
