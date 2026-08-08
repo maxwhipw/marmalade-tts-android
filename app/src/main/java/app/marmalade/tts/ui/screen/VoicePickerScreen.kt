@@ -248,7 +248,9 @@ fun VoicePickerScreen(
             val playingId = (previewState as? PreviewState.Playing)?.voiceId
             val previewPhrase = stringResource(R.string.voices_preview_phrase)
             val onPreview: (VoiceMeta) -> Unit = { voice ->
-                viewModel.preview(voice, previewPhrase.format(voice.displayName))
+                // spokenName, not displayName — espeak reads a Kokoro flag
+                // emoji out loud ("United States Adam").
+                viewModel.preview(voice, previewPhrase.format(voice.spokenName))
             }
 
             when {
@@ -420,10 +422,11 @@ private fun VoiceRow(
         ) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
+                // spokenName keeps TalkBack from announcing the flag emoji.
                 contentDescription = if (isPreviewing) {
-                    stringResource(R.string.voices_previewing, voice.displayName)
+                    stringResource(R.string.voices_previewing, voice.spokenName)
                 } else {
-                    stringResource(R.string.voices_preview, voice.displayName)
+                    stringResource(R.string.voices_preview, voice.spokenName)
                 },
                 tint = if (isPreviewing) {
                     MaterialTheme.colorScheme.primary
