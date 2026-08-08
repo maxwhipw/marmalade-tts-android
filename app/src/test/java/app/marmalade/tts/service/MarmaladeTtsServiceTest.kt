@@ -19,6 +19,7 @@ import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.PreprocessingRules
@@ -125,6 +126,16 @@ class MarmaladeTtsServiceTest {
             keepaliveMode = { KeepaliveMode.Off },
             clock = { 0L },
         ))
+        // Real detector against the shipped table — the auto-detect tests
+        // are about the service's routing decisions, and a fake detector
+        // would only pin the fake. Read off disk rather than through
+        // Robolectric's asset manager, which doesn't serve this module's
+        // assets to unit tests.
+        setField(
+            service,
+            "langDetector",
+            LangDetector(java.io.File("src/main/assets/langdetect.tab").readLines()),
+        )
         setField(service, "engineWarmup", EngineWarmup(
             kokoroDirect = fakeKokoroDirectEngine,
             kittenDirect = fakeEngine,
@@ -330,15 +341,37 @@ class MarmaladeTtsServiceTest {
     // the "kitten primary alias keeps speaking Bella Kokoro" bug.
 
     /** Wire a kitten primary alias ("kitty", 1.5×) into the service's router. */
-    private fun installKittenPrimary() {
+    private fun installKittenPrimary(phonemizationLanguage: String? = null) {
+        installPrimary(
+            engine = "kitten-direct-v0_8",
+            voiceId = "kitten-direct-v0_8:Bella",
+            phonemizationLanguage = phonemizationLanguage,
+        )
+    }
+
+    /** Wire a kokoro primary alias (af_bella, 1.5×) into the service's router. */
+    private fun installKokoroPrimary(phonemizationLanguage: String? = null) {
+        installPrimary(
+            engine = KokoroDirectVoiceCatalog.ENGINE,
+            voiceId = "kokoro-direct-v1_0:af_bella",
+            phonemizationLanguage = phonemizationLanguage,
+        )
+    }
+
+    private fun installPrimary(
+        engine: String,
+        voiceId: String,
+        phonemizationLanguage: String?,
+    ) {
         val alias = app.marmalade.tts.data.db.VoiceAlias(
             name = "kitty",
             id = "id-test",
-            engine = "kitten-direct-v0_8",
-            voiceId = "kitten-direct-v0_8:Bella",
+            engine = engine,
+            voiceId = voiceId,
             speed = 1.5f,
             effectPreset = "NONE",
             createdAt = 0L,
+            phonemizationLanguage = phonemizationLanguage,
         )
         val aliasDao = object : app.marmalade.tts.data.db.VoiceAliasDao {
             override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
@@ -602,51 +635,125 @@ class MarmaladeTtsServiceTest {
         assertEquals(listOf("eng", "USA", ""), service.onGetLanguage().toList())
     }
 
-    // -- request language selects the voice + phonemization -----------------
+    // -- per-utterance language auto-detection ------------------------------
+    //
+    // Design (Max, 2026-08-07): the phonemization language is detected from
+    // the utterance itself, and only when the alias opts in with the "auto"
+    // sentinel. The system request's language is no longer allowed to pick
+    // a voice or a language — it survives purely as the fallback for when
+    // detection abstains. The voice changes for one reason only: engine
+    // capability (Kitten/Pocket can't render non-English phonemes).
 
     @Test
-    fun onSynthesizeText_nonEnglishRequestWithoutVoiceSelectsThatLanguage() {
-        // An English primary alias is set, exactly as on Max's phone.
+    fun onSynthesizeText_requestLanguageNoLongerSwitchesTheVoice() {
+        // An English primary alias with no auto-detect opt-in, exactly as
+        // on Max's phone. A Japanese request used to hijack the voice; now
+        // an explicit alias language (here: none, "engine decides") wins.
         installKittenPrimary()
-        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+        fakeEngine.nextPcm = ShortArray(1024)
 
         val request = newRequestWithLanguage("こんにちは", "jpn", "JPN")
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        assertEquals("the English primary must not speak Japanese", 0, fakeEngine.calls.size)
-        assertEquals("kokoro-direct-v1_0:jf_alpha", fakeKokoroDirectEngine.calls.single().second)
-        // espeak has to be told, or the Japanese voice reads Japanese text
-        // through an English phonemizer.
-        assertEquals("ja", fakeKokoroDirectEngine.languages.single())
-        // The alias's speed still rides along — it's a user preference, not
-        // an English one.
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertNull(fakeEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasDetectsFrenchWithoutChangingTheVoice() {
+        installKokoroPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "Votre téléchargement est terminé et le fichier est prêt.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // The voice is untouched — an American voice reading French is
+        // accented French, which is the point.
+        assertEquals("kokoro-direct-v1_0:af_bella", fakeKokoroDirectEngine.calls.single().second)
+        assertEquals("fr-fr", fakeKokoroDirectEngine.languages.single())
+        // The alias's speed still rides along.
         assertEquals(1.5f, fakeKokoroDirectEngine.calls.single().third)
     }
 
     @Test
-    fun onSynthesizeText_englishRequestIsUntouchedByLanguageSelection() {
-        installKittenPrimary()
-        fakeEngine.nextPcm = ShortArray(1024)
+    fun onSynthesizeText_autoAliasEnglishTextGuessesNoRegion() {
+        installKokoroPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
 
-        val request = newRequestWithLanguage("hello", "eng", "USA")
+        val request = SynthesisRequest("Your download has finished and the file is ready.", Bundle())
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        // Unchanged: primary alias wins, no language redirect.
-        assertEquals(1, fakeEngine.calls.size)
-        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        // Null, not "en-us": en-US vs en-GB is not inferable from text, so
+        // the voice's own catalog default decides.
+        assertNull(fakeKokoroDirectEngine.languages.single())
     }
 
     @Test
-    fun onSynthesizeText_namedVoiceOutranksTheRequestLanguage() {
+    fun onSynthesizeText_autoAliasFallsBackToTheRequestLanguageWhenUnsure() {
+        installKokoroPrimary(phonemizationLanguage = "auto")
         fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
 
-        // A caller that names a voice has out-specified the locale.
-        val request = newRequestWithVoice("hello", "kokoro-direct-v1_0:bm_lewis")
-        setLanguage(request, "jpn", "JPN")
+        // Two letters is far below the detector's floor — it abstains, and
+        // the system request's locale is what that fallback is still for.
+        val request = newRequestWithLanguage("OK", "fra", "FRA")
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        assertEquals("kokoro-direct-v1_0:bm_lewis", fakeKokoroDirectEngine.calls.single().second)
-        assertNull(fakeKokoroDirectEngine.languages.single())
+        assertEquals("kokoro-direct-v1_0:af_bella", fakeKokoroDirectEngine.calls.single().second)
+        assertEquals("fr-fr", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasOnEnglishOnlyEngineReroutesForCapability() {
+        // Kitten can only render English phonemes, so Chinese has to move
+        // to an installed Kokoro voice — that's the one case where
+        // detection is allowed to change the voice.
+        installKittenPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest("今天天气很好，我们去公园散步吧", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeEngine.calls.size)
+        assertEquals("kokoro-direct-v1_0:zf_xiaobei", fakeKokoroDirectEngine.calls.single().second)
+        // Han runs go through lexicon-zh whatever espeak is set to; the
+        // catalog's per-voice code is what rides along.
+        assertEquals("en-us", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasWithNoVoiceForTheLanguageStaysPut() {
+        installKittenPrimary(phonemizationLanguage = "auto")
+        // Nothing Kokoro is installed → no Chinese voice to reroute to.
+        fakeKokoroDirectEngine.synthesizeException =
+            EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest("今天天气很好，我们去公园散步吧", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // Today's behaviour: Kitten speaks it as English.
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertNull(fakeEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_namedVoiceIsNeverRerouted() {
+        installKittenPrimary(phonemizationLanguage = "auto")
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        // A caller that names a voice has out-specified everything. The
+        // named voice happens to be the primary's, so the alias bundle
+        // (including "auto") still applies — but the voice cannot move.
+        val request = newRequestWithVoice("今天天气很好，我们去公园散步吧", "kitten-direct-v0_8:Bella")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertNull(fakeEngine.languages.single())
     }
 
     @Test

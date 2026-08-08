@@ -19,6 +19,7 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -198,6 +199,7 @@ class Synthesizer @Inject constructor(
     private val keepaliveCoordinator: app.marmalade.tts.service.KeepaliveCoordinator,
     private val residency: app.marmalade.tts.service.EngineResidency,
     private val latency: VoiceLatencyTracker,
+    private val langDetector: LangDetector,
 ) : SpeechPlayer {
 
     /**
@@ -260,6 +262,19 @@ class Synthesizer @Inject constructor(
         // Hoisted out of the async child so residency's begin/end can bracket
         // the whole utterance — engineNameFor is a pure string parse.
         val engineName = engineNameFor(voiceId)
+        // Resolve an "auto" alias against this utterance, once, before the
+        // engine chunks it — detection is per utterance, never per chunk.
+        // Kokoro is the only engine that reads the field; on the others an
+        // auto alias resolves to null (their own English phonemes).
+        val language = if (phonemizationLanguage == LangDetector.AUTO) {
+            if (engineName == KokoroDirectVoiceCatalog.ENGINE) {
+                langDetector.resolve(LangDetector.AUTO, text)
+            } else {
+                null
+            }
+        } else {
+            phonemizationLanguage
+        }
         val work = async {
             val enabled = settings.enabledRules(engineName).first()
 
@@ -273,9 +288,9 @@ class Synthesizer @Inject constructor(
             val canStream = hint.emotion == Emotion.Neutral
 
             if (canStream) {
-                speakStreaming(text, voiceId, speed, effectBlocks, engineName, enabled, phonemizationLanguage)
+                speakStreaming(text, voiceId, speed, effectBlocks, engineName, enabled, language)
             } else {
-                speakBatched(text, voiceId, speed, effectBlocks, engineName, enabled, phonemizationLanguage)
+                speakBatched(text, voiceId, speed, effectBlocks, engineName, enabled, language)
             }
         }
         currentJob = work

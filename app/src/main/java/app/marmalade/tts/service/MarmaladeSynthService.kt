@@ -40,6 +40,7 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -171,6 +172,8 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var keepaliveCoordinator: KeepaliveCoordinator
 
     @Inject lateinit var residency: EngineResidency
+
+    @Inject lateinit var langDetector: LangDetector
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -386,7 +389,7 @@ class MarmaladeSynthService : Service() {
         // activity runs in our own process and there's no callerUid to
         // resolve. The router still does the right thing (skip per-app
         // lookup, return the primary).
-        val resolved: SpeakRequest = if (req.voiceExplicit) {
+        val routed: SpeakRequest = if (req.voiceExplicit) {
             req
         } else {
             val alias = router.resolveAlias(callerPackage = null)
@@ -401,6 +404,23 @@ class MarmaladeSynthService : Service() {
             } else {
                 req
             }
+        }
+
+        // Resolve an "auto" alias against the utterance, once, before any
+        // chunking. No voice rerouting on this route: it has no request
+        // locale to fall back on and the caller picked the voice, so an
+        // auto alias only ever moves the phonemizer. Kokoro is the only
+        // engine that reads the field, so the rest resolve to null.
+        val resolved: SpeakRequest = if (routed.phonemizationLanguage == LangDetector.AUTO) {
+            routed.copy(
+                phonemizationLanguage = if (routed.engine == KokoroDirectVoiceCatalog.ENGINE) {
+                    langDetector.resolve(LangDetector.AUTO, routed.text)
+                } else {
+                    null
+                },
+            )
+        } else {
+            routed
         }
 
         // Route to the engine named by resolved.engine. Unknown engines

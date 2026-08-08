@@ -15,6 +15,7 @@ import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.kitten.PAD_TOKEN
 import app.marmalade.tts.engine.kitten.encodePhonemes
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.CutletJaG2P
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
@@ -426,7 +427,11 @@ open class KokoroDirectEngine @Inject constructor(
         // only a warm-up — per-chunk phonemize(text, lang) re-asserts the
         // voice atomically, since espeak's voice is process-global and a
         // concurrent synth on the other engine can flip it between chunks.
-        val effectiveLang = phonemizationLanguage
+        // The "auto" sentinel is resolved per utterance at the call sites
+        // (all three synthesis routes). Treating a leftover one as "no
+        // override" rather than passing it on keeps a plumbing gap from
+        // reaching espeak_SetVoiceByName as a nonexistent voice.
+        val effectiveLang = phonemizationLanguage?.takeIf { it != LangDetector.AUTO }
             ?: KokoroDirectVoiceCatalog.espeakVoiceFor(voiceName)
         phonemizer?.setVoice(effectiveLang)
         // Same chunking discipline as KittenDirect — never word-split, split

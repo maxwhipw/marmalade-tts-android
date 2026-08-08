@@ -91,6 +91,11 @@ data class VoiceAlias(
      * for accent experimentation. Engines that don't need phonemization
      * (sherpa-Kokoro/Kitten, Pocket) ignore this field.
      *
+     * The literal `"auto"` (`LangDetector.AUTO`) is a third state:
+     * detect each utterance's language from its text and phonemize
+     * accordingly. The column is free-form TEXT, so the sentinel needed
+     * no migration.
+     *
      * Added in db v5 (alpha.10.L).
      */
     val phonemizationLanguage: String? = null,

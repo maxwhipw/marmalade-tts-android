@@ -37,6 +37,7 @@ import app.marmalade.tts.engine.api.CompressedAudioDecoder
 import app.marmalade.tts.engine.api.MediaCodecAudioDecoder
 import app.marmalade.tts.engine.api.UrlCloudSpeechHttp
 import app.marmalade.tts.install.EngineFilesDir
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
 import app.marmalade.tts.install.UrlHttpFetcher
@@ -240,4 +241,14 @@ object AppModule {
     fun providePreprocessor(): Preprocessor = Preprocessor(
         rulesByName = PreprocessingRules.ALL.associateBy { it.name },
     )
+
+    /**
+     * Shared language detector, parsed once from `assets/langdetect.tab`.
+     * [LangDetector.load] caches internally too, so the three synthesis
+     * routes share one table however they get hold of it.
+     */
+    @Provides
+    @Singleton
+    fun provideLangDetector(@ApplicationContext context: Context): LangDetector =
+        LangDetector.load(context)
 }

@@ -28,6 +28,7 @@ import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -170,6 +171,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var residency: EngineResidency
 
     @Inject lateinit var latency: VoiceLatencyTracker
+
+    @Inject lateinit var langDetector: LangDetector
 
     // Bound to the service lifecycle (cancelled in onDestroy). Used for the
     // background model warm-up kicked off from onLoadLanguage. Dispatchers.IO
@@ -482,9 +485,10 @@ class MarmaladeTtsService : TextToSpeechService() {
         //   3. Primary alias.
         //   4. Engine default voice (current behaviour).
         // resolveSynthParams encodes this; see the helper kdoc.
-        // applyRequestLanguage then redirects the no-voice-named case to a
-        // voice of the requested language when that language isn't English.
-        val params = applyRequestLanguage(request, resolveSynthParams(request))
+        // resolveUtteranceLanguage then resolves an "auto" phonemization
+        // alias against the text itself — before the sample rate commits,
+        // so a capability reroute still lands in time.
+        val params = resolveUtteranceLanguage(request, resolveSynthParams(request), rawText)
         val voiceId = params.voiceId
         val engineName = engineNameFor(voiceId)
         val activeSampleRate = sampleRateFor(voiceId, engineName)
@@ -882,57 +886,90 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
-     * Honour `SynthesisRequest`'s language when the caller named no voice
-     * of its own.
+     * Resolve the [LangDetector.AUTO] phonemization sentinel against the
+     * utterance's own [text].
      *
-     * A client that says "speak this in Japanese" and leaves the voice to
-     * us used to get the user's (English) primary alias reading Japanese
-     * text through an English phonemizer. Now the request's language picks
-     * an installed voice for that language — Kokoro's, in practice — and
-     * sets the espeak language to match.
+     * The design (Max, 2026-08-07): **phonemization language is orthogonal
+     * to voice.** Detecting French does not change who is speaking — it
+     * changes which rules their mouth follows, and a French sentence read
+     * by an American voice is accented French, which is the desirable
+     * outcome, not a bug to route around.
      *
-     * Deliberately narrow:
-     * - A caller-named voice we know always wins. It out-specifies a
-     *   locale, and the voice carries its own language.
-     * - English (and any language we have nothing installed for) is left
-     *   completely alone, so the alias / per-app routing that Marmalade's
-     *   daily English use is built on behaves exactly as before.
+     * Which means:
+     * - An alias that names a language explicitly (or leaves it null,
+     *   "engine decides") is returned untouched. Only the AUTO sentinel
+     *   opts into detection.
+     * - The **request's** language no longer picks a voice or a language.
+     *   It survives solely as the fallback for when detection abstains —
+     *   too little text, or two languages too close to call.
+     * - Detection is per utterance, never per chunk, and never guesses a
+     *   region: English resolves to null so the voice's own catalog
+     *   default (en-us / en-gb) stands.
      *
-     * Speed and effects still come from the alias — those are the user's
-     * preferences, not English-specific. The alias's offline fallback is
-     * dropped: it points at another alias, which would speak the wrong
-     * language.
+     * The one case where the voice does change is engine capability:
+     * Kitten and Pocket can only render English phonemes, so a non-English
+     * utterance on one of them is switched to an installed Kokoro voice of
+     * that language — the alternative is reading French through an English
+     * model, which is not an accent, it's noise. With no such voice
+     * installed we stay put and speak it as English, exactly as today.
+     * A caller that named a valid voice pins it: a reroute must not fight
+     * an explicit request.
      */
-    internal fun applyRequestLanguage(
+    internal fun resolveUtteranceLanguage(
         request: SynthesisRequest,
         params: SynthParams,
+        text: String,
     ): SynthParams {
+        if (params.phonemizationLanguage != LangDetector.AUTO) return params
+
+        // Detection first; the request's locale is only the uncertainty
+        // fallback now.
+        val detected = langDetector.detect(text)
+        val language = detected ?: TtsLocales.toIso2Language(request.language)
+        val espeak = LangDetector.espeakCodeFor(language)
+
+        // Kokoro phonemizes through espeak in every language we ship, so
+        // it never needs rerouting — just point espeak at the language.
+        if (engineNameFor(params.voiceId) == KokoroDirectVoiceCatalog.ENGINE) {
+            Log.d(TAG, "auto language: detected=$detected → phonemization=$espeak")
+            return params.copy(phonemizationLanguage = espeak)
+        }
+
+        // Kitten / Pocket: English-only renderers. English (and an
+        // undetected language) is what they already do.
+        //
+        // Non-English is the engine-capability reroute — pending Max's
+        // accented-phonemization verdict, which may yet let Kitten render
+        // non-English IPA in its own voice instead of handing over.
+        if (language == null || language == TtsLocales.BASELINE_LANGUAGE) {
+            return params.copy(phonemizationLanguage = null)
+        }
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
         if (requested != null && onIsValidVoiceName(requested) == TextToSpeech.SUCCESS) {
-            return params
+            return params.copy(phonemizationLanguage = null)
         }
-        val language = TtsLocales.toIso2Language(request.language) ?: return params
-        if (language == TtsLocales.BASELINE_LANGUAGE) return params
-        val voice = TtsLocales.defaultVoiceFor(
-            request.language,
-            request.country,
-            installedVoices(),
-        ) ?: return params
+        // Region deliberately null: detection knows the language, not the
+        // country, and the request's country describes a locale we are no
+        // longer routing by.
+        val voice = TtsLocales.defaultVoiceFor(language, null, installedVoices())
+            ?: return params.copy(phonemizationLanguage = null)
         // espeakVoiceFor is the per-voice source of truth for the espeak
         // code; for non-Kokoro engines the field is ignored anyway.
-        val espeak = if (voice.engine == KokoroDirectVoiceCatalog.ENGINE) {
+        val voiceEspeak = if (voice.engine == KokoroDirectVoiceCatalog.ENGINE) {
             KokoroDirectVoiceCatalog.espeakVoiceFor(voice.id.substringAfter(':'))
         } else {
-            params.phonemizationLanguage
+            null
         }
         Log.d(
             TAG,
-            "request language ${request.language}-${request.country} → " +
-                "voice=${voice.id} phonemization=$espeak",
+            "auto language: detected=$language on ${params.voiceId} → " +
+                "voice=${voice.id} phonemization=$voiceEspeak",
         )
+        // The alias's offline fallback is dropped: it points at another
+        // alias, which would speak the wrong language.
         return params.copy(
             voiceId = voice.id,
-            phonemizationLanguage = espeak,
+            phonemizationLanguage = voiceEspeak,
             fallbackVoiceId = null,
         )
     }
