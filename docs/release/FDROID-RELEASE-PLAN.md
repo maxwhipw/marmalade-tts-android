@@ -29,7 +29,9 @@ deliberately unanswered until the re-cut:
 
 The fork/branch/MR stay open; when the finalized tag exists, the recipe
 is updated **on the same branch** and the same MR proceeds. Nothing is
-pushed to the MR without Max's sign-off (public surface).
+pushed to the MR without Max's sign-off (public surface). No interim
+holding note to the reviewer (Max, 2026-08-07) — the next MR activity
+is the complete corrected re-cut.
 
 > **F-Droid builds the `fdroid` product flavor** (`gradle: [fdroid]`).
 > Both flavors are fully free (paywall withdrawn 2026-07-26, billing
@@ -73,14 +75,24 @@ Obtainium APKs share one signature and cross-update.
   (`1169c0f`, needs GitHub push) and the four signing secrets are not
   yet configured (Max, per [CI-SIGNING.md](CI-SIGNING.md)). Key
   decision: reuse `marmalade-upload.jks` (strong PKCS12, backed up) as
-  the permanent distribution key. **Restructure required (2026-08-07):
-  apksigner from build-tools ≥35 produces APKs apksigcopier can't
-  verify (fdroidserver#3299), and our AGP 8.9.3 pin requires
-  build-tools ≥35, so Gradle's `signingConfig` cannot emit a verifiable
-  signature at all. The fdroid-flavor artifact must be built unsigned,
-  then `zipalign` + `apksigner sign` in a separate workflow step using
-  an explicitly installed `build-tools;34.0.0`.** (Re-check whether
-  #3299 is fixed upstream before building this.)
+  the permanent distribution key. **Signing verdict (2026-08-07,
+  3-reviewer panel, empirically round-trip-tested on a real APK): keep
+  Gradle `signingConfig` exactly as-is.** The apksigner-≥35 problem
+  (fdroiddata#3299 — `0xd935` alignment fields apksigcopier can't
+  reproduce; apksigcopier is archived/wontfix) applies only to the
+  standalone apksigner binary. AGP signs in-process via the apksig
+  library with zero padding, and an AGP-8.9.3-signed APK verifies with
+  apksigcopier 1.1.1 (proven both by two independent reviewers). The
+  earlier "build unsigned + sign with build-tools 34" idea is
+  withdrawn — its zipalign step would have silently broken 16 KB page
+  alignment. Instead add cheap CI guards after `assembleFdroidRelease`:
+  `apksigcopier extract` must succeed, `zipalign -c -P 16 -v 4` must
+  pass, fail on any `0xd935` local-header field. Pre-tag, decide two
+  signing-config details **before** the cert is pinned forever in
+  `AllowedAPKSigningKeys`: whether to set `enableV3Signing = true`
+  (rotation lineage; current release APK signs v2-only) and
+  `dependenciesInfo { includeInApk = false }` (F-Droid scanners dislike
+  the encrypted Google dependency block).
 - **R0 Reproducibility risk register** (what breaks first, in order):
   (a) host-compiled espeak dictionaries — produced by a host gcc/glibc
   binary, the least-controlled input in the build; (b)
@@ -88,9 +100,19 @@ Obtainium APKs share one signature and cross-update.
   with all dicts sharing one `dictsource` working dir —
   core-count-dependent ordering; (c) no Gradle dependency locking — a
   transitive published between our CI run and F-Droid's rebuild
-  changes bytes; (d) NDK object determinism across ABIs; (e) R8
-  (least risky — pinned by AGP). Fixing (b) and adding dependency
-  locking are worth doing regardless of RB.
+  changes bytes; (d) NDK object determinism across ABIs — no
+  `--build-id=none` / `-ffile-prefix-map` flags are set today, and
+  embedded build paths differ between the GitHub runner and F-Droid's
+  buildserver (F-Droid's most-cited native RB failure); (e) baseline
+  profiles — `androidx.profileinstaller` is in the graph, so release
+  APKs likely embed `assets/dexopt/baseline.prof(m)`, a documented
+  nondeterminism source (workaround: disable `*ArtProfile*` tasks);
+  (f) unpinned `ubuntu-latest` runner drift; (g) R8 (least risky —
+  pinned by AGP). Fixing (b) and adding dependency locking are worth
+  doing regardless of RB. (b) is FIXED 2026-08-07: `generateEspeakData`
+  now uses the SDK's cmake and `-j 1`. Watch item: fdroidserver#1354
+  (open) — signature copying broken on newer Fedora/Debian, could cause
+  spurious verification failures on their side.
 - **R2 Recipe fields** —
   `Binaries: https://github.com/maxwhipw/marmalade-tts-android/releases/download/v%v/marmalade-tts-%v-fdroid.apk`
   + `AllowedAPKSigningKeys: <sha256>` (from `apksigner verify
