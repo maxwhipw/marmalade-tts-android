@@ -78,6 +78,18 @@ class UtteranceLanguageTest {
     }
 
     @Test
+    fun kittenAutoJapaneseUsesJaEspeak() {
+        // The roughest allowed case: ja espeak IPA on an en-us-trained
+        // vocab. It exists because silence is worse (Max, 2026-08-08).
+        assertEquals(
+            "ja",
+            UtteranceLanguage.resolve(
+                detector, kitten, kittenBella, LangDetector.AUTO, "\u3053\u3093\u306b\u3061\u306f\u3001\u5143\u6c17\u3067\u3059\u304b\uff1f",
+            ),
+        )
+    }
+
+    @Test
     fun kittenAutoFallsBackToTheRequestLanguageWhenUnsure() {
         assertEquals(
             "fr-fr",
