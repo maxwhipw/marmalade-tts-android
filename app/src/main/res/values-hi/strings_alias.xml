@@ -54,7 +54,6 @@
     <!-- Phonemization language -->
     <string name="alias_phonemization_language">फ़ोनेमाइज़ेशन की भाषा</string>
     <string name="alias_pick_phonemization_language">फ़ोनेमाइज़ेशन की भाषा चुनें</string>
-    <string name="alias_lang_auto">अपने आप (इंजन तय करे)</string>
     <string name="alias_lang_autodetect">भाषा स्वतः पहचानें</string>
     <string name="alias_lang_en_us">अंग्रेज़ी (अमेरिकी)</string>
     <string name="alias_lang_en_gb">अंग्रेज़ी (ब्रिटिश)</string>
@@ -64,7 +63,7 @@
     <string name="alias_lang_it">इतालवी</string>
     <string name="alias_lang_ja">जापानी</string>
     <string name="alias_lang_pt_br">पुर्तगाली (ब्राज़ील)</string>
-    <string name="alias_lang_engine_english_only">यह इंजन केवल अंग्रेज़ी बोलता है। स्वतः पहचान अन्य भाषाओं को इंस्टॉल की गई Kokoro आवाज़ पर भेज देती है।</string>
+    <string name="alias_lang_engine_english_only">यह इंजन केवल अंग्रेज़ी बोलता है।</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s इस्तेमाल करने वाले ऐप्स</string>

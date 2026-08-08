@@ -53,7 +53,6 @@
     <!-- Phonemization language -->
     <string name="alias_phonemization_language">音素化する言語</string>
     <string name="alias_pick_phonemization_language">音素化する言語を選択</string>
-    <string name="alias_lang_auto">自動（エンジンに任せる）</string>
     <string name="alias_lang_autodetect">言語を自動検出</string>
     <string name="alias_lang_en_us">英語（米国）</string>
     <string name="alias_lang_en_gb">英語（英国）</string>
@@ -63,7 +62,7 @@
     <string name="alias_lang_it">イタリア語</string>
     <string name="alias_lang_ja">日本語</string>
     <string name="alias_lang_pt_br">ポルトガル語（ブラジル）</string>
-    <string name="alias_lang_engine_english_only">このエンジンは英語のみに対応しています。自動検出では、他の言語はインストール済みの Kokoro の声に切り替わります。</string>
+    <string name="alias_lang_engine_english_only">このエンジンは英語のみに対応しています。</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s を使うアプリ</string>

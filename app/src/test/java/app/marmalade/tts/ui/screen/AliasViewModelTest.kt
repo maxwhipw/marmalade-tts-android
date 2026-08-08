@@ -512,14 +512,14 @@ class AliasViewModelTest {
         val vm = newViewModel()
         vm.openEditor()
         assertNull(
-            "Default is null (= auto-derive from voice prefix)",
+            "Default is null, which now means auto-detect",
             vm.editorState.first().phonemizationLanguage,
         )
 
         vm.onEditorPhonemizationLanguageChange("ja")
         assertEquals("ja", vm.editorState.first().phonemizationLanguage)
 
-        // Setting to null clears the override (Auto in the UI).
+        // Setting to null clears the override back to auto-detect.
         vm.onEditorPhonemizationLanguageChange(null)
         assertNull(vm.editorState.first().phonemizationLanguage)
     }
@@ -543,9 +543,9 @@ class AliasViewModelTest {
 
     @Test
     fun save_phonemizationLanguageDefaultsToNull() = runTest {
-        // Without calling onEditorPhonemizationLanguageChange, the saved
-        // row carries null — that's the "Auto" sentinel the engine resolves
-        // via KokoroDirectVoiceCatalog.espeakVoiceFor.
+        // Without calling onEditorPhonemizationLanguageChange the saved
+        // row carries null, which is auto-detect — the dropdown's default
+        // and the only state a newly created alias can be in.
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(aliasDao = aliasDao)
         vm.openEditor()
@@ -553,6 +553,27 @@ class AliasViewModelTest {
         vm.onEditorVoiceChange(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
 
         vm.save()
+        assertNull(aliasDao.upsertedAliases.single().phonemizationLanguage)
+    }
+
+    @Test
+    fun save_normalizesPhonemizationLanguageAwayOnTheEnglishOnlyEngines() = runTest {
+        // The field is disabled at English for Kitten and Pocket, so
+        // nothing they carry is a preference. Switching a Kokoro alias to
+        // Kitten must not persist the language it used to have — the
+        // engine ignores it, and a stale "ja" would come back the moment
+        // the alias was pointed at Kokoro again.
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        vm.onEditorNameChange("narrator")
+        vm.onEditorEngineChange("kokoro-direct-v1_0")
+        vm.onEditorVoiceChange("kokoro-direct-v1_0:jf_alpha")
+        vm.onEditorPhonemizationLanguageChange("ja")
+        vm.onEditorEngineChange("kitten-direct-v0_8")
+        vm.onEditorVoiceChange(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+
+        assertTrue(vm.save())
         assertNull(aliasDao.upsertedAliases.single().phonemizationLanguage)
     }
 

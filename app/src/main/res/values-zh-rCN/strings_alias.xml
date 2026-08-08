@@ -53,7 +53,6 @@
     <!-- Phonemization language -->
     <string name="alias_phonemization_language">音素化语言</string>
     <string name="alias_pick_phonemization_language">选择音素化语言</string>
-    <string name="alias_lang_auto">自动（由引擎决定）</string>
     <string name="alias_lang_autodetect">自动检测语言</string>
     <string name="alias_lang_en_us">英语（美国）</string>
     <string name="alias_lang_en_gb">英语（英国）</string>
@@ -63,7 +62,7 @@
     <string name="alias_lang_it">意大利语</string>
     <string name="alias_lang_ja">日语</string>
     <string name="alias_lang_pt_br">葡萄牙语（巴西）</string>
-    <string name="alias_lang_engine_english_only">该引擎仅支持英语。自动检测会把其他语言交给已安装的 Kokoro 声音。</string>
+    <string name="alias_lang_engine_english_only">该引擎仅支持英语。</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">使用 %1$s 的应用</string>

@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePath
@@ -488,7 +489,10 @@ class AliasViewModel @Inject constructor(
         _editorState.value = current.copy(effectId = effectId)
     }
 
-    /** Pass null to clear the user override (= "Auto" — engine decides). */
+    /**
+     * Pass [app.marmalade.tts.lang.LangDetector.AUTO] (or null, which
+     * means the same) to clear the user override back to auto-detect.
+     */
     fun onEditorPhonemizationLanguageChange(language: String?) {
         val current = _editorState.value
         _editorState.value = current.copy(phonemizationLanguage = language)
@@ -538,7 +542,12 @@ class AliasViewModel @Inject constructor(
             // non-null ("NONE") only to satisfy the schema; nothing reads it.
             effectPreset = "NONE",
             createdAt = createdAt,
-            phonemizationLanguage = state.phonemizationLanguage,
+            // Only Kokoro acts on the field; the English-only engines show
+            // it disabled at English, so anything a voice change left
+            // behind on one of them is normalized away rather than
+            // persisted as a preference the engine will ignore.
+            phonemizationLanguage = state.phonemizationLanguage
+                ?.takeIf { state.engine == KokoroDirectVoiceCatalog.ENGINE },
             effectId = state.effectId,
             // Only cloud voices can fail for lack of a network, so only they
             // carry a fallback. Persisting one on an on-device alias would be

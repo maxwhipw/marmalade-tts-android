@@ -740,15 +740,16 @@ private fun AliasEditorSheet(
                 onPick = onEffectChange,
             )
 
-            // Kokoro Direct is the only engine a specific language reaches:
-            // it is multilingual and phonemizes through espeak, so changing
-            // the language changes the audio. It gets the full list.
+            // Kokoro Direct is the only engine the override actually
+            // reaches: it is multilingual and phonemizes through espeak,
+            // so changing the language changes the audio.
             //
             // The other on-device engines are English-only — Kitten's model
             // can only read en-us IPA, Pocket doesn't phonemize through
-            // espeak at all — so they get two entries: leave it to the
-            // engine, or auto-detect, which sends a non-English utterance
-            // to an installed Kokoro voice of that language.
+            // espeak at all — so they get the control disabled at English
+            // rather than removed: the fact that the language is fixed is
+            // itself worth showing, and a control that vanishes between
+            // voices reads as a missing feature.
             //
             // Cloud voices have no control at all: the provider does its
             // own text processing server-side, so there is no language of
@@ -756,14 +757,9 @@ private fun AliasEditorSheet(
             if (state.engine in PHONEMIZATION_ENGINES) {
                 val kokoro = state.engine == KokoroDirectVoiceCatalog.ENGINE
                 PhonemizationLanguageDropdown(
-                    selected = state.phonemizationLanguage,
+                    selected = if (kokoro) state.phonemizationLanguage else "en-us",
                     onPick = onPhonemizationLanguageChange,
-                    entries = if (kokoro) {
-                        PHONEMIZATION_LANGUAGES
-                    } else {
-                        ENGLISH_ONLY_PHONEMIZATION_LANGUAGES
-                    },
-                    englishOnly = !kokoro,
+                    enabled = kokoro,
                 )
             }
 
@@ -965,19 +961,19 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Per-alias espeak language override. Null = "Auto", which lets
- * `KokoroDirectVoiceCatalog.espeakVoiceFor()` derive the language from
- * the voice's key prefix. Non-null forces espeak's language for every
- * synthesis call on the alias, whatever the voice — a Japanese voice
- * reading en-us is accented English, which is a legitimate thing to ask
- * for, so the list is never filtered by the voice's own language.
+ * Per-alias espeak language override. The default is auto-detect: each
+ * utterance's own language decides how it is phonemized, without moving
+ * the voice. A stored null means the same thing, so the rows written
+ * before detection existed need no migration.
  *
- * The `"auto"` entry is the third state: detect each utterance's own
- * language and phonemize accordingly, without changing the voice.
+ * A specific code forces espeak's language for every synthesis call on
+ * the alias, whatever the voice — a Japanese voice reading en-us is
+ * accented English, which is a legitimate thing to ask for, so the list
+ * is never filtered by the voice's own language.
  *
- * [entries] is the offered subset — the full list for Kokoro, and just
- * "engine decides" + auto-detect for the English-only engines, whose
- * [englishOnly] note explains what auto-detect does for them.
+ * [enabled] false renders the standard disabled field: greyed, no focus,
+ * menu unreachable. That's the English-only engines, which are pinned to
+ * English (US).
  *
  * The offered codes are the espeak languages Kokoro's voice set covers,
  * which is not the same list `espeakVoiceFor()` returns. Adding a
@@ -988,8 +984,7 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
 private fun PhonemizationLanguageDropdown(
     selected: String?,
     onPick: (String?) -> Unit,
-    entries: List<Pair<String?, Int>> = PHONEMIZATION_LANGUAGES,
-    englishOnly: Boolean = false,
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -997,14 +992,18 @@ private fun PhonemizationLanguageDropdown(
             value = phonemizationLanguageDisplayName(selected),
             onValueChange = { /* read-only */ },
             readOnly = true,
+            enabled = enabled,
             label = { Text(stringResource(R.string.alias_phonemization_language)) },
-            supportingText = if (englishOnly) {
-                { Text(stringResource(R.string.alias_lang_engine_english_only)) }
-            } else {
+            supportingText = if (enabled) {
                 null
+            } else {
+                { Text(stringResource(R.string.alias_lang_engine_english_only)) }
             },
             trailingIcon = {
-                IconButton(onClick = { expanded = true }) {
+                // The text field's `enabled` does not reach its slots, so
+                // the icon has to be disabled in its own right or a greyed
+                // field would still open the menu.
+                IconButton(onClick = { expanded = true }, enabled = enabled) {
                     Icon(
                         Icons.Filled.ArrowDropDown,
                         contentDescription = stringResource(
@@ -1019,7 +1018,7 @@ private fun PhonemizationLanguageDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            for ((code, labelRes) in entries) {
+            for ((code, labelRes) in PHONEMIZATION_LANGUAGES) {
                 DropdownMenuItem(
                     text = { Text(stringResource(labelRes)) },
                     onClick = {
@@ -1033,20 +1032,6 @@ private fun PhonemizationLanguageDropdown(
 }
 
 /**
- * Code-to-label pairs. The first entry's code is `null` — that's the
- * "Auto" sentinel that clears any user override and lets KokoroDirect
- * derive the language from the voice's key prefix.
- *
- * Espeak codes follow espeak-ng-data's directory naming (`en-us`,
- * `pt-br`, etc.). `EspeakPhonemizer.normalizeVoice` maps the codes
- * whose espeak voice file is named differently (`fr-fr` → `fr`,
- * `en-gb` → `en`) before they reach `SetVoiceByName`.
- *
- * Kokoro's Mandarin voices are absent on purpose: they phonemize Han
- * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces
- * IPA the model can't read (see KokoroDirectVoiceCatalog.espeakVoiceFor).
- */
-/**
  * Engines that get a phonemization-language field at all. Kokoro is the
  * only one that can act on it; the rest show it disabled at English.
  * Cloud is absent on purpose — see the call site.
@@ -1058,8 +1043,20 @@ private val PHONEMIZATION_ENGINES: Set<String> = setOf(
     PocketDevVoiceCatalog.ENGINE,
 )
 
+/**
+ * Code-to-label pairs. The first entry is auto-detect, the default: it
+ * clears any user override and lets each utterance's own language decide.
+ *
+ * Espeak codes follow espeak-ng-data's directory naming (`en-us`,
+ * `pt-br`, etc.). `EspeakPhonemizer.normalizeVoice` maps the codes
+ * whose espeak voice file is named differently (`fr-fr` → `fr`,
+ * `en-gb` → `en`) before they reach `SetVoiceByName`.
+ *
+ * Kokoro's Mandarin voices are absent on purpose: they phonemize Han
+ * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces
+ * IPA the model can't read (see KokoroDirectVoiceCatalog.espeakVoiceFor).
+ */
 private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
-    null to R.string.alias_lang_auto,
     LangDetector.AUTO to R.string.alias_lang_autodetect,
     "en-us" to R.string.alias_lang_en_us,
     "en-gb" to R.string.alias_lang_en_gb,
@@ -1071,20 +1068,14 @@ private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     "pt-br" to R.string.alias_lang_pt_br,
 )
 
-/**
- * What the English-only engines offer. A specific non-English code would
- * be a lie — their models can't render those phonemes — but auto-detect
- * is real: it hands a non-English utterance to an installed Kokoro voice
- * of that language.
- */
-private val ENGLISH_ONLY_PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> =
-    PHONEMIZATION_LANGUAGES.take(2)
-
+/** A stored null is auto-detect, so it displays as auto-detect. */
 @Composable
-private fun phonemizationLanguageDisplayName(code: String?): String =
-    PHONEMIZATION_LANGUAGES.firstOrNull { it.first == code }?.second?.let { stringResource(it) }
-        ?: code // unrecognised override — show the raw code rather than hide it
-        ?: stringResource(R.string.alias_lang_auto)
+private fun phonemizationLanguageDisplayName(code: String?): String {
+    val effective = code ?: LangDetector.AUTO
+    return PHONEMIZATION_LANGUAGES.firstOrNull { it.first == effective }
+        ?.second?.let { stringResource(it) }
+        ?: effective // unrecognised override — show the raw code rather than hide it
+}
 
 @StringRes
 private fun errorTextFor(error: SaveError?): Int? = when (error) {
