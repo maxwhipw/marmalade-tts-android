@@ -60,17 +60,16 @@ release-final.</div>
 <p class="lede">F-Droid builds + shoots graphics from the tag, so every item here has to be in the
 commit we submit. Green = done · amber = I/others can do · red = needs Max.</p>
 
-<div class="wstep max"><div class="hd"><span class="n">G1</span><span class="t">Screenshots — re-shoot on the final UI</span><span class="tag max">needs Max + me</span><span class="chev">▸</span></div>
-  <div class="body"><p>Current <code>fastlane/…/phoneScreenshots/</code> (5 shots, 2026-07-11) are a
-  visually older build. F-Droid publishes exactly these from the tag. Re-shoot after the UI is final
-  (post engine work + icon). No hard dimension rule for F-Droid phone shots (unlike Play), PNG/JPEG,
-  keep them real and current. I can drive capture via ADB on the Pixel once you tell me the build is
-  final; you pick the keepers.</p></div></div>
+<div class="wstep max"><div class="hd"><span class="n">G1</span><span class="t">Screenshots — shot + styled, Max picks keepers</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
+  <div class="body"><p>Shot 2026-08-08 (Max, 11 candidates) and styled in the Play treatment —
+  status bar cropped, black 1200×2400 frame: <code>screenshots-inbox/styled/</code>. Remaining:
+  Max picks keepers + order (F-Droid shows a horizontal strip; 4–8 is typical), then they land in
+  <code>fastlane/…/phoneScreenshots/</code>. F-Droid publishes exactly what's in the tag.</p></div></div>
 
-<div class="wstep max"><div class="hd"><span class="n">G2</span><span class="t">App icon — slight refinement</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
-  <div class="body"><p>Icon is good, wants "ever so slightly more" refinement (Max). F-Droid reads
-  <code>images/icon.png</code> (512×512) from the tag and also the in-APK launcher icon. The
-  <a href="../design/icon-lab.html">icon lab</a> is the place to iterate. Lock before the tag.</p></div></div>
+<div class="wstep done"><div class="hd"><span class="n">G2</span><span class="t">App icon — RESOLVED: launch as-is with flat background</span><span class="tag done">done</span><span class="chev">▸</span></div>
+  <div class="body"><p>Max (2026-08-08): icon + mascot are good enough to launch; the one change —
+  flat background (amber ramp at depth 0.34, <code>#f97a20</code>) — shipped in <code>ef748f2</code>,
+  including the regenerated fastlane <code>images/icon.png</code>. No icon work blocks the tag.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">G3</span><span class="t">Kitten nano + Pocket TTS optimization — finalizing</span><span class="tag claude">in flight</span><span class="chev">▸</span></div>
   <div class="body"><p>Both engine optimizations are being finalized as of 2026-08-03 (Kitten nano;

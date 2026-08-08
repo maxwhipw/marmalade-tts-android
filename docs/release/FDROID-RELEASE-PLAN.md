@@ -43,9 +43,15 @@ is the complete corrected re-cut.
 Everything below must be in the commit we submit — graphics and
 metadata ship from the tag.
 
-- **G1 Screenshots** — re-shoot on the final UI (current 2026-07-11 set
-  is outdated). Claude drives ADB capture; Max picks keepers.
-- **G2 Icon** — final refinement pass (Max), lock before the tag.
+- **G1 Screenshots** — SHOT 2026-08-08 (Max, 11 candidates) and styled
+  in the Play treatment (status bar cropped, black 1200×2400 frame):
+  `screenshots-inbox/styled/`. Remaining: Max picks keepers + order
+  (F-Droid shows a horizontal strip; 4–8 is typical), then copy into
+  `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+- **G2 Icon** — RESOLVED 2026-08-08 (Max): icon + mascot are good
+  enough to launch as-is, with one change — flat background (amber ramp
+  at depth 0.34, `#f97a20`), shipped in `ef748f2` incl. regenerated
+  fastlane icon. No further icon work blocks the tag.
 - **G3 Engines** — Kitten nano + Pocket finalization; the tag must
   contain the final engine builds.
 - **G5 Fastlane translations** — the app UI ships 8 locales but
