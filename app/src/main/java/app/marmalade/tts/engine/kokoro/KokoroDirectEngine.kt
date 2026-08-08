@@ -19,6 +19,7 @@ import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.CutletJaG2P
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
+import app.marmalade.tts.phonemizer.KokoroEspeakG2P
 import app.marmalade.tts.phonemizer.OpenJtalkPhonemizer
 import app.marmalade.tts.phonemizer.SharedEspeakData
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -575,7 +576,7 @@ open class KokoroDirectEngine @Inject constructor(
 
         val lex = lexiconZh
         if (lex == null || !LexiconZh.CJK_RUN_PATTERN.containsMatchIn(text)) {
-            return encodePhonemesKokoro(phon.phonemize(text, lang))
+            return encodePhonemesKokoro(espeakPhonemes(phon, text, lang))
         }
 
         Log.d(TAG, "zh-aware encode for '$text'")
@@ -591,16 +592,31 @@ open class KokoroDirectEngine @Inject constructor(
 
         for (m in LexiconZh.CJK_RUN_PATTERN.findAll(text)) {
             if (m.range.first > cursor) {
-                append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor, m.range.first), lang)))
+                append(encodePhonemesKokoro(espeakPhonemes(phon, text.substring(cursor, m.range.first), lang)))
             }
             append(lex.match(m.value))
             cursor = m.range.last + 1
         }
         if (cursor < text.length) {
-            append(encodePhonemesKokoro(phon.phonemize(text.substring(cursor), lang)))
+            append(encodePhonemesKokoro(espeakPhonemes(phon, text.substring(cursor), lang)))
         }
         return out.copyOf(pos)
     }
+
+    /**
+     * Espeak G2P with the language-appropriate post-processing. English
+     * keeps the untied path EnPhonemeFixups was tuned against (upstream
+     * English goes through the misaki lexicon anyway, so there is no
+     * trained tied-token mapping to mirror); every other espeak language
+     * mirrors misaki's EspeakG2P: ties on, multi-char phonemes rewritten
+     * to the model's single trained tokens. See [KokoroEspeakG2P].
+     */
+    private fun espeakPhonemes(phon: EspeakPhonemizer, text: String, lang: String): String =
+        if (lang.startsWith("en")) {
+            phon.phonemize(text, lang)
+        } else {
+            KokoroEspeakG2P.postprocess(phon.phonemize(text, lang, tie = true))
+        }
 
     /**
      * Phoneme→token-ID encode with Kokoro's sentence-end → `<punct> ` space

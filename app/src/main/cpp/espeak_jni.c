@@ -49,6 +49,14 @@ typedef const char *(*fn_espeak_Info)(const char **path_data);
 #define ESPEAK_TEXTMODE_UTF8 1
 // phonememode = 0x02: IPA with no separators, UTF-8 encoded
 #define ESPEAK_PHONEMEMODE_IPA 0x02
+// phonememode with espeakPHONEMES_TIE (0x80): multi-character phonemes
+// (diphthongs, affricates) come out with the separator char (bits 8+)
+// BETWEEN their characters — "a^ɪ", "t^ʃ" — so callers can tell one
+// two-char phoneme from two adjacent one-char phonemes. '^' matches
+// what misaki's EspeakG2P asks phonemizer for; KokoroEspeakG2P.kt maps
+// the tied pairs to the model's single trained tokens and strips the
+// rest.
+#define ESPEAK_PHONEMEMODE_IPA_TIE (0x02 | 0x80 | ('^' << 8))
 
 static void                       *gHandle = NULL;
 static fn_espeak_Initialize       pInitialize       = NULL;
@@ -131,7 +139,7 @@ done:
 
 JNIEXPORT jstring JNICALL
 Java_app_marmalade_tts_phonemizer_EspeakPhonemizer_nativePhonemize(
-        JNIEnv *env, jobject self, jstring text) {
+        JNIEnv *env, jobject self, jstring text, jboolean tie) {
 
     pthread_mutex_lock(&gLock);
     jstring result = NULL;
@@ -178,7 +186,8 @@ Java_app_marmalade_tts_phonemizer_EspeakPhonemizer_nativePhonemize(
 
         const char *phonemes = pTextToPhonemes(&cursor,
                                                 ESPEAK_TEXTMODE_UTF8,
-                                                ESPEAK_PHONEMEMODE_IPA);
+                                                tie ? ESPEAK_PHONEMEMODE_IPA_TIE
+                                                    : ESPEAK_PHONEMEMODE_IPA);
         if (phonemes == NULL) break;
         size_t addLen = strlen(phonemes);
         if (addLen == 0) {

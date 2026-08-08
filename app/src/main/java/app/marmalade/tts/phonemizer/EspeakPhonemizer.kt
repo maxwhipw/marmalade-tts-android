@@ -122,14 +122,14 @@ class EspeakPhonemizer(
      * rules. The voice switch is a cheap no-op when [voice] already
      * matches ([activeVoice] cache); a genuine switch costs ~50 ms.
      */
-    fun phonemize(text: String, voice: String): String {
+    fun phonemize(text: String, voice: String, tie: Boolean = false): String {
         if (!opened.get()) {
             Log.w(TAG, "phonemize called on a closed phonemizer")
             return ""
         }
         val raw = synchronized(nativeLock) {
             applyVoiceLocked(voice)
-            nativePhonemize(text) ?: ""
+            nativePhonemize(text, tie) ?: ""
         }
         // espeak's English LTS gets some common informal words wrong
         // ("yeah" → /jɛh/); see EnPhonemeFixups. The replacement differs
@@ -194,7 +194,13 @@ class EspeakPhonemizer(
     // Java_<class>_ prefix is added by the JVM).
 
     private external fun nativeOpen(libPath: String, dataPath: String, voice: String): Int
-    private external fun nativePhonemize(text: String): String?
+    /**
+     * [tie] inserts `^` between the characters of one multi-character
+     * phoneme (espeak's espeakPHONEMES_TIE) so diphthongs/affricates can
+     * be told apart from adjacent single phonemes. Only the Kokoro
+     * non-English path asks for it — see [KokoroEspeakG2P].
+     */
+    private external fun nativePhonemize(text: String, tie: Boolean): String?
     private external fun nativeSetVoice(voice: String): Int
     private external fun nativeVersion(): String?
     private external fun nativeClose()
