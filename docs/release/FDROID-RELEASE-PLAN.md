@@ -52,10 +52,11 @@ metadata ship from the tag.
   fastlane has only `en-US`, and F-Droid's Latest-tab visibility gate
   requires **at least one translation** of the listing texts. Because
   fastlane ships from the built tag, adding a locale later costs a
-  whole release. Add at least one non-en-US
-  `fastlane/metadata/android/<locale>/` (title, short + full
-  description; ideally all 7 in-app languages) before the tag —
-  translations exist in-app already.
+  whole release. Sequencing (Max, 2026-08-07): **first Max signs off
+  the final English listing text** (title, short + full description —
+  public copy), **then** translate it into all supported in-app
+  languages as `fastlane/metadata/android/<locale>/` folders. Both
+  steps land before the tag.
 - **G4 Versioning** — DECIDED 2026-08-03: ship **1.0.0**,
   `versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI`
   → 1.0.0 universal = **10000000**. ABI digit reserved from the start
