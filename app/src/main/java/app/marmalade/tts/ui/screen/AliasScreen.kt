@@ -1033,8 +1033,9 @@ private fun PhonemizationLanguageDropdown(
  * derive the language from the voice's key prefix.
  *
  * Espeak codes follow espeak-ng-data's directory naming (`en-us`,
- * `pt-br`, etc.) — no abstraction layer here, the strings are what
- * espeak's `SetVoiceByName` expects.
+ * `pt-br`, etc.). `EspeakPhonemizer.normalizeVoice` maps the codes
+ * whose espeak voice file is named differently (`fr-fr` → `fr`,
+ * `en-gb` → `en`) before they reach `SetVoiceByName`.
  *
  * Kokoro's Mandarin voices are absent on purpose: they phonemize Han
  * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces

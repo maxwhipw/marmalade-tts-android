@@ -174,7 +174,9 @@ object KokoroDirectVoiceCatalog {
      * Per-voice espeak language code. American/British map to upstream
      * `en-us`/`en-gb`; non-English voices use their language's espeak
      * code, including Hindi — espeak-ng 1.52 ships a working `hi` voice
-     * and `hi_dict`, both of which are in the bundle.
+     * and `hi_dict`, both of which are in the bundle. Codes whose espeak
+     * voice FILE is named differently (`fr-fr`, `en-gb`) are mapped by
+     * `EspeakPhonemizer.normalizeVoice` before reaching `SetVoiceByName`.
      *
      * Mandarin (`z*`) maps to `en-us`, NOT `cmn`: KokoroDirect phonemizes
      * Han characters through `lexicon-zh.txt` (misaki+pypinyin pre-baked),

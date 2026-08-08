@@ -90,7 +90,7 @@ class EspeakPhonemizer(
             Log.i(TAG, "espeak open: joined running instance (refs=$openCount)")
             return globalRate
         }
-        val rate = nativeOpen(libPath, dataPath, voice)
+        val rate = nativeOpen(libPath, dataPath, normalizeVoice(voice))
         if (rate < 0) {
             Log.e(TAG, "espeak open failed: rate=$rate libPath=$libPath dataPath=$dataPath voice=$voice")
             opened.set(false)
@@ -101,7 +101,7 @@ class EspeakPhonemizer(
             // nativeOpen sets espeak's (global) voice to [voice]. Record it
             // in the shared cache so a sibling instance's setVoice can tell
             // whether the global voice already matches.
-            activeVoice = voice
+            activeVoice = normalizeVoice(voice)
             Log.i(TAG, "espeak open: ${nativeVersion()} sampleRate=$rate voice=$voice")
         }
         return rate
@@ -156,13 +156,14 @@ class EspeakPhonemizer(
 
     /** Caller holds [nativeLock]. */
     private fun applyVoiceLocked(name: String): Boolean {
-        if (name == activeVoice) return true
-        val status = nativeSetVoice(name)
+        val voice = normalizeVoice(name)
+        if (voice == activeVoice) return true
+        val status = nativeSetVoice(voice)
         return if (status == 0) {
-            activeVoice = name
+            activeVoice = voice
             true
         } else {
-            Log.w(TAG, "setVoice($name) failed with status=$status; keeping $activeVoice")
+            Log.w(TAG, "setVoice($voice) failed with status=$status; keeping $activeVoice")
             false
         }
     }
@@ -238,5 +239,22 @@ class EspeakPhonemizer(
          * [setVoice] to apply unconditionally.
          */
         @Volatile private var activeVoice: String? = null
+
+        /**
+         * Map language codes to names `espeak_SetVoiceByName` actually
+         * resolves. Lookup matches only the voice's display name, its
+         * identifier, or the voice FILE's basename — never the `language`
+         * attributes inside the file. `en-us` works because the file is
+         * `lang/gmw/en-US`, but French lives in `lang/roa/fr` (no `fr-fr`
+         * file: status 2, VOICE_NOT_FOUND) and British English in
+         * `lang/gmw/en` (the `en-GB-*` files are regional variants).
+         * Without this, setVoice(fr-fr) failed silently and French text
+         * kept phonemizing as English.
+         */
+        internal fun normalizeVoice(name: String): String = when (name.lowercase()) {
+            "fr-fr" -> "fr"
+            "en-gb" -> "en"
+            else -> name
+        }
     }
 }
