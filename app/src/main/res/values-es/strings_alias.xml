@@ -64,6 +64,7 @@
     <string name="alias_lang_ja">Japonés</string>
     <string name="alias_lang_pt_br">Portugués (BR)</string>
     <string name="alias_lang_engine_english_only">Este motor solo habla inglés.</string>
+    <string name="alias_lang_engine_accented">Este motor está entrenado en inglés. La detección automática lee otros idiomas con acento inglés.</string>
 
     <!-- Hoja de enrutamiento de apps por alias -->
     <string name="alias_routing_title">Apps que usan %1$s</string>

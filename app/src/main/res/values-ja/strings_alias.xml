@@ -63,6 +63,7 @@
     <string name="alias_lang_ja">日本語</string>
     <string name="alias_lang_pt_br">ポルトガル語（ブラジル）</string>
     <string name="alias_lang_engine_english_only">このエンジンは英語のみに対応しています。</string>
+    <string name="alias_lang_engine_accented">このエンジンは英語で学習しています。自動判別では他の言語を英語なまりで読み上げます。</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s を使うアプリ</string>

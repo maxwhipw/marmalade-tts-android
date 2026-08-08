@@ -64,6 +64,7 @@
     <string name="alias_lang_ja">Japanese</string>
     <string name="alias_lang_pt_br">Portuguese (BR)</string>
     <string name="alias_lang_engine_english_only">This engine speaks English only.</string>
+    <string name="alias_lang_engine_accented">This engine is trained on English. Auto-detect reads other languages with an English accent.</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">Apps that use %1$s</string>

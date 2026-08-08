@@ -20,6 +20,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.lang.UtteranceLanguage
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -264,27 +265,16 @@ class Synthesizer @Inject constructor(
         val engineName = engineNameFor(voiceId)
         // Resolve auto-detection against this utterance, once, before the
         // engine chunks it — detection is per utterance, never per chunk.
-        // On Kokoro it is the default: a null language means the same as
-        // the "auto" sentinel, and only an explicit code turns it off. The
-        // other engines don't read the field, so a leftover sentinel
-        // clears to their own English phonemes.
-        val kokoro = engineName == KokoroDirectVoiceCatalog.ENGINE
-        val language =
-            if (phonemizationLanguage == LangDetector.AUTO ||
-                (kokoro && phonemizationLanguage == null)
-            ) {
-                if (kokoro) {
-                    langDetector.resolve(
-                        LangDetector.AUTO,
-                        text,
-                        KokoroDirectVoiceCatalog.espeakVoiceFor(voiceId.substringAfter(':')),
-                    )
-                } else {
-                    null
-                }
-            } else {
-                phonemizationLanguage
-            }
+        // No rerouting on this route: the user picked the voice on the
+        // Speak screen, so detection only ever moves the phonemizer. See
+        // [UtteranceLanguage] for the per-engine rules.
+        val language = UtteranceLanguage.resolve(
+            detector = langDetector,
+            engineName = engineName,
+            voiceId = voiceId,
+            stored = phonemizationLanguage,
+            text = text,
+        )
         val work = async {
             val enabled = settings.enabledRules(engineName).first()
 

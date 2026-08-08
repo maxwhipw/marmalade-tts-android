@@ -63,6 +63,7 @@
     <string name="alias_lang_ja">日语</string>
     <string name="alias_lang_pt_br">葡萄牙语（巴西）</string>
     <string name="alias_lang_engine_english_only">该引擎仅支持英语。</string>
+    <string name="alias_lang_engine_accented">该引擎基于英语训练。自动检测会以英语口音朗读其他语言。</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">使用 %1$s 的应用</string>

@@ -12,6 +12,7 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
@@ -379,17 +380,18 @@ open class KittenDirectEngine @Inject constructor(
         val streamStartNs = System.nanoTime()
         ensureLoadedSuspending()
         val loadWaitMs = (System.nanoTime() - streamStartNs) / 1_000_000
-        // `phonemizationLanguage` is deliberately ignored: Kitten's model
-        // is English-only, so any other espeak language feeds it IPA it was
-        // never trained on and the audio comes out as noise. The parameter
-        // stays in the signature because TtsEngine is shared with Kokoro,
-        // which does honour it.
+        // `phonemizationLanguage` is honoured, English by default: the
+        // model reads en-us IPA, but a detected non-English utterance
+        // with no installed Kokoro voice to hand it to is better served
+        // by accented Kitten than by English letter rules (Max,
+        // 2026-08-08). See [espeakVoiceFor].
         //
         // setVoice is only a warm-up (pays the ~50 ms language load before
         // chunk 1); per-chunk phonemize(text, lang) re-asserts the voice
         // atomically, since espeak's active voice is process-global and a
         // concurrent synth on the other engine can flip it between chunks.
-        phonemizer?.setVoice(KITTEN_DEFAULT_ESPEAK_VOICE)
+        val espeakVoice = espeakVoiceFor(phonemizationLanguage)
+        phonemizer?.setVoice(espeakVoice)
         val voiceName = voiceId.substringAfter(':', voiceId)
         // KittenDirect chunking = the F rules (Max's 2026-08-07 ear-lab
         // pick; see TextChunker.clauseChunks): quote-aware sentence ends,
@@ -414,7 +416,13 @@ open class KittenDirectEngine @Inject constructor(
             // The send() outside the lock is fine because PCM is already a
             // ShortArray; no further session access happens during emit.
             val pcm = synthLock.withLock {
-                runInference(chunk.text, voiceName, speed, rowText = chunk.rowText)
+                runInference(
+                    chunk.text,
+                    voiceName,
+                    speed,
+                    rowText = chunk.rowText,
+                    espeakVoice = espeakVoice,
+                )
             }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
@@ -452,12 +460,13 @@ open class KittenDirectEngine @Inject constructor(
         voiceName: String,
         speed: Float,
         rowText: String = text,
+        espeakVoice: String = KITTEN_DEFAULT_ESPEAK_VOICE,
     ): ShortArray {
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
         val phon = phonemizer ?: error("phonemizer missing")
 
-        val rawIpa = phon.phonemize(text, KITTEN_DEFAULT_ESPEAK_VOICE)
+        val rawIpa = phon.phonemize(text, espeakVoice)
         if (rawIpa.isEmpty()) return ShortArray(0)
 
         // BERT position-embedding cap: any phoneme tail past this would
@@ -691,12 +700,30 @@ open class KittenDirectEngine @Inject constructor(
         private const val VOICES_DIR = "voices"
 
         /**
-         * The only espeak voice this engine ever uses — at load time for
-         * the `EspeakPhonemizer` constructor and for every phonemize
-         * call. Kitten is English-only at the model level, so a caller's
-         * `phonemizationLanguage` is ignored rather than honoured: any
-         * other language yields IPA the model was never trained on.
+         * The espeak voice this engine phonemizes with when the caller
+         * names none — at load time for the `EspeakPhonemizer`
+         * constructor and for every phonemize call that arrives without a
+         * `phonemizationLanguage`.
          */
-        private const val KITTEN_DEFAULT_ESPEAK_VOICE = "en-us"
+        private const val KITTEN_DEFAULT_ESPEAK_VOICE = KittenDirectVoiceCatalog.ESPEAK_VOICE
+
+        /**
+         * Caller's `phonemizationLanguage` → the espeak voice to use.
+         *
+         * Kitten's model is trained on en-us IPA, so a non-English
+         * language gives accented, imperfect speech — Max's 2026-08-08
+         * call is that this beats the alternative, which was reading
+         * Spanish through English letter rules. Reached when an alias
+         * asks for auto-detect and no installed Kokoro voice covers the
+         * detected language; the full espeak data tree ships in the APK,
+         * so every language we detect has its dictionary.
+         *
+         * A leftover [LangDetector.AUTO] sentinel means a resolution step
+         * was skipped upstream, never "phonemize as auto" — it degrades
+         * to English rather than reaching espeak_SetVoiceByName.
+         */
+        internal fun espeakVoiceFor(phonemizationLanguage: String?): String =
+            phonemizationLanguage?.takeIf { it.isNotBlank() && it != LangDetector.AUTO }
+                ?: KITTEN_DEFAULT_ESPEAK_VOICE
     }
 }

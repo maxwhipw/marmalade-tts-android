@@ -29,6 +29,7 @@ import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.lang.UtteranceLanguage
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -901,8 +902,13 @@ class MarmaladeTtsService : TextToSpeechService() {
      *   [LangDetector.AUTO] sentinel both mean "detect", which is what
      *   lets rows written before detection existed behave correctly with
      *   no migration.
-     * - On the English-only engines a null column is left completely
-     *   alone — no detection, no reroute.
+     * - On Kitten and Pocket a null column is left completely alone — no
+     *   detection, no reroute. The alias has to opt in.
+     * - Having opted in, a non-English utterance on one of them prefers
+     *   an installed Kokoro voice of that language; with none installed
+     *   the voice stands and Kitten phonemizes the utterance in its own
+     *   detected language (accented, per Max 2026-08-08), while Pocket —
+     *   which has no espeak in its path — speaks English.
      * - The **request's** language no longer picks a voice or a language.
      *   It survives solely as the fallback for when detection abstains —
      *   too little text, or two languages too close to call.
@@ -915,55 +921,59 @@ class MarmaladeTtsService : TextToSpeechService() {
         params: SynthParams,
         text: String,
     ): SynthParams {
-        val kokoro = engineNameFor(params.voiceId) == KokoroDirectVoiceCatalog.ENGINE
+        val engine = engineNameFor(params.voiceId)
         val stored = params.phonemizationLanguage
-        val auto = stored == LangDetector.AUTO || (kokoro && stored == null)
-        if (!auto) return params
+        if (!UtteranceLanguage.isAuto(engine, stored)) return params
 
         // Detection first; the request's locale is only the uncertainty
         // fallback now.
         val detected = langDetector.detect(text)
         val language = detected ?: TtsLocales.toIso2Language(request.language)
 
+        // What the voice we already have would do with this language.
         // Kokoro phonemizes through espeak in every language we ship, so
         // it never needs rerouting — just point espeak at the language.
-        // The voice's catalog code rides along so a detected "en" keeps a
-        // British voice British, and so a detected language that isn't the
-        // voice's own can't fall through to the voice's G2P.
-        if (kokoro) {
-            val voiceDefault =
-                KokoroDirectVoiceCatalog.espeakVoiceFor(params.voiceId.substringAfter(':'))
-            val espeak = LangDetector.espeakCodeFor(language, voiceDefault)
-            Log.d(TAG, "auto language: detected=$detected → phonemization=$espeak")
-            return params.copy(phonemizationLanguage = espeak)
+        // Kitten does too, in a voice trained on English, which is
+        // accented but intelligible. Pocket doesn't phonemize through
+        // espeak at all, so it gets null and speaks English.
+        val selfRendered = params.copy(
+            phonemizationLanguage = UtteranceLanguage.espeakFor(engine, params.voiceId, language),
+        )
+        if (engine == KokoroDirectVoiceCatalog.ENGINE) {
+            Log.d(
+                TAG,
+                "auto language: detected=$detected → " +
+                    "phonemization=${selfRendered.phonemizationLanguage}",
+            )
+            return selfRendered
         }
 
-        // Kitten / Pocket carrying the literal "auto": English-only
-        // renderers, so a non-English utterance moves to an installed
-        // Kokoro voice of that language. The dropdown no longer offers
-        // auto-detect on these engines (it is pinned at English), so this
-        // is reachable only from a legacy row of the one build that did —
-        // and it stays pending Max's accented-phonemization verdict, which
-        // may yet let Kitten render non-English IPA in its own voice.
+        // Kitten / Pocket carrying the literal "auto". A non-English
+        // utterance prefers an installed Kokoro voice of that language —
+        // a model that was trained on it beats an accent. With none
+        // installed the voice stands and renders it itself (Max,
+        // 2026-08-08: Kitten's accented non-English is "not good but not
+        // unusable — better than nothing").
         if (language == null || language == TtsLocales.BASELINE_LANGUAGE) {
-            return params.copy(phonemizationLanguage = null)
+            return selfRendered
         }
         val requested = request.voiceName?.takeIf { it.isNotBlank() }
         if (requested != null && onIsValidVoiceName(requested) == TextToSpeech.SUCCESS) {
-            return params.copy(phonemizationLanguage = null)
+            // A caller-named voice is never rerouted.
+            return selfRendered
         }
-        // Region deliberately null: detection knows the language, not the
+        // Kokoro only: rerouting to another English-only engine's voice
+        // would change who is speaking and fix nothing. Region
+        // deliberately null — detection knows the language, not the
         // country, and the request's country describes a locale we are no
         // longer routing by.
-        val voice = TtsLocales.defaultVoiceFor(language, null, installedVoices())
-            ?: return params.copy(phonemizationLanguage = null)
-        // espeakVoiceFor is the per-voice source of truth for the espeak
-        // code; for non-Kokoro engines the field is ignored anyway.
-        val voiceEspeak = if (voice.engine == KokoroDirectVoiceCatalog.ENGINE) {
-            KokoroDirectVoiceCatalog.espeakVoiceFor(voice.id.substringAfter(':'))
-        } else {
-            null
+        val kokoroVoices = installedVoices().filter {
+            it.engine == KokoroDirectVoiceCatalog.ENGINE
         }
+        val voice = TtsLocales.defaultVoiceFor(language, null, kokoroVoices)
+            ?: return selfRendered
+        val voiceEspeak =
+            UtteranceLanguage.espeakFor(KokoroDirectVoiceCatalog.ENGINE, voice.id, language)
         Log.d(
             TAG,
             "auto language: detected=$language on ${params.voiceId} → " +

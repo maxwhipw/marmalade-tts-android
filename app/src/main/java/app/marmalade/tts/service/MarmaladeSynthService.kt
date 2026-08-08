@@ -41,6 +41,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.lang.UtteranceLanguage
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -407,32 +408,19 @@ class MarmaladeSynthService : Service() {
         }
 
         // Resolve auto-detection against the utterance, once, before any
-        // chunking. Detection is the default on Kokoro — a null column
-        // means the same as the "auto" sentinel — and only an explicit
-        // language turns it off. No voice rerouting on this route: it has
-        // no request locale to fall back on and the caller picked the
-        // voice, so detection only ever moves the phonemizer. The other
-        // engines don't read the field, so a leftover sentinel clears.
-        val kokoro = routed.engine == KokoroDirectVoiceCatalog.ENGINE
-        val stored = routed.phonemizationLanguage
-        val resolved: SpeakRequest =
-            if (stored == LangDetector.AUTO || (kokoro && stored == null)) {
-                routed.copy(
-                    phonemizationLanguage = if (kokoro) {
-                        langDetector.resolve(
-                            LangDetector.AUTO,
-                            routed.text,
-                            KokoroDirectVoiceCatalog.espeakVoiceFor(
-                                routed.voice.substringAfter(':'),
-                            ),
-                        )
-                    } else {
-                        null
-                    },
-                )
-            } else {
-                routed
-            }
+        // chunking. No voice rerouting on this route: it has no request
+        // locale to fall back on and the caller picked the voice, so
+        // detection only ever moves the phonemizer. See
+        // [UtteranceLanguage] for the per-engine rules.
+        val resolved: SpeakRequest = routed.copy(
+            phonemizationLanguage = UtteranceLanguage.resolve(
+                detector = langDetector,
+                engineName = routed.engine,
+                voiceId = routed.voice,
+                stored = routed.phonemizationLanguage,
+                text = routed.text,
+            ),
+        )
 
         // Route to the engine named by resolved.engine. Unknown engines
         // warn and fall through to Kokoro (the recommended default)

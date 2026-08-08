@@ -8,6 +8,7 @@ import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -558,10 +559,11 @@ class AliasViewModelTest {
 
     @Test
     fun save_normalizesPhonemizationLanguageAwayOnTheEnglishOnlyEngines() = runTest {
-        // The field is disabled at English for Kitten and Pocket, so
-        // nothing they carry is a preference. Switching a Kokoro alias to
-        // Kitten must not persist the language it used to have — the
-        // engine ignores it, and a stale "ja" would come back the moment
+        // Kitten offers English or auto-detect and nothing else; Pocket's
+        // field is disabled at English. So a specific language is never a
+        // preference either can hold. Switching a Kokoro alias to Kitten
+        // must not persist the language it used to have — the engine
+        // can't act on it, and a stale "ja" would come back the moment
         // the alias was pointed at Kokoro again.
         val aliasDao = FakeAliasDao()
         val vm = newViewModel(aliasDao = aliasDao)
@@ -575,6 +577,26 @@ class AliasViewModelTest {
 
         assertTrue(vm.save())
         assertNull(aliasDao.upsertedAliases.single().phonemizationLanguage)
+    }
+
+    @Test
+    fun save_keepsAutoDetectOnKitten() = runTest {
+        // The one phonemization value Kitten can act on: espeak
+        // phonemizes a detected non-English utterance in its own
+        // language, and the Kitten voice reads that IPA (Max, 2026-08-08).
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        vm.onEditorNameChange("narrator")
+        vm.onEditorEngineChange("kitten-direct-v0_8")
+        vm.onEditorVoiceChange(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorPhonemizationLanguageChange(LangDetector.AUTO)
+
+        assertTrue(vm.save())
+        assertEquals(
+            LangDetector.AUTO,
+            aliasDao.upsertedAliases.single().phonemizationLanguage,
+        )
     }
 
     @Test

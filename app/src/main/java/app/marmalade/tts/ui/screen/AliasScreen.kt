@@ -740,26 +740,44 @@ private fun AliasEditorSheet(
                 onPick = onEffectChange,
             )
 
-            // Kokoro Direct is the only engine the override actually
-            // reaches: it is multilingual and phonemizes through espeak,
-            // so changing the language changes the audio.
+            // Kokoro is multilingual and phonemizes through espeak, so
+            // every entry changes its audio: it gets the full list.
             //
-            // The other on-device engines are English-only — Kitten's model
-            // can only read en-us IPA, Pocket doesn't phonemize through
-            // espeak at all — so they get the control disabled at English
-            // rather than removed: the fact that the language is fixed is
-            // itself worth showing, and a control that vanishes between
-            // voices reads as a missing feature.
+            // Kitten's model is trained on English, but it phonemizes
+            // through espeak too, so it gets the two entries that mean
+            // something for it — English, or auto-detect, which reads a
+            // non-English utterance with that language's espeak rules in
+            // the Kitten voice (accented) unless an installed Kokoro
+            // voice of the language can take it instead.
+            //
+            // Pocket doesn't phonemize through espeak at all, so its
+            // control is disabled at English rather than removed: the
+            // fact that the language is fixed is itself worth showing,
+            // and a control that vanishes between voices reads as a
+            // missing feature.
             //
             // Cloud voices have no control at all: the provider does its
             // own text processing server-side, so there is no language of
             // ours to state.
             if (state.engine in PHONEMIZATION_ENGINES) {
                 val kokoro = state.engine == KokoroDirectVoiceCatalog.ENGINE
+                val kitten = state.engine == KittenDirectVoiceCatalog.ENGINE
                 PhonemizationLanguageDropdown(
-                    selected = if (kokoro) state.phonemizationLanguage else "en-us",
+                    selected = when {
+                        kokoro -> state.phonemizationLanguage
+                        // A null column is English on Kitten, not
+                        // auto-detect: detection is opt-in there.
+                        kitten -> state.phonemizationLanguage ?: "en-us"
+                        else -> "en-us"
+                    },
                     onPick = onPhonemizationLanguageChange,
-                    enabled = kokoro,
+                    enabled = kokoro || kitten,
+                    entries = if (kokoro) PHONEMIZATION_LANGUAGES else KITTEN_PHONEMIZATION_LANGUAGES,
+                    note = when {
+                        kokoro -> null
+                        kitten -> R.string.alias_lang_engine_accented
+                        else -> R.string.alias_lang_engine_english_only
+                    },
                 )
             }
 
@@ -972,8 +990,11 @@ private fun EffectPickerRow(label: String, onClick: () -> Unit) {
  * is never filtered by the voice's own language.
  *
  * [enabled] false renders the standard disabled field: greyed, no focus,
- * menu unreachable. That's the English-only engines, which are pinned to
- * English (US).
+ * menu unreachable. That's Pocket, which is pinned to English (US).
+ *
+ * [entries] is the offered subset — the full list for Kokoro, English
+ * and auto-detect for Kitten. [note] is the supporting line under the
+ * field, absent on Kokoro where the entries speak for themselves.
  *
  * The offered codes are the espeak languages Kokoro's voice set covers,
  * which is not the same list `espeakVoiceFor()` returns. Adding a
@@ -985,6 +1006,8 @@ private fun PhonemizationLanguageDropdown(
     selected: String?,
     onPick: (String?) -> Unit,
     enabled: Boolean = true,
+    entries: List<Pair<String?, Int>> = PHONEMIZATION_LANGUAGES,
+    @StringRes note: Int? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -994,11 +1017,7 @@ private fun PhonemizationLanguageDropdown(
             readOnly = true,
             enabled = enabled,
             label = { Text(stringResource(R.string.alias_phonemization_language)) },
-            supportingText = if (enabled) {
-                null
-            } else {
-                { Text(stringResource(R.string.alias_lang_engine_english_only)) }
-            },
+            supportingText = note?.let { { Text(stringResource(it)) } },
             trailingIcon = {
                 // The text field's `enabled` does not reach its slots, so
                 // the icon has to be disabled in its own right or a greyed
@@ -1018,7 +1037,7 @@ private fun PhonemizationLanguageDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            for ((code, labelRes) in PHONEMIZATION_LANGUAGES) {
+            for ((code, labelRes) in entries) {
                 DropdownMenuItem(
                     text = { Text(stringResource(labelRes)) },
                     onClick = {
@@ -1066,6 +1085,18 @@ private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     "it" to R.string.alias_lang_it,
     "ja" to R.string.alias_lang_ja,
     "pt-br" to R.string.alias_lang_pt_br,
+)
+
+/**
+ * Kitten's offered subset. Its model reads en-us IPA, so a specific
+ * non-English code would be a preference for permanently accented
+ * speech — not a thing to offer. Auto-detect is: it only leaves English
+ * for an utterance that is itself not English, and only when no
+ * installed Kokoro voice of that language can take it instead.
+ */
+private val KITTEN_PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
+    "en-us" to R.string.alias_lang_en_us,
+    LangDetector.AUTO to R.string.alias_lang_autodetect,
 )
 
 /** A stored null is auto-detect, so it displays as auto-detect. */

@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.VoiceLatencySource
@@ -19,6 +20,7 @@ import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.lang.LangDetector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -542,12 +544,21 @@ class AliasViewModel @Inject constructor(
             // non-null ("NONE") only to satisfy the schema; nothing reads it.
             effectPreset = "NONE",
             createdAt = createdAt,
-            // Only Kokoro acts on the field; the English-only engines show
-            // it disabled at English, so anything a voice change left
-            // behind on one of them is normalized away rather than
-            // persisted as a preference the engine will ignore.
-            phonemizationLanguage = state.phonemizationLanguage
-                ?.takeIf { state.engine == KokoroDirectVoiceCatalog.ENGINE },
+            // Kokoro acts on every code. Kitten acts on auto-detect, and
+            // on nothing else — it renders English, so a specific
+            // non-English code is not a preference it can hold. Pocket
+            // never phonemizes through espeak. So anything a voice change
+            // left behind on an engine that can't act on it is normalized
+            // away rather than persisted for a later read to ignore — or
+            // worse, to bring a stale "ja" back the moment the alias is
+            // pointed at Kokoro again.
+            phonemizationLanguage = state.phonemizationLanguage?.takeIf {
+                when (state.engine) {
+                    KokoroDirectVoiceCatalog.ENGINE -> true
+                    KittenDirectVoiceCatalog.ENGINE -> it == LangDetector.AUTO
+                    else -> false
+                }
+            },
             effectId = state.effectId,
             // Only cloud voices can fail for lack of a network, so only they
             // carry a fallback. Persisting one on an on-device alias would be

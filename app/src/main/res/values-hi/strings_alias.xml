@@ -64,6 +64,7 @@
     <string name="alias_lang_ja">जापानी</string>
     <string name="alias_lang_pt_br">पुर्तगाली (ब्राज़ील)</string>
     <string name="alias_lang_engine_english_only">यह इंजन केवल अंग्रेज़ी बोलता है।</string>
+    <string name="alias_lang_engine_accented">यह इंजन अंग्रेज़ी पर प्रशिक्षित है। स्वतः पहचान अन्य भाषाओं को अंग्रेज़ी लहजे में पढ़ती है।</string>
 
     <!-- Per-alias app routing sheet -->
     <string name="alias_routing_title">%1$s इस्तेमाल करने वाले ऐप्स</string>

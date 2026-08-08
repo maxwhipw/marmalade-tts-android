@@ -20,6 +20,14 @@ object KittenDirectVoiceCatalog {
     const val LANGUAGE = "en-US"
     const val SAMPLE_RATE = 24000
 
+    /**
+     * The espeak voice Kitten phonemizes with unless an alias asks for
+     * another one. The model is trained on en-us IPA, so this is both the
+     * default and the region the en-US/en-GB split resolves to
+     * (`LangDetector.espeakCodeFor` takes it as the voice default).
+     */
+    const val ESPEAK_VOICE = "en-us"
+
     const val DEFAULT_VOICE_ID = "kitten-direct-v0_8:Bella"
 
     fun voiceId(displayName: String): String = "$ENGINE:$displayName"

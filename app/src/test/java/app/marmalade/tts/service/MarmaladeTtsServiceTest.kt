@@ -643,8 +643,11 @@ class MarmaladeTtsServiceTest {
     // Design (Max, 2026-08-07): the phonemization language is detected from
     // the utterance itself. On Kokoro that is the default — a null column
     // means the same as the "auto" sentinel — and only an explicit language
-    // turns it off. The English-only engines are pinned at English and a
-    // null column there is left completely alone. The system request's
+    // turns it off. On Kitten and Pocket it is opt-in — a null column
+    // there is left completely alone — and having opted in, a non-English
+    // utterance prefers an installed Kokoro voice of that language, with
+    // Kitten rendering it itself (accented) when there is none. The
+    // system request's
     // language is no longer allowed to pick a voice or a language; it
     // survives purely as the fallback for when detection abstains.
 
@@ -724,14 +727,10 @@ class MarmaladeTtsServiceTest {
 
     @Test
     fun onSynthesizeText_autoAliasOnEnglishOnlyEngineReroutesForCapability() {
-        // Kitten can only render English phonemes, so Chinese has to move
-        // to an installed Kokoro voice — that's the one case where
+        // A model trained on the language beats an accent, so an
+        // auto-detect Kitten alias hands a non-English utterance to an
+        // installed Kokoro voice of that language — the one case where
         // detection is allowed to change the voice.
-        //
-        // The dropdown no longer offers auto-detect on Kitten (it is
-        // pinned at English), so a stored literal "auto" is now only a
-        // legacy row of the one build that did offer it. The branch stays
-        // pending Max's accented-phonemization verdict.
         installKittenPrimary(phonemizationLanguage = "auto")
         fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
 
@@ -756,25 +755,93 @@ class MarmaladeTtsServiceTest {
         val request = SynthesisRequest("今天天气很好，我们去公园散步吧", Bundle())
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        // Today's behaviour: Kitten speaks it as English.
+        // Kitten keeps the utterance. Chinese is the one detected language
+        // that phonemizes as English anyway — espeak-cmn's IPA is unusable
+        // and Han runs never reach espeak — so it asks for en-us.
         assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
-        assertNull(fakeEngine.languages.single())
+        assertEquals("en-us", fakeEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasWithNoKokoroRendersTheLanguageOnKitten() {
+        // Max, 2026-08-08: with no Kokoro voice to hand a Spanish
+        // utterance to, Kitten attempts it — espeak phonemizes in the
+        // detected language and the Kitten voice reads that IPA. Accented
+        // and imperfect, and better than Spanish read through English
+        // letter rules, which is what used to happen.
+        installKittenPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.synthesizeException =
+            EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "La descarga ha terminado y el archivo está listo para usar.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertEquals("es", fakeEngine.languages.single())
+        // The alias's speed is untouched by any of this.
+        assertEquals(1.5f, fakeEngine.calls.single().third)
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasWithKokoroInstalledReroutesSpanish() {
+        // Same utterance, Kokoro installed: the Spanish voice wins over
+        // an accented Kitten.
+        installKittenPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "La descarga ha terminado y el archivo está listo para usar.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeEngine.calls.size)
+        assertEquals("kokoro-direct-v1_0:ef_dora", fakeKokoroDirectEngine.calls.single().second)
+        assertEquals("es", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasEnglishTextStaysOnKitten() {
+        // The common case: an English utterance on an auto-detect Kitten
+        // alias never leaves Kitten, and asks espeak for the model's own
+        // en-us.
+        installKittenPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest("Your download has finished and the file is ready.", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertEquals("en-us", fakeEngine.languages.single())
     }
 
     @Test
     fun onSynthesizeText_namedVoiceIsNeverRerouted() {
         installKittenPrimary(phonemizationLanguage = "auto")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
         fakeEngine.nextPcm = ShortArray(1024)
 
         // A caller that names a voice has out-specified everything. The
         // named voice happens to be the primary's, so the alias bundle
-        // (including "auto") still applies — but the voice cannot move.
-        val request = newRequestWithVoice("今天天气很好，我们去公园散步吧", "kitten-direct-v0_8:Bella")
+        // (including "auto") still applies — the phonemizer follows the
+        // detected language, but the voice cannot move even though a
+        // Spanish Kokoro voice is installed.
+        val request = newRequestWithVoice(
+            "La descarga ha terminado y el archivo está listo para usar.",
+            "kitten-direct-v0_8:Bella",
+        )
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
         assertEquals(0, fakeKokoroDirectEngine.calls.size)
         assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
-        assertNull(fakeEngine.languages.single())
+        assertEquals("es", fakeEngine.languages.single())
     }
 
     @Test
