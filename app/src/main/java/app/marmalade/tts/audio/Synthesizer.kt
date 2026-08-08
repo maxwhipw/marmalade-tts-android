@@ -262,19 +262,29 @@ class Synthesizer @Inject constructor(
         // Hoisted out of the async child so residency's begin/end can bracket
         // the whole utterance — engineNameFor is a pure string parse.
         val engineName = engineNameFor(voiceId)
-        // Resolve an "auto" alias against this utterance, once, before the
+        // Resolve auto-detection against this utterance, once, before the
         // engine chunks it — detection is per utterance, never per chunk.
-        // Kokoro is the only engine that reads the field; on the others an
-        // auto alias resolves to null (their own English phonemes).
-        val language = if (phonemizationLanguage == LangDetector.AUTO) {
-            if (engineName == KokoroDirectVoiceCatalog.ENGINE) {
-                langDetector.resolve(LangDetector.AUTO, text)
+        // On Kokoro it is the default: a null language means the same as
+        // the "auto" sentinel, and only an explicit code turns it off. The
+        // other engines don't read the field, so a leftover sentinel
+        // clears to their own English phonemes.
+        val kokoro = engineName == KokoroDirectVoiceCatalog.ENGINE
+        val language =
+            if (phonemizationLanguage == LangDetector.AUTO ||
+                (kokoro && phonemizationLanguage == null)
+            ) {
+                if (kokoro) {
+                    langDetector.resolve(
+                        LangDetector.AUTO,
+                        text,
+                        KokoroDirectVoiceCatalog.espeakVoiceFor(voiceId.substringAfter(':')),
+                    )
+                } else {
+                    null
+                }
             } else {
-                null
+                phonemizationLanguage
             }
-        } else {
-            phonemizationLanguage
-        }
         val work = async {
             val enabled = settings.enabledRules(engineName).first()
 

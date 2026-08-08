@@ -886,8 +886,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
-     * Resolve the [LangDetector.AUTO] phonemization sentinel against the
-     * utterance's own [text].
+     * Resolve auto-detected phonemization against the utterance's own
+     * [text].
      *
      * The design (Max, 2026-08-07): **phonemization language is orthogonal
      * to voice.** Detecting French does not change who is speaking — it
@@ -896,51 +896,55 @@ class MarmaladeTtsService : TextToSpeechService() {
      * outcome, not a bug to route around.
      *
      * Which means:
-     * - An alias that names a language explicitly (or leaves it null,
-     *   "engine decides") is returned untouched. Only the AUTO sentinel
-     *   opts into detection.
+     * - On a Kokoro voice, detection is the default: it runs unless the
+     *   alias names a language explicitly. A null column and the
+     *   [LangDetector.AUTO] sentinel both mean "detect", which is what
+     *   lets rows written before detection existed behave correctly with
+     *   no migration.
+     * - On the English-only engines a null column is left completely
+     *   alone — no detection, no reroute.
      * - The **request's** language no longer picks a voice or a language.
      *   It survives solely as the fallback for when detection abstains —
      *   too little text, or two languages too close to call.
      * - Detection is per utterance, never per chunk, and never guesses a
-     *   region: English resolves to null so the voice's own catalog
-     *   default (en-us / en-gb) stands.
-     *
-     * The one case where the voice does change is engine capability:
-     * Kitten and Pocket can only render English phonemes, so a non-English
-     * utterance on one of them is switched to an installed Kokoro voice of
-     * that language — the alternative is reading French through an English
-     * model, which is not an accent, it's noise. With no such voice
-     * installed we stay put and speak it as English, exactly as today.
-     * A caller that named a valid voice pins it: a reroute must not fight
-     * an explicit request.
+     *   region: the en-US / en-GB split comes from the voice's own
+     *   catalog default, via `LangDetector.espeakCodeFor`.
      */
     internal fun resolveUtteranceLanguage(
         request: SynthesisRequest,
         params: SynthParams,
         text: String,
     ): SynthParams {
-        if (params.phonemizationLanguage != LangDetector.AUTO) return params
+        val kokoro = engineNameFor(params.voiceId) == KokoroDirectVoiceCatalog.ENGINE
+        val stored = params.phonemizationLanguage
+        val auto = stored == LangDetector.AUTO || (kokoro && stored == null)
+        if (!auto) return params
 
         // Detection first; the request's locale is only the uncertainty
         // fallback now.
         val detected = langDetector.detect(text)
         val language = detected ?: TtsLocales.toIso2Language(request.language)
-        val espeak = LangDetector.espeakCodeFor(language)
 
         // Kokoro phonemizes through espeak in every language we ship, so
         // it never needs rerouting — just point espeak at the language.
-        if (engineNameFor(params.voiceId) == KokoroDirectVoiceCatalog.ENGINE) {
+        // The voice's catalog code rides along so a detected "en" keeps a
+        // British voice British, and so a detected language that isn't the
+        // voice's own can't fall through to the voice's G2P.
+        if (kokoro) {
+            val voiceDefault =
+                KokoroDirectVoiceCatalog.espeakVoiceFor(params.voiceId.substringAfter(':'))
+            val espeak = LangDetector.espeakCodeFor(language, voiceDefault)
             Log.d(TAG, "auto language: detected=$detected → phonemization=$espeak")
             return params.copy(phonemizationLanguage = espeak)
         }
 
-        // Kitten / Pocket: English-only renderers. English (and an
-        // undetected language) is what they already do.
-        //
-        // Non-English is the engine-capability reroute — pending Max's
-        // accented-phonemization verdict, which may yet let Kitten render
-        // non-English IPA in its own voice instead of handing over.
+        // Kitten / Pocket carrying the literal "auto": English-only
+        // renderers, so a non-English utterance moves to an installed
+        // Kokoro voice of that language. The dropdown no longer offers
+        // auto-detect on these engines (it is pinned at English), so this
+        // is reachable only from a legacy row of the one build that did —
+        // and it stays pending Max's accented-phonemization verdict, which
+        // may yet let Kitten render non-English IPA in its own voice.
         if (language == null || language == TtsLocales.BASELINE_LANGUAGE) {
             return params.copy(phonemizationLanguage = null)
         }

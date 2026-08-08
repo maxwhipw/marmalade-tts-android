@@ -22,8 +22,8 @@ import java.util.Base64
  * too close to call. Callers fall back rather than guess.
  *
  * **Language is not region.** `en-US` vs `en-GB` is not inferable from
- * text and is never attempted; English resolves to null in
- * [espeakCodeFor] so the voice's own catalog default decides.
+ * text and is never attempted; [espeakCodeFor] takes the region from the
+ * voice's own catalog default instead.
  *
  * Constructed from the table's lines rather than a Context so plain-JVM
  * unit tests can build one straight off the file. Format (line-based;
@@ -98,11 +98,14 @@ class LangDetector(lines: List<String>) {
 
     /**
      * [requested] with the [AUTO] sentinel replaced by a detection on
-     * [text]. Any other value (including null, "engine decides") passes
-     * through untouched — an explicit choice always outranks detection.
+     * [text]. Any other value passes through untouched — an explicit
+     * choice always outranks detection.
+     *
+     * [voiceDefault] is the voice's own catalog espeak code, which
+     * [espeakCodeFor] needs to decide the English region.
      */
-    fun resolve(requested: String?, text: String): String? =
-        if (requested != AUTO) requested else espeakCodeFor(detect(text))
+    fun resolve(requested: String?, text: String, voiceDefault: String?): String? =
+        if (requested != AUTO) requested else espeakCodeFor(detect(text), voiceDefault)
 
     private fun trigramDetect(text: String): String? {
         val norm = normalize(text)
@@ -154,17 +157,30 @@ class LangDetector(lines: List<String>) {
 
         /**
          * Sentinel stored in `VoiceAlias.phonemizationLanguage` meaning
-         * "detect the language of each utterance". Distinct from null,
-         * which means "the engine decides" (Kokoro derives the language
-         * from the voice's key prefix).
+         * "detect the language of each utterance".
+         *
+         * Auto-detect is the default, so a null column means the same
+         * thing on a Kokoro alias — which is what makes the rows written
+         * before the sentinel existed behave correctly with no migration.
+         * The literal is still written by nothing but the legacy rows of
+         * the one build that offered it as a separate dropdown entry.
          */
         const val AUTO = "auto"
 
         /** Below this many trigrams the trigram guess is noise. */
         const val MIN_TRIGRAMS = 6
 
-        /** Minimum per-trigram cost gap between winner and runner-up. */
-        const val MIN_MARGIN = 4.0
+        /**
+         * Minimum per-trigram cost gap between winner and runner-up.
+         *
+         * 2.0, not the 4.0 the first table shipped with: at 4 the
+         * detector abstained on ordinary Portuguese sentences (es/pt is
+         * the closest pair it has to separate). Measured against the
+         * retrained table, 2.0 is 100% accurate on decided 25–200-char
+         * held-out sentences and 99.95% across the full 40–200 band, at
+         * a 0.3% abstain rate.
+         */
+        const val MIN_MARGIN = 2.0
 
         @Volatile
         private var cached: LangDetector? = null
@@ -179,21 +195,35 @@ class LangDetector(lines: List<String>) {
         /**
          * Detected language → the espeak voice code to phonemize with.
          *
-         * English (and an undetected language) map to null: the region a
-         * voice reads English in is the voice's own business, and
-         * guessing en-US vs en-GB from text is not a thing detection can
-         * do. Mandarin maps to null too — Han runs go through
-         * `lexicon-zh.txt` inside KokoroDirectEngine whatever the espeak
-         * voice is, and espeak-cmn produces IPA the model can't read.
+         * [voiceDefault] is the voice's own catalog espeak code (for
+         * Kokoro, `KokoroDirectVoiceCatalog.espeakVoiceFor`). It answers
+         * the one question detection cannot: which English. A British
+         * voice reading detected English stays British; every other
+         * voice gets American, mirroring the CLI's `to_kokoro_lang`.
+         * The region is still never guessed from the text.
+         *
+         * Detected English and Mandarin must resolve to a real code
+         * rather than null, because null means "the voice's own language
+         * stands" — and on a Japanese voice that would phonemize English
+         * through Japanese G2P, which is the bug this signature exists to
+         * fix. Mandarin's code is `en-us` because Han runs go through
+         * `lexicon-zh.txt` inside KokoroDirectEngine and only the latin
+         * spans reach espeak (the same choice the `z*` voices' catalog
+         * default makes); espeak-cmn produces IPA the model can't read.
+         *
+         * Null in, null out: no detection and no fallback locale is the
+         * one true no-information case, and there the voice decides.
          */
-        fun espeakCodeFor(lang: String?): String? = when (lang) {
+        fun espeakCodeFor(lang: String?, voiceDefault: String?): String? = when (lang) {
+            "en" -> if (voiceDefault == "en-gb") "en-gb" else "en-us"
             "es" -> "es"
             "fr" -> "fr-fr"
             "hi" -> "hi"
             "it" -> "it"
             "ja" -> "ja"
             "pt" -> "pt-br"
-            else -> null // en, zh, unknown
+            "zh" -> "en-us"
+            else -> null
         }
 
         private fun isKana(cp: Int): Boolean =

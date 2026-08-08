@@ -10,9 +10,12 @@ import org.junit.Test
  * Robolectric: [LangDetector] takes the table's lines, so the real asset
  * can be read straight off disk and the whole suite stays fast.
  *
- * The sentences are the kind of thing a screen reader actually receives —
- * app notifications and UI strings — not literary prose, because that's
- * the input the thresholds were tuned against.
+ * The battery below is an accuracy check, not a smoke test: several
+ * sentences per language, in the registers a screen reader actually
+ * receives — casual chat, UI strings and notifications, formal prose —
+ * because that is the input the table and thresholds were tuned against.
+ * A sentence that abstains is a finding about the table, so fix the
+ * table rather than swapping the sentence for an easier one.
  */
 class LangDetectorTest {
 
@@ -20,56 +23,105 @@ class LangDetectorTest {
         File("src/main/assets/langdetect.tab").readLines(),
     )
 
-    // -- stage 2: Latin languages -------------------------------------------
-
-    @Test
-    fun detectsEnglish() {
-        assertEquals("en", detector.detect("Your download has finished and the file is ready to open."))
+    /** Assert every sentence detects as [lang], naming the failure. */
+    private fun assertAll(lang: String, vararg sentences: String) {
+        for (s in sentences) assertEquals("detect(\"$s\")", lang, detector.detect(s))
     }
 
-    @Test
-    fun detectsSpanish() {
-        assertEquals("es", detector.detect("Su descarga ha terminado y el archivo está listo para abrir."))
-    }
+    // -- stage 2: the Latin languages, one battery each ---------------------
 
     @Test
-    fun detectsFrench() {
-        assertEquals("fr", detector.detect("Votre téléchargement est terminé et le fichier est prêt."))
-    }
+    fun detectsEnglish() = assertAll(
+        "en",
+        "Your download has finished and the file is ready to open.",
+        "Hey, are you still coming over tonight or should I eat without you?",
+        "Battery saver is on, so background activity is limited.",
+        "The meeting has been moved to Thursday afternoon at half past two.",
+        "Please review the attached document and let me know if anything is missing.",
+        "I honestly can't believe how long that queue was this morning.",
+    )
 
     @Test
-    fun detectsItalian() {
-        assertEquals("it", detector.detect("Il download è terminato e il file è pronto per essere aperto."))
-    }
+    fun detectsSpanish() = assertAll(
+        "es",
+        "Su descarga ha terminado y el archivo está listo para abrir.",
+        "Acuérdate de regar las plantas mientras estamos fuera.",
+        "El ahorro de batería está activado y limita la actividad en segundo plano.",
+        "La reunión se ha trasladado al jueves por la tarde a las dos y media.",
+        "Le agradecería que revisara el documento adjunto antes del viernes.",
+        "No me puedo creer la cola que había esta mañana en la oficina de correos.",
+    )
 
     @Test
-    fun detectsPortuguese() {
-        assertEquals("pt", detector.detect("O seu download terminou e o arquivo está pronto para abrir."))
-    }
+    fun detectsFrench() = assertAll(
+        "fr",
+        "Votre téléchargement est terminé et le fichier est prêt.",
+        "N'oublie pas d'arroser les plantes pendant notre absence.",
+        "L'économiseur de batterie est activé et limite l'activité en arrière-plan.",
+        "La réunion a été déplacée à jeudi après-midi, à quatorze heures trente.",
+        "Je vous remercie de bien vouloir relire le document joint avant vendredi.",
+        "Je n'arrive pas à croire à quel point la file d'attente était longue ce matin.",
+    )
+
+    @Test
+    fun detectsItalian() = assertAll(
+        "it",
+        "Il download è terminato e il file è pronto per essere aperto.",
+        "Ricordati di annaffiare le piante mentre siamo via.",
+        "Il risparmio energetico è attivo e limita l'attività in background.",
+        "La riunione è stata spostata a giovedì pomeriggio alle due e mezza.",
+        "La ringrazio di voler rileggere il documento allegato entro venerdì.",
+        "Non riesco a credere a quanto fosse lunga la fila stamattina alla posta.",
+    )
+
+    @Test
+    fun detectsPortuguese() = assertAll(
+        "pt",
+        "O seu download terminou e o arquivo está pronto para abrir.",
+        "A economia de bateria está ativada e limita a atividade.",
+        "Lembra de regar as plantas enquanto a gente estiver viajando.",
+        "A reunião foi transferida para quinta-feira à tarde, às duas e meia.",
+        "Agradeço que revise o documento anexo antes de sexta-feira.",
+        "Não acredito no tamanho da fila que tinha hoje de manhã no correio.",
+    )
 
     // -- stage 1: scripts ---------------------------------------------------
 
     @Test
-    fun kanaBeatsHan() {
+    fun kanaBeatsHan() = assertAll(
         // Mixed kana + kanji is Japanese, never Chinese.
-        assertEquals("ja", detector.detect("東京タワーは高いです"))
-    }
+        "ja",
+        "東京タワーは高いです",
+        "ダウンロードが完了しました。ファイルを開けます。",
+        "明日の会議は午後二時からに変更になりました",
+        "バッテリーセーバーがオンになっています",
+    )
 
     @Test
-    fun hanWithoutKanaIsChinese() {
-        assertEquals("zh", detector.detect("今天天气很好，我们去公园散步吧"))
-    }
+    fun hanWithoutKanaIsChinese() = assertAll(
+        "zh",
+        "今天天气很好，我们去公园散步吧",
+        "下载已完成，文件可以打开了",
+        "会议改到星期四下午两点半",
+    )
 
     @Test
-    fun detectsDevanagari() {
-        assertEquals("hi", detector.detect("आपकी फ़ाइल डाउनलोड हो गई है"))
-    }
+    fun detectsDevanagari() = assertAll(
+        "hi",
+        "आपकी फ़ाइल डाउनलोड हो गई है",
+        "बैठक गुरुवार दोपहर ढाई बजे कर दी गई है",
+        "बैटरी सेवर चालू है और पृष्ठभूमि गतिविधि सीमित है",
+    )
 
     @Test
     fun latinDominantMixedTextStaysLatin() {
         // A couple of Han characters inside an English sentence must not
         // flip the whole utterance to Chinese phonemization.
         assertEquals("en", detector.detect("Play 東京 for me when you have a moment please"))
+        assertEquals(
+            "en",
+            detector.detect("The restaurant is called 火鍋 and it opens again on Monday evening"),
+        )
     }
 
     // -- abstention ---------------------------------------------------------
@@ -77,6 +129,8 @@ class LangDetectorTest {
     @Test
     fun abstainsOnTooFewTrigrams() {
         assertNull(detector.detect("OK"))
+        assertNull(detector.detect("Hi"))
+        assertNull(detector.detect("42%"))
     }
 
     @Test
@@ -84,6 +138,8 @@ class LangDetectorTest {
         assertNull(detector.detect("123"))
         assertNull(detector.detect(""))
         assertNull(detector.detect("   !!! "))
+        assertNull(detector.detect("🎉🎉🎉"))
+        assertNull(detector.detect("+1 555 0134"))
     }
 
     // -- robustness ---------------------------------------------------------
@@ -95,24 +151,61 @@ class LangDetectorTest {
         assertEquals("zh", detector.detect("𠀀𠀁 今天"))
     }
 
-    // -- the AUTO sentinel + espeak mapping ---------------------------------
+    // -- the AUTO sentinel ---------------------------------------------------
 
     @Test
     fun resolveOnlyActsOnTheAutoSentinel() {
-        assertEquals("ja", detector.resolve("ja", "Votre téléchargement est terminé."))
-        assertNull(detector.resolve(null, "Votre téléchargement est terminé."))
+        assertEquals("ja", detector.resolve("ja", "Votre téléchargement est terminé.", "en-us"))
+        assertNull(detector.resolve(null, "Votre téléchargement est terminé.", "en-us"))
         assertEquals(
             "fr-fr",
-            detector.resolve(LangDetector.AUTO, "Votre téléchargement est terminé et le fichier est prêt."),
+            detector.resolve(
+                LangDetector.AUTO,
+                "Votre téléchargement est terminé et le fichier est prêt.",
+                "ja",
+            ),
         )
     }
 
+    // -- the espeak mapping --------------------------------------------------
+
     @Test
-    fun englishAndChineseMapToNoEspeakOverride() {
-        // No region guessing for English; zh goes through lexicon-zh.
-        assertNull(LangDetector.espeakCodeFor("en"))
-        assertNull(LangDetector.espeakCodeFor("zh"))
-        assertNull(LangDetector.espeakCodeFor(null))
-        assertEquals("pt-br", LangDetector.espeakCodeFor("pt"))
+    fun englishTakesItsRegionFromTheVoice() {
+        // The region is the voice's business — never guessed from text —
+        // but it must be *stated*, or a non-English voice would keep its
+        // own G2P for English text.
+        assertEquals("en-gb", LangDetector.espeakCodeFor("en", "en-gb"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("en", "en-us"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("en", "ja"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("en", "fr-fr"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("en", null))
+    }
+
+    @Test
+    fun mandarinAlwaysMapsToAmericanEspeak() {
+        // Han runs go through lexicon-zh whatever espeak is set to; the
+        // latin spans are what the code decides, and en-us is what the
+        // z-voices' own catalog default says.
+        assertEquals("en-us", LangDetector.espeakCodeFor("zh", "ja"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("zh", "en-gb"))
+        assertEquals("en-us", LangDetector.espeakCodeFor("zh", null))
+    }
+
+    @Test
+    fun theOtherLanguagesIgnoreTheVoiceDefault() {
+        assertEquals("es", LangDetector.espeakCodeFor("es", "ja"))
+        assertEquals("fr-fr", LangDetector.espeakCodeFor("fr", "ja"))
+        assertEquals("hi", LangDetector.espeakCodeFor("hi", "ja"))
+        assertEquals("it", LangDetector.espeakCodeFor("it", "ja"))
+        assertEquals("ja", LangDetector.espeakCodeFor("ja", "en-us"))
+        assertEquals("pt-br", LangDetector.espeakCodeFor("pt", "ja"))
+    }
+
+    @Test
+    fun noDetectionLeavesTheVoiceAlone() {
+        // The one true no-information case: nothing detected and no
+        // fallback locale, so the voice's own language stands.
+        assertNull(LangDetector.espeakCodeFor(null, "ja"))
+        assertNull(LangDetector.espeakCodeFor(null, null))
     }
 }

@@ -406,22 +406,33 @@ class MarmaladeSynthService : Service() {
             }
         }
 
-        // Resolve an "auto" alias against the utterance, once, before any
-        // chunking. No voice rerouting on this route: it has no request
-        // locale to fall back on and the caller picked the voice, so an
-        // auto alias only ever moves the phonemizer. Kokoro is the only
-        // engine that reads the field, so the rest resolve to null.
-        val resolved: SpeakRequest = if (routed.phonemizationLanguage == LangDetector.AUTO) {
-            routed.copy(
-                phonemizationLanguage = if (routed.engine == KokoroDirectVoiceCatalog.ENGINE) {
-                    langDetector.resolve(LangDetector.AUTO, routed.text)
-                } else {
-                    null
-                },
-            )
-        } else {
-            routed
-        }
+        // Resolve auto-detection against the utterance, once, before any
+        // chunking. Detection is the default on Kokoro — a null column
+        // means the same as the "auto" sentinel — and only an explicit
+        // language turns it off. No voice rerouting on this route: it has
+        // no request locale to fall back on and the caller picked the
+        // voice, so detection only ever moves the phonemizer. The other
+        // engines don't read the field, so a leftover sentinel clears.
+        val kokoro = routed.engine == KokoroDirectVoiceCatalog.ENGINE
+        val stored = routed.phonemizationLanguage
+        val resolved: SpeakRequest =
+            if (stored == LangDetector.AUTO || (kokoro && stored == null)) {
+                routed.copy(
+                    phonemizationLanguage = if (kokoro) {
+                        langDetector.resolve(
+                            LangDetector.AUTO,
+                            routed.text,
+                            KokoroDirectVoiceCatalog.espeakVoiceFor(
+                                routed.voice.substringAfter(':'),
+                            ),
+                        )
+                    } else {
+                        null
+                    },
+                )
+            } else {
+                routed
+            }
 
         // Route to the engine named by resolved.engine. Unknown engines
         // warn and fall through to Kokoro (the recommended default)

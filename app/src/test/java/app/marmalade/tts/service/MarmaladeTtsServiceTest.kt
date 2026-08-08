@@ -349,11 +349,14 @@ class MarmaladeTtsServiceTest {
         )
     }
 
-    /** Wire a kokoro primary alias (af_bella, 1.5×) into the service's router. */
-    private fun installKokoroPrimary(phonemizationLanguage: String? = null) {
+    /** Wire a kokoro primary alias (af_bella by default, 1.5×). */
+    private fun installKokoroPrimary(
+        phonemizationLanguage: String? = null,
+        voiceId: String = "kokoro-direct-v1_0:af_bella",
+    ) {
         installPrimary(
             engine = KokoroDirectVoiceCatalog.ENGINE,
-            voiceId = "kokoro-direct-v1_0:af_bella",
+            voiceId = voiceId,
             phonemizationLanguage = phonemizationLanguage,
         )
     }
@@ -638,17 +641,18 @@ class MarmaladeTtsServiceTest {
     // -- per-utterance language auto-detection ------------------------------
     //
     // Design (Max, 2026-08-07): the phonemization language is detected from
-    // the utterance itself, and only when the alias opts in with the "auto"
-    // sentinel. The system request's language is no longer allowed to pick
-    // a voice or a language — it survives purely as the fallback for when
-    // detection abstains. The voice changes for one reason only: engine
-    // capability (Kitten/Pocket can't render non-English phonemes).
+    // the utterance itself. On Kokoro that is the default — a null column
+    // means the same as the "auto" sentinel — and only an explicit language
+    // turns it off. The English-only engines are pinned at English and a
+    // null column there is left completely alone. The system request's
+    // language is no longer allowed to pick a voice or a language; it
+    // survives purely as the fallback for when detection abstains.
 
     @Test
     fun onSynthesizeText_requestLanguageNoLongerSwitchesTheVoice() {
         // An English primary alias with no auto-detect opt-in, exactly as
         // on Max's phone. A Japanese request used to hijack the voice; now
-        // an explicit alias language (here: none, "engine decides") wins.
+        // a Kitten alias with a null language is left completely alone.
         installKittenPrimary()
         fakeEngine.nextPcm = ShortArray(1024)
 
@@ -680,16 +684,28 @@ class MarmaladeTtsServiceTest {
     }
 
     @Test
-    fun onSynthesizeText_autoAliasEnglishTextGuessesNoRegion() {
+    fun onSynthesizeText_autoAliasEnglishTextTakesItsRegionFromTheVoice() {
         installKokoroPrimary(phonemizationLanguage = "auto")
         fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
 
         val request = SynthesisRequest("Your download has finished and the file is ready.", Bundle())
         service.onSynthesizeText(request, FakeSynthesisCallback())
 
-        // Null, not "en-us": en-US vs en-GB is not inferable from text, so
-        // the voice's own catalog default decides.
-        assertNull(fakeKokoroDirectEngine.languages.single())
+        // en-US vs en-GB is not inferable from text, so the region comes
+        // from af_bella's own catalog code. It is still *stated* rather
+        // than left null — see the Japanese-voice suite below for why.
+        assertEquals("en-us", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_autoAliasEnglishTextOnABritishVoiceStaysBritish() {
+        installKokoroPrimary(phonemizationLanguage = "auto", voiceId = "kokoro-direct-v1_0:bm_lewis")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest("Your download has finished and the file is ready.", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("en-gb", fakeKokoroDirectEngine.languages.single())
     }
 
     @Test
@@ -711,6 +727,11 @@ class MarmaladeTtsServiceTest {
         // Kitten can only render English phonemes, so Chinese has to move
         // to an installed Kokoro voice — that's the one case where
         // detection is allowed to change the voice.
+        //
+        // The dropdown no longer offers auto-detect on Kitten (it is
+        // pinned at English), so a stored literal "auto" is now only a
+        // legacy row of the one build that did offer it. The branch stays
+        // pending Max's accented-phonemization verdict.
         installKittenPrimary(phonemizationLanguage = "auto")
         fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
 
@@ -769,6 +790,137 @@ class MarmaladeTtsServiceTest {
             KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
             fakeEngine.calls.single().second,
         )
+    }
+
+    // -- the Japanese-voice regression suite --------------------------------
+    //
+    // Max's repro (2026-08-08): "auto-detecting is not working when I switch
+    // the alias to auto-detect with a Japanese voice." A detected language
+    // used to map to a null espeak code for English and Chinese, and null
+    // means "the voice's own language stands" — so English text on a
+    // Japanese voice kept Japanese G2P and detection looked inert. Every
+    // detected language must now name a real code.
+
+    /** Wire the repro: a Kokoro Japanese voice on an auto alias. */
+    private fun installJapaneseAutoAlias() {
+        installKokoroPrimary(
+            phonemizationLanguage = "auto",
+            voiceId = "kokoro-direct-v1_0:jf_alpha",
+        )
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+    }
+
+    @Test
+    fun onSynthesizeText_japaneseVoice_englishTextPhonemizesAsEnglish() {
+        installJapaneseAutoAlias()
+
+        val request = SynthesisRequest("Your download has finished and the file is ready.", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // THE BUG: this was null, which left jf_alpha's "ja" in place.
+        assertEquals("en-us", fakeKokoroDirectEngine.languages.single())
+        // The voice never moves — an accented reading is the point.
+        assertEquals("kokoro-direct-v1_0:jf_alpha", fakeKokoroDirectEngine.calls.single().second)
+    }
+
+    @Test
+    fun onSynthesizeText_japaneseVoice_japaneseTextPhonemizesAsJapanese() {
+        installJapaneseAutoAlias()
+
+        val request = SynthesisRequest("ダウンロードが完了しました。ファイルを開けます。", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("ja", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_japaneseVoice_chineseTextTakesTheLexiconPath() {
+        installJapaneseAutoAlias()
+
+        val request = SynthesisRequest("今天天气很好，我们去公园散步吧", Bundle())
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        // Han runs go through lexicon-zh inside the engine; espeak only
+        // sees the latin spans, so it must not be left on Japanese.
+        assertEquals("en-us", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_japaneseVoice_frenchTextPhonemizesAsFrench() {
+        installJapaneseAutoAlias()
+
+        val request = SynthesisRequest(
+            "Votre téléchargement est terminé et le fichier est prêt.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("fr-fr", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_japaneseVoice_abstainFallsBackToTheRequestLocale() {
+        installJapaneseAutoAlias()
+
+        // Two letters is far below the detector's floor. The request's
+        // locale is the fallback, and it goes through the same mapping —
+        // so English there also has to name a region.
+        val request = newRequestWithLanguage("OK", "eng", "USA")
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("en-us", fakeKokoroDirectEngine.languages.single())
+    }
+
+    // -- auto-detect is the default -----------------------------------------
+
+    @Test
+    fun onSynthesizeText_kokoroAliasWithNoStoredLanguageStillDetects() {
+        // Null is the new auto: legacy rows and every newly created alias
+        // get detection with no migration.
+        installKokoroPrimary(phonemizationLanguage = null)
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "Votre téléchargement est terminé et le fichier est prêt.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("fr-fr", fakeKokoroDirectEngine.languages.single())
+        assertEquals("kokoro-direct-v1_0:af_bella", fakeKokoroDirectEngine.calls.single().second)
+    }
+
+    @Test
+    fun onSynthesizeText_kokoroAliasWithAnExplicitLanguageNeverDetects() {
+        installKokoroPrimary(phonemizationLanguage = "ja")
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "Votre téléchargement est terminé et le fichier est prêt.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals("ja", fakeKokoroDirectEngine.languages.single())
+    }
+
+    @Test
+    fun onSynthesizeText_kittenAliasWithNoStoredLanguageIsUntouched() {
+        // The English-only engines are pinned at English in the UI, so a
+        // null column there means exactly what it always did: no
+        // detection, no reroute, Kitten's own English phonemes.
+        installKittenPrimary(phonemizationLanguage = null)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        val request = SynthesisRequest(
+            "Votre téléchargement est terminé et le fichier est prêt.",
+            Bundle(),
+        )
+        service.onSynthesizeText(request, FakeSynthesisCallback())
+
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertNull(fakeEngine.languages.single())
     }
 
     // ----------------------------------------------------------------------
