@@ -65,6 +65,26 @@ class VoicePathTest {
     }
 
     @Test
+    fun `kokoro voice key renders as its bare speaker name`() {
+        val path = resolver.resolve(
+            KokoroDirectVoiceCatalog.voiceId("am_adam"),
+            KokoroDirectVoiceCatalog.ENGINE,
+        )
+
+        assertEquals("Adam", path.voice)
+    }
+
+    @Test
+    fun `pocket voice key renders capitalized`() {
+        val path = resolver.resolve(
+            PocketVoiceCatalog.voiceId("marius"),
+            PocketVoiceCatalog.ENGINE,
+        )
+
+        assertEquals("Marius", path.voice)
+    }
+
+    @Test
     fun `an unknown cloud model degrades to its raw id rather than throwing`() {
         // An alias can outlive the model it points at — the user downgrades,
         // or the provider retires a model. A slightly ugly label beats a crash.

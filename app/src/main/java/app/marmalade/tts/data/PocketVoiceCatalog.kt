@@ -26,7 +26,9 @@ import app.marmalade.tts.data.db.VoiceMeta
  *    file picker) — that path lands in v0.3.0 once the inference loop is
  *    in. Cloned voices get inserted into `voice_meta` at clone time.
  *
- * Voice IDs use the convention `"<engine>:<displayName>"`.
+ * Voice IDs use the convention `"<engine>:<name>"`, where `<name>` is the
+ * lowercase upstream voice key (also the bundle's `voices/<name>.wav`
+ * filename). Display names are the capitalized form of the same key.
  */
 object PocketVoiceCatalog {
 
@@ -48,7 +50,7 @@ object PocketVoiceCatalog {
      */
     const val DEFAULT_VOICE_ID = "pocket-tts-en-v2026_04:alba"
 
-    fun voiceId(displayName: String): String = "$ENGINE:$displayName"
+    fun voiceId(name: String): String = "$ENGINE:$name"
 
     /**
      * The 6 commercial-safe predefined voices, in the order they appear in
@@ -78,7 +80,9 @@ object PocketVoiceCatalog {
     private fun seed(name: String, gender: String): VoiceMeta = VoiceMeta(
         id = voiceId(name),
         engine = ENGINE,
-        displayName = name,
+        // The lowercase [name] is the machinery key (voice id, `voices/<name>.wav`
+        // in the bundle); the UI gets the capitalized form.
+        displayName = name.replaceFirstChar { it.uppercase() },
         languageCode = LANGUAGE,
         sampleRate = SAMPLE_RATE,
         gender = gender,

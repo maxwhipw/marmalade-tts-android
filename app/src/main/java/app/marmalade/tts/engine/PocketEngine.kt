@@ -219,7 +219,10 @@ open class PocketEngine @Inject constructor(
         }
         if (!voicesDir.isDirectory) return false
         for (voice in PocketVoiceCatalog.voices) {
-            if (!File(voicesDir, "${voice.displayName}.wav").isFile) return false
+            // WAV filenames are the lowercase voice key from the id, not the
+            // capitalized displayName.
+            val key = voice.id.substringAfterLast(':')
+            if (!File(voicesDir, "$key.wav").isFile) return false
         }
         return true
     }

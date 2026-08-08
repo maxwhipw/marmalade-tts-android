@@ -344,7 +344,9 @@ class MarmaladeTtsApplication : Application() {
          *    Max's 2026-08-07 pick, Kokoro speaker-id order) and Kokoro
          *    display names go pretty (`af_bella` → `🇺🇸 Bella`; ids keep the
          *    raw key). Reseed refreshes both columns on existing installs.
+         *  - v33: Pocket display names capitalized (`marius` → `Marius`;
+         *    ids and `voices/<name>.wav` filenames keep the lowercase key).
          */
-        const val CATALOG_VERSION: Int = 32
+        const val CATALOG_VERSION: Int = 33
     }
 }

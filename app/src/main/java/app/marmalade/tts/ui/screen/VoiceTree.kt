@@ -79,7 +79,13 @@ fun buildVoiceTree(voices: List<VoiceMeta>, paths: VoicePathResolver): List<Voic
                     .map { (model, modelRows) ->
                         VoiceModel(
                             name = model,
-                            voices = modelRows.sortedBy { it.displayName.lowercase() },
+                            // Curated order first (Kitten best-first, Kokoro
+                            // US › GB › other languages), then name. Cloud rows
+                            // keep the sortOrder default so they stay purely
+                            // alphabetical.
+                            voices = modelRows.sortedWith(
+                                compareBy({ it.sortOrder }, { it.displayName.lowercase() }),
+                            ),
                         )
                     }
                     .sortedBy { it.name.lowercase() },

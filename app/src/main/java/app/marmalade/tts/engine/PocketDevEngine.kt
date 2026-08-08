@@ -124,7 +124,8 @@ class PocketDevEngine @Inject constructor(
         }
         if (!voicesDir.isDirectory) return false
         for (v in PocketVoiceCatalog.voices) {
-            if (!File(voicesDir, "${v.displayName}.wav").isFile) return false
+            val key = v.id.substringAfterLast(':')
+            if (!File(voicesDir, "$key.wav").isFile) return false
         }
         return true
     }

@@ -78,11 +78,18 @@ class VoicePathResolver @Inject constructor(
             )
         }
         // On-device: the engine is the model, and the id is `engine:voice`.
+        // The id's voice key is machinery-facing (`am_adam`, `marius`) —
+        // show the human form the picker uses instead.
         val engineLabel = EngineCatalog.byName(engineName)?.displayName ?: engineName
+        val voiceKey = voiceId.substringAfterLast(':', voiceId)
+        val voiceLabel = when (engineName) {
+            KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.bareName(voiceKey)
+            else -> voiceKey.replaceFirstChar { it.uppercase() }
+        }
         return VoicePath(
             source = engineLabel,
             model = engineLabel,
-            voice = voiceId.substringAfterLast(':', voiceId),
+            voice = voiceLabel,
             isCloud = false,
         )
     }

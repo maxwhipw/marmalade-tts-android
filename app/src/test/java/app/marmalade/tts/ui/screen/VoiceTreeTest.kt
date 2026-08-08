@@ -111,6 +111,25 @@ class VoiceTreeTest {
     }
 
     @Test
+    fun `curated sortOrder outranks display name within a model`() {
+        // Kitten's best-first order and Kokoro's US › GB › rest grouping both
+        // ride on sortOrder; alphabetical is only the fallback (999 default).
+        val tree = buildVoiceTree(
+            listOf(
+                localVoice("Alpha"),
+                localVoice("Rosie").copy(sortOrder = 0),
+                localVoice("Bruno").copy(sortOrder = 1),
+            ),
+            localPaths,
+        )
+
+        assertEquals(
+            listOf("Rosie", "Bruno", "Alpha"),
+            tree.single().models.single().voices.map { it.displayName },
+        )
+    }
+
+    @Test
     fun `entering a single-model source skips straight to its voices`() {
         val tree = buildVoiceTree(listOf(localVoice("Bella")), localPaths)
         val source = tree.single()

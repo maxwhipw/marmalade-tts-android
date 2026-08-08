@@ -134,10 +134,16 @@ object KokoroDirectVoiceCatalog {
             'z' -> "🇨🇳"
             else -> return voiceKey
         }
-        val name = voiceKey.substringAfter('_', voiceKey)
-            .replaceFirstChar { it.uppercase() }
-        return "$flag $name"
+        return "$flag ${bareName(voiceKey)}"
     }
+
+    /**
+     * The speaker handle alone, `"am_adam"` → `"Adam"` — for surfaces like
+     * the alias card subtitle where the flag would be noise.
+     */
+    fun bareName(voiceKey: String): String =
+        voiceKey.substringAfter('_', voiceKey)
+            .replaceFirstChar { it.uppercase() }
 
     /** Gender derivation from Kokoro voice-key second character (`f` / `m`). */
     fun genderFor(voiceKey: String): String? = when {

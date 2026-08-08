@@ -21,11 +21,13 @@ object PocketDevVoiceCatalog {
     const val LANGUAGE = "en-US"
     const val SAMPLE_RATE = PocketVoiceCatalog.SAMPLE_RATE
 
-    fun voiceId(displayName: String): String = "$ENGINE:$displayName"
+    fun voiceId(name: String): String = "$ENGINE:$name"
 
     val voices: List<VoiceMeta> = PocketVoiceCatalog.voices.map { v ->
         VoiceMeta(
-            id = voiceId(v.displayName),
+            // Same lowercase voice key as production Pocket's id — the engine
+            // resolves `voices/<key>.wav` from it.
+            id = voiceId(v.id.substringAfterLast(':')),
             engine = ENGINE,
             displayName = "${v.displayName} (clean)",
             languageCode = LANGUAGE,
