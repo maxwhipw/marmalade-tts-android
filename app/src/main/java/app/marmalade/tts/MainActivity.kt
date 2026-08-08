@@ -1,9 +1,12 @@
 package app.marmalade.tts
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +38,13 @@ class MainActivity : ComponentActivity() {
             val themeMode by rootVm.themeMode.collectAsStateWithLifecycle(initialValue = "system")
             val systemDark = isSystemInDarkTheme()
             val darkTheme = resolveThemeIsDark(themeMode, systemDark)
+            // Default enableEdgeToEdge() keys system-bar icon contrast off the
+            // SYSTEM dark setting; the in-app theme override can disagree with
+            // it, leaving light icons on the light theme (or vice versa).
+            LaunchedEffect(darkTheme) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
             MarmaladeTtsTheme(darkTheme = darkTheme, themePreset = preset) {
                 AppRoot(viewModel = rootVm)
             }
