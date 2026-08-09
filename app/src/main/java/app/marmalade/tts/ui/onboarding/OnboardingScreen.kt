@@ -383,16 +383,19 @@ private fun EngineCard(
             )
             Spacer(Modifier.size(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = engine.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    if (engine.isRecommended) {
-                        Spacer(Modifier.size(6.dp))
-                        RecommendedTag()
-                    }
+                // Name and the Recommended pill sit on separate lines: inline,
+                // the pill competed with the name for the weight(1f) width and a
+                // long name ("Kitten Nano (v0.8)") starved it down to one glyph,
+                // char-wrapping "RECOMMENDED" into a vertical strip. Its own line
+                // can't be crushed (recommended-badge-lab R1).
+                Text(
+                    text = engine.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (engine.isRecommended) {
+                    Spacer(Modifier.height(4.dp))
+                    RecommendedTag()
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
