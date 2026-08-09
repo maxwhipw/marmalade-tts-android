@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Engine Card Layout Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* =============================================================
+   PAGE-SPECIFIC ONLY. Dark shell comes from /_assets/lab.css.
+
+   BASE below is a faithful copy of the SHIPPED card as of
+   2026-08-06 (EnginesScreen.EngineCard + EngineSpecColumn):
+     Row(height = IntrinsicSize.Min, verticalAlignment = Center)
+       Column(weight 1f)   -> name / tagline / size   [CENTERED]
+       Spacer 12 · VerticalDivider(vertical pad 2) · Spacer 12
+       EngineSpecColumn(width 118, verticalArrangement = Center)
+     "Show more"  -> OUTSIDE the row, padding top 8, card-left
+     ActionRow    -> Arrangement.End (both buttons right)
+   The languages value carries padding(horizontal = 4.dp), which is
+   why it sits indented from the other spec values.
+   ============================================================= */
+:root{
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Manrope",sans-serif;
+}
+
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 -28px 24px}
+nav.jump a{color:var(--dim);font-size:13px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+.varhead{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin:30px 0 4px}
+.varhead .id{font-family:var(--mono);font-size:12px;color:#2b1400;background:var(--peach);
+  border-radius:6px;padding:2px 8px;font-weight:600}
+.varhead h3{margin:0;font-size:19px;letter-spacing:-.01em;color:var(--ink)}
+.idea{color:var(--dim);font-size:15px;max-width:900px;margin:0 0 14px}
+.idea b{color:var(--toast);font-weight:600}
+
+.foragainst{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0 18px;max-width:840px}
+.fa{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:11px 15px}
+.fa.pro{border-left-color:var(--ok)} .fa.con{border-left-color:var(--block)}
+.fa h4{margin:0 0 5px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+.fa.pro h4{color:var(--ok)} .fa.con h4{color:var(--block)}
+.fa p{margin:0;font-size:14px;color:var(--dim);line-height:1.55}
+.fa p b{color:var(--ink);font-weight:600}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:10px}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.08em;
+  text-transform:uppercase;padding-left:4px}
+
+/* ---- a slice of the Engines list, not a whole phone ---- */
+.surf{width:400px;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;
+  background:var(--p-surface);color:var(--p-ink);font-family:var(--body);
+  box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.surf.l{
+  --p-surface:#FFF7ED; --p-ink:#1C1917; --p-dim:#57534E;
+  --p-container:#FFEDD5; --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E; --p-outline-v:#D6D3D1;
+  --p-accent:#F97316; --p-on-accent:#FFFFFF;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-meter-off:#EAD9C4;
+  --m-green:#16A34A; --m-lime:#65A30D; --m-amber:#D97706; --m-red:#DC2626;
+}
+.surf.d{
+  --p-surface:#1A1A1A; --p-ink:#FAFAF9; --p-dim:#C7C0B9;
+  --p-container:#292524; --p-container-hi:#332F2C;
+  --p-outline:#737373; --p-outline-v:#403A35;
+  --p-accent:#422006; --p-on-accent:#FED7AA;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-meter-off:#403A35;
+  --m-green:#4ADE80; --m-lime:#A3E635; --m-amber:#FBBF24; --m-red:#EF4444;
+}
+
+/* speed meter — shipped 4-tick traffic light */
+.meter{display:inline-flex;gap:3px;align-items:center}
+.meter i{width:6px;height:12px;border-radius:2px;background:var(--p-meter-off)}
+.meter i.g{background:var(--m-green)} .meter i.lime{background:var(--m-lime)}
+.meter i.a{background:var(--m-amber)} .meter i.r{background:var(--m-red)}
+
+/* ---- the card ---- */
+.ec{border-radius:16px;background:var(--p-container);border:1px solid transparent;
+  padding:14px;display:flex;flex-direction:column}
+.a3{display:flex;gap:12px;align-items:center}   /* BASE: centered, like the app */
+.a3 .mid{flex:1;min-width:0;display:flex;flex-direction:column}
+.a3 .rec{align-self:flex-start;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);padding:2px 8px;border-radius:99px;margin-bottom:6px}
+.a3 .nm{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--p-ink)}
+.a3 .desc{font-size:12.5px;color:var(--p-dim);line-height:1.45;margin-top:6px}
+.a3 .size{font-size:11.5px;color:var(--p-dim);margin-top:6px}
+.a3 .rule{flex:none;width:1px;align-self:stretch;background:var(--p-outline-v);margin:2px 0}
+.a3 .specs{flex:none;width:118px;display:flex;flex-direction:column;justify-content:center}
+.a3 .spec{padding:5px 0}
+.a3 .spec .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--p-dim)}
+.a3 .spec .v{font-size:14px;font-weight:700;color:var(--p-ink);line-height:1.2;margin-top:2px}
+.a3 .spec.speed .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.a3 .spec .lnk{color:var(--p-accent);font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.surf.d .a3 .spec .lnk{color:#FDBA74}
+/* the shipped 4dp indent on the languages value — the misalignment */
+.a3 .spec.lang .v{padding-left:4px}
+.a3.flush .spec.lang .v{padding-left:0}
+
+.showmore{color:var(--p-accent);font-weight:600;font-size:13px;margin-top:8px;align-self:flex-start}
+.surf.d .showmore{color:#FDBA74}
+
+.cardacts{display:flex;gap:10px;align-items:center;margin-top:12px;justify-content:flex-end}
+.cardacts.split{justify-content:space-between}
+.cardacts.left{justify-content:flex-start}
+.cardacts .ghost{font-size:13px;font-weight:600;color:var(--p-accent);padding:9px 16px;
+  border:1px solid var(--p-outline);border-radius:99px;white-space:nowrap}
+.surf.d .cardacts .ghost{color:#FDBA74}
+.cardacts .cta{height:40px;border-radius:20px;padding:0 18px;border:0;background:var(--p-accent);
+  color:var(--p-on-accent);font-weight:600;font-size:13.5px;display:grid;place-items:center;white-space:nowrap}
+
+/* =============================================================
+   VARIANT MODIFIERS
+   ============================================================= */
+/* shared fix: rule gone + both columns top-aligned */
+.a3.top{align-items:flex-start}
+.a3.top .specs{justify-content:flex-start}
+
+.a3.gap20{gap:20px}
+
+/* panel behind the specs */
+.a3.panel .specs{background:var(--p-container-hi);border-radius:12px;
+  padding:10px 12px;width:126px;align-self:flex-start}
+
+/* one-line label/value specs */
+.a3.oneline .specs{width:150px}
+.a3.oneline .spec{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0}
+.a3.oneline .spec .k{margin:0}
+.a3.oneline .spec .v{margin:0;font-size:13.5px;text-align:right}
+.a3.oneline .spec.speed{flex-direction:column;align-items:flex-start;gap:2px}
+.a3.oneline .spec.speed .v{text-align:left}
+
+/* stacked: specs become a full-width row under the text */
+.ec.stacked .a3{flex-direction:column;align-items:stretch;gap:12px}
+.ec.stacked .a3 .rule{display:none}
+.ec.stacked .a3 .specs{width:auto;flex-direction:row;gap:22px;
+  border-top:1px solid var(--p-outline-v);padding-top:10px}
+.ec.stacked .a3 .spec{padding:0}
+
+.rec-final{border:1px solid #3a5a3a;border-left:3px solid var(--ok);border-radius:10px;
+  background:rgba(40,70,45,.18);padding:15px 18px;max-width:900px;margin:8px 0 20px}
+.rec-final h3{margin:0 0 7px;color:var(--ok);font-size:15px;letter-spacing:.02em}
+.rec-final p{margin:0 0 8px;font-size:14.5px;color:var(--ink);line-height:1.55}
+.rec-final p:last-child{margin-bottom:0}
+.rec-final b{color:var(--toast)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Engine Card Layout Lab</span></h1>
+    <div class="sub">Divider, column alignment, languages indent and the action row. Light + dark, 400&nbsp;dp.</div>
+  </div>
+  <div class="meta">
+    fixes wanted <b>drop the rule</b> · <b>top-align</b> · <b>flush languages</b> · <b>Uninstall left</b><br>
+    BASE = the shipped card, traced from EnginesScreen.kt<br>
+    3 engines each (Kitten short · Kokoro tall · Pocket medium)
+  </div>
+</header>
+
+<nav class="jump">
+  <a href="#base" class="pick">BASE (today)</a>
+  <a href="#c1">C1 the fix</a>
+  <a href="#c2">C2 roomier</a>
+  <a href="#c3">C3 panel</a>
+  <a href="#c4">C4 one-line</a>
+  <a href="#c5">C5 stacked</a>
+  <span class="spacer"></span>
+  <a href="#actions">Action row</a>
+  <a href="#rec">Recommendation</a>
+</nav>
+
+<main>
+
+<section>
+<h2 class="sec">What's actually wrong today</h2>
+<p class="lede">BASE below is traced from the shipped code, so it reproduces all three problems you
+spotted on device:</p>
+<div class="foragainst" style="grid-template-columns:1fr">
+  <div class="fa con"><h4>The three</h4><p>
+  <b>1. Nothing is top-aligned.</b> The row is <code>verticalAlignment = CenterVertically</code> and the
+  spec column is <code>Arrangement.Center</code>, so on a tall card (Kokoro) the name and SPEED drift
+  apart — neither column starts at the top.<br>
+  <b>2. The languages value is indented.</b> <code>EngineLanguagesValue</code> carries
+  <code>padding(horizontal = 4.dp)</code> for its touch target, so "English" / "See all 9" sit 4&nbsp;dp
+  right of Natural and Fastest. It's small but it breaks the column's left edge.<br>
+  <b>3. Both buttons are bunched right.</b> The action row is <code>Arrangement.End</code>, so Uninstall
+  sits next to Engine settings instead of anchoring the opposite corner.
+  </p></div>
+</div>
+</section>
+
+<div id="variants"></div>
+
+<section id="actions">
+<h2 class="sec">Action row — where Uninstall goes</h2>
+<p class="idea">Three readings of "Uninstall left aligned", on the only card that has two buttons
+(Kitten, installed). The single-button cards keep their CTA right in all three.</p>
+<div class="stage" id="actionrow"></div>
+</section>
+
+<section id="rec">
+<h2 class="sec">Recommendation</h2>
+<div class="rec-final">
+  <h3>C1 + action row A2</h3>
+  <p><b>C1</b> is the brief applied straight: rule gone, both columns top-aligned, languages flush with
+  the other spec values. SPEED now sits level with the engine name on every card, and the spec column's
+  left edge is finally straight. <b>C2</b> is the same with a wider gap if the columns read too close
+  once the rule goes.</p>
+  <p>For the buttons, <b>A2 (split)</b> — Uninstall anchored left, Engine settings right — reads best:
+  it separates the destructive action from the primary one instead of putting them a thumb-width apart,
+  which is also the safer arrangement for a mis-tap. <b>A3</b> (both left) keeps them adjacent and loses
+  the primary action's usual right-corner home.</p>
+  <p><b>Also worth seeing:</b> <b>C5 (stacked)</b> is the one genuinely different idea — specs become a
+  full-width row under the text, so the description gets the whole card width. It's a bigger change than
+  you asked for, but the extra description room is real. <b>C3</b> (faint panel) and <b>C4</b> (one-line
+  specs) are the middle options if C1 feels too bare.</p>
+  <p style="font-size:13px;color:var(--dim)"><b>Scope for C1 + A2:</b> in <code>EnginesScreen.EngineCard</code>
+  the Row's <code>verticalAlignment</code> → <code>Alignment.Top</code>, drop the
+  <code>VerticalDivider</code> + one <code>Spacer</code>; in <code>EngineSpecColumn</code>
+  <code>verticalArrangement</code> → <code>Arrangement.Top</code> and drop the languages value's
+  <code>horizontal = 4.dp</code> (keep the vertical padding so the touch target survives); in
+  <code>ActionRow</code> the Installed branch → <code>Arrangement.SpaceBetween</code>. No string or
+  behaviour changes.</p>
+</div>
+<p class="note">Decision surface only — nothing is in the app yet. Say a letter (and an action-row
+option) and I'll wire it in.</p>
+</section>
+
+</main>
+
+<script>
+const ENGINES = [
+  {
+    name: "Kitten Nano (v0.8)", rec: true,
+    desc: "The quickest to start speaking, and the smallest download.",
+    size: "61.2 MB download · 74.8 MB installed",
+    speed: "Fastest", meter: '<i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i>',
+    quality: "Natural", lang: "English", installed: true,
+  },
+  {
+    name: "Kokoro (v1.0)", rec: false,
+    desc: "The widest language coverage and the best all-round voices.",
+    size: "185.3 MB download · 291.9 MB installed",
+    speed: "Fast", meter: '<i class="lime"></i><i class="lime"></i><i class="lime"></i><i></i>',
+    quality: "Best overall", lang: '<span class="lnk">&#9432; See all 9 &rsaquo;</span>', installed: false,
+  },
+  {
+    name: "Pocket TTS (English, 2026-04)", rec: false,
+    desc: "The most expressive, characterful English voices.",
+    size: "92.8 MB download · 207.2 MB installed",
+    speed: "Heavy", meter: '<i class="r"></i><i></i><i></i><i></i>',
+    quality: "Most expressive", lang: "English", installed: false,
+  },
+];
+
+function actions(e, mode) {
+  if (!e.installed) return `<div class="cardacts"><button class="cta">Install</button></div>`;
+  const cls = mode === "split" ? "split" : mode === "left" ? "left" : "";
+  return `<div class="cardacts ${cls}">
+      <div class="ghost">Uninstall</div>
+      <button class="cta">Engine settings</button>
+    </div>`;
+}
+
+// cls = modifiers on .a3 ; ecCls = modifiers on .ec ; actMode = action row mode
+function card(e, cls, ecCls, actMode) {
+  const rule = (cls.includes("top") || ecCls.includes("stacked")) ? "" : '<div class="rule"></div>';
+  return `
+    <div class="ec ${ecCls}">
+      <div class="a3 ${cls}">
+        <div class="mid">
+          ${e.rec ? '<span class="rec">Recommended</span>' : ''}
+          <div class="nm">${e.name}</div>
+          <div class="desc">${e.desc}</div>
+          <div class="size">${e.size}</div>
+        </div>
+        ${rule}
+        <div class="specs">
+          <div class="spec speed"><div class="k">Speed</div><div class="v">${e.speed} <span class="meter">${e.meter}</span></div></div>
+          <div class="spec"><div class="k">Quality</div><div class="v">${e.quality}</div></div>
+          <div class="spec lang"><div class="k">Languages</div><div class="v">${e.lang}</div></div>
+        </div>
+      </div>
+      <div class="showmore">Show more</div>
+      ${actions(e, actMode)}
+    </div>`;
+}
+
+function surface(mode, cls, ecCls, actMode) {
+  return `<div class="surf ${mode}">${ENGINES.map(e => card(e, cls, ecCls, actMode)).join('')}</div>`;
+}
+
+const VARIANTS = [
+  { id: "BASE", cls: "", ec: "", act: "", label: "Today — exactly what's in the app",
+    idea: 'Traced from <code>EnginesScreen.kt</code>: divider rule, <b>both columns vertically centered</b>, languages value indented 4&nbsp;dp, both buttons bunched right. Compare Kokoro’s name vs its SPEED label.',
+    pro: "Familiar; the rule makes the two zones unmistakable, and centering looks balanced on the short Kitten card.",
+    con: "On the tall Kokoro card the specs drift below the name; the languages value breaks the spec column’s left edge; Uninstall crowds the primary button." },
+
+  { id: "C1", cls: "top flush", ec: "", act: "split", label: "The fix — no rule, top-aligned, flush languages",
+    idea: 'Rule removed, <b>both columns top-aligned</b>, languages value <b>flush</b> with Quality and Speed, Uninstall anchored left. This is the brief applied straight.',
+    pro: "SPEED lines up with the engine name on every card; the spec column has one clean left edge; the card reads lighter without the stroke.",
+    con: "With no separator at all the two columns can feel close on a card with a short description." },
+
+  { id: "C2", cls: "top flush gap20", ec: "", act: "split", label: "C1 + roomier gap",
+    idea: 'Identical to C1 but the <b>gap widens</b> from 12 to 20 — whitespace does the separating the rule used to do.',
+    pro: "Keeps C1’s cleanliness while restoring breathing room without a stroke.",
+    con: "Costs ~8 px of description width; can look like dead space on the shortest cards." },
+
+  { id: "C3", cls: "top flush panel", ec: "", act: "split", label: "C1 + faint panel behind specs",
+    idea: 'C1 with the spec column on a <b>faint rounded panel</b> — a soft grouping with no hard line.',
+    pro: "Retains a hint of separation and quietly elevates the spec facts as a unit.",
+    con: "Adds a second surface tone inside an already-tinted card; busier under high-contrast theme presets." },
+
+  { id: "C4", cls: "top flush oneline", ec: "", act: "split", label: "C1 + one-line specs",
+    idea: 'C1 with each spec as <b>label + value on one line</b> (Speed keeps its meter beneath), shrinking the column.',
+    pro: "Most compact of the two-column options; gives the description noticeably more room.",
+    con: "Right-aligned values reintroduce a ragged edge, and it restyles the spec rows more than the brief asked." },
+
+  { id: "C5", cls: "flush", ec: "stacked", act: "split", label: "Stacked — specs as a full-width row",
+    idea: 'A different shape entirely: name and description take the <b>full card width</b>, and Speed / Quality / Languages sit in a <b>horizontal row</b> beneath, separated by a hairline.',
+    pro: "The description finally gets the whole width — the biggest readability win here. Specs still scan left-to-right as a set.",
+    con: "Taller cards, so fewer fit on screen; the specs lose the strong right-column anchor that makes engines easy to compare down the list." },
+];
+
+document.getElementById('variants').innerHTML = VARIANTS.map(v => `
+  <section id="${v.id.toLowerCase()}">
+    <div class="varhead"><span class="id">${v.id}</span><h3>${v.label}</h3></div>
+    <p class="idea">${v.idea}</p>
+    <div class="foragainst">
+      <div class="fa pro"><h4>For</h4><p>${v.pro}</p></div>
+      <div class="fa con"><h4>Against</h4><p>${v.con}</p></div>
+    </div>
+    <div class="stage">
+      <div class="slot"><span class="cap">Light</span>${surface('l', v.cls, v.ec, v.act)}</div>
+      <div class="slot"><span class="cap">Dark</span>${surface('d', v.cls, v.ec, v.act)}</div>
+    </div>
+  </section>
+`).join('');
+
+// Action-row study — Kitten only (the sole two-button card), light + dark.
+const ACTS = [
+  { id: "A1", mode: "", label: "Today — both right" },
+  { id: "A2", mode: "split", label: "Split — Uninstall left, primary right" },
+  { id: "A3", mode: "left", label: "Both left" },
+];
+document.getElementById('actionrow').innerHTML = ACTS.map(a => `
+  <div class="slot">
+    <span class="cap">${a.id} · ${a.label}</span>
+    <div class="surf l">${card(ENGINES[0], "top flush", "", a.mode)}</div>
+    <div class="surf d">${card(ENGINES[0], "top flush", "", a.mode)}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

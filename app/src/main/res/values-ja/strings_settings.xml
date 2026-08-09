@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">詳細設定</string>
     <string name="settings_advanced_row_desc">合成スレッド数、開発者向けエンジンなど、ほとんどの方には不要な項目です。</string>
 
+    <string name="settings_support">支援</string>
     <string name="settings_about">このアプリについて</string>
     <string name="settings_about_version">バージョン %1$s</string>
+    <string name="settings_privacy">プライバシーポリシー</string>
+    <string name="settings_privacy_desc">端末に残るものと、クラウド音声が送信するもの。トラッキングやアカウントはありません。</string>
+    <string name="settings_privacy_load_failed">プライバシーポリシーを読み込めませんでした。リポジトリの PRIVACY.md にもあります。</string>
     <string name="settings_licenses">オープンソースライセンス</string>
     <string name="settings_licenses_desc">アプリ本体、同梱コンポーネント、ダウンロード可能なエンジンのライセンスです。</string>
     <string name="settings_report_bug">バグを報告</string>

@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">Réglages avancés</string>
     <string name="settings_advanced_row_desc">Threads de synthèse, moteurs pour développeurs et autres réglages dont la plupart des gens n\'ont jamais besoin.</string>
 
+    <string name="settings_support">Soutien</string>
     <string name="settings_about">À propos</string>
     <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_privacy">Politique de confidentialité</string>
+    <string name="settings_privacy_desc">Ce qui reste sur votre téléphone et ce que les voix cloud envoient. Aucun suivi, aucun compte.</string>
+    <string name="settings_privacy_load_failed">Impossible de charger la politique de confidentialité. Elle est aussi dans le dépôt sous PRIVACY.md.</string>
     <string name="settings_licenses">Licences open source</string>
     <string name="settings_licenses_desc">Licences de l\'application, de ses composants intégrés et des moteurs téléchargeables.</string>
     <string name="settings_report_bug">Signaler un bug</string>

@@ -4,15 +4,17 @@
     <string name="engines_title">Moteurs</string>
     <string name="engines_back">Retour</string>
     <string name="engines_show_more">Afficher plus</string>
-    <string name="engines_show_less">Afficher moins</string>
     <string name="engines_developer_badge">Développeur</string>
     <string name="engines_size_summary">%1$s à télécharger · %2$s une fois installé</string>
     <string name="engines_downloading_progress">Téléchargement · %1$s / %2$s</string>
     <string name="engines_installing_progress">Installation · %1$s / %2$s</string>
 
+    <!-- Engines tab: on-device / cloud source switch -->
+    <string name="engines_tab_local">Sur l\'appareil</string>
+    <string name="engines_tab_cloud">Cloud</string>
+
     <string name="engines_install">Installer</string>
     <string name="engines_uninstall">Désinstaller</string>
-    <string name="engines_engine_settings">Réglages du moteur</string>
     <string name="engines_retry">Réessayer</string>
     <string name="engines_reinstall">Réinstaller</string>
     <string name="engines_update">Mettre à jour</string>
@@ -36,10 +38,8 @@
 
     <!-- EngineDetailScreen -->
     <string name="engines_browse_voices">Parcourir les voix</string>
-    <string name="engines_browse_voices_enabled">Écoutez les voix de ce moteur et choisissez-en une par défaut.</string>
+    <string name="engines_browse_voices_enabled">Écoutez les voix de ce moteur.</string>
     <string name="engines_browse_voices_disabled">Installez le moteur pour parcourir ses voix.</string>
-    <string name="engines_status">État</string>
-    <string name="engines_install_to_see_settings">Installez ce moteur pour voir ses réglages.</string>
     <string name="engines_preprocessing">Prétraitement du texte</string>
     <string name="engines_preprocessing_pending">Préférences enregistrées&#160;; elles s\'appliqueront dès que vous installerez ce moteur.</string>
     <string name="engines_reset_defaults">Rétablir les valeurs par défaut</string>
@@ -47,13 +47,6 @@
     <string name="engines_unknown_title">Le moteur «&#160;%1$s&#160;» ne figure pas au catalogue.</string>
     <string name="engines_unknown_body">Il a peut-être été retiré dans une version plus récente de l\'application.</string>
 
-    <string name="engines_state_not_installed">Non installé</string>
-    <string name="engines_state_downloading">Téléchargement</string>
-    <string name="engines_state_installing">Installation</string>
-    <string name="engines_state_installed">Installé</string>
-    <string name="engines_state_failed">Échec</string>
-    <string name="engines_state_corrupt">Corrompu — réinstallation nécessaire</string>
-    <string name="engines_state_outdated">Mise à jour disponible</string>
 
     <!-- CloudApiScreen -->
     <string name="engines_cloud_intro">Des voix synthétisées sur les serveurs d\'un fournisseur — votre texte part sur le réseau à chaque requête. Ajoutez la clé d\'un fournisseur pour utiliser ses voix&#160;; chaque fournisseur facture sur son propre compte.</string>
@@ -148,10 +141,7 @@
     <string name="engine_quality_natural">Naturel</string>
     <string name="engine_quality_best">Le meilleur</string>
     <string name="engine_quality_expressive">Le plus expressif</string>
-    <plurals name="engine_languages_count">
-        <item quantity="one">%1$d langue</item>
-        <item quantity="other">%1$d langues</item>
-    </plurals>
+    <string name="engine_languages_see_all">Voir les %1$d</string>
     <string name="engine_languages_info_cd">Afficher les langues prises en charge</string>
     <string name="engine_languages_dialog_title">Langues prises en charge</string>
     <string name="engine_languages_dialog_close">Fermer</string>

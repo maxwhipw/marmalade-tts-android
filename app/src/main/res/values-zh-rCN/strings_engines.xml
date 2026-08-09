@@ -4,15 +4,17 @@
     <string name="engines_title">引擎</string>
     <string name="engines_back">返回</string>
     <string name="engines_show_more">展开</string>
-    <string name="engines_show_less">收起</string>
     <string name="engines_developer_badge">开发者</string>
     <string name="engines_size_summary">下载 %1$s · 安装后占用 %2$s</string>
     <string name="engines_downloading_progress">正在下载 · %1$s / %2$s</string>
     <string name="engines_installing_progress">正在安装 · %1$s / %2$s</string>
 
+    <!-- Engines tab: on-device / cloud source switch -->
+    <string name="engines_tab_local">设备端</string>
+    <string name="engines_tab_cloud">云端</string>
+
     <string name="engines_install">安装</string>
     <string name="engines_uninstall">卸载</string>
-    <string name="engines_engine_settings">引擎设置</string>
     <string name="engines_retry">重试</string>
     <string name="engines_reinstall">重新安装</string>
     <string name="engines_update">更新</string>
@@ -36,10 +38,8 @@
 
     <!-- EngineDetailScreen -->
     <string name="engines_browse_voices">浏览语音</string>
-    <string name="engines_browse_voices_enabled">试听该引擎的语音并选定默认语音。</string>
+    <string name="engines_browse_voices_enabled">试听该引擎的语音。</string>
     <string name="engines_browse_voices_disabled">安装该引擎后即可浏览其语音。</string>
-    <string name="engines_status">状态</string>
-    <string name="engines_install_to_see_settings">安装该引擎后即可查看其设置。</string>
     <string name="engines_preprocessing">文本预处理</string>
     <string name="engines_preprocessing_pending">偏好设置已保存，安装该引擎后生效。</string>
     <string name="engines_reset_defaults">恢复默认</string>
@@ -47,13 +47,6 @@
     <string name="engines_unknown_title">引擎“%1$s”不在目录中。</string>
     <string name="engines_unknown_body">它可能已在较新版本的应用中被移除。</string>
 
-    <string name="engines_state_not_installed">未安装</string>
-    <string name="engines_state_downloading">正在下载</string>
-    <string name="engines_state_installing">正在安装</string>
-    <string name="engines_state_installed">已安装</string>
-    <string name="engines_state_failed">失败</string>
-    <string name="engines_state_corrupt">已损坏 — 需要重新安装</string>
-    <string name="engines_state_outdated">有可用更新</string>
 
     <!-- CloudApiScreen -->
     <string name="engines_cloud_intro">语音在服务商的服务器上合成 — 每次请求都会通过网络发送你的文本。为任一服务商添加密钥即可使用其语音；每家服务商都通过各自的账户计费。</string>
@@ -147,9 +140,7 @@
     <string name="engine_quality_natural">自然</string>
     <string name="engine_quality_best">综合最佳</string>
     <string name="engine_quality_expressive">最富表现力</string>
-    <plurals name="engine_languages_count">
-        <item quantity="other">%1$d 种语言</item>
-    </plurals>
+    <string name="engine_languages_see_all">查看全部 %1$d 种语言</string>
     <string name="engine_languages_info_cd">显示支持的语言</string>
     <string name="engine_languages_dialog_title">支持的语言</string>
     <string name="engine_languages_dialog_close">关闭</string>

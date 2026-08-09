@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Engines Local/Cloud Split Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* =============================================================
+   PAGE-SPECIFIC ONLY. Dark shell (header, h2.sec, .lede, .note,
+   tables) comes from /_assets/lab.css. Phone tokens + card chrome
+   are lifted from engine-select-lab.html so this matches the
+   shipped A3 card 1:1 — including the NEW traffic-light speed
+   meter (green Fastest / amber Fast / red Heavy).
+   ============================================================= */
+:root{
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Manrope",sans-serif;
+  --wordmark:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 -28px 24px}
+nav.jump a{color:var(--dim);font-size:13px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+.varhead{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin:26px 0 4px}
+.varhead .id{font-family:var(--mono);font-size:12px;color:#2b1400;background:var(--peach);
+  border-radius:6px;padding:2px 8px;font-weight:600}
+.varhead h3{margin:0;font-size:19px;letter-spacing:-.01em;color:var(--ink)}
+.idea{color:var(--dim);font-size:15px;max-width:900px;margin:0 0 14px}
+.idea b{color:var(--toast);font-weight:600}
+
+.foragainst{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0 18px;max-width:900px}
+.fa{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:11px 15px}
+.fa.pro{border-left-color:var(--ok)} .fa.con{border-left-color:var(--block)}
+.fa h4{margin:0 0 5px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+.fa.pro h4{color:var(--ok)} .fa.con h4{color:var(--block)}
+.fa p{margin:0;font-size:14px;color:var(--dim);line-height:1.55}
+.fa p b{color:var(--ink);font-weight:600}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.08em;
+  text-transform:uppercase;padding-left:4px}
+
+/* =============================================================
+   PHONE FRAME — tokens verbatim from engine-select-lab.html.
+   ============================================================= */
+.phone{
+  width:400px;border-radius:28px;overflow:hidden;
+  border:1px solid #000;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  background:var(--p-surface);color:var(--p-ink);
+  display:flex;flex-direction:column}
+.phone.l{
+  --p-surface:#FFF7ED; --p-ink:#1C1917; --p-dim:#57534E;
+  --p-container:#FFEDD5; --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E; --p-outline-v:#D6D3D1;
+  --p-accent:#F97316; --p-on-accent:#FFFFFF;
+  --p-wordmark:#F97316;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FFEDD5; --p-chip-off-ink:#1C1917;
+  --p-meter-off:#EAD9C4;
+  --p-sel:#FDECD6;
+  --p-err:#DC2626;
+  --m-green:#16A34A; --m-amber:#D97706; --m-red:#DC2626;
+  --p-navbg:#FFEDD5;
+}
+.phone.d{
+  --p-surface:#1A1A1A; --p-ink:#FAFAF9; --p-dim:#C7C0B9;
+  --p-container:#292524; --p-container-hi:#332F2C;
+  --p-outline:#737373; --p-outline-v:#403A35;
+  --p-accent:#422006; --p-on-accent:#FED7AA;
+  --p-wordmark:#FFEDD5;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FEF3C7; --p-chip-off-ink:#1C1917;
+  --p-meter-off:#403A35;
+  --p-sel:#332B22;
+  --p-err:#EF4444;
+  --m-green:#4ADE80; --m-amber:#FBBF24; --m-red:#EF4444;
+  --p-navbg:#211F1D;
+}
+.phone .appbar{height:56px;display:flex;align-items:center;padding:0 6px;gap:8px;flex:none}
+.phone .appbar .wm{flex:1;text-align:center;font-weight:700;font-size:19px;color:var(--p-ink);letter-spacing:-.01em}
+.phone .appbar .ib{width:44px;height:44px;border-radius:99px;display:grid;place-items:center;color:var(--p-ink);opacity:.7}
+.phone .body{padding:2px 16px 12px;display:flex;flex-direction:column;flex:1}
+.phone .list{display:flex;flex-direction:column;gap:12px;flex:1}
+
+/* speed meter — traffic light (matches shipped SpeedMeter) */
+.meter{display:inline-flex;gap:3px;align-items:center}
+.meter i{width:6px;height:12px;border-radius:2px;background:var(--p-meter-off)}
+.meter i.g{background:var(--m-green)} .meter i.a{background:var(--m-amber)} .meter i.r{background:var(--m-red)}
+
+/* A3 spec-column card (shipped) */
+.ec{border-radius:16px;background:var(--p-container);position:relative;border:1px solid transparent}
+.a3{padding:14px;display:flex;gap:14px;align-items:stretch}
+.a3 .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.a3 .nm{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--p-ink)}
+.a3 .rec{align-self:flex-start;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);padding:2px 8px;border-radius:99px}
+.a3 .desc{font-size:12.5px;color:var(--p-dim);line-height:1.45}
+.a3 .size{font-family:var(--mono);font-size:11.5px;color:var(--p-dim)}
+.a3 .specs{flex:none;width:118px;display:flex;flex-direction:column;gap:0;
+  border-left:1px solid var(--p-outline-v);padding-left:13px;justify-content:center}
+.a3 .spec{padding:5px 0}
+.a3 .spec .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--p-dim)}
+.a3 .spec .v{font-size:14px;font-weight:700;color:var(--p-ink);line-height:1.2;margin-top:2px}
+.a3 .spec.speed .v{display:flex;align-items:center;gap:6px}
+.a3 .spec .lnk{color:var(--p-accent);font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.phone.d .a3 .spec .lnk{color:#FDBA74}
+
+/* actions row inside a card (Install / Configure / …) */
+.cardacts{display:flex;gap:10px;padding:0 14px 14px;align-items:center}
+.cardacts .ghost{font-size:13px;font-weight:600;color:var(--p-accent);padding:8px 14px;border:1px solid var(--p-outline);border-radius:99px}
+.phone.d .cardacts .ghost{color:#FDBA74}
+.cardacts .cta{height:40px;border-radius:20px;padding:0 18px;border:0;background:var(--p-accent);
+  color:var(--p-on-accent);font-weight:600;font-size:13.5px;display:grid;place-items:center}
+.cardacts .spacer{flex:1}
+
+/* cloud card status line */
+.cloudstat{font-size:12px;color:var(--p-dim);padding:0 14px 12px;display:flex;align-items:center;gap:7px}
+.cloudstat .dot{width:8px;height:8px;border-radius:99px;background:var(--p-outline);flex:none}
+.cloudstat.ok .dot{background:var(--m-green)}
+
+/* ---- SEGMENTED CONTROL (T1 / T3) ---- */
+.seg{display:flex;background:var(--p-container);border:1px solid var(--p-outline-v);
+  border-radius:99px;padding:3px;gap:3px;margin:6px 0 14px}
+.seg button{flex:1;border:0;background:transparent;color:var(--p-dim);font:inherit;
+  font-weight:600;font-size:13px;padding:9px 10px;border-radius:99px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button.on{background:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.seg button .cnt{font-size:11px;opacity:.7}
+.seg svg{display:block}
+
+/* ---- MATERIAL TABS (T2) ---- */
+.tabs{display:flex;border-bottom:1px solid var(--p-outline-v);margin:2px 0 14px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--p-dim);font:inherit;
+  font-weight:600;font-size:13.5px;padding:13px 8px;position:relative;cursor:pointer}
+.tabs button.on{color:var(--p-accent)}
+.phone.d .tabs button.on{color:#FDBA74}
+.tabs button.on::after{content:"";position:absolute;left:22%;right:22%;bottom:-1px;height:3px;
+  border-radius:3px 3px 0 0;background:currentColor}
+
+/* ---- T3 bottom bar ---- */
+.phone.t3 .body{padding-bottom:0}
+.botseg{position:sticky;bottom:0;background:var(--p-surface);
+  border-top:1px solid var(--p-outline-v);padding:10px 16px 12px;margin:0 -16px}
+.botseg .seg{margin:0}
+
+/* ---- T4 section headers ---- */
+.sechead{display:flex;align-items:center;gap:10px;margin:16px 2px 10px}
+.sechead .lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--p-dim)}
+.sechead .rule{flex:1;height:1px;background:var(--p-outline-v)}
+.sechead .cnt{font-size:11px;color:var(--p-dim)}
+.privline{font-size:11.5px;color:var(--p-dim);line-height:1.5;margin:0 2px 4px;
+  padding:8px 11px;border-radius:10px;background:var(--p-container);border:1px solid var(--p-outline-v)}
+.privline b{color:var(--p-ink);font-weight:600}
+
+/* fake bottom nav so placement reads honestly */
+.navbar{display:flex;background:var(--p-navbg);padding:8px 0 10px;flex:none;border-top:1px solid var(--p-outline-v)}
+.navbar .n{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:var(--p-dim)}
+.navbar .n.on{color:var(--p-ink)}
+.navbar .n.on .ic{background:var(--p-chip-on)}
+.navbar .n .ic{width:44px;height:26px;border-radius:99px;display:grid;place-items:center}
+.navbar svg{display:block}
+
+.rec-final{border:1px solid #3a5a3a;border-left:3px solid var(--ok);border-radius:10px;
+  background:rgba(40,70,45,.18);padding:15px 18px;max-width:900px;margin:8px 0 20px}
+.rec-final h3{margin:0 0 7px;color:var(--ok);font-size:15px;letter-spacing:.02em}
+.rec-final p{margin:0 0 8px;font-size:14.5px;color:var(--ink);line-height:1.55}
+.rec-final p:last-child{margin-bottom:0}
+.rec-final b{color:var(--toast)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Engines: Local / Cloud Split Lab</span></h1>
+    <div class="sub">Should the Engines tab separate on-device engines from cloud voices with a switch? 4 directions, light + dark, 400&nbsp;dp.</div>
+  </div>
+  <div class="meta">
+    today <b>one scroll: 3 local cards + cloud card last</b><br>
+    the real boundary <b>on-device = private · cloud = text leaves the phone</b><br>
+    surface <b>ui/screen/EnginesScreen.kt</b> · onboarding untouched
+  </div>
+</header>
+
+<nav class="jump">
+  <a href="#why" class="pick">Why</a>
+  <a href="#today">Today</a>
+  <a href="#t1">T1 segmented·top</a>
+  <a href="#t2">T2 tabs·top</a>
+  <a href="#t3">T3 segmented·bottom</a>
+  <a href="#t4">T4 sections (no tab)</a>
+  <span class="spacer"></span>
+  <a href="#rec">Recommendation</a>
+</nav>
+
+<main>
+
+<section id="why">
+<h2 class="sec">Why split at all</h2>
+<p class="lede">The Engines tab lists everything in one scroll: the three on-device engines
+(Kitten, Kokoro, Pocket) as install cards, then the <b>Cloud voices</b> card last. Two reasons
+to draw a harder line between them:</p>
+<div class="foragainst">
+  <div class="fa pro"><h4>It's a real boundary, not just tidiness</h4>
+    <p><b>On-device voices send nothing anywhere.</b> Cloud voices transmit your full text to a
+    third-party provider per request — a genuine privacy line the app already spells out in a
+    consent gate. A switch makes that line structural instead of "the card at the bottom".</p></div>
+  <div class="fa con"><h4>There's only one cloud card today</h4>
+    <p>A whole tab to reveal a single card can read as heavier than the thing it organizes. The
+    cloud <b>multi-provider</b> system (Venice live-discovery, more providers to come) is what
+    justifies it long-term — but right now the local side is where the 3 cards live.</p></div>
+</div>
+<p class="note">All four mockups show the shipped A3 spec-column card with the new traffic-light
+speed meter (green Fastest / amber Fast / red Heavy). Counts on the switches are illustrative.</p>
+</section>
+
+<!-- ============================================================ TODAY -->
+<section id="today">
+<h2 class="sec">Today — one list</h2>
+<div class="stage">
+  <div class="slot"><span class="cap">Light · current</span>
+    <div class="phone l">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body"><div class="list">
+        <!--LOCAL_KITTEN--><div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB download · 74.8 MB installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div><div class="cardacts"><div class="ghost">Uninstall</div><div class="spacer"></div><button class="cta">Engine settings</button></div></div>
+        <!--LOCAL_KOKORO--><div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download · 291.9 MB installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div><div class="cardacts"><div class="spacer"></div><button class="cta">Install</button></div></div>
+        <!--LOCAL_POCKET--><div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download · 207.2 MB installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div><div class="cardacts"><div class="spacer"></div><button class="cta">Install</button></div></div>
+        <!--CLOUD--><div class="ec"><div class="a3"><div class="mid"><div class="nm">Cloud voices</div><div class="desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure.</div></div></div><div class="cloudstat"><span class="dot"></span>Not configured — add a provider API key to enable.</div><div class="cardacts"><div class="ghost">Voices</div><div class="spacer"></div><button class="cta">Configure</button></div></div>
+      </div></div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Note</span>
+    <div class="fa con" style="max-width:300px"><h4>The seam</h4><p>The cloud card sits in the same column as the on-device installs, so its very different
+    contract (network, keys, <b>your text leaves the phone</b>) is easy to skim past. Every split below pulls it out.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ T1 -->
+<section id="t1">
+<div class="varhead"><span class="id">T1</span><h3>Segmented switch — top</h3></div>
+<p class="idea">A Material-3 <b>segmented control</b> directly under the title: <b>On-device · Cloud</b>.
+Selected segment uses the Toast chip colour, not accent orange (orange stays reserved for the
+Install/Configure CTA). The default lands on On-device. This is the direction most Android users
+already read as "two views of the same screen".</p>
+<div class="foragainst">
+  <div class="fa pro"><h4>For</h4><p>Compact, one row. Instantly familiar. The switch sits with the
+  title so the whole list below is unambiguously "one side or the other". Scales cleanly if a
+  third category ever appears.</p></div>
+  <div class="fa con"><h4>Against</h4><p>Pill segments compete a little with the top app bar for the
+  same visual band. With one cloud card, the Cloud view can look sparse.</p></div>
+</div>
+<div class="stage">
+  <div class="slot"><span class="cap">Light · On-device</span>
+    <div class="phone l">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="seg"><button class="on">On-device <span class="cnt">3</span></button><button>Cloud</button></div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Light · Cloud</span>
+    <div class="phone l">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="seg"><button>On-device <span class="cnt">3</span></button><button class="on">Cloud</button></div>
+        <div class="privline"><b>Heads up —</b> cloud voices send the text you read aloud to the provider you choose. On-device voices send nothing.</div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Cloud voices</div><div class="desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure (Venice, OpenAI, …).</div></div></div><div class="cloudstat"><span class="dot"></span>Not configured — add a provider API key to enable.</div><div class="cardacts"><div class="ghost">Voices</div><div class="spacer"></div><button class="cta">Configure</button></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Dark · On-device</span>
+    <div class="phone d">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="seg"><button class="on">On-device <span class="cnt">3</span></button><button>Cloud</button></div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ T2 -->
+<section id="t2">
+<div class="varhead"><span class="id">T2</span><h3>Material tabs — top</h3></div>
+<p class="idea">Primary <b>TabRow</b> with the sliding underline indicator, sitting under the title
+like page-level sub-navigation. Same two destinations, but the affordance reads as "tabs of a
+section" rather than a toggle. This is the heavier, more permanent-feeling framing.</p>
+<div class="foragainst">
+  <div class="fa pro"><h4>For</h4><p>Unmistakably a navigation split; the underline animates between
+  sides. Room for a count/badge per tab. Feels native to a top-level destination.</p></div>
+  <div class="fa con"><h4>Against</h4><p>Two horizontal bars stacked (app bar + tab bar) eat vertical
+  space on a screen that's mostly cards. Tabs imply peers of equal weight — but On-device is the
+  home base and Cloud is the exception, which a toggle expresses better.</p></div>
+</div>
+<div class="stage">
+  <div class="slot"><span class="cap">Light · On-device</span>
+    <div class="phone l">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="tabs" style="margin-left:-16px;margin-right:-16px;padding:0 16px"><button class="on">On-device</button><button>Cloud</button></div>
+      <div class="body">
+        <div class="list" style="margin-top:8px">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Dark · Cloud</span>
+    <div class="phone d">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="tabs" style="margin-left:-16px;margin-right:-16px;padding:0 16px"><button>On-device</button><button class="on">Cloud</button></div>
+      <div class="body">
+        <div class="privline" style="margin-top:10px"><b>Heads up —</b> cloud voices send the text you read aloud to the provider you choose. On-device voices send nothing.</div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Cloud voices</div><div class="desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure (Venice, OpenAI, …).</div></div></div><div class="cloudstat ok"><span class="dot"></span>Configured — cloud voices are available.</div><div class="cardacts"><div class="ghost">Voices</div><div class="spacer"></div><button class="cta">Manage keys</button></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ T3 -->
+<section id="t3">
+<div class="varhead"><span class="id">T3</span><h3>Segmented switch — bottom (thumb reach)</h3></div>
+<p class="idea">Same segmented control as T1, but pinned to the <b>bottom</b> of the content, floating
+just above the nav bar. The cards scroll; the switch stays under your thumb. Borrows the pattern
+from map/filter UIs where the toggle is a persistent bottom affordance.</p>
+<div class="foragainst">
+  <div class="fa pro"><h4>For</h4><p>Reachable one-handed on a tall phone without stretching to the top.
+  Leaves the header clean. The switch stays visible while you scroll a long list.</p></div>
+  <div class="fa con"><h4>Against</h4><p>Two bars stacked at the bottom (switch + nav) can feel crowded and
+  risk being read as part of the nav bar. Less conventional for a "which set am I viewing" control,
+  which users expect near the top.</p></div>
+</div>
+<div class="stage">
+  <div class="slot"><span class="cap">Light · On-device</span>
+    <div class="phone l t3">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="list" style="margin-top:6px">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+        <div class="botseg"><div class="seg"><button class="on">On-device <span class="cnt">3</span></button><button>Cloud</button></div></div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Dark · On-device</span>
+    <div class="phone d t3">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="list" style="margin-top:6px">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+        </div>
+        <div class="botseg"><div class="seg"><button class="on">On-device <span class="cnt">3</span></button><button>Cloud</button></div></div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ T4 -->
+<section id="t4">
+<div class="varhead"><span class="id">T4</span><h3>Labelled sections — no tab (counter-option)</h3></div>
+<p class="idea">Keep the single scroll, but split it with two <b>overline section headers</b> —
+<b>ON-DEVICE</b> and <b>CLOUD</b> — with the privacy note riding the seam. No mode to toggle, nothing
+hidden; the boundary is drawn typographically. The honest answer to "is a tab overkill for one
+cloud card?"</p>
+<div class="foragainst">
+  <div class="fa pro"><h4>For</h4><p>Zero interaction cost — everything visible in one glance and one
+  scroll. No empty-looking Cloud view. Trivial to build (two headers in the existing LazyColumn).
+  The privacy note lands exactly where the boundary is crossed.</p></div>
+  <div class="fa con"><h4>Against</h4><p>Doesn't reduce the list's length or fully quarantine cloud —
+  it's a softer line. If cloud grows to many provider cards, the single scroll gets long again and a
+  real switch (T1) starts to earn its keep.</p></div>
+</div>
+<div class="stage">
+  <div class="slot"><span class="cap">Light</span>
+    <div class="phone l">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="sechead"><span class="lab">On-device</span><span class="rule"></span><span class="cnt">private · nothing leaves the phone</span></div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+        <div class="sechead"><span class="lab">Cloud</span><span class="rule"></span><span class="cnt">text leaves the phone</span></div>
+        <div class="privline"><b>Heads up —</b> cloud voices send the text you read aloud to the provider you choose.</div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Cloud voices</div><div class="desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure.</div></div></div><div class="cloudstat"><span class="dot"></span>Not configured — add a provider API key to enable.</div><div class="cardacts"><div class="ghost">Voices</div><div class="spacer"></div><button class="cta">Configure</button></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+  <div class="slot"><span class="cap">Dark</span>
+    <div class="phone d">
+      <div class="appbar"><div class="ib"></div><div class="wm">Engines</div><div class="ib"></div></div>
+      <div class="body">
+        <div class="sechead"><span class="lab">On-device</span><span class="rule"></span><span class="cnt">private · nothing leaves the phone</span></div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><span class="rec">Recommended</span><div class="nm">Kitten Nano (v0.8)</div><div class="desc">The quickest to start speaking, and the smallest download.</div><div class="size">61.2 MB · installed</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fastest <span class="meter"><i class="g"></i><i class="g"></i><i class="g"></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Natural</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Kokoro (v1.0)</div><div class="desc">The widest language coverage and the best all-round voices.</div><div class="size">185.3 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Fast <span class="meter"><i class="a"></i><i class="a"></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Best overall</div></div><div class="spec"><div class="k">Languages</div><div class="v"><span class="lnk">&#9432; See all 9 &rsaquo;</span></div></div></div></div></div>
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Pocket TTS (2026-04)</div><div class="desc">The most expressive, characterful English voices.</div><div class="size">92.8 MB download</div></div><div class="specs"><div class="spec speed"><div class="k">Speed</div><div class="v">Heavy <span class="meter"><i class="r"></i><i></i><i></i></span></div></div><div class="spec"><div class="k">Quality</div><div class="v">Most expressive</div></div><div class="spec"><div class="k">Languages</div><div class="v">English</div></div></div></div></div>
+        </div>
+        <div class="sechead"><span class="lab">Cloud</span><span class="rule"></span><span class="cnt">text leaves the phone</span></div>
+        <div class="privline"><b>Heads up —</b> cloud voices send the text you read aloud to the provider you choose.</div>
+        <div class="list">
+          <div class="ec"><div class="a3"><div class="mid"><div class="nm">Cloud voices</div><div class="desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure.</div></div></div><div class="cloudstat"><span class="dot"></span>Not configured — add a provider API key to enable.</div><div class="cardacts"><div class="ghost">Voices</div><div class="spacer"></div><button class="cta">Configure</button></div></div>
+        </div>
+      </div>
+      <div class="navbar"><div class="n"><div class="ic"></div>Speak</div><div class="n"><div class="ic"></div>Aliases</div><div class="n"><div class="ic"></div>Effects</div><div class="n on"><div class="ic"></div>Engines</div><div class="n"><div class="ic"></div>Settings</div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ REC -->
+<section id="rec">
+<h2 class="sec">Recommendation</h2>
+<div class="rec-final">
+  <h3>Lean T1 (segmented, top) — with T4 as the low-cost fallback</h3>
+  <p><b>T1</b> is the strongest fit: a top segmented control reads instantly as "two views", keeps
+  the header light (one row, not two bars like T2), and makes the on-device/cloud line
+  <b>structural</b> — which matters because that line is a real privacy boundary, not just a
+  category. Default to On-device; surface the "your text leaves the phone" note only on the Cloud
+  side, where it belongs.</p>
+  <p>The honest caveat: today the Cloud view is a single card, so T1's Cloud tab can look sparse.
+  If that bugs you on device, <b>T4</b> (labelled sections, no tab) gets ~80% of the benefit for
+  near-zero effort and no empty view — it just doesn't shorten the list. I'd ship T1 if we expect
+  the cloud provider lineup to grow, T4 if cloud stays a single entry point for a while.</p>
+  <p><b>Rejected:</b> T2 (Material tabs) — stacking a tab bar under the app bar spends too much
+  vertical space and frames the two sides as equal peers when On-device is really home base.
+  T3 (bottom switch) — clever for thumb reach but collides visually with the nav bar and isn't
+  where users look for a "which set" control.</p>
+  <p style="font-size:13px;color:var(--dim)"><b>Scope if we build T1:</b> a
+  <code>rememberSaveable</code> tab-index state in <code>EnginesScreen</code>, split the
+  <code>LazyColumn</code> content by <code>local vs cloud</code>, add a segmented control
+  composable + two strings (<code>engines_tab_local</code>, <code>engines_tab_cloud</code>) across
+  all 8 locales. Onboarding's engine picker is a separate screen and stays as-is. No engine/routing
+  changes — purely presentational.</p>
+</div>
+<p class="note">Nothing here is committed to the app yet — this is a decision surface. Say the word
+(and a variant letter) and I'll wire it into <code>EnginesScreen.kt</code>.</p>
+</section>
+
+</main>
+</body>
+</html>

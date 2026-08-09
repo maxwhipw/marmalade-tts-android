@@ -4,15 +4,17 @@
     <string name="engines_title">エンジン</string>
     <string name="engines_back">戻る</string>
     <string name="engines_show_more">もっと見る</string>
-    <string name="engines_show_less">閉じる</string>
     <string name="engines_developer_badge">開発者向け</string>
     <string name="engines_size_summary">ダウンロード %1$s · インストール後 %2$s</string>
     <string name="engines_downloading_progress">ダウンロード中 · %1$s / %2$s</string>
     <string name="engines_installing_progress">インストール中 · %1$s / %2$s</string>
 
+    <!-- Engines tab: on-device / cloud source switch -->
+    <string name="engines_tab_local">デバイス内</string>
+    <string name="engines_tab_cloud">クラウド</string>
+
     <string name="engines_install">インストール</string>
     <string name="engines_uninstall">アンインストール</string>
-    <string name="engines_engine_settings">エンジンの設定</string>
     <string name="engines_retry">再試行</string>
     <string name="engines_reinstall">再インストール</string>
     <string name="engines_update">更新</string>
@@ -36,10 +38,8 @@
 
     <!-- EngineDetailScreen -->
     <string name="engines_browse_voices">ボイスを見る</string>
-    <string name="engines_browse_voices_enabled">このエンジンのボイスを試聴して、デフォルトを選べます。</string>
+    <string name="engines_browse_voices_enabled">このエンジンのボイスを試聴できます。</string>
     <string name="engines_browse_voices_disabled">ボイスを見るには、エンジンをインストールしてください。</string>
-    <string name="engines_status">状態</string>
-    <string name="engines_install_to_see_settings">設定を表示するには、このエンジンをインストールしてください。</string>
     <string name="engines_preprocessing">テキストの前処理</string>
     <string name="engines_preprocessing_pending">設定を保存しました。このエンジンをインストールすると有効になります。</string>
     <string name="engines_reset_defaults">初期値に戻す</string>
@@ -47,13 +47,6 @@
     <string name="engines_unknown_title">エンジン「%1$s」はカタログにありません。</string>
     <string name="engines_unknown_body">新しいバージョンのアプリで削除された可能性があります。</string>
 
-    <string name="engines_state_not_installed">未インストール</string>
-    <string name="engines_state_downloading">ダウンロード中</string>
-    <string name="engines_state_installing">インストール中</string>
-    <string name="engines_state_installed">インストール済み</string>
-    <string name="engines_state_failed">失敗</string>
-    <string name="engines_state_corrupt">破損 — 再インストールが必要です</string>
-    <string name="engines_state_outdated">更新があります</string>
 
     <!-- CloudApiScreen -->
     <string name="engines_cloud_intro">プロバイダのサーバー上で合成されるボイスです。リクエストのたびに、テキストがネットワーク経由で送信されます。プロバイダのキーを追加すると、そのボイスを使えます。料金は各プロバイダのアカウントに請求されます。</string>
@@ -147,9 +140,7 @@
     <string name="engine_quality_natural">自然</string>
     <string name="engine_quality_best">総合的に最高</string>
     <string name="engine_quality_expressive">最も表現豊か</string>
-    <plurals name="engine_languages_count">
-        <item quantity="other">%1$d 言語</item>
-    </plurals>
+    <string name="engine_languages_see_all">%1$d言語をすべて表示</string>
     <string name="engine_languages_info_cd">対応言語を表示</string>
     <string name="engine_languages_dialog_title">対応言語</string>
     <string name="engine_languages_dialog_close">閉じる</string>

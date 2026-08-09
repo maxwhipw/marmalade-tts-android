@@ -1,5 +1,7 @@
 package app.marmalade.tts.ui.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,13 +12,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -31,21 +37,23 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -93,18 +101,22 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 @Composable
 fun EnginesScreen(
     onEngineSettings: (EngineDescriptor) -> Unit,
-    /** Opens the Cloud API engine's configure surface (provider keys). */
-    onConfigureCloud: () -> Unit,
-    /** Opens the voice picker scoped to the Cloud API engine's voices. */
-    onShowCloudVoices: () -> Unit,
     viewModel: EnginesViewModel = hiltViewModel(),
 ) {
     val engines by viewModel.engines.collectAsStateWithLifecycle()
     val states by viewModel.installStates.collectAsStateWithLifecycle()
-    val cloudKeySet by viewModel.cloudApiKeySet.collectAsStateWithLifecycle()
 
     var pendingInstall by remember { mutableStateOf<EngineDescriptor?>(null) }
     var pendingUninstall by remember { mutableStateOf<EngineDescriptor?>(null) }
+
+    // On-device / Cloud split. On-device (the default) lists the installable
+    // engines; Cloud shows the cloud-voices configure surface inline
+    // ([CloudApiContent]) — its one-time consent gate on first entry, then the
+    // per-provider key cards. The line is a real boundary, not just tidiness:
+    // on-device engines send nothing off the phone, cloud sends your text to a
+    // provider per request. Saveable so the choice survives rotation / process
+    // death.
+    var showCloud by rememberSaveable { mutableStateOf(false) }
 
     // Verify install state once when the screen is composed — covers the
     // case where the user installed engines in onboarding and is now
@@ -124,33 +136,46 @@ fun EnginesScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(items = engines, key = { it.name }) { engine ->
-                EngineCard(
-                    engine = engine,
-                    state = states[engine.name] ?: InstallState.NotInstalled,
-                    onInstallRequested = { pendingInstall = engine },
-                    onUninstallRequested = { pendingUninstall = engine },
-                    onRetry = { viewModel.install(engine.name) },
-                    onEngineSettings = { onEngineSettings(engine) },
+            EngineSourceToggle(
+                showCloud = showCloud,
+                onSelect = { showCloud = it },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+            if (showCloud) {
+                // The Cloud tab IS the cloud-voices configure surface: the
+                // consent gate on first entry (declining flips back to
+                // On-device), then the per-provider key cards. No summary
+                // card / "Configure" hop.
+                CloudApiContent(
+                    onDeclined = { showCloud = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 )
-            }
-
-            // The Cloud API engine has no bundle to install — a configured
-            // API key is what "installs" it — so it gets its own card with
-            // a Configure action where the local engines have Install.
-            item(key = "cloud-api") {
-                CloudApiCard(
-                    keySet = cloudKeySet,
-                    onConfigure = onConfigureCloud,
-                    onShowVoices = onShowCloudVoices,
-                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(items = engines, key = { it.name }) { engine ->
+                        EngineCard(
+                            engine = engine,
+                            state = states[engine.name] ?: InstallState.NotInstalled,
+                            onInstallRequested = { pendingInstall = engine },
+                            onUninstallRequested = { pendingUninstall = engine },
+                            onRetry = { viewModel.install(engine.name) },
+                            onEngineSettings = { onEngineSettings(engine) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -178,6 +203,73 @@ fun EnginesScreen(
     }
 }
 
+/**
+ * The On-device / Cloud switch above the engine list — a two-segment pill.
+ * The selected segment fills with primaryContainer (the Toast peach), NOT the
+ * accent orange, which stays reserved for the Install / Configure CTAs so the
+ * screen never floods with accent. The two segments are a selectable group so
+ * TalkBack announces them as tabs.
+ */
+@Composable
+private fun EngineSourceToggle(
+    showCloud: Boolean,
+    onSelect: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(percent = 50)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(3.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        SourceSegment(
+            label = stringResource(R.string.engines_tab_local),
+            selected = !showCloud,
+            onClick = { onSelect(false) },
+            modifier = Modifier.weight(1f),
+        )
+        SourceSegment(
+            label = stringResource(R.string.engines_tab_cloud),
+            selected = showCloud,
+            onClick = { onSelect(true) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun SourceSegment(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(percent = 50)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .selectable(selected = selected, onClick = onClick, role = Role.Tab)
+            .padding(vertical = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
 @Composable
 private fun EngineCard(
     engine: EngineDescriptor,
@@ -192,16 +284,18 @@ private fun EngineCard(
     // the full description and the license — the GPL disclosure has to stay
     // reachable for install consent, but it's too verbose to sit in the resting
     // card (it's also on the install-confirm dialog and Settings → About →
-    // Licenses).
-    var expanded by remember(engine.name) { mutableStateOf(false) }
+    // Licenses). It opens in a dialog rather than expanding inline: expanding
+    // reflowed the whole list and pushed the neighbouring cards around.
+    var showDetails by remember(engine.name) { mutableStateOf(false) }
 
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                // Top, not centered: the spec column is taller than the text
+                // column, and centering let the engine name drift below its
+                // SPEED label on the taller cards.
+                verticalAlignment = Alignment.Top,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     // Header row: display name + an optional developer tag.
@@ -236,37 +330,23 @@ private fun EngineCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // Show more lives INSIDE the text column, directly under the
+                    // size line. The row's height is set by the taller spec
+                    // column, so a sibling below the row would be pushed down by
+                    // all of that leftover height — a gap that got worse once
+                    // the columns were top-aligned. Sitting in the column keeps
+                    // it tight to the text it expands.
+                    Text(
+                        text = stringResource(R.string.engines_show_more),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .clickable { showDetails = true },
+                    )
                 }
                 Spacer(Modifier.width(12.dp))
-                VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
-                Spacer(Modifier.width(12.dp))
                 EngineSpecColumn(engine = engine)
-            }
-
-            // Show more → full description + license details (install consent).
-            Text(
-                text = stringResource(
-                    if (expanded) R.string.engines_show_less else R.string.engines_show_more,
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .clickable { expanded = !expanded },
-            )
-            if (expanded) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = engine.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = engine.licenseSummary,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             // In-progress strip + label. Kept identical to the v0.1.10
@@ -343,6 +423,46 @@ private fun EngineCard(
             )
         }
     }
+
+    if (showDetails) {
+        EngineDetailsDialog(engine = engine, onDismiss = { showDetails = false })
+    }
+}
+
+/**
+ * "Show more" contents — the engine's full description and its license
+ * summary. A dialog rather than an inline expansion so opening it doesn't
+ * reflow the list underneath. Scrollable: the license summary runs long on
+ * the GPL bundles.
+ */
+@Composable
+private fun EngineDetailsDialog(
+    engine: EngineDescriptor,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(engine.displayName) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    text = engine.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = engine.licenseSummary,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.engine_languages_dialog_close))
+            }
+        },
+    )
 }
 
 /**
@@ -372,7 +492,13 @@ private fun ActionRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
+        // Two-button states anchor the secondary action left and the primary
+        // right, so the destructive Uninstall isn't a thumb-width from Engine
+        // settings. Single-button states keep the CTA in its usual right corner.
+        horizontalArrangement = when (state) {
+            InstallState.Installed, is InstallState.Outdated -> Arrangement.SpaceBetween
+            else -> Arrangement.End
+        },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (state) {
@@ -399,8 +525,7 @@ private fun ActionRow(
             }
             InstallState.Installed -> {
                 OutlinedButton(onClick = onUninstall) { Text(stringResource(R.string.engines_uninstall)) }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onEngineSettings) { Text(stringResource(R.string.engines_engine_settings)) }
+                Button(onClick = onEngineSettings) { Text(stringResource(R.string.engines_configure)) }
             }
             is InstallState.Failed -> {
                 Button(onClick = onRetry) { Text(stringResource(R.string.engines_retry)) }
@@ -413,90 +538,8 @@ private fun ActionRow(
                 // it while the new bundle downloads. We surface Update as
                 // the primary action and leave Engine settings reachable
                 // so they don't lose access to alias management.
-                OutlinedButton(onClick = onEngineSettings) { Text(stringResource(R.string.engines_engine_settings)) }
-                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onEngineSettings) { Text(stringResource(R.string.engines_configure)) }
                 Button(onClick = onInstall) { Text(stringResource(R.string.engines_update)) }
-            }
-        }
-    }
-}
-
-/**
- * Card for the Cloud API engine — visually a sibling of the local
- * [EngineCard]s, but its lifecycle is "configure a key", not
- * "download a bundle". Voices synthesize on the provider's servers
- * (Venice.ai today), so the card is explicit that text leaves the
- * device and that nothing is downloaded.
- */
-@Composable
-private fun CloudApiCard(
-    keySet: Boolean,
-    onConfigure: () -> Unit,
-    onShowVoices: () -> Unit,
-) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.engines_cloud_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            var expanded by remember { mutableStateOf(false) }
-            Text(
-                text = stringResource(R.string.engines_cloud_card_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = if (expanded) Int.MAX_VALUE else 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-            )
-            Text(
-                text = stringResource(
-                    if (expanded) R.string.engines_show_less else R.string.engines_show_more,
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .clickable { expanded = !expanded },
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                text = stringResource(
-                    if (keySet) {
-                        R.string.engines_cloud_configured
-                    } else {
-                        R.string.engines_cloud_not_configured
-                    },
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (keySet) {
-                    OutlinedButton(onClick = onConfigure) { Text(stringResource(R.string.engines_configure)) }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = onShowVoices) { Text(stringResource(R.string.engines_voices)) }
-                } else {
-                    Button(onClick = onConfigure) { Text(stringResource(R.string.engines_configure)) }
-                }
             }
         }
     }

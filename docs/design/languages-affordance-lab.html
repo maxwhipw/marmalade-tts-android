@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Languages Affordance Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* =============================================================
+   PAGE-SPECIFIC ONLY. Dark shell from /_assets/lab.css. Phone frame
+   + A3 card tokens lifted from engine-select-lab.html so the
+   "9 languages" affordance is judged inside the real spec column
+   (fixed 118dp — the tight space is part of the problem).
+   Self-contained: no CDN fonts.
+   ============================================================= */
+:root{
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Manrope",sans-serif;
+  --wordmark:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 -28px 24px}
+nav.jump a{color:var(--dim);font-size:13px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+.varhead{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin:0 0 4px}
+.varhead .id{font-family:var(--mono);font-size:12px;color:#2b1400;background:var(--peach);
+  border-radius:6px;padding:2px 8px;font-weight:600}
+.varhead h3{margin:0;font-size:19px;letter-spacing:-.01em;color:var(--ink)}
+.idea{color:var(--dim);font-size:15px;max-width:900px;margin:0 0 18px}
+.idea b{color:var(--toast);font-weight:600}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.08em;
+  text-transform:uppercase;padding-left:4px}
+
+.foragainst{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0 20px;max-width:900px}
+.fa{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:11px 15px}
+.fa.pro{border-left-color:var(--ok)} .fa.con{border-left-color:var(--block)}
+.fa h4{margin:0 0 5px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+.fa.pro h4{color:var(--ok)} .fa.con h4{color:var(--block)}
+.fa p{margin:0;font-size:14px;color:var(--dim);line-height:1.55}
+.fa p b{color:var(--ink);font-weight:600}
+
+/* ---- phone frame ---- */
+.phone{
+  width:400px;border-radius:28px;overflow:hidden;
+  border:1px solid #000;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  background:var(--p-surface);color:var(--p-ink);
+  display:flex;flex-direction:column}
+.phone.l{
+  --p-surface:#FFF7ED; --p-ink:#1C1917; --p-dim:#57534E;
+  --p-container:#FFEDD5; --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E; --p-outline-v:#D6D3D1;
+  --p-accent:#F97316; --p-on-accent:#FFFFFF;
+  --p-wordmark:#F97316;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FFEDD5; --p-chip-off-ink:#1C1917;
+  --p-meter:#F59E5B; --p-meter-off:#EAD9C4;
+  --p-sel:#FDECD6; --p-link:#B4520F;
+}
+.phone.d{
+  --p-surface:#1A1A1A; --p-ink:#FAFAF9; --p-dim:#C7C0B9;
+  --p-container:#292524; --p-container-hi:#332F2C;
+  --p-outline:#737373; --p-outline-v:#403A35;
+  --p-accent:#422006; --p-on-accent:#FED7AA;
+  --p-wordmark:#FFEDD5;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FEF3C7; --p-chip-off-ink:#1C1917;
+  --p-meter:#FDBA74; --p-meter-off:#403A35;
+  --p-sel:#332B22; --p-link:#F6B27A;
+}
+.phone .body{padding:12px 16px 16px;display:flex;flex-direction:column;flex:1}
+.phone .list{display:flex;flex-direction:column;gap:12px;flex:1}
+.phone svg{display:block}
+
+.ec{border-radius:16px;background:var(--p-container);border:1px solid transparent;overflow:hidden}
+.ec .row{padding:14px;display:flex;gap:14px;align-items:stretch}
+.ec .cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--p-outline);
+  display:grid;place-items:center;flex:none;color:transparent;margin-top:1px}
+.ec .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ec .top{display:flex;align-items:center;gap:8px}
+.ec .nm{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--p-ink)}
+.ec .desc{font-size:12.5px;color:var(--p-dim);line-height:1.45}
+.ec .size{font-family:var(--mono);font-size:12px;color:var(--p-dim);white-space:nowrap}
+.ec .specs{flex:none;width:118px;display:flex;flex-direction:column;gap:0;
+  border-left:1px solid var(--p-outline-v);padding-left:13px;justify-content:center}
+.ec .spec{padding:5px 0}
+.ec .spec.langspec{padding:5px 0}
+.ec .spec .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--p-dim)}
+.ec .spec .v{font-size:14px;font-weight:700;color:var(--p-ink);line-height:1.2;margin-top:2px;
+  display:flex;align-items:center;gap:6px}
+.meter{display:inline-flex;gap:3px;align-items:center}
+.meter i{width:6px;height:12px;border-radius:2px;background:var(--p-meter-off)}
+.meter i.on{background:var(--p-meter)}
+
+/* the 9-languages value — object under study. All variants share .langbtn. */
+.langbtn{display:inline-flex;align-items:center;font-weight:700;font-size:14px;color:var(--p-ink);
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
+.langbtn svg{display:block;flex:none}
+.langbtn .cnt{white-space:nowrap}
+
+/* faint touch-target overlay so the tap area is visible in the lab (dashed) */
+.hit{position:relative}
+.hit::after{content:"";position:absolute;inset:0;border:1px dashed var(--p-outline);
+  border-radius:8px;opacity:.45;pointer-events:none}
+
+/* L0 today: icon right, tiny padding */
+.l0 .langbtn{gap:4px;padding:4px 2px}
+.l0 .langbtn .ic{color:var(--p-dim)}
+
+/* L1 icon-left, roomy target */
+.l1 .langbtn{gap:6px;padding:8px 8px;margin:-4px -8px;border-radius:10px}
+.l1 .langbtn .ic{color:var(--p-dim)}
+
+/* L2 underlined link */
+.l2 .langbtn{gap:5px;padding:6px 4px;margin:-4px}
+.l2 .langbtn .cnt{color:var(--p-link);text-decoration:underline;text-underline-offset:3px;
+  text-decoration-thickness:1.5px}
+.l2 .langbtn .ic{color:var(--p-link)}
+
+/* L3 chip/button */
+.l3 .langbtn{gap:5px;padding:5px 10px;border-radius:99px;background:var(--p-chip-off);
+  border:1px solid var(--p-outline-v);font-size:13px}
+.phone.d .l3 .langbtn{background:var(--p-container-hi)}
+.l3 .langbtn .ic{color:var(--p-dim)}
+
+/* L4 chevron disclosure */
+.l4 .langbtn{gap:3px;padding:8px 6px 8px 4px;margin:-4px -6px -4px -4px;border-radius:10px}
+.l4 .langbtn .cnt{color:var(--p-link)}
+.l4 .langbtn .ic{color:var(--p-link)}
+
+/* L5 stacked: value + tiny "tap to list" hint underneath */
+.l5 .langbtn{gap:5px;padding:6px 6px;margin:-4px -6px;border-radius:10px;flex-direction:column;
+  align-items:flex-start;gap:2px}
+.l5 .langbtn .rowline{display:inline-flex;align-items:center;gap:5px}
+.l5 .langbtn .hint{font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--p-link)}
+.l5 .langbtn .ic{color:var(--p-dim)}
+
+/* L6 two-letter code chips */
+.l6 .langbtn{padding:6px 6px;margin:-4px -6px;border-radius:10px;align-items:flex-start}
+.l6 .langcodes{display:flex;flex-wrap:wrap;gap:4px;max-width:100%}
+.l6 .cc{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.02em;
+  color:var(--p-chip-off-ink);background:var(--p-chip-off);border-radius:4px;
+  padding:2px 4px;line-height:1.15;text-transform:uppercase}
+.phone.d .l6 .cc{background:var(--p-container-hi);color:var(--p-ink)}
+
+/* L7 "(i) See all 9 >" combined */
+.l7 .langbtn{gap:5px;padding:8px 6px;margin:-4px -6px;border-radius:10px;font-size:13px}
+.l7 .langbtn .lbl{color:var(--p-link);font-weight:700}
+.l7 .langbtn .ic{color:var(--p-link)}
+
+.legend{font-size:12.5px;color:var(--dim);margin:-6px 0 14px}
+.legend b{color:var(--ink)}
+.legend .sw{display:inline-block;width:11px;height:11px;border:1px dashed #8a7a68;border-radius:3px;
+  vertical-align:-1px;margin:0 3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Languages Affordance Lab</span></h1>
+    <div class="sub">Making Kokoro's "9 languages" read as tappable, with a real touch target. 400&nbsp;dp, light + dark.</div>
+  </div>
+  <div class="meta">
+    issue <b>tap area tiny · doesn't look tappable</b><br>
+    ask <b>icon on the left?</b><br>
+    card <b>EngineSpecColumn.EngineLanguagesValue</b>
+  </div>
+</header>
+
+<main>
+
+<nav class="jump">
+  <a href="#today">Today</a>
+  <a href="#l1">L1 · Icon left</a>
+  <a href="#l2">L2 · Underline</a>
+  <a href="#l3">L3 · Chip</a>
+  <a href="#l4">L4 · Chevron</a>
+  <a href="#l5">L5 · Hint line</a>
+  <a href="#l6">L6 · Code chips</a>
+  <a href="#l7">L7 · See all 9</a>
+  <span class="spacer"></span>
+  <a href="#dialog">The dialog</a>
+  <a href="#notes" class="pick">Notes</a>
+</nav>
+
+<h2 class="sec">The problem</h2>
+<p class="lede">
+  Kokoro's Languages value is "9 languages" followed by a 16&nbsp;dp <b>ⓘ on the right</b>, the whole thing a
+  clickable Row with only <b>2&nbsp;dp horizontal / 4&nbsp;dp vertical padding</b>
+  (<code>EngineLanguagesValue</code>). Two faults: the <b>touch target is well under the 48&nbsp;dp minimum</b>,
+  and nothing signals it's tappable — bold text plus a faint grey glyph reads as decoration. Max's steer: put
+  the icon on the <b>left</b>, and make the affordance obvious. Each option below sits in the real 118&nbsp;dp
+  spec column; the <span style="color:#c9b79f">dashed box</span> marks the actual tap area.
+</p>
+<p class="legend"><span class="sw"></span> = touch target outline (lab-only overlay, not shipped). Aim: the
+dashed box should reach a comfortable <b>~44–48&nbsp;dp</b> tall.</p>
+
+<!-- ============================ TODAY ============================ -->
+<section id="today">
+  <h2 class="sec">Today — icon right, sliver target</h2>
+  <p class="idea">The shipped affordance. The tap box barely clears the text; the ⓘ is small, grey, and to the
+  right of the words, so the eye reads "9 languages" as a plain stat.</p>
+  <div class="stage" id="stage-l0"></div>
+</section>
+
+<!-- ============================ L1 ============================ -->
+<section id="l1">
+  <div class="varhead"><span class="id">L1</span><h3>Icon on the left, roomy target</h3></div>
+  <p class="idea"><b>Max's suggestion, done properly.</b> The ⓘ leads the value ("ⓘ 9 languages") and the whole
+  Row gets real padding (negative margin so the ink stays put but the touch box grows to ~44&nbsp;dp).
+  Leading-icon is the standard "there's more here" cue.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Minimal visual change, honours the ask, and fixes the target size. A
+    leading icon is a familiar "expandable / info" pattern.</p></div>
+    <div class="fa con"><h4>Against</h4><p>A bold value with a quiet leading glyph can still read as decorative;
+    the icon alone doesn't scream "button" the way a link or chip does.</p></div>
+  </div>
+  <div class="stage" id="stage-l1"></div>
+</section>
+
+<!-- ============================ L2 ============================ -->
+<section id="l2">
+  <div class="varhead"><span class="id">L2</span><h3>Underlined link</h3></div>
+  <p class="idea"><b>Loudest "tap me" with the least chrome.</b> "9 languages" is styled as a text link —
+  toast-tinted and underlined — with the ⓘ leading. Underline is the most universally understood tappable
+  signal.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Unambiguous affordance; no box needed. Colour + underline reads as
+    interactive instantly, even without the icon.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Introduces a coloured, underlined value into an otherwise calm
+    spec column — slightly breaks the "all values look alike" rhythm, and links are rarer on Android than a
+    chip.</p></div>
+  </div>
+  <div class="stage" id="stage-l2"></div>
+</section>
+
+<!-- ============================ L3 ============================ -->
+<section id="l3">
+  <div class="varhead"><span class="id">L3</span><h3>Chip / button</h3></div>
+  <p class="idea"><b>Reads as a control, full stop.</b> The value becomes a bordered toast chip
+  ("9 languages ⓘ"). The pill shape is the clearest "this is a button" cue and gives a generous, obvious hit
+  area.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>No one mistakes a chip for static text. Comfortable target by
+    construction; matches the app's other chips.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Heaviest option in a narrow column — a filled pill next to plain
+    Speed/Quality values draws a lot of attention to the least important axis, and 118&nbsp;dp is tight.</p></div>
+  </div>
+  <div class="stage" id="stage-l3"></div>
+</section>
+
+<!-- ============================ L4 ============================ -->
+<section id="l4">
+  <div class="varhead"><span class="id">L4</span><h3>Chevron disclosure</h3></div>
+  <p class="idea"><b>"There's a list behind this."</b> A trailing "›" (with the ⓘ leading, or on its own) frames
+  the value as a row that opens something — the same cue a settings row uses.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Familiar disclosure grammar; lighter than a chip. Colour-tinting the
+    value + chevron makes the interactivity clear without a box.</p></div>
+    <div class="fa con"><h4>Against</h4><p>A chevron usually implies full-row navigation, not a dialog — could
+    over-promise. Two glyphs (ⓘ + ›) on a 118&nbsp;dp value is busy; probably pick one.</p></div>
+  </div>
+  <div class="stage" id="stage-l4"></div>
+</section>
+
+<!-- ============================ L5 ============================ -->
+<section id="l5">
+  <div class="varhead"><span class="id">L5</span><h3>Value + "see all" hint</h3></div>
+  <p class="idea"><b>Spell it out.</b> "9 languages" on top, a tiny toast "SEE ALL" caption beneath. The words
+  do the affording; the whole stack is the target. No reliance on an icon being understood.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Explicit — no guessing whether it's tappable. Naturally tall, so the
+    target is comfortable, and the hint doubles as the TalkBack action label.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Adds a second line only to this one engine's Languages row, so the
+    three engines' spec columns no longer align cleanly. Wordier than the rest.</p></div>
+  </div>
+  <div class="stage" id="stage-l5"></div>
+</section>
+
+<!-- ============================ L6 ============================ -->
+<section id="l6">
+  <div class="varhead"><span class="id">L6</span><h3>Two-letter code chips</h3></div>
+  <p class="idea"><b>Show the languages instead of counting them.</b> Max's "what if" — replace "9 languages"
+  with a wrapped row of two-letter codes. Honest catch: two-letter <em>language</em> codes collapse the two
+  Englishes into one "EN" (giving 8, not 9), so this uses <b>country</b> codes for the pair (US / GB) and
+  language codes for the rest — which mixes two code systems. Rendered so the mix and the wrapping are
+  visible in the real 118&nbsp;dp column.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Concretely shows coverage at a glance without a tap; a language you care
+    about is either there or not. Feels information-dense and precise.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Nine codes wrap to 2–3 rows in a narrow column, blowing the tidy
+    spec alignment; codes like HI/JA/ZH aren't self-evident; and the US/GB-vs-language-code mix is a small lie.
+    Still needs a tap to name them in full, so it doesn't remove the dialog.</p></div>
+  </div>
+  <div class="stage" id="stage-l6"></div>
+</section>
+
+<!-- ============================ L7 ============================ -->
+<section id="l7">
+  <div class="varhead"><span class="id">L7</span><h3>"ⓘ See all 9 ›"</h3></div>
+  <p class="idea"><b>Say the action, not the noun.</b> Max's combined form: a leading ⓘ, the words "See all 9",
+  and a trailing chevron. The whole value <em>is</em> the invitation to open the list — no ambiguity about
+  whether it's tappable. If the double-glyph feels busy, <b>L4 (chevron only)</b> is the clean fallback.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>The most unambiguous of all — it's a verb. Comfortable target, and the
+    "9" still conveys the count. Leading ⓘ + trailing › read as "info you can open".</p></div>
+    <div class="fa con"><h4>Against</h4><p>Loses the "languages" noun, so the Languages row no longer states
+    <em>what</em> the 9 are without a tap; two glyphs on a 118&nbsp;dp value is visually busy (hence the L4
+    fallback); and it's the least like a plain spec value, breaking the column's rhythm.</p></div>
+  </div>
+  <div class="stage" id="stage-l7"></div>
+</section>
+
+<!-- ============================ DIALOG ============================ -->
+<section id="dialog">
+  <h2 class="sec">What it opens (unchanged)</h2>
+  <p class="idea">For reference — the dialog is the same regardless of the affordance chosen. It lists the nine
+  locales from <code>EngineLanguagesDialog</code> (English US/UK count separately, which is why it's "9").</p>
+  <div class="stage" id="stage-dialog"></div>
+</section>
+
+<!-- ============================ NOTES ============================ -->
+<section id="notes">
+  <h2 class="sec">Notes for review</h2>
+  <ul class="idea" style="padding-left:20px">
+    <li><b>Two things to fix, independently:</b> (1) the <b>touch target</b> — every option here uses negative
+      margin so the ink position barely moves but the clickable box grows to ~44&nbsp;dp; (2) the
+      <b>affordance</b> — how loudly it signals "tap". They compose: e.g. L1's target size + L2's underline.</li>
+    <li><b>Icon side.</b> Max asked for the icon on the <b>left</b> — all variants lead with it (or drop it, in
+      L2/L5's plainer forms). Leading ⓘ is the "info/expand" convention.</li>
+    <li><b>Keep the column calm.</b> Speed is meant to be the hero of the spec column; a loud Languages control
+      (L3 chip) competes with it. L1/L2/L4 stay quieter. Weigh prominence against not over-selling the least
+      important axis.</li>
+    <li><b>Accessibility already handled in code</b> — the value is one <code>Role.Button</code> with an
+      <code>onClickLabel</code>, glyph <code>contentDescription = null</code> so TalkBack doesn't double-announce.
+      Only the visual affordance + hit-rect padding change here. Bumping the Row to a 48&nbsp;dp min height keeps
+      it WCAG-comfortable.</li>
+    <li><b>Only Kokoro shows this.</b> Single-language engines render a plain "English" value (no button), so
+      whatever wins only appears on the multi-language card — it won't clutter Kitten/Pocket.</li>
+    <li><b>Dark mode.</b> Link/chevron use a lightened toast (<code>--p-link</code>) on dark so the tint stays
+      legible; chip uses the raised container, not orange.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+const I = {
+  check:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
+  info:(s=16)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg>`,
+  chev:'<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 6 8 7.4 12.6 12 8 16.6 9.4 18l6-6z"/></svg>',
+};
+function meter(fill){let s='<span class="meter">';for(let i=0;i<3;i++)s+=`<i class="${i<fill?'on':''}"></i>`;return s+'</span>';}
+
+const KOKORO = { name:'Kokoro (v1.0)', desc:'Widest language coverage and the best all-round voices.',
+  size:'185 MB', tier:'Fast', fill:2, quality:'Best overall' };
+const LANGS = ['English (US)','English (UK)','Spanish','French','Italian','Hindi','Portuguese (Brazil)','Japanese','Mandarin'];
+
+/* the languages value, per variant */
+const LANGVAL = {
+  l0: ()=>`<span class="langbtn hit"><span class="cnt">9 languages</span>${I.info(16)}</span>`,
+  l1: ()=>`<span class="langbtn hit">${I.info(16)}<span class="cnt">9 languages</span></span>`,
+  l2: ()=>`<span class="langbtn hit">${I.info(15)}<span class="cnt">9 languages</span></span>`,
+  l3: ()=>`<span class="langbtn hit"><span class="cnt">9 languages</span>${I.info(14)}</span>`,
+  l4: ()=>`<span class="langbtn hit"><span class="cnt">9 languages</span>${I.chev}</span>`,
+  l5: ()=>`<span class="langbtn hit"><span class="rowline">${I.info(14)}<span class="cnt">9 languages</span></span><span class="hint">See all</span></span>`,
+  l6: ()=>`<span class="langbtn hit"><span class="langcodes">${['US','GB','ES','FR','IT','HI','PT','JA','ZH'].map(c=>`<span class="cc">${c}</span>`).join('')}</span></span>`,
+  l7: ()=>`<span class="langbtn hit">${I.info(14)}<span class="lbl">See all 9</span>${I.chev}</span>`,
+};
+
+function card(mode, variant){
+  return `<div class="ec ${variant}"><div class="row">
+    <div class="cb"></div>
+    <div class="mid">
+      <div class="top"><span class="nm">${KOKORO.name}</span></div>
+      <div class="desc">${KOKORO.desc}</div>
+      <div class="size">${KOKORO.size}</div>
+    </div>
+    <div class="specs">
+      <div class="spec"><div class="k">Speed</div><div class="v">${KOKORO.tier} ${meter(KOKORO.fill)}</div></div>
+      <div class="spec"><div class="k">Quality</div><div class="v">${KOKORO.quality}</div></div>
+      <div class="spec langspec"><div class="k">Languages</div><div class="v">${LANGVAL[variant]()}</div></div>
+    </div>
+  </div></div>`;
+}
+function phone(mode, variant){
+  return `<div class="phone ${mode}"><div class="body"><div class="list">${card(mode,variant)}</div></div></div>`;
+}
+function mount(stageId, variant){
+  const el = document.getElementById(stageId);
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light</div>${phone('l',variant)}</div>` +
+    `<div class="slot"><div class="cap">Dark</div>${phone('d',variant)}</div>`;
+}
+['l0','l1','l2','l3','l4','l5','l6','l7'].forEach(v=>mount('stage-'+v,v));
+
+/* the dialog it opens */
+(function(){
+  const el = document.getElementById('stage-dialog');
+  const dlg = mode=>`<div class="phone ${mode}" style="min-height:260px"><div class="body" style="justify-content:center;align-items:center">
+    <div style="width:300px;background:var(--p-container-hi);border-radius:20px;padding:20px 22px;box-shadow:0 8px 30px rgba(0,0,0,.4)">
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px;color:var(--p-ink)">Languages Kokoro speaks</div>
+      ${LANGS.map(l=>`<div style="font-size:13.5px;color:var(--p-ink);padding:5px 0">${l}</div>`).join('')}
+      <div style="text-align:right;margin-top:12px"><span style="color:var(--p-link,#B4520F);font-weight:700;font-size:14px">Close</span></div>
+    </div></div></div>`;
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light</div>${dlg('l')}</div>` +
+    `<div class="slot"><div class="cap">Dark</div>${dlg('d')}</div>`;
+})();
+
+const links=[...document.querySelectorAll('nav.jump a[href^="#"]')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  links.forEach(a=>a.classList.toggle('pick',a.getAttribute('href')==='#'+e.target.id));}});},
+  {rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('main section[id]').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

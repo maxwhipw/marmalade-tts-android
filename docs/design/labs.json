@@ -1,5 +1,45 @@
 [
   {
+    "slug": "engine-card-layout-lab",
+    "title": "Engine Card Layout Lab",
+    "status": "active",
+    "date": "2026-08-06",
+    "summary": "Studies the shipped engine card's internal layout. BASE is traced from EnginesScreen.kt and reproduces three real defects: (1) nothing is top-aligned (row is CenterVertically + spec column Arrangement.Center, so name and SPEED drift apart on tall cards), (2) the languages value is indented 4dp by EngineLanguagesValue's padding(horizontal = 4.dp), breaking the spec column's left edge, (3) both buttons bunch right via Arrangement.End. Variants: C1 the fix (no rule, top-aligned, flush languages, Uninstall left), C2 +roomier gap, C3 +faint panel behind specs, C4 +one-line label/value specs, C5 stacked (specs as a full-width row under full-width text). Plus an action-row study A1 both-right / A2 split / A3 both-left. Kitten/Kokoro/Pocket each, light + dark, 400dp, shipped 4-tick traffic-light meter.",
+    "decision": "OPEN — awaiting Max. Lab leans C1 + A2 (split: Uninstall left, primary right). C5 (stacked) flagged as the one genuinely different idea — full-width description. First lab revision got BASE wrong (drew it top-aligned); retraced from source after Max caught it on device."
+  },
+  {
+    "slug": "engines-tab-split-lab",
+    "title": "Engines Local/Cloud Split Lab",
+    "status": "active",
+    "date": "2026-08-05",
+    "summary": "Should the Engines tab separate on-device engines from cloud voices with a switch? Today it's one scroll (3 local A3 cards + the Cloud voices card last). 4 directions: T1 segmented control at top (On-device | Cloud, Toast-selected not accent), T2 Material TabRow at top, T3 segmented control pinned at bottom for thumb reach, T4 no-tab labelled sections (ON-DEVICE / CLOUD overlines) as the low-cost counter-option. Framed around the real boundary: on-device sends nothing, cloud transmits your text to a provider. Shows the shipped A3 card with the new traffic-light speed meter. Light + dark, 400dp.",
+    "decision": "T1 (segmented switch, top) IMPLEMENTED in EnginesScreen.kt — On-device / Cloud pill, NO count badges (Max's call), selected segment = primaryContainer Toast not accent, selectable role=Tab, saveable state; list splits local engines vs the single Cloud card. Strings engines_tab_local/engines_tab_cloud across all 8 locales. Pending Max's on-device sign-off. Cloud-side privacy note deliberately omitted (extra copy + translations; consent gate already covers it)."
+  },
+  {
+    "slug": "engine-select-lab",
+    "title": "Choose Engines Lab",
+    "status": "archived",
+    "date": "2026-08-04",
+    "summary": "Rework the onboarding engine picker away from a wall of prose. 4 directions (A1 compact rows, A2 speed gauge, A3 spec columns, A4 hero badge), each leading with a speed signal then compact quality + language chips, size as a small number, license behind show-more. Recommends Kitten Nano (flips from Kokoro). Light + dark, 400dp.",
+    "decision": "A3 spec columns shipped (commit f9aca5b). Two refinements of the shipped A3 card are now studied in their own labs: recommended-badge-lab and languages-affordance-lab."
+  },
+  {
+    "slug": "recommended-badge-lab",
+    "title": "Recommended Badge Lab",
+    "status": "archived",
+    "date": "2026-08-04",
+    "summary": "Fix + reposition the 'Recommended' badge on the shipped A3 engine card. On device the inline pill (placed in a Row after the engine name) is starved of width by the long 'Kitten Nano (v0.8)' name and char-wraps into a vertical letter strip. 5 placements: R1 own line, R2 eyebrow/kicker, R3 corner tab, R4 full-width header strip, R5 inline name-priority. Plus a case (ALL CAPS vs Title) + leading-star study. Light + dark, 400dp, shown against a neighbouring non-recommended card.",
+    "decision": "R1 (pill on its own line below the name) shipped in OnboardingScreen.EngineCard. Root cause was layout ordering: the pill shared the name Row's weight(1f) and a long name char-wrapped it vertically; its own line can't be crushed. Case left as the existing ALL-CAPS onboarding_recommended string (unchanged)."
+  },
+  {
+    "slug": "languages-affordance-lab",
+    "title": "Languages Affordance Lab",
+    "status": "archived",
+    "date": "2026-08-04",
+    "summary": "Make Kokoro's '9 languages' spec value read as tappable and give it a real (~44-48dp) touch target. Today it's icon-right with 2dp padding and reads as static text. 7 options: L1 icon-left roomy target (Max's steer), L2 underlined link, L3 chip/button, L4 chevron disclosure, L5 value + 'see all' hint, L6 two-letter code chips (Max what-if; collapses the two Englishes / mixes code systems), L7 '(i) See all 9 >' combined (L4 chevron is the fallback). Each shown in the real 118dp spec column with the tap-rect overlaid; dialog it opens shown for reference. Light + dark, 400dp.",
+    "decision": "L7 ('(i) See all N >') shipped in EngineSpecColumn.EngineLanguagesValue: leading info glyph + 'See all 9' + trailing chevron, tinted colorScheme.primary (matches the app's other in-app link actions), full-width ~44dp touch target. New string engine_languages_see_all across all 8 locales; the now-orphaned engine_languages_count plural was removed. The 'LANGUAGES' overline supplies the noun the action drops. L4 (chevron only) remains the noted fallback if the double-glyph reads busy on device."
+  },
+  {
     "slug": "icon-lab",
     "title": "App Icon Lab",
     "status": "archived",

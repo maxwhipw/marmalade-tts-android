@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">Impostazioni avanzate</string>
     <string name="settings_advanced_row_desc">Thread di sintesi, motori per sviluppatori e altri parametri che quasi nessuno deve toccare.</string>
 
+    <string name="settings_support">Sostegno</string>
     <string name="settings_about">Informazioni</string>
     <string name="settings_about_version">Versione %1$s</string>
+    <string name="settings_privacy">Informativa sulla privacy</string>
+    <string name="settings_privacy_desc">Cosa resta sul tuo telefono e cosa inviano le voci nel cloud. Nessun tracciamento, nessun account.</string>
+    <string name="settings_privacy_load_failed">Impossibile caricare l\'informativa sulla privacy. È anche nel repository come PRIVACY.md.</string>
     <string name="settings_licenses">Licenze open source</string>
     <string name="settings_licenses_desc">Licenze dell\'app, dei componenti inclusi e dei motori scaricabili.</string>
     <string name="settings_report_bug">Segnala un problema</string>

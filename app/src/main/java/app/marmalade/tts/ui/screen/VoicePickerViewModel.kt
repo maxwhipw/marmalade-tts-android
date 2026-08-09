@@ -186,7 +186,44 @@ class VoicePickerViewModel @Inject constructor(
     private val _pickerState = MutableStateFlow(VoicePickerState())
     val pickerState: StateFlow<VoicePickerState> = _pickerState.asStateFlow()
 
+    /**
+     * True once [refresh] has finished its first install probe. Until then
+     * [installedEngines] is an empty set purely because nothing has been
+     * checked yet, which the voice filter can't tell apart from "nothing is
+     * installed" — see [contentReady].
+     */
+    private val _installProbeDone = MutableStateFlow(false)
+
+    /**
+     * Whether the body has enough state to render its final layout.
+     *
+     * Entering the picker used to flash up to two wrong screens before
+     * settling: the "no engines installed" empty state (install probe hadn't
+     * run, so every voice was filtered out) and then, in engine-scoped mode,
+     * the one-row source list (the auto-drill in [setInitialDrill] lands a
+     * frame after the tree arrives). Both are transient lies, so the body
+     * waits instead of showing them.
+     *
+     * An empty tree still counts as ready — otherwise an engine with no
+     * voices would sit blank forever instead of reaching its empty state.
+     */
+    val contentReady: StateFlow<Boolean> =
+        combine(voiceTree, _installProbeDone, _pickerState) { tree, probed, state ->
+            probed && (engineFilter == null || tree.isEmpty() || state.source != null)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
     private var initialDrillSet: Boolean = false
+
+    /**
+     * Where [setInitialDrill] auto-drilled to in engine-scoped mode, or null
+     * when the picker opened on the source list normally. [drillBack] uses it
+     * as the back-out floor.
+     */
+    private var autoDrilledFloor: VoicePickerState? = null
 
     init {
         refresh()
@@ -215,12 +252,17 @@ class VoicePickerViewModel @Inject constructor(
         initialDrillSet = true
         if (engineFilter == null) return
         val source = tree.singleOrNull() ?: return
-        _pickerState.value = VoicePickerState(
+        val drilled = VoicePickerState(
             source = source.name,
             // Same one-item rule one level down: on-device engines are their
             // own only model.
             model = source.models.singleOrNull()?.name,
         )
+        // Remember where the auto-drill landed: [drillBack] treats this as the
+        // floor, so backing out of it leaves the screen instead of unwinding
+        // to levels the user never chose.
+        autoDrilledFloor = drilled
+        _pickerState.value = drilled
     }
 
     fun onQueryChange(query: String) {
@@ -236,12 +278,26 @@ class VoicePickerViewModel @Inject constructor(
     }
 
     /**
-     * Step back one level. Returns false at the top level, where the screen
-     * should pop its own back stack instead.
+     * Step back one level. Returns false at the top level — or, in
+     * engine-scoped mode, at the level [setInitialDrill] opened on — where the
+     * screen should pop its own back stack instead.
+     *
+     * Without the floor check, backing out of an engine's voice list unwound to
+     * the source list the auto-drill had skipped: a one-row screen the user
+     * never navigated to, which they then had to dismiss a second time to reach
+     * the engine's Configure screen.
      */
     fun drillBack(): Boolean {
-        if (_pickerState.value.atTopLevel()) return false
-        _pickerState.value = _pickerState.value.back(voiceTree.value)
+        val state = _pickerState.value
+        if (state.atTopLevel()) return false
+        // A live search still clears first — that IS a level the user chose.
+        val floor = autoDrilledFloor
+        if (floor != null && !state.searching &&
+            state.source == floor.source && state.model == floor.model
+        ) {
+            return false
+        }
+        _pickerState.value = state.back(voiceTree.value)
         return true
     }
 
@@ -265,6 +321,7 @@ class VoicePickerViewModel @Inject constructor(
                 installed += CloudApiVoiceCatalog.ENGINE
             }
             _installedEngines.value = installed
+            _installProbeDone.value = true
         }
     }
 

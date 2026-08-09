@@ -37,11 +37,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.R
-import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.screen.AdvancedSettingsScreen
 import app.marmalade.tts.ui.screen.AliasScreen
-import app.marmalade.tts.ui.screen.CloudApiScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
 import app.marmalade.tts.ui.screen.EffectEditorScreen
 import app.marmalade.tts.ui.screen.EffectEditorViewModel
@@ -50,6 +48,7 @@ import app.marmalade.tts.ui.screen.EngineDetailScreen
 import app.marmalade.tts.ui.screen.EnginesScreen
 import app.marmalade.tts.ui.screen.LicenseTextScreen
 import app.marmalade.tts.ui.screen.LicensesScreen
+import app.marmalade.tts.ui.screen.PrivacyPolicyScreen
 import app.marmalade.tts.ui.screen.SettingsScreen
 import app.marmalade.tts.ui.screen.SpeakScreen
 import app.marmalade.tts.ui.screen.VoicePickerScreen
@@ -107,13 +106,6 @@ object Routes {
 
     const val Engines = "engines"
 
-    /**
-     * Cloud API engine configuration (per-provider keys + voice
-     * discovery) — reached from the Cloud voices card on the Engines
-     * tab. Leaf detail screen; the bottom nav bar hides while open.
-     */
-    const val CloudApi = "cloud_api"
-
     const val Settings = "settings"
 
     /**
@@ -156,6 +148,12 @@ object Routes {
      * licenses". Leaf detail screen; the bottom nav bar is hidden while open.
      */
     const val Licenses = "licenses"
+
+    /**
+     * In-app privacy policy — reached from Settings → About → "Privacy
+     * policy". Leaf detail screen; the bottom nav bar is hidden while open.
+     */
+    const val Privacy = "privacy"
 
     /** Full license text for one component. Use [licenseText] to build the route. */
     const val LicenseText = "license_text"
@@ -236,11 +234,11 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     // detail in v0.3.0-alpha.11, back to a tab in alpha.12, swapping
     // places with Voices.
     val showBottomBar = currentRoute != Routes.Benchmark &&
-        currentRoute != Routes.CloudApi &&
         // Matches both the bare route and the ?engine= scoped template.
         currentRoute?.startsWith(Routes.Voices) != true &&
         currentRoute?.startsWith("${Routes.EngineDetail}/") != true &&
         currentRoute != Routes.Licenses &&
+        currentRoute != Routes.Privacy &&
         currentRoute != Routes.AdvancedSettings &&
         currentRoute?.startsWith("${Routes.LicenseText}/") != true &&
         // The editor's route template carries query args
@@ -314,18 +312,12 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                     onEngineSettings = { engine ->
                         navController.navigate(Routes.engineDetail(engine.name))
                     },
-                    onConfigureCloud = { navController.navigate(Routes.CloudApi) },
-                    onShowCloudVoices = {
-                        navController.navigate(Routes.voicesFor(CloudApiVoiceCatalog.ENGINE))
-                    },
                 )
-            }
-            composable(Routes.CloudApi) {
-                CloudApiScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.Settings) {
                 SettingsScreen(
                     onNavigateToLicenses = { navController.navigate(Routes.Licenses) },
+                    onNavigateToPrivacy = { navController.navigate(Routes.Privacy) },
                     onNavigateToAdvanced = { navController.navigate(Routes.AdvancedSettings) },
                 )
             }
@@ -379,6 +371,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                     onBack = { navController.popBackStack() },
                     onViewComponentText = { key -> navController.navigate(Routes.licenseText(key)) },
                 )
+            }
+            composable(Routes.Privacy) {
+                PrivacyPolicyScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Routes.LicenseText}/{key}",

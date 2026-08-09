@@ -110,6 +110,7 @@ fun VoicePickerScreen(
     val previewState by viewModel.previewState.collectAsStateWithLifecycle()
     val pickerState by viewModel.pickerState.collectAsStateWithLifecycle()
     val latency by viewModel.voiceLatency.collectAsStateWithLifecycle()
+    val contentReady by viewModel.contentReady.collectAsStateWithLifecycle()
 
     val modelMissingState = previewState as? PreviewState.ModelMissing
 
@@ -134,7 +135,12 @@ fun VoicePickerScreen(
 
     // System back unwinds the drill-down before it leaves the screen —
     // otherwise three taps in, Back throws away all of them at once.
-    BackHandler(enabled = !pickerState.atTopLevel()) { viewModel.drillBack() }
+    // drillBack() returns false at its floor (top level, or the level
+    // engine-scoped mode auto-drilled to) — fall through to onBack() there so
+    // the gesture leaves the screen instead of being swallowed.
+    BackHandler(enabled = !pickerState.atTopLevel()) {
+        if (!viewModel.drillBack()) onBack()
+    }
 
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
@@ -189,6 +195,13 @@ fun VoicePickerScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            // Hold the body until the install probe and (in engine-scoped
+            // mode) the auto-drill have settled — see
+            // VoicePickerViewModel.contentReady. Rendering early flashed the
+            // "no engines installed" empty state and the source list on the
+            // way in. The top bar stays, so this reads as a normal transition.
+            if (!contentReady) return@Column
+
             // Inline status hint when the engine signals missing assets.
             if (modelMissingState != null) {
                 val engineDisplay = EngineCatalog.byName(modelMissingState.engineName)

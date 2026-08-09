@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,20 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,35 +44,37 @@ import app.marmalade.tts.R
 import app.marmalade.tts.data.cloud.CloudProvider
 
 // -----------------------------------------------------------------------------
-// Data flow
+// Cloud voices — configure surface
 // -----------------------------------------------------------------------------
-//   Engines tab → Cloud voices card → Configure
-//     │
-//     ▼
-//   CloudApiScreen(onBack)
-//     │
-//     ├── disclaimerAccepted == false → CloudDisclaimerGate, and nothing
-//     │     else renders. "I agree" is the only way past it; there is no
-//     │     key field behind it to reach by any other route, so acceptance
-//     │     always precedes the first byte leaving the device.
-//     │
-//     ├── one ProviderCard per CloudApiViewModel.providers entry:
-//     │     key status + synced voice count + model count
-//     │     "Set key" / "Change key" → key dialog → vm.setKey(...)
-//     │     "Refresh voices" (discovering providers, keyed) → vm.refreshVoices
-//     │
-//     └── provider list itself refreshes from the engines repo on open
-//         (CloudApiViewModel.init) — adding a provider is a JSON change.
+//   Rendered inline as the Engines tab's "Cloud" view (EnginesScreen), not a
+//   separate screen — selecting the Cloud tab shows this directly, so there's
+//   no "Configure" hop.
+//
+//   disclaimerAccepted == false → CloudDisclaimerGate, and nothing else
+//     renders. "I agree" is the only way past it; declining backs out to the
+//     On-device view (via [onDeclined]). No key field is reachable behind it
+//     by any route, so acceptance always precedes the first byte leaving the
+//     device.
+//
+//   otherwise → engines_cloud_intro + one ProviderCard per
+//     CloudApiViewModel.providers entry: key status + synced voice/model
+//     counts, "Set key"/"Change key" → key dialog → vm.setKey(...),
+//     "Refresh voices" (keyed discovering providers) → vm.refreshVoices.
+//     The provider list refreshes from the engines repo on open
+//     (CloudApiViewModel.init) — adding a provider is a JSON change.
 // -----------------------------------------------------------------------------
 
 /**
- * Configure surface for the Cloud API engine: per-provider API keys and
- * voice discovery. Reached from the Cloud voices card on the Engines tab.
+ * Cloud voices configure surface: the one-time consent gate, then per-provider
+ * API keys and voice discovery. Rendered inline in the Engines tab's Cloud
+ * view; [onDeclined] fires when the user declines the gate so the caller can
+ * return to the On-device view. [modifier] should size it within the caller's
+ * layout (the content scrolls itself).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CloudApiScreen(
-    onBack: () -> Unit,
+fun CloudApiContent(
+    onDeclined: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: CloudApiViewModel = hiltViewModel(),
 ) {
     val providers by viewModel.providers.collectAsStateWithLifecycle()
@@ -92,62 +86,39 @@ fun CloudApiScreen(
 
     var keyDialogFor by remember { mutableStateOf<CloudProvider?>(null) }
 
-    Scaffold(
-        // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.engines_cloud_title)) },
-                windowInsets = WindowInsets(0),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.engines_back),
-                        )
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        when (disclaimerAccepted) {
-            // Still reading DataStore — render nothing rather than guess.
-            null -> Unit
+    when (disclaimerAccepted) {
+        // Still reading DataStore — render nothing rather than guess.
+        null -> Unit
 
-            false -> CloudDisclaimerGate(
-                onAgree = viewModel::acceptDisclaimer,
-                onDecline = onBack,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            )
+        false -> CloudDisclaimerGate(
+            onAgree = viewModel::acceptDisclaimer,
+            onDecline = onDeclined,
+            modifier = modifier,
+        )
 
-            true -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item(key = "intro") {
-                    Text(
-                        text = stringResource(R.string.engines_cloud_intro),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                }
-                items(items = providers, key = { it.id }) { provider ->
-                    ProviderCard(
-                        provider = provider,
-                        keyed = provider.id in keyedIds,
-                        voiceCount = voiceCounts[provider.id] ?: 0,
-                        busy = provider.id in busyIds,
-                        error = errors[provider.id],
-                        onSetKey = { keyDialogFor = provider },
-                        onRefreshVoices = { viewModel.refreshVoices(provider) },
-                    )
-                }
+        true -> LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "intro") {
+                Text(
+                    text = stringResource(R.string.engines_cloud_intro),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            items(items = providers, key = { it.id }) { provider ->
+                ProviderCard(
+                    provider = provider,
+                    keyed = provider.id in keyedIds,
+                    voiceCount = voiceCounts[provider.id] ?: 0,
+                    busy = provider.id in busyIds,
+                    error = errors[provider.id],
+                    onSetKey = { keyDialogFor = provider },
+                    onRefreshVoices = { viewModel.refreshVoices(provider) },
+                )
             }
         }
     }

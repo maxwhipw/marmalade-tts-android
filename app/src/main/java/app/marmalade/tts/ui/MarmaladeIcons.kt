@@ -107,6 +107,14 @@ object MarmaladeIcons {
         )
     }
 
+    /**
+     * Settings "Privacy policy" row. A plain shield — reads as protection /
+     * policy without implying account security the way a padlock would.
+     */
+    val Privacy: ImageVector by lazy {
+        filled24("M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z")
+    }
+
     private fun filled24(pathData: String): ImageVector =
         ImageVector.Builder(
             name = "MarmaladeIcon",

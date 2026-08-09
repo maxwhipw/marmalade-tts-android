@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">高级设置</string>
     <string name="settings_advanced_row_desc">合成线程数、开发者引擎，以及大多数人用不上的其他选项。</string>
 
+    <string name="settings_support">支持</string>
     <string name="settings_about">关于</string>
     <string name="settings_about_version">版本 %1$s</string>
+    <string name="settings_privacy">隐私政策</string>
+    <string name="settings_privacy_desc">哪些内容留在您的手机上，云端语音会发送哪些内容。无跟踪、无账户。</string>
+    <string name="settings_privacy_load_failed">无法加载隐私政策。它也在仓库中，名为 PRIVACY.md。</string>
     <string name="settings_licenses">开源许可</string>
     <string name="settings_licenses_desc">本应用、其内置组件以及可下载引擎的许可协议。</string>
     <string name="settings_report_bug">报告问题</string>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Choose Engines Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* =============================================================
+   PAGE-SPECIFIC ONLY. The dark shell (header, h2.sec, .lede, .note,
+   tables, code) comes from /_assets/lab.css. Everything below is the
+   phone mockup + per-variation styling.
+
+   Brand fonts are NOT loaded from a CDN (self-contained requirement).
+   The stacks fall back to a clean system grotesque; the "marmalade"
+   wordmark is styled (lowercase, weight, tracking) so it still reads
+   as the brand even without Momo Trust Display. Swap in the Google
+   Fonts <link> from speak-screen-lab.html for pixel-exact fidelity.
+   ============================================================= */
+:root{
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Manrope",sans-serif;
+  --wordmark:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+/* jump bar */
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 -28px 24px}
+nav.jump a{color:var(--dim);font-size:13px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+.varhead{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin:0 0 4px}
+.varhead .id{font-family:var(--mono);font-size:12px;color:#2b1400;background:var(--peach);
+  border-radius:6px;padding:2px 8px;font-weight:600}
+.varhead h3{margin:0;font-size:19px;letter-spacing:-.01em;color:var(--ink)}
+.idea{color:var(--dim);font-size:15px;max-width:900px;margin:0 0 18px}
+.idea b{color:var(--toast);font-weight:600}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.08em;
+  text-transform:uppercase;padding-left:4px}
+
+.foragainst{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0 20px;max-width:900px}
+.fa{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:11px 15px}
+.fa.pro{border-left-color:var(--ok)} .fa.con{border-left-color:var(--block)}
+.fa h4{margin:0 0 5px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+.fa.pro h4{color:var(--ok)} .fa.con h4{color:var(--block)}
+.fa p{margin:0;font-size:14px;color:var(--dim);line-height:1.55}
+.fa p b{color:var(--ink);font-weight:600}
+
+/* =============================================================
+   PHONE FRAME — 400px. Tokens lifted verbatim from
+   app/src/main/java/app/marmalade/tts/ui/theme/Color.kt, with the
+   marmalade-design-scheme-v0 mode-aware brand swaps applied
+   (wordmark, accent button, chips). Orange stays precious: the ONLY
+   orange on the light frame is the "Install" CTA. Speed meters use
+   Peach so multiple filled meters never flood the screen with accent.
+   ============================================================= */
+.phone{
+  width:400px;border-radius:28px;overflow:hidden;
+  border:1px solid #000;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  background:var(--p-surface);color:var(--p-ink);
+  display:flex;flex-direction:column}
+.phone.l{
+  --p-surface:#FFF7ED; --p-ink:#1C1917; --p-dim:#57534E;
+  --p-container:#FFEDD5; --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E; --p-outline-v:#D6D3D1;
+  --p-accent:#F97316; --p-on-accent:#FFFFFF;
+  --p-wordmark:#F97316;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FFEDD5; --p-chip-off-ink:#1C1917;
+  --p-meter:#F59E5B; --p-meter-off:#EAD9C4;
+  --p-sel:#FDECD6;      /* selected card wash — Toast-tinted, subtle */
+  --p-err:#DC2626;
+}
+.phone.d{
+  --p-surface:#1A1A1A; --p-ink:#FAFAF9; --p-dim:#C7C0B9;
+  --p-container:#292524; --p-container-hi:#332F2C;
+  --p-outline:#737373; --p-outline-v:#403A35;
+  --p-accent:#422006; --p-on-accent:#FED7AA;
+  --p-wordmark:#FFEDD5;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FEF3C7; --p-chip-off-ink:#1C1917;
+  --p-meter:#FDBA74; --p-meter-off:#403A35;
+  --p-sel:#332B22;
+  --p-err:#EF4444;
+}
+.phone .appbar{height:56px;display:flex;align-items:center;padding:0 6px;gap:8px;flex:none}
+.phone .appbar .wm{flex:1;text-align:center;font-family:var(--wordmark);font-weight:700;
+  font-size:20px;color:var(--p-wordmark);letter-spacing:-.01em}
+.phone .appbar .ib{width:44px;height:44px;border-radius:99px;display:grid;place-items:center;color:var(--p-ink);opacity:.8}
+.phone .appbar .ib.ghost{opacity:0}
+.phone svg{display:block}
+
+.phone .body{padding:4px 16px 16px;display:flex;flex-direction:column;flex:1}
+.phone .h{font-size:21px;font-weight:700;text-align:center;letter-spacing:-.01em;margin:6px 0 6px}
+.phone .sub{font-size:13px;color:var(--p-dim);text-align:center;margin:0 auto 16px;max-width:300px;line-height:1.45}
+.phone .list{display:flex;flex-direction:column;gap:12px;flex:1}
+
+/* selectable card shell shared by all variants */
+.ec{border-radius:16px;background:var(--p-container);position:relative;
+  border:1px solid transparent;transition:none}
+.ec.sel{background:var(--p-sel);border-color:var(--p-chip-on)}
+.ec .cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--p-outline);
+  display:grid;place-items:center;flex:none;color:transparent}
+.ec.sel .cb{background:var(--p-chip-on);border-color:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.ec .nm{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--p-ink)}
+.ec .rec{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);padding:2px 7px;border-radius:99px}
+.ec .size{font-family:var(--mono);font-size:12px;color:var(--p-dim);white-space:nowrap}
+
+/* speed meter (bolts / segments) */
+.meter{display:inline-flex;gap:3px;align-items:center}
+.meter i{width:8px;height:16px;border-radius:2px;background:var(--p-meter-off)}
+.meter i.on{background:var(--p-meter)}
+.meter.sm i{width:6px;height:12px}
+.tier{font-size:12.5px;font-weight:700;color:var(--p-ink);letter-spacing:-.1px}
+.tierpill{font-size:11px;font-weight:700;padding:3px 9px 3px 7px;border-radius:99px;
+  display:inline-flex;align-items:center;gap:5px;background:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.tierpill.dim{background:transparent;border:1px solid var(--p-outline);color:var(--p-dim)}
+.metaline{font-size:12.5px;color:var(--p-dim)}
+.metaline b{color:var(--p-ink);font-weight:600}
+.dot{opacity:.5;padding:0 5px}
+
+/* license show-more */
+details.lic{margin-top:2px}
+details.lic>summary{list-style:none;cursor:pointer;font-size:12px;color:var(--p-dim);
+  display:inline-flex;align-items:center;gap:4px}
+details.lic>summary::-webkit-details-marker{display:none}
+details.lic>summary .cx{transition:none}
+details.lic[open]>summary .cx{transform:rotate(180deg)}
+details.lic p{margin:6px 0 0;font-size:11.5px;color:var(--p-dim);line-height:1.5}
+
+/* ---- A1 compact row ---- */
+.a1{padding:12px 14px;display:flex;align-items:center;gap:12px}
+.a1 .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.a1 .top{display:flex;align-items:center;gap:8px}
+.a1 .top .nm{flex:1}
+
+/* ---- A2 speed-gauge card ---- */
+.a2{padding:14px;display:flex;gap:12px}
+.a2 .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+.a2 .top{display:flex;align-items:center;gap:8px}
+.a2 .top .nm{flex:1}
+.a2 .gauge{display:flex;flex-direction:column;gap:5px}
+.a2 .gauge .glab{display:flex;align-items:center;gap:8px}
+.a2 .gauge .track{display:flex;gap:4px}
+.a2 .gauge .track i{flex:1;height:8px;border-radius:99px;background:var(--p-meter-off)}
+.a2 .gauge .track i.on{background:var(--p-meter)}
+.a2 .gcap{font-size:11.5px;color:var(--p-dim);line-height:1.4}
+.a2 .chips{display:flex;gap:7px;flex-wrap:wrap}
+.a2 .ch{font-size:11.5px;padding:3px 9px;border-radius:99px;background:var(--p-chip-off);
+  color:var(--p-chip-off-ink);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+
+/* ---- A3 spec-column card ---- */
+.a3{padding:14px;display:flex;gap:14px;align-items:stretch}
+.a3 .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.a3 .top{display:flex;align-items:center;gap:8px}
+.a3 .top .nm{flex:1}
+.a3 .desc{font-size:12.5px;color:var(--p-dim);line-height:1.45}
+.a3 .specs{flex:none;width:118px;display:flex;flex-direction:column;gap:0;
+  border-left:1px solid var(--p-outline-v);padding-left:13px;justify-content:center}
+.a3 .spec{padding:5px 0}
+.a3 .spec .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--p-dim)}
+.a3 .spec .v{font-size:14px;font-weight:700;color:var(--p-ink);line-height:1.2;margin-top:2px}
+.a3 .spec.speed .v{display:flex;align-items:center;gap:6px}
+
+/* ---- A4 hero speed badge ---- */
+.a4{padding:12px;display:flex;gap:13px;align-items:center}
+.a4 .badge{flex:none;width:86px;border-radius:14px;background:var(--p-container-hi);
+  padding:11px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.phone.d .a4 .badge{background:#20211c}
+.a4 .badge .bt{font-size:12px;font-weight:800;letter-spacing:-.2px;color:var(--p-ink)}
+.a4 .badge .bl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--p-dim)}
+.a4 .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.a4 .top{display:flex;align-items:center;gap:8px}
+.a4 .top .nm{flex:1}
+
+/* bottom action bar (onboarding: Back / Skip / Install selected) */
+.phone .actions{display:flex;align-items:center;gap:8px;padding:14px 4px 4px;margin-top:14px}
+.phone .actions .txtbtn{font-size:14px;font-weight:600;color:var(--p-ink);padding:8px 10px}
+.phone .actions .spacer{flex:1}
+.phone .install{height:44px;border-radius:22px;padding:0 20px;border:0;
+  background:var(--p-accent);color:var(--p-on-accent);font-weight:600;font-size:14px;
+  display:grid;place-items:center;font-family:var(--body)}
+
+/* today (before) card */
+.today{border-radius:12px;background:var(--p-container);padding:16px;display:flex;gap:14px}
+.today.sel{background:var(--p-sel)}
+.today .col{flex:1}
+.today .nm{font-size:16px;font-weight:700}
+.today .rec{color:var(--p-accent);font-size:11px;font-weight:600;margin-left:8px}
+.phone.d .today .rec{color:var(--p-on-accent)}
+.today p{margin:6px 0 0;font-size:13.5px;color:var(--p-dim);line-height:1.5}
+.today .sz{font-size:12.5px;color:var(--p-ink);margin-top:8px}
+.today .lc{font-size:12.5px;color:var(--p-dim);margin-top:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Choose Engines Lab</span></h1>
+    <div class="sub">4 reworks of the onboarding engine picker. Live HTML at 400&nbsp;dp, light + dark.</div>
+  </div>
+  <div class="meta">
+    brief <b>speed → quality → languages</b><br>
+    cut <b>espeak / prose</b> · license behind <b>show more</b><br>
+    palette <b>ui/theme/Color.kt</b> + <b>marmalade-design-scheme-v0</b>
+  </div>
+</header>
+
+<main>
+
+<nav class="jump">
+  <a href="#today">Today</a>
+  <a href="#data">Ground truth</a>
+  <a href="#a1">A1 · Compact rows</a>
+  <a href="#a2">A2 · Speed gauge</a>
+  <a href="#a3">A3 · Spec columns</a>
+  <a href="#a4">A4 · Hero badge</a>
+  <span class="spacer"></span>
+  <a href="#notes" class="pick">Notes</a>
+</nav>
+
+<h2 class="sec">The problem</h2>
+<p class="lede">
+  Today each engine is a paragraph. Max's read: people don't need to know a model uses espeak —
+  they need <b>speed</b> (most of all), then <b>quality</b>, then <b>languages</b>. Every variation
+  below leads with a speed signal, compresses quality + languages into scannable chips, drops the
+  size to a small secondary number, cuts the technical talk, and hides the license behind a
+  "show more". The default recommendation moves from Kokoro to <b>Kitten Nano</b> (the new fastest
+  default), shown pre-selected. Same card design is meant to work on the Engines tab too.
+</p>
+
+<!-- ============================ TODAY ============================ -->
+<section id="today">
+  <h2 class="sec">Today — the wall of text</h2>
+  <p class="idea">Reproduced from <code>EngineCatalog.kt</code> strings + <code>OnboardingScreen.kt</code>
+  so the before/after is fair. Three cards, each ~6 lines of prose plus a two-line license blurb.
+  Nothing is scannable; speed is buried inside sentences.</p>
+  <div class="stage" id="stage-today"></div>
+</section>
+
+<!-- ============================ GROUND TRUTH ============================ -->
+<section id="data">
+  <h2 class="sec">Ground truth encoded (sanity check)</h2>
+  <p class="idea">The facts every card below is built from. If any of these are off, the fix is here.</p>
+  <table>
+    <tr><th>Engine</th><th>Speed</th><th>Quality</th><th>Languages · voices</th><th>Size</th><th>License (show-more only)</th></tr>
+    <tr><td><b>Kitten Nano</b> · v0.8 · <b>recommended</b></td><td><b>Fastest</b> — several× real-time on any device, even old/cheap phones</td><td>Good, natural</td><td>English · 8 voices</td><td>~61 MB</td><td>Apache-2.0 model; espeak-ng (GPL-3.0-or-later)</td></tr>
+    <tr><td><b>Kokoro</b> · v1.0</td><td><b>Fast</b> — faster than real-time on modern phones (~0.7 RTF Pixel 8a); heavier on weak devices</td><td>Best all-round</td><td>9 languages · 53 voices</td><td>~185 MB</td><td>Apache-2.0 + BSD-3 Open JTalk; espeak-ng (GPL-3.0-or-later)</td></tr>
+    <tr><td><b>Pocket TTS</b> · 2026-04</td><td><b>Heavy</b> — smooth only on flagships; can stutter on mid-range/older</td><td>Most expressive</td><td>English · 6 voices</td><td>~97 MB</td><td>MIT model + runtime; voices CC0 / CC-BY-4.0; no espeak</td></tr>
+  </table>
+  <p class="note">Sizes use the ground-truth rounded figures (~61 / ~185 / ~97 MB). The app's own
+  <code>formatBytes</code> is MiB-based and would render Pocket as ~93&nbsp;MB (97.3&nbsp;MB decimal);
+  that's the only number that shifts with the rounding convention.</p>
+</section>
+
+<!-- ============================ A1 ============================ -->
+<section id="a1">
+  <div class="varhead"><span class="id">A1</span><h3>Compact rows</h3></div>
+  <p class="idea"><b>Densest, most scannable.</b> One tight row per engine: checkbox, name, a speed
+  tier pill with a 3-bolt micro-meter on the right, then a single meta line (quality · languages ·
+  size). No paragraph at all — the whole list fits above the fold. Best fit for the Engines tab
+  where the list may grow.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Fastest to scan; three engines read in ~2s. Speed is the loudest
+    element on every row. Scales to more engines without pushing Install off screen.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Least room for personality — no space for the mascot moment,
+    and the "why" behind each engine is compressed to a few words.</p></div>
+  </div>
+  <div class="stage" id="stage-a1"></div>
+</section>
+
+<!-- ============================ A2 ============================ -->
+<section id="a2">
+  <div class="varhead"><span class="id">A2</span><h3>Speed gauge</h3></div>
+  <p class="idea"><b>Speed as the hero.</b> Each card's dominant element is a full-width segmented
+  speed gauge with the tier label above it and a one-line plain-English caption below ("Several×
+  faster than real time — even on old phones"). Quality + language ride as small chips; size is a
+  mono number in the corner. License is a "show more" disclosure.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Most unambiguous about the single most important axis — the gauge
+    is impossible to miss and the caption answers "what does that mean for me?".</p></div>
+    <div class="fa con"><h4>Against</h4><p>Tallest of the four; three cards + Install just fit a short phone.
+    The gauge is decorative weight if the user already knows what they want.</p></div>
+  </div>
+  <div class="stage" id="stage-a2"></div>
+</section>
+
+<!-- ============================ A3 ============================ -->
+<section id="a3">
+  <div class="varhead"><span class="id">A3</span><h3>Spec columns</h3></div>
+  <p class="idea"><b>Reads like a comparison table.</b> Left side is name + one honest line of prose;
+  a fixed right-hand column stacks the three axes as labeled stats — <b>SPEED</b> (big, with a mini
+  meter), <b>QUALITY</b>, <b>LANGUAGES</b> — always in the same place so the eye can compare straight
+  down the list. Size sits with the name.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Best for deciding <em>between</em> engines: the stats align in a
+    column so you compare speed-to-speed, langs-to-langs without re-reading. Feels precise.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Most "spec sheet", least warm — the fixed column is a bit rigid
+    for a friendly onboarding, and the narrow column truncates longer values.</p></div>
+  </div>
+  <div class="stage" id="stage-a3"></div>
+</section>
+
+<!-- ============================ A4 ============================ -->
+<section id="a4">
+  <div class="varhead"><span class="id">A4</span><h3>Hero speed badge</h3></div>
+  <p class="idea"><b>Playful, glanceable.</b> A big rounded speed "badge" tile leads each row like an
+  avatar — bolts + the tier word (FASTEST / FAST / HEAVY) — with name, quality and language stacked
+  to its right and size tucked small. The badge does the 2-second job; everything else is support.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Warmest + most on-brand — the badge is a friendly object, not a
+    data readout, and pairs well with the jar mascot. Speed still wins the glance.</p></div>
+    <div class="fa con"><h4>Against</h4><p>The badge spends horizontal room on a label; less space for the
+    quality/language nuance than A2/A3. "HEAVY" as a badge could read as a warning if not styled warm.</p></div>
+  </div>
+  <div class="stage" id="stage-a4"></div>
+</section>
+
+<!-- ============================ NOTES ============================ -->
+<section id="notes">
+  <h2 class="sec">Notes for review</h2>
+  <ul class="idea" style="padding-left:20px">
+    <li><b>Recommendation flip.</b> Every mockup shows Kitten Nano as the pre-selected "recommended"
+      engine (it's Kokoro today in <code>EngineCatalog.kt</code> — <code>isRecommended</code>). Flipping
+      that flag + updating the pre-select set is the code change the design assumes.</li>
+    <li><b>Orange stays precious.</b> The one orange on each light frame is the Install CTA. Speed
+      meters use Peach so a screen full of filled meters never floods with accent — per
+      marmalade-design-scheme-v0. In dark mode there is no orange anywhere (Install = rich brown).</li>
+    <li><b>No green/red.</b> "Heavy" is not a failure — Pocket is the expressive pick. Tiers are
+      encoded by meter fill + label, not by traffic-light colour, to stay on-palette and avoid
+      framing Pocket as "bad".</li>
+    <li><b>License.</b> Shown only behind "show more" (A1/A2) or omitted entirely (A3/A4) — it also
+      lives in Settings → About → Licenses, so the screen doesn't have to carry it.</li>
+    <li><b>Same card, two homes.</b> A1 is the most natural fit for the Engines tab (dense list); A2/A4
+      are more onboarding-flavoured. A3 works in both.</li>
+    <li><b>Fonts.</b> Rendered with system fonts (no CDN) — the wordmark is styled, not
+      Momo Trust Display. For pixel-exact brand type, drop in the Google Fonts link used by
+      <code>speak-screen-lab.html</code>.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+/* ---------- icons ---------- */
+const I = {
+  bolt:(s=14)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 10-13h-7z"/></svg>`,
+  check:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
+  chev:'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="cx"><path d="M8.6 8.6 12 12l3.4-3.4 1.4 1.4-4.8 4.8-4.8-4.8z"/></svg>',
+  globe:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>',
+  star:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.6 5.6 6 .7-4.4 4.1 1.2 6L12 17l-5.4 2.4 1.2-6L3.4 9.3l6-.7z"/></svg>',
+  list:'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>',
+  back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>',
+};
+
+/* jar mascot, inline (verbatim from speak-screen-lab.html) */
+function mascot(){
+  return `<svg width="52" height="52" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="58" rx="19" ry="3" fill="#000" opacity=".08"/>
+    <rect x="14" y="7" width="36" height="9" rx="4.5" fill="#FFF7ED" stroke="#D6D3D1" stroke-width="1.2"/>
+    <rect x="18" y="13" width="28" height="4" rx="2" fill="#E7E5E4"/>
+    <rect x="12" y="16" width="40" height="40" rx="13" fill="#F97316"/>
+    <rect x="12" y="16" width="40" height="40" rx="13" fill="none" stroke="#C2410C" stroke-width="1" opacity=".5"/>
+    <circle cx="24" cy="27" r="3.4" fill="#422006"/><circle cx="40" cy="27" r="3.4" fill="#422006"/>
+    <circle cx="25.1" cy="25.9" r="1.1" fill="#fff"/><circle cx="41.1" cy="25.9" r="1.1" fill="#fff"/>
+    <circle cx="17.5" cy="32" r="2.6" fill="#FDBA74" opacity=".8"/><circle cx="46.5" cy="32" r="2.6" fill="#FDBA74" opacity=".8"/>
+    <path d="M28 33q4 4 8 0" stroke="#422006" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <rect x="17" y="40" width="30" height="13" rx="4" fill="#FFEDD5"/>
+    <rect x="21" y="44" width="22" height="1.8" rx=".9" fill="#FDBA74"/>
+    <rect x="21" y="48" width="14" height="1.8" rx=".9" fill="#FDBA74"/>
+  </svg>`;
+}
+
+/* ---------- engine data (ground truth) ---------- */
+const ENG = [
+  { key:'kitten', name:'Kitten Nano', rec:true, sel:true,
+    tier:'Fastest', fill:3,
+    speedCap:'Several× faster than real time — even on old, cheap phones.',
+    quality:'Natural', langs:'English', voices:'8 voices',
+    size:'61 MB',
+    license:"Apache-2.0 model; phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later)." },
+  { key:'kokoro', name:'Kokoro', rec:false, sel:false,
+    tier:'Fast', fill:2,
+    speedCap:'Faster than real time on modern phones; heavier on weak ones.',
+    quality:'Best overall', langs:'9 languages', voices:'53 voices',
+    size:'185 MB',
+    license:"Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); European languages via the app’s built-in espeak-ng (GPL-3.0-or-later)." },
+  { key:'pocket', name:'Pocket TTS', rec:false, sel:false,
+    tier:'Heavy', fill:1,
+    speedCap:'Smooth on flagship phones; can stutter on mid-range or older ones.',
+    quality:'Most expressive', langs:'English', voices:'6 voices',
+    size:'97 MB',
+    license:"MIT model + runtime; voices CC0 / CC-BY-4.0. No espeak." },
+];
+
+const TODAY = {
+  kokoro:{ name:'Kokoro (v1.0)', rec:true,
+    p:"Best all-round quality with the widest language support — 53 voices across 9 languages, including English, Spanish, French, Italian, Hindi, Portuguese, Japanese, and Mandarin. Recommended for most people. Runs fully on your device; Japanese and Mandarin use bundled pronunciation data and the other languages use espeak-ng, all loaded at runtime.",
+    sz:'Download: 185.3 MB',
+    lc:'Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); European langs phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).' },
+  kitten:{ name:'Kitten Nano (v0.8)', rec:false,
+    p:"Small and fast — the lightest download and the quickest to start speaking. English only, 8 voices. A good pick when you want speed and a small footprint over the widest language coverage. Runs fully on your device with a bundled espeak-ng phonemizer.",
+    sz:'Download: 61.2 MB',
+    lc:'Apache-2.0 model; phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).' },
+  pocket:{ name:'Pocket TTS (English, 2026-04)', rec:false,
+    p:"Heavy, but the most expressive English voices — 6 built-in voices. Streams smoothly on flagship phones; can stutter on mid-range and older hardware. English only. Kyutai Labs' model in a mixed-precision build for clean output.",
+    sz:'Download: 92.8 MB',
+    lc:'MIT model code + MIT runtime (onnxruntime-android); voices CC0 / CC-BY-4.0. No GPL components.' },
+};
+
+/* ---------- shared atoms ---------- */
+function meter(fill, cls=''){
+  let s = `<span class="meter ${cls}">`;
+  for(let i=0;i<3;i++) s += `<i class="${i<fill?'on':''}"></i>`;
+  return s+'</span>';
+}
+function checkbox(sel){ return `<div class="cb">${sel?I.check:''}</div>`; }
+function recTag(){ return `<span class="rec">Recommended</span>`; }
+function licBlock(txt){
+  return `<details class="lic"><summary>Licence & credits ${I.chev}</summary><p>${txt}</p></details>`;
+}
+
+/* ---------- A1 · compact rows ---------- */
+function a1(e){
+  return `<div class="ec a1${e.sel?' sel':''}">
+    ${checkbox(e.sel)}
+    <div class="mid">
+      <div class="top">
+        <span class="nm">${e.name}</span>
+        ${e.rec?recTag():''}
+        <span class="tierpill${e.fill===1?' dim':''}">${I.bolt(11)}${e.tier}</span>
+        ${meter(e.fill,'sm')}
+      </div>
+      <div class="metaline"><b>${e.quality}</b><span class="dot">·</span>${e.langs} · ${e.voices}<span class="dot">·</span>${e.size}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- A2 · speed gauge ---------- */
+function a2(e){
+  return `<div class="ec a2${e.sel?' sel':''}">
+    ${checkbox(e.sel)}
+    <div class="mid">
+      <div class="top">
+        <span class="nm">${e.name}</span>
+        ${e.rec?recTag():''}
+        <span class="size">${e.size}</span>
+      </div>
+      <div class="gauge">
+        <div class="glab"><span class="tier">${e.tier}</span></div>
+        <div class="track">${[0,1,2].map(i=>`<i class="${i<e.fill?'on':''}"></i>`).join('')}</div>
+        <div class="gcap">${e.speedCap}</div>
+      </div>
+      <div class="chips">
+        <span class="ch">${I.star} ${e.quality}</span>
+        <span class="ch">${I.globe} ${e.langs} · ${e.voices}</span>
+      </div>
+      ${licBlock(e.license)}
+    </div>
+  </div>`;
+}
+
+/* ---------- A3 · spec columns ---------- */
+function a3(e){
+  const shortDesc = {
+    kitten:'The quickest to start speaking, smallest download.',
+    kokoro:'Widest language coverage and the best all-round voices.',
+    pocket:'The most expressive, characterful English voices.',
+  }[e.key];
+  return `<div class="ec a3${e.sel?' sel':''}">
+    ${checkbox(e.sel)}
+    <div class="mid">
+      <div class="top"><span class="nm">${e.name}</span>${e.rec?recTag():''}</div>
+      <div class="desc">${shortDesc}</div>
+      <div class="metaline">${e.size}</div>
+    </div>
+    <div class="specs">
+      <div class="spec speed"><div class="k">Speed</div><div class="v">${e.tier} ${meter(e.fill,'sm')}</div></div>
+      <div class="spec"><div class="k">Quality</div><div class="v">${e.quality}</div></div>
+      <div class="spec"><div class="k">Languages</div><div class="v">${e.langs}</div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- A4 · hero badge ---------- */
+function a4(e){
+  return `<div class="ec a4${e.sel?' sel':''}">
+    ${checkbox(e.sel)}
+    <div class="badge">
+      ${meter(e.fill)}
+      <div class="bt">${e.tier.toUpperCase()}</div>
+      <div class="bl">Speed</div>
+    </div>
+    <div class="mid">
+      <div class="top"><span class="nm">${e.name}</span>${e.rec?recTag():''}</div>
+      <div class="metaline"><b>${e.quality}</b> · ${e.langs} · ${e.voices}</div>
+      <div class="metaline" style="opacity:.85">${e.size}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- today (before) ---------- */
+function todayCard(t){
+  return `<div class="today${t.rec?' sel':''}">
+    <div class="col">
+      <div><span class="nm">${t.name}</span>${t.rec?'<span class="rec">RECOMMENDED</span>':''}</div>
+      <p>${t.p}</p>
+      <div class="sz">${t.sz}</div>
+      <div class="lc">${t.lc}</div>
+    </div>
+    <div class="cb" style="border-color:var(--p-outline)">${t.rec?I.check:''}</div>
+  </div>`;
+}
+
+/* ---------- phone shell ---------- */
+function appbar(){
+  return `<div class="appbar"><div class="ib ghost">${I.list}</div>
+    <div class="wm">marmalade tts</div><div class="ib">${I.list}</div></div>`;
+}
+function actions(){
+  return `<div class="actions">
+    <span class="txtbtn">Back</span><span class="spacer"></span>
+    <span class="txtbtn">Skip</span>
+    <button class="install">Install selected</button>
+  </div>`;
+}
+function phone(mode, listHtml, opts={}){
+  const sub = opts.sub ?? 'Download the voices you want. You can add more later.';
+  return `<div class="phone ${mode}">
+    ${appbar()}
+    <div class="body">
+      <div class="h">Choose engines</div>
+      <div class="sub">${sub}</div>
+      <div class="list">${listHtml}</div>
+      ${actions()}
+    </div>
+  </div>`;
+}
+
+function mount(stageId, renderFn){
+  const el = document.getElementById(stageId);
+  const list = m => ENG.map(renderFn).join('');
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light</div>${phone('l', list('l'))}</div>` +
+    `<div class="slot"><div class="cap">Dark</div>${phone('d', list('d'))}</div>`;
+}
+
+/* today mount — real strings, catalog order (Kokoro recommended today) */
+(function(){
+  const el = document.getElementById('stage-today');
+  const order = ['kokoro','kitten','pocket'];
+  const list = order.map(k=>todayCard(TODAY[k])).join('');
+  const ph = m => `<div class="phone ${m}">${appbar()}<div class="body">
+    <div class="h">Choose engines</div>
+    <div class="sub">Download the voices you want. You can add more later.</div>
+    <div class="list" style="gap:12px">${list}</div>${actions()}</div></div>`;
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light · as shipped</div>${ph('l')}</div>` +
+    `<div class="slot"><div class="cap">Dark · as shipped</div>${ph('d')}</div>`;
+})();
+
+mount('stage-a1', a1);
+mount('stage-a2', a2);
+mount('stage-a3', a3);
+mount('stage-a4', a4);
+
+/* jump-bar active state */
+const links=[...document.querySelectorAll('nav.jump a[href^="#"]')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  links.forEach(a=>a.classList.toggle('pick',a.getAttribute('href')==='#'+e.target.id));}});},
+  {rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('main section[id]').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

@@ -111,6 +111,8 @@ import app.marmalade.tts.ui.theme.ThemePreset
 fun SettingsScreen(
     /** Nav callback for Settings → About → Open-source licenses. */
     onNavigateToLicenses: () -> Unit,
+    /** Nav callback for Settings → About → Privacy policy. */
+    onNavigateToPrivacy: () -> Unit,
     /** Nav callback for the Advanced leaf screen (threads, developer, benchmark). */
     onNavigateToAdvanced: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -165,7 +167,14 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            AboutSection(onNavigateToLicenses = onNavigateToLicenses)
+            SupportSection()
+
+            HorizontalDivider()
+
+            AboutSection(
+                onNavigateToLicenses = onNavigateToLicenses,
+                onNavigateToPrivacy = onNavigateToPrivacy,
+            )
         }
     }
 }
@@ -336,25 +345,23 @@ private fun AdvancedRow(onClick: () -> Unit) {
 }
 
 @Composable
-private fun AboutSection(onNavigateToLicenses: () -> Unit) {
-    SectionHeader(stringResource(R.string.settings_about))
+private fun SupportSection() {
+    SectionHeader(stringResource(R.string.settings_support))
 
-    AboutRow(
-        label = stringResource(R.string.app_name),
-        supporting = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
-        leading = {
-            Icon(imageVector = Icons.Filled.Info, contentDescription = null)
-        },
-        showChevron = false,
-    )
+    // Flavor-specific entry — see src/{play,fdroid}/.../AboutExtras.kt.
+    // F-Droid renders a "Support development" link to GitHub Sponsors first;
+    // Play renders nothing (per docs/release/PAYWALL-PLAN.md the donate link
+    // is omitted from Play for first-listing policy safety), so on Play this
+    // section starts at "More Marmalade".
+    app.marmalade.tts.ui.screen.AboutExtras()
 
-    AboutRow(
-        label = stringResource(R.string.settings_licenses),
-        supporting = stringResource(R.string.settings_licenses_desc),
+    AboutLinkRow(
+        label = stringResource(R.string.settings_more_marmalade),
+        supporting = stringResource(R.string.settings_more_marmalade_desc),
+        url = "https://github.com/maxwhipw",
         leading = {
-            Icon(imageVector = MarmaladeIcons.LicenseDoc, contentDescription = null)
+            Text(text = "🍊", style = MaterialTheme.typography.titleMedium)
         },
-        modifier = Modifier.clickable(onClick = onNavigateToLicenses),
     )
 
     AboutLinkRow(
@@ -370,21 +377,42 @@ private fun AboutSection(onNavigateToLicenses: () -> Unit) {
             Icon(imageVector = MarmaladeIcons.Bug, contentDescription = null)
         },
     )
+}
 
-    AboutLinkRow(
-        label = stringResource(R.string.settings_more_marmalade),
-        supporting = stringResource(R.string.settings_more_marmalade_desc),
-        url = "https://github.com/maxwhipw",
+@Composable
+private fun AboutSection(
+    onNavigateToLicenses: () -> Unit,
+    onNavigateToPrivacy: () -> Unit,
+) {
+    SectionHeader(stringResource(R.string.settings_about))
+
+    AboutRow(
+        label = stringResource(R.string.settings_privacy),
+        supporting = stringResource(R.string.settings_privacy_desc),
         leading = {
-            Text(text = "\uD83C\uDF4A", style = MaterialTheme.typography.titleMedium)
+            Icon(imageVector = MarmaladeIcons.Privacy, contentDescription = null)
         },
+        modifier = Modifier.clickable(onClick = onNavigateToPrivacy),
     )
 
-    // Flavor-specific entries — see src/{play,fdroid}/.../AboutExtras.kt.
-    // F-Droid renders a "Support development" link to GitHub Sponsors;
-    // Play renders nothing (per docs/release/PAYWALL-PLAN.md the donate
-    // link is omitted from Play for first-listing policy safety).
-    app.marmalade.tts.ui.screen.AboutExtras()
+    AboutRow(
+        label = stringResource(R.string.settings_licenses),
+        supporting = stringResource(R.string.settings_licenses_desc),
+        leading = {
+            Icon(imageVector = MarmaladeIcons.LicenseDoc, contentDescription = null)
+        },
+        modifier = Modifier.clickable(onClick = onNavigateToLicenses),
+    )
+
+    // Version last — it's identity, not an action, and there's nothing to tap.
+    AboutRow(
+        label = stringResource(R.string.app_name),
+        supporting = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
+        leading = {
+            Icon(imageVector = Icons.Filled.Info, contentDescription = null)
+        },
+        showChevron = false,
+    )
 }
 
 @Composable

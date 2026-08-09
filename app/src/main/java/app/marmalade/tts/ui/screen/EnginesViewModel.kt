@@ -57,18 +57,6 @@ class EnginesViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * Whether any cloud provider has an API key configured — drives the
-     * cloud engine card's status + actions. Only presence reaches the UI;
-     * keys themselves never do. Key management lives on [CloudApiScreen].
-     */
-    val cloudApiKeySet: StateFlow<Boolean> = settings.anyCloudApiKeySet
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = false,
-        )
-
-    /**
      * Catalog engines to render, filtered by the "show developer engines"
      * setting — the legacy sherpa engines drop out when it's off. Reactive
      * so toggling the setting refreshes the list without a screen reload.

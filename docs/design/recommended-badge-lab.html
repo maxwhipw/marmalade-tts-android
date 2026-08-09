@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marmalade TTS — Recommended Badge Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* =============================================================
+   PAGE-SPECIFIC ONLY. Dark shell (header, h2.sec, .lede, .note,
+   tables, code) comes from /_assets/lab.css. Phone frame + A3 card
+   tokens are lifted verbatim from engine-select-lab.html so the
+   badge studies sit in the real, shipped card. Self-contained: no
+   CDN fonts (system grotesque fallback; wordmark styled).
+   ============================================================= */
+:root{
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Manrope",sans-serif;
+  --wordmark:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+nav.jump{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:9px 26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 -28px 24px}
+nav.jump a{color:var(--dim);font-size:13px;text-decoration:none;padding:5px 11px;
+  border-radius:99px;border:1px solid transparent;white-space:nowrap}
+nav.jump a:hover{color:var(--ink);border-color:var(--line);background:var(--panel)}
+nav.jump a.pick{color:var(--toast);border-color:#4a3a2a}
+nav.jump .spacer{flex:1}
+
+.varhead{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin:0 0 4px}
+.varhead .id{font-family:var(--mono);font-size:12px;color:#2b1400;background:var(--peach);
+  border-radius:6px;padding:2px 8px;font-weight:600}
+.varhead h3{margin:0;font-size:19px;letter-spacing:-.01em;color:var(--ink)}
+.idea{color:var(--dim);font-size:15px;max-width:900px;margin:0 0 18px}
+.idea b{color:var(--toast);font-weight:600}
+
+.stage{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.slot{display:flex;flex-direction:column;gap:8px}
+.slot .cap{font-family:var(--mono);font-size:11px;color:var(--dimmer);letter-spacing:.08em;
+  text-transform:uppercase;padding-left:4px}
+
+.foragainst{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0 20px;max-width:900px}
+.fa{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;
+  background:var(--panel);padding:11px 15px}
+.fa.pro{border-left-color:var(--ok)} .fa.con{border-left-color:var(--block)}
+.fa h4{margin:0 0 5px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+.fa.pro h4{color:var(--ok)} .fa.con h4{color:var(--block)}
+.fa p{margin:0;font-size:14px;color:var(--dim);line-height:1.55}
+.fa p b{color:var(--ink);font-weight:600}
+
+/* =============================================================
+   PHONE FRAME — 400px. Tokens from ui/theme/Color.kt +
+   marmalade-design-scheme-v0. Orange precious (Install CTA only);
+   speed meters = Peach.
+   ============================================================= */
+.phone{
+  width:400px;border-radius:28px;overflow:hidden;
+  border:1px solid #000;box-shadow:0 12px 34px rgba(0,0,0,.5);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  background:var(--p-surface);color:var(--p-ink);
+  display:flex;flex-direction:column}
+.phone.l{
+  --p-surface:#FFF7ED; --p-ink:#1C1917; --p-dim:#57534E;
+  --p-container:#FFEDD5; --p-container-hi:#FFFBF6;
+  --p-outline:#A8A29E; --p-outline-v:#D6D3D1;
+  --p-accent:#F97316; --p-on-accent:#FFFFFF;
+  --p-wordmark:#F97316;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FFEDD5; --p-chip-off-ink:#1C1917;
+  --p-meter:#F59E5B; --p-meter-off:#EAD9C4;
+  --p-sel:#FDECD6;
+  --p-err:#DC2626;
+}
+.phone.d{
+  --p-surface:#1A1A1A; --p-ink:#FAFAF9; --p-dim:#C7C0B9;
+  --p-container:#292524; --p-container-hi:#332F2C;
+  --p-outline:#737373; --p-outline-v:#403A35;
+  --p-accent:#422006; --p-on-accent:#FED7AA;
+  --p-wordmark:#FFEDD5;
+  --p-chip-on:#FED7AA; --p-chip-on-ink:#7C2D12;
+  --p-chip-off:#FEF3C7; --p-chip-off-ink:#1C1917;
+  --p-meter:#FDBA74; --p-meter-off:#403A35;
+  --p-sel:#332B22;
+  --p-err:#EF4444;
+}
+.phone .body{padding:12px 16px 16px;display:flex;flex-direction:column;flex:1}
+.phone .list{display:flex;flex-direction:column;gap:12px;flex:1}
+
+/* selectable A3 card */
+.ec{border-radius:16px;background:var(--p-container);position:relative;
+  border:1px solid transparent;overflow:hidden}
+.ec.sel{background:var(--p-sel);border-color:var(--p-chip-on)}
+.ec .row{padding:14px;display:flex;gap:14px;align-items:stretch}
+.ec .cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--p-outline);
+  display:grid;place-items:center;flex:none;color:transparent;margin-top:1px}
+.ec.sel .cb{background:var(--p-chip-on);border-color:var(--p-chip-on);color:var(--p-chip-on-ink)}
+.ec .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ec .top{display:flex;align-items:center;gap:8px}
+.ec .nm{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--p-ink)}
+.ec .desc{font-size:12.5px;color:var(--p-dim);line-height:1.45}
+.ec .size{font-family:var(--mono);font-size:12px;color:var(--p-dim);white-space:nowrap}
+.ec .specs{flex:none;width:118px;display:flex;flex-direction:column;gap:0;
+  border-left:1px solid var(--p-outline-v);padding-left:13px;justify-content:center}
+.ec .spec{padding:5px 0}
+.ec .spec .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--p-dim)}
+.ec .spec .v{font-size:14px;font-weight:700;color:var(--p-ink);line-height:1.2;margin-top:2px;
+  display:flex;align-items:center;gap:6px}
+.meter{display:inline-flex;gap:3px;align-items:center}
+.meter i{width:6px;height:12px;border-radius:2px;background:var(--p-meter-off)}
+.meter i.on{background:var(--p-meter)}
+
+/* the recommended badge — the object under study. Base pill. */
+.rec{font-size:9.5px;letter-spacing:.06em;font-weight:700;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);
+  padding:2px 8px;border-radius:99px;white-space:nowrap;flex:none}
+.rec.star::before{content:"★";margin-right:4px;font-size:9px;line-height:1}
+
+/* case toggle */
+.uc{text-transform:uppercase} .tc{text-transform:none}
+
+/* --- BUG reproduction: pill crushed inline after a long name --- */
+.ec.bug .top{min-width:0}
+.ec.bug .nm{flex:none}
+.ec.bug .rec{min-width:0;max-width:12px;word-break:break-all;white-space:normal;
+  line-height:1.05;padding:4px 3px;text-align:center}
+
+/* --- R1: pill on its own line below the name --- */
+.ec .badgeline{display:flex}
+
+/* --- R2: eyebrow/kicker above the name --- */
+.ec .eyebrow{font-size:9.5px;letter-spacing:.1em;font-weight:800;
+  color:var(--p-chip-on-ink);text-transform:uppercase;display:flex;align-items:center;gap:5px}
+.phone.d .ec .eyebrow{color:var(--p-chip-on)}
+.ec .eyebrow .ln{height:1px;flex:1;background:var(--p-chip-on);opacity:.5}
+
+/* --- R3: corner tab (top-left ribbon tab) --- */
+.ec.tab{padding-top:0}
+.ec .cornertab{display:inline-flex;align-items:center;gap:5px;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);
+  font-size:9.5px;letter-spacing:.07em;font-weight:800;text-transform:uppercase;
+  padding:4px 12px 4px 14px;border-radius:0 0 12px 0}
+
+/* --- R4: full-width header strip --- */
+.ec .strip{display:flex;align-items:center;gap:6px;justify-content:center;
+  background:var(--p-chip-on);color:var(--p-chip-on-ink);
+  font-size:10px;letter-spacing:.09em;font-weight:800;text-transform:uppercase;
+  padding:6px 0}
+.ec .strip svg{display:block}
+
+/* --- R5: inline, name-priority (name ellipsizes, pill never collapses) --- */
+.ec.prio .top{min-width:0}
+.ec.prio .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+.phone svg{display:block}
+.legend{font-size:12.5px;color:var(--dim);margin:-6px 0 16px}
+.legend code{font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Marmalade TTS — <span>Recommended Badge Lab</span></h1>
+    <div class="sub">Where the "Recommended" badge lives on the A3 engine card. Live HTML at 400&nbsp;dp, light + dark.</div>
+  </div>
+  <div class="meta">
+    bug <b>inline pill collapses to vertical text</b><br>
+    card <b>EngineSpecColumn / OnboardingScreen.EngineCard</b><br>
+    palette <b>ui/theme/Color.kt</b> + <b>marmalade-design-scheme-v0</b>
+  </div>
+</header>
+
+<main>
+
+<nav class="jump">
+  <a href="#bug">The bug</a>
+  <a href="#r1">R1 · Own line</a>
+  <a href="#r2">R2 · Eyebrow</a>
+  <a href="#r3">R3 · Corner tab</a>
+  <a href="#r4">R4 · Header strip</a>
+  <a href="#r5">R5 · Name-priority</a>
+  <span class="spacer"></span>
+  <a href="#case">Case &amp; colour</a>
+  <a href="#notes" class="pick">Notes</a>
+</nav>
+
+<h2 class="sec">The problem</h2>
+<p class="lede">
+  On the shipped A3 card the badge is a small pill placed <b>inline in a Row after the engine name</b>
+  (<code>OnboardingScreen.RecommendedTag</code>). The name column has <code>weight(1f)</code>, so
+  "Kitten&nbsp;Nano&nbsp;(v0.8)" claims its full width and the pill is squeezed into whatever is left —
+  a sliver about one glyph wide. Compose then wraps the pill's text character-by-character, and
+  "RECOMMENDED" renders as a <b>vertical strip of letters</b> down the middle of the card. The fix is a
+  layout that gives the badge a home which can't be crushed. Every option below is rendered in the real
+  card so prominence can be judged against a neighbouring (non-recommended) card.
+</p>
+
+<!-- ============================ BUG ============================ -->
+<section id="bug">
+  <h2 class="sec">Today — the vertical-letters bug</h2>
+  <p class="idea">Faithful reproduction: the pill is given the ~1-glyph width it collapses to in Compose, so
+  the char-wrap is visible. This is exactly what the screenshot shows on the Kitten card.</p>
+  <div class="stage" id="stage-bug"></div>
+</section>
+
+<!-- ============================ R1 ============================ -->
+<section id="r1">
+  <div class="varhead"><span class="id">R1</span><h3>Its own line</h3></div>
+  <p class="idea"><b>Smallest change, zero risk.</b> Name on line one; the pill drops to a line of its own
+  directly beneath it, left-aligned above the tagline. It can never be crushed because nothing competes for
+  the width. Reads as "Kitten Nano · Recommended".</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>One-line diff (move the pill out of the name Row). Robust for any name
+    length or locale. Keeps the badge quiet and close to the name.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Adds a little vertical height to the recommended card; the badge is
+    the least prominent of the options — easy to miss on a quick scan.</p></div>
+  </div>
+  <div class="stage" id="stage-r1"></div>
+</section>
+
+<!-- ============================ R2 ============================ -->
+<section id="r2">
+  <div class="varhead"><span class="id">R2</span><h3>Eyebrow above the name</h3></div>
+  <p class="idea"><b>A kicker line.</b> A tiny "★ RECOMMENDED" overline sits above the name like a section
+  eyebrow, optionally with a hairline rule trailing it. The eye hits the endorsement first, then the name.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Clear editorial hierarchy — the recommendation reads before the name,
+    which is what you want on a "which one?" screen. Still uncrushable, still compact.</p></div>
+    <div class="fa con"><h4>Against</h4><p>An overline above a card title is a slightly unusual pattern for
+    Material; needs the star or rule to not look like a stray label.</p></div>
+  </div>
+  <div class="stage" id="stage-r2"></div>
+</section>
+
+<!-- ============================ R3 ============================ -->
+<section id="r3">
+  <div class="varhead"><span class="id">R3</span><h3>Corner tab</h3></div>
+  <p class="idea"><b>Card-level, not name-level.</b> A small toast-coloured tab tucked into the card's
+  top-left corner (rounded into the card), the row content starting below it. The badge decorates the
+  <em>card</em>, so name length is irrelevant.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Distinctly marks the whole card as special without touching the name
+    row. Playful, on-brand, and impossible to crush. Good glance-value.</p></div>
+    <div class="fa con"><h4>Against</h4><p>More chrome; the tab competes a little with the checkbox for the
+    top-left. Needs the selected-card wash to not clash with the tab colour.</p></div>
+  </div>
+  <div class="stage" id="stage-r3"></div>
+</section>
+
+<!-- ============================ R4 ============================ -->
+<section id="r4">
+  <div class="varhead"><span class="id">R4</span><h3>Full-width header strip</h3></div>
+  <p class="idea"><b>Loudest.</b> A slim "★ RECOMMENDED" bar spans the full top of the card; the normal row
+  sits under it. Unmistakable, and the strongest separation between the recommended engine and the rest.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Maximum prominence — the recommended card is obvious from across the
+    room. Perfectly stable regardless of name or locale.</p></div>
+    <div class="fa con"><h4>Against</h4><p>Heaviest option; can feel like a store "BEST SELLER" banner. Uses a
+    full band of toast colour, so it must stay subtle to keep orange precious.</p></div>
+  </div>
+  <div class="stage" id="stage-r4"></div>
+</section>
+
+<!-- ============================ R5 ============================ -->
+<section id="r5">
+  <div class="varhead"><span class="id">R5</span><h3>Inline, name-priority</h3></div>
+  <p class="idea"><b>Keep it on the name line, fix the crush.</b> The pill keeps its natural width and the
+  <em>name</em> yields — it takes <code>weight(1f)</code> and ellipsizes if it must. In practice these three
+  names all fit, so it looks like the original intent, minus the bug.</p>
+  <div class="foragainst">
+    <div class="fa pro"><h4>For</h4><p>Closest to the original design; no extra height. Correct one-line fix:
+    swap which element owns the flexible width.</p></div>
+    <div class="fa con"><h4>Against</h4><p>A long name in another locale would truncate the name rather than
+    the badge — arguably the wrong thing to sacrifice. Tight on a 400dp frame with the spec column.</p></div>
+  </div>
+  <div class="stage" id="stage-r5"></div>
+</section>
+
+<!-- ============================ CASE ============================ -->
+<section id="case">
+  <h2 class="sec">Two smaller calls, shown side by side</h2>
+  <p class="legend">Independent of placement. Left = <b>ALL CAPS</b> (the shipped
+  <code>onboarding_recommended</code> string). Right = <b>Title case</b> (what the original lab mocked).
+  Also toggles a leading <b>★</b>. Rendered on R1 so only the wording changes.</p>
+  <div class="stage" id="stage-case"></div>
+</section>
+
+<!-- ============================ NOTES ============================ -->
+<section id="notes">
+  <h2 class="sec">Notes for review</h2>
+  <ul class="idea" style="padding-left:20px">
+    <li><b>The bug is a layout ordering issue, not a colour one.</b> Any option that stops the name Row from
+      starving the pill fixes it: give the badge its own line/row (R1–R4) or make the name the flexible
+      element instead of the badge (R5).</li>
+    <li><b>Prominence ladder:</b> R1 (quietest) → R2 → R3 → R4 (loudest). Since only one engine is ever
+      recommended, a louder mark is defensible, but it spends toast colour — keep the accent orange for the
+      Install CTA per <code>marmalade-design-scheme-v0</code>.</li>
+    <li><b>Same badge, two homes.</b> Whatever wins must also work on the <b>Engines tab</b> card
+      (<code>EnginesScreen.EngineCard</code>), which shares <code>EngineSpecColumn</code>. R1/R2/R5 port for
+      free; R3/R4 need the card to own the corner/top (also fine there).</li>
+    <li><b>Case + star</b> (the <code>case</code> section) are orthogonal to placement — decide them once and
+      apply to the winner. All-caps is louder and matches the current string; title case is softer and more
+      on-brand-friendly.</li>
+    <li><b>Dark mode.</b> The pill uses the toast container (<code>tertiaryContainer</code>) in both modes;
+      there is no orange on the dark frame. Check the strip (R4) isn't too bright on dark.</li>
+    <li><b>Fonts.</b> System grotesque (no CDN). Wordmark styled, not Momo Trust Display.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+const I = {
+  check:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
+  starsm:'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.6 5.6 6 .7-4.4 4.1 1.2 6L12 17l-5.4 2.4 1.2-6L3.4 9.3l6-.7z"/></svg>',
+};
+function meter(fill){let s='<span class="meter">';for(let i=0;i<3;i++)s+=`<i class="${i<fill?'on':''}"></i>`;return s+'</span>';}
+
+/* The recommended engine (triggers the bug) + a neighbour for context. */
+const KITTEN = { key:'kitten', name:'Kitten Nano (v0.8)', sel:true,
+  desc:'The quickest to start speaking, smallest download.',
+  size:'61 MB', tier:'Fastest', fill:3, quality:'Natural', langs:'English' };
+const KOKORO = { key:'kokoro', name:'Kokoro (v1.0)', sel:false,
+  desc:'Widest language coverage and the best all-round voices.',
+  size:'185 MB', tier:'Fast', fill:2, quality:'Best overall', langs:'9 languages' };
+
+function checkbox(sel){ return `<div class="cb">${sel?I.check:''}</div>`; }
+function specs(e){
+  return `<div class="specs">
+    <div class="spec"><div class="k">Speed</div><div class="v">${e.tier} ${meter(e.fill)}</div></div>
+    <div class="spec"><div class="k">Quality</div><div class="v">${e.quality}</div></div>
+    <div class="spec"><div class="k">Languages</div><div class="v">${e.langs}</div></div>
+  </div>`;
+}
+
+/* badge markup builders per variant. `rec` = is this the recommended card. */
+function pill(text, cls=''){ return `<span class="rec ${cls}">${text}</span>`; }
+
+const RENDER = {
+  bug: (e,rec)=>`<div class="ec bug${e.sel?' sel':''}"><div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        <div class="top"><span class="nm">${e.name}</span>${rec?pill('RECOMMENDED','uc'):''}</div>
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+
+  r1: (e,rec)=>`<div class="ec${e.sel?' sel':''}"><div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        <div class="top"><span class="nm">${e.name}</span></div>
+        ${rec?`<div class="badgeline">${pill('RECOMMENDED','uc')}</div>`:''}
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+
+  r2: (e,rec)=>`<div class="ec${e.sel?' sel':''}"><div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        ${rec?`<div class="eyebrow">${I.starsm} Recommended <span class="ln"></span></div>`:''}
+        <div class="top"><span class="nm">${e.name}</span></div>
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+
+  r3: (e,rec)=>`<div class="ec${rec?' tab':''}${e.sel?' sel':''}">
+      ${rec?`<div class="cornertab">${I.starsm} Recommended</div>`:''}
+      <div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        <div class="top"><span class="nm">${e.name}</span></div>
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+
+  r4: (e,rec)=>`<div class="ec${e.sel?' sel':''}">
+      ${rec?`<div class="strip">${I.starsm} Recommended</div>`:''}
+      <div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        <div class="top"><span class="nm">${e.name}</span></div>
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+
+  r5: (e,rec)=>`<div class="ec prio${e.sel?' sel':''}"><div class="row">
+      ${checkbox(e.sel)}
+      <div class="mid">
+        <div class="top"><span class="nm">${e.name}</span>${rec?pill('Recommended','tc'):''}</div>
+        <div class="desc">${e.desc}</div><div class="size">${e.size}</div>
+      </div>${specs(e)}
+    </div></div>`,
+};
+
+function phone(mode, inner){
+  return `<div class="phone ${mode}"><div class="body"><div class="list">${inner}</div></div></div>`;
+}
+function mount(stageId, key){
+  const el = document.getElementById(stageId);
+  const r = RENDER[key];
+  const list = () => r(KITTEN,true) + r(KOKORO,false);
+  el.innerHTML =
+    `<div class="slot"><div class="cap">Light</div>${phone('l',list())}</div>` +
+    `<div class="slot"><div class="cap">Dark</div>${phone('d',list())}</div>`;
+}
+['bug','r1','r2','r3','r4','r5'].forEach(k=>mount('stage-'+k,k));
+
+/* case + star study, on R1 */
+(function(){
+  const el = document.getElementById('stage-case');
+  const card = (mode,text,cls)=>`<div class="phone ${mode}"><div class="body"><div class="list">
+    <div class="ec sel"><div class="row">${checkbox(true)}
+      <div class="mid">
+        <div class="top"><span class="nm">${KITTEN.name}</span></div>
+        <div class="badgeline"><span class="rec ${cls}">${text}</span></div>
+        <div class="desc">${KITTEN.desc}</div><div class="size">${KITTEN.size}</div>
+      </div>${specs(KITTEN)}</div></div>
+  </div></div></div>`;
+  el.innerHTML =
+    `<div class="slot"><div class="cap">ALL CAPS · Light</div>${card('l','RECOMMENDED','uc')}</div>` +
+    `<div class="slot"><div class="cap">Title · Light</div>${card('l','Recommended','tc')}</div>` +
+    `<div class="slot"><div class="cap">★ Title · Light</div>${card('l',I.starsm+' Recommended','tc star-inline')}</div>` +
+    `<div class="slot"><div class="cap">ALL CAPS · Dark</div>${card('d','RECOMMENDED','uc')}</div>`;
+})();
+
+const links=[...document.querySelectorAll('nav.jump a[href^="#"]')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  links.forEach(a=>a.classList.toggle('pick',a.getAttribute('href')==='#'+e.target.id));}});},
+  {rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('main section[id]').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

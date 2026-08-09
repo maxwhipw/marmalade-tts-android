@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">Advanced settings</string>
     <string name="settings_advanced_row_desc">Synthesis threads, developer engines, and other knobs most people never need.</string>
 
+    <string name="settings_support">Support</string>
     <string name="settings_about">About</string>
     <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_privacy">Privacy policy</string>
+    <string name="settings_privacy_desc">What stays on your phone, and what cloud voices send. No tracking, no accounts.</string>
+    <string name="settings_privacy_load_failed">Couldn\'t load the privacy policy. It\'s also in the repository as PRIVACY.md.</string>
     <string name="settings_licenses">Open-source licenses</string>
     <string name="settings_licenses_desc">Licenses for the app, its bundled components, and the downloadable engines.</string>
     <string name="settings_report_bug">Report a bug</string>

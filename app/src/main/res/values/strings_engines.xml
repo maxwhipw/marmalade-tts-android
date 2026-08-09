@@ -4,11 +4,14 @@
     <string name="engines_title">Engines</string>
     <string name="engines_back">Back</string>
     <string name="engines_show_more">Show more</string>
-    <string name="engines_show_less">Show less</string>
     <string name="engines_developer_badge">Developer</string>
     <string name="engines_size_summary">%1$s download · %2$s installed</string>
     <string name="engines_downloading_progress">Downloading · %1$s / %2$s</string>
     <string name="engines_installing_progress">Installing · %1$s / %2$s</string>
+
+    <!-- Engines tab: on-device / cloud source switch -->
+    <string name="engines_tab_local">On-device</string>
+    <string name="engines_tab_cloud">Cloud</string>
 
     <!-- A3 engine-select spec columns (shared: onboarding picker + Engines tab) -->
     <string name="engine_spec_speed">Speed</string>
@@ -20,10 +23,9 @@
     <string name="engine_quality_natural">Natural</string>
     <string name="engine_quality_best">Best overall</string>
     <string name="engine_quality_expressive">Most expressive</string>
-    <plurals name="engine_languages_count">
-        <item quantity="one">%1$d language</item>
-        <item quantity="other">%1$d languages</item>
-    </plurals>
+    <!-- Tappable spec value for a multi-language engine; sits under the "LANGUAGES"
+         overline, so the noun is supplied by the label above (%1$d = language count). -->
+    <string name="engine_languages_see_all">See all %1$d</string>
     <string name="engine_languages_info_cd">Show supported languages</string>
     <string name="engine_languages_dialog_title">Supported languages</string>
     <string name="engine_languages_dialog_close">Close</string>
@@ -40,7 +42,6 @@
 
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>
-    <string name="engines_engine_settings">Engine settings</string>
     <string name="engines_retry">Retry</string>
     <string name="engines_reinstall">Reinstall</string>
     <string name="engines_update">Update</string>
@@ -64,10 +65,8 @@
 
     <!-- EngineDetailScreen -->
     <string name="engines_browse_voices">Browse voices</string>
-    <string name="engines_browse_voices_enabled">Preview this engine\'s voices and pick a default.</string>
+    <string name="engines_browse_voices_enabled">Preview this engine\'s voices.</string>
     <string name="engines_browse_voices_disabled">Install the engine to browse its voices.</string>
-    <string name="engines_status">Status</string>
-    <string name="engines_install_to_see_settings">Install this engine to see its settings.</string>
     <string name="engines_preprocessing">Text preprocessing</string>
     <string name="engines_preprocessing_pending">Preferences saved; will take effect once you install this engine.</string>
     <string name="engines_reset_defaults">Reset to defaults</string>
@@ -75,13 +74,6 @@
     <string name="engines_unknown_title">Engine \"%1$s\" is not in the catalog.</string>
     <string name="engines_unknown_body">It may have been removed in a newer version of the app.</string>
 
-    <string name="engines_state_not_installed">Not installed</string>
-    <string name="engines_state_downloading">Downloading</string>
-    <string name="engines_state_installing">Installing</string>
-    <string name="engines_state_installed">Installed</string>
-    <string name="engines_state_failed">Failed</string>
-    <string name="engines_state_corrupt">Corrupt — needs reinstall</string>
-    <string name="engines_state_outdated">Update available</string>
 
     <!-- CloudApiScreen -->
     <string name="engines_cloud_intro">Voices synthesized on a provider\'s servers — your text is sent over the network per request. Add a key for any provider to use its voices; each provider bills through its own account.</string>

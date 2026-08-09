@@ -1,6 +1,5 @@
 package app.marmalade.tts.ui.screen
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,24 +10,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -51,12 +45,11 @@ import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.preprocessing.PreprocessingRules
-import app.marmalade.tts.ui.onboarding.formatBytes
 
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   EnginesScreen → tap "Engine settings" on a card
+//   EnginesScreen → tap "Configure" on a card
 //     │
 //     ▼
 //   navController.navigate("engine/<name>") → AppRoot's composable("engine/{name}")
@@ -74,12 +67,10 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 //     └── actions
 //          ├── toggleRule(name, on)   → viewModel.toggleRule(name, on)
 //          ├── resetRules()           → viewModel.resetRules()
-//          ├── install()              → viewModel.install()
 //          └── back arrow             → onBack() (pops back stack)
 //
 //   Body layout (top → bottom):
-//     1. Status card — install state + storage line + (if not installed)
-//        an "Install this engine" affordance.
+//     1. Browse voices — opens the engine-scoped voice picker.
 //     2. Text preprocessing — same Switch list that used to live on
 //        SettingsScreen, but scoped to this one engine (no per-engine
 //        subheadings here).
@@ -89,7 +80,7 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 /**
  * Per-engine settings page.
  *
- * Reached from [EnginesScreen] via the "Engine settings" button on each
+ * Reached from [EnginesScreen] via the "Configure" button on each
  * card. Shows install status (live, mirrored from
  * [app.marmalade.tts.install.EngineInstaller]) and the per-engine text
  * preprocessing rule toggles — preferences round-trip via
@@ -112,7 +103,6 @@ fun EngineDetailScreen(
     val descriptor: EngineDescriptor? = EngineCatalog.byName(engineName)
     val installState by viewModel.installState.collectAsStateWithLifecycle()
     val enabledRules by viewModel.enabledRules.collectAsStateWithLifecycle()
-    val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
 
     Scaffold(
         // Nested-Scaffold inset handoff — see SpeakScreen for the full note.
@@ -147,15 +137,10 @@ fun EngineDetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            StatusSection(
-                descriptor = descriptor,
-                state = installState,
-                isInstalling = isInstalling,
-                onInstall = { viewModel.install() },
-            )
-
-            HorizontalDivider()
-
+            // No status card here: this screen is only reachable from an
+            // installed (or update-available) engine's Configure button, so a
+            // "Installed · 61.2 MB download" panel just repeated the card the
+            // user tapped to get here.
             val isInstalled = installState is InstallState.Installed
 
             VoicesSection(
@@ -233,139 +218,6 @@ private fun VoicesSection(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-private fun StatusSection(
-    descriptor: EngineDescriptor,
-    state: InstallState,
-    isInstalling: Boolean,
-    onInstall: () -> Unit,
-) {
-    DetailSectionHeader(stringResource(R.string.engines_status))
-
-    OutlinedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(state.labelRes()),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                if (isInstalling || state is InstallState.Downloading || state is InstallState.Extracting) {
-                    CircularProgressIndicator(
-                        // .size() is the correct sizing modifier for
-                        // CircularProgressIndicator — .height() alone
-                        // leaves the width unconstrained and the spinner
-                        // ends up much larger than intended (the bug
-                        // Max reported in v0.1.19).
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.5.dp,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(
-                    R.string.engines_size_summary,
-                    formatBytes(descriptor.downloadSizeBytes),
-                    formatBytes(descriptor.installedSizeBytes),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            if (state is InstallState.Downloading) {
-                Spacer(Modifier.height(8.dp))
-                val fraction = if (state.totalBytes > 0L) {
-                    (state.bytesFetched.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(
-                        R.string.engines_downloading_progress,
-                        formatBytes(state.bytesFetched),
-                        formatBytes(state.totalBytes),
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (state is InstallState.Extracting) {
-                Spacer(Modifier.height(8.dp))
-                val fraction = if (state.totalBytes > 0L) {
-                    (state.bytesExtracted.toFloat() / state.totalBytes.toFloat()).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(
-                        R.string.engines_installing_progress,
-                        formatBytes(state.bytesExtracted),
-                        formatBytes(state.totalBytes),
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (state is InstallState.Failed) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = state.reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            // Inline install affordance for the most common detail-page
-            // entry-paths: user tapped Engine settings on a NotInstalled
-            // card, OR landed via deep link. EnginesScreen still owns the
-            // primary install/uninstall surface; this is a convenience.
-            val needsInstall = state is InstallState.NotInstalled ||
-                state is InstallState.Failed ||
-                state is InstallState.Corrupt
-            if (needsInstall) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.engines_install_to_see_settings),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onInstall,
-                    enabled = !isInstalling,
-                ) {
-                    Text(
-                        stringResource(
-                            when (state) {
-                                is InstallState.Failed -> R.string.engines_retry
-                                InstallState.Corrupt -> R.string.engines_reinstall
-                                else -> R.string.engines_install
-                            },
-                        ),
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -502,14 +354,3 @@ private fun DetailSectionHeader(label: String) {
     )
 }
 
-/** Human-readable label for the install-state chip / header. */
-@StringRes
-private fun InstallState.labelRes(): Int = when (this) {
-    InstallState.NotInstalled -> R.string.engines_state_not_installed
-    is InstallState.Downloading -> R.string.engines_state_downloading
-    is InstallState.Extracting -> R.string.engines_state_installing
-    InstallState.Installed -> R.string.engines_state_installed
-    is InstallState.Failed -> R.string.engines_state_failed
-    InstallState.Corrupt -> R.string.engines_state_corrupt
-    is InstallState.Outdated -> R.string.engines_state_outdated
-}

@@ -4,15 +4,17 @@
     <string name="engines_title">इंजन</string>
     <string name="engines_back">वापस</string>
     <string name="engines_show_more">और दिखाएँ</string>
-    <string name="engines_show_less">कम दिखाएँ</string>
     <string name="engines_developer_badge">डेवलपर</string>
     <string name="engines_size_summary">%1$s डाउनलोड · इंस्टॉल होने पर %2$s</string>
     <string name="engines_downloading_progress">डाउनलोड हो रहा है · %1$s / %2$s</string>
     <string name="engines_installing_progress">इंस्टॉल हो रहा है · %1$s / %2$s</string>
 
+    <!-- Engines tab: on-device / cloud source switch -->
+    <string name="engines_tab_local">डिवाइस पर</string>
+    <string name="engines_tab_cloud">क्लाउड</string>
+
     <string name="engines_install">इंस्टॉल करें</string>
     <string name="engines_uninstall">अनइंस्टॉल करें</string>
-    <string name="engines_engine_settings">इंजन सेटिंग</string>
     <string name="engines_retry">फिर से कोशिश करें</string>
     <string name="engines_reinstall">दोबारा इंस्टॉल करें</string>
     <string name="engines_update">अपडेट करें</string>
@@ -36,10 +38,8 @@
 
     <!-- EngineDetailScreen -->
     <string name="engines_browse_voices">वॉइस देखें</string>
-    <string name="engines_browse_voices_enabled">इस इंजन की वॉइस सुनें और एक डिफ़ॉल्ट चुनें।</string>
+    <string name="engines_browse_voices_enabled">इस इंजन की वॉइस सुनें।</string>
     <string name="engines_browse_voices_disabled">वॉइस देखने के लिए इंजन इंस्टॉल करें।</string>
-    <string name="engines_status">स्थिति</string>
-    <string name="engines_install_to_see_settings">इसकी सेटिंग देखने के लिए यह इंजन इंस्टॉल करें।</string>
     <string name="engines_preprocessing">टेक्स्ट प्रीप्रोसेसिंग</string>
     <string name="engines_preprocessing_pending">पसंद सेव हो गई; यह इंजन इंस्टॉल करते ही लागू होगी।</string>
     <string name="engines_reset_defaults">डिफ़ॉल्ट पर लौटाएँ</string>
@@ -47,13 +47,6 @@
     <string name="engines_unknown_title">इंजन \"%1$s\" कैटलॉग में नहीं है।</string>
     <string name="engines_unknown_body">हो सकता है इसे ऐप के किसी नए वर्शन में हटा दिया गया हो।</string>
 
-    <string name="engines_state_not_installed">इंस्टॉल नहीं है</string>
-    <string name="engines_state_downloading">डाउनलोड हो रहा है</string>
-    <string name="engines_state_installing">इंस्टॉल हो रहा है</string>
-    <string name="engines_state_installed">इंस्टॉल है</string>
-    <string name="engines_state_failed">विफल</string>
-    <string name="engines_state_corrupt">खराब — दोबारा इंस्टॉल करना होगा</string>
-    <string name="engines_state_outdated">अपडेट उपलब्ध है</string>
 
     <!-- CloudApiScreen -->
     <string name="engines_cloud_intro">ये वॉइस किसी प्रोवाइडर के सर्वर पर बनती हैं — हर अनुरोध के साथ आपका टेक्स्ट नेटवर्क पर भेजा जाता है। किसी भी प्रोवाइडर की वॉइस इस्तेमाल करने के लिए उसकी कुंजी जोड़ें; हर प्रोवाइडर आपके अपने खाते से बिलिंग करता है।</string>
@@ -148,10 +141,7 @@
     <string name="engine_quality_natural">स्वाभाविक</string>
     <string name="engine_quality_best">कुल मिलाकर सर्वश्रेष्ठ</string>
     <string name="engine_quality_expressive">सर्वाधिक अभिव्यंजक</string>
-    <plurals name="engine_languages_count">
-        <item quantity="one">%1$d भाषा</item>
-        <item quantity="other">%1$d भाषाएँ</item>
-    </plurals>
+    <string name="engine_languages_see_all">सभी %1$d देखें</string>
     <string name="engine_languages_info_cd">समर्थित भाषाएँ दिखाएँ</string>
     <string name="engine_languages_dialog_title">समर्थित भाषाएँ</string>
     <string name="engine_languages_dialog_close">बंद करें</string>

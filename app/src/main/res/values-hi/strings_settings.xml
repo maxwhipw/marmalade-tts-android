@@ -27,8 +27,12 @@
     <string name="settings_advanced_row">बेहतर सेटिंग</string>
     <string name="settings_advanced_row_desc">सिंथेसिस थ्रेड, डेवलपर इंजन और ऐसे दूसरे विकल्प जिनकी ज़रूरत ज़्यादातर लोगों को कभी नहीं पड़ती।</string>
 
+    <string name="settings_support">सहयोग</string>
     <string name="settings_about">ऐप के बारे में</string>
     <string name="settings_about_version">वर्शन %1$s</string>
+    <string name="settings_privacy">गोपनीयता नीति</string>
+    <string name="settings_privacy_desc">आपके फ़ोन पर क्या रहता है और क्लाउड आवाज़ें क्या भेजती हैं। कोई ट्रैकिंग नहीं, कोई खाता नहीं।</string>
+    <string name="settings_privacy_load_failed">गोपनीयता नीति लोड नहीं हो सकी। यह रिपॉज़िटरी में PRIVACY.md के रूप में भी है।</string>
     <string name="settings_licenses">ओपन-सोर्स लाइसेंस</string>
     <string name="settings_licenses_desc">ऐप, इसके साथ आने वाले कॉम्पोनेंट और डाउनलोड होने वाले इंजनों के लाइसेंस।</string>
     <string name="settings_report_bug">गड़बड़ी की शिकायत करें</string>

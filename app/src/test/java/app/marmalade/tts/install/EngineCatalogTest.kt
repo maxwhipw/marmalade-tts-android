@@ -21,13 +21,13 @@ class EngineCatalogTest {
     @Test
     fun catalogContainsAllVariants() {
         // Order is the display order in onboarding + Settings → Engines.
-        // KokoroDirect first (recommended default), then Kitten Direct,
-        // then Pocket. The clean-room Pocket diagnostic engine is
-        // last because it's developer-only.
+        // Kitten Direct first (recommended, baked offline default), then
+        // Kokoro Direct, then Pocket. The clean-room Pocket diagnostic
+        // engine is last because it's developer-only.
         assertEquals(
             listOf(
-                "kokoro-direct-v1_0",
                 "kitten-direct-v0_8",
+                "kokoro-direct-v1_0",
                 "pocket-tts-en-v2026_04",
                 // Developer-only clean-room Pocket (diagnostic; shares the
                 // production Pocket bundle payload).
