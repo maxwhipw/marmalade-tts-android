@@ -90,10 +90,17 @@ class LangDetector(lines: List<String>) {
             }
         }
         val cjk = kana + han
-        if (cjk > 0 && cjk >= latin) return if (kana > 0) "ja" else "zh"
+        if (cjk > 0 && cjk >= latin) return if (kana > 0) "ja" else hanDetect(text, han)
         if (deva > 0 && deva >= latin) return "hi"
         if (latin == 0) return null
         return trigramDetect(text)
+    }
+
+    /** zh/ja for a kana-free Han run — see the [HAN_ZH]/[HAN_JA] comment. */
+    private fun hanDetect(text: String, han: Int): String? {
+        if (text.any { it in HAN_ZH }) return "zh"
+        if (text.any { it in HAN_JA }) return "ja"
+        return if (han >= HAN_ZH_MIN) "zh" else null
     }
 
     /**
@@ -154,6 +161,32 @@ class LangDetector(lines: List<String>) {
     companion object {
         private const val HEADER = "marmalade-langdetect 1"
         private const val ASSET = "langdetect.tab"
+
+        /**
+         * Han-only text (no kana) needs a zh/ja tiebreak. Each set holds
+         * characters effectively exclusive to one language's modern
+         * writing: [HAN_ZH] — PRC simplifications that differ from
+         * shinjitai (这≠這, 时≠時, 读≠読 …), Chinese-only grammar/pronoun
+         * characters (们 吗 呢 吧 你 她), and traditional forms Japanese
+         * writes differently (們 嗎 讓 麼 沒 氣); [HAN_JA] — kokuji
+         * (込 働 峠 …) and shinjitai differing from BOTH Chinese forms
+         * (図≠图/圖, 気≠气/氣 …). Shared glyphs (国 学 会 写 没 万 …) are
+         * deliberately absent. Mirrored in the CLI's langdetect.py —
+         * keep the two in lockstep.
+         */
+        private val HAN_ZH = (
+            "这说对时东车书长门问间语读关开见觉认识谁让过还进远边达选们么军动头" +
+                "买卖妈红电华个为从发汉现乐你她它吗呢吧哪咱啥們嗎讓麼沒氣"
+            ).toSet()
+        private val HAN_JA =
+            "込働峠畑辻枠匂塀笹図円売読絵駅験単桜気帰歯労楽実徳縄渋択沢変遅剣塩拝恵姫黒悪圧".toSet()
+
+        /**
+         * A kana-free Han run this long is Chinese — real Japanese
+         * sentences carry kana within a few characters (okurigana,
+         * particles). Below it an unmarked run abstains to the fallback.
+         */
+        private const val HAN_ZH_MIN = 6
 
         /**
          * Sentinel stored in `VoiceAlias.phonemizationLanguage` meaning

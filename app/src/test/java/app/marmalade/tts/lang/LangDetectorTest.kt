@@ -105,6 +105,40 @@ class LangDetectorTest {
         "会议改到星期四下午两点半",
     )
 
+    // -- kana-free Han tiebreak (Max, 2026-08-08) ---------------------------
+
+    @Test
+    fun hanMarkersConfirmChinese() = assertAll(
+        "zh",
+        // Simplified forms that differ from shinjitai (们, 时).
+        "我们的时间不多了",
+        // Chinese-only pronoun in an otherwise shared-glyph phrase.
+        "謝謝你",
+        // Traditional forms Japanese writes differently (們, 氣).
+        "我們去公園散步",
+    )
+
+    @Test
+    fun hanMarkersConfirmJapanese() = assertAll(
+        "ja",
+        // Shinjitai unique to Japan — a station sign has no kana.
+        "東京駅集合",
+        // Kokuji (込).
+        "受付方法申込",
+    )
+
+    @Test
+    fun longUnmarkedHanRunIsChinese() {
+        // Real Japanese this long would carry kana.
+        assertEquals("zh", detector.detect("山川草木花鳥風月"))
+    }
+
+    @Test
+    fun shortUnmarkedHanRunAbstains() {
+        assertNull(detector.detect("水草"))
+        assertNull(detector.detect("明日"))
+    }
+
     @Test
     fun detectsDevanagari() = assertAll(
         "hi",
@@ -148,7 +182,8 @@ class LangDetectorTest {
     fun supplementaryPlaneHanDoesNotCrash() {
         // U+20000 is a surrogate pair — the script scan iterates code
         // points, so it must count as one Han character, not two unknowns.
-        assertEquals("zh", detector.detect("𠀀𠀁 今天"))
+        // (们 marks the run as Chinese; unmarked short runs abstain.)
+        assertEquals("zh", detector.detect("𠀀𠀁 我们今天"))
     }
 
     // -- the AUTO sentinel ---------------------------------------------------
