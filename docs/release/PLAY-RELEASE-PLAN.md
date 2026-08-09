@@ -88,8 +88,10 @@ everything else Claude can do or has done.
     `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
     **SHOT + styled 2026-08-08** — 10 candidates in
     `screenshots-inbox/styled/` (1200×2400, status bar cropped, black
-    frame), shared with the F-Droid gate G1 and re-verified against the
-    shipped UI that evening. Awaiting Max's keeper picks + order.
+    frame), shared with the F-Droid gate G1. Re-verified against the
+    shipped UI that evening: 9 are current, `07-engines.png` needs a
+    re-shoot after Kitten's tagline changed in `3e4b075`. Awaiting
+    Max's keeper picks + order.
 15. App icon 512×512 + feature graphic 1024×500 (mascot art from
     `assets/` is the base).
 16. Listing text: reuse `fastlane/metadata/android/en-US/`

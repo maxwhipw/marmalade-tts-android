@@ -50,14 +50,22 @@ metadata ship from the tag.
   in the Play treatment (status bar cropped, black 1200×2400 frame):
   `screenshots-inbox/styled/` (10 styled: speak light/dark, aliases,
   Kokoro voices ×2, effects, effect editor, engines, engines-cloud,
-  voice picker). **Still current after the 2026-08-08 UI landings**
+  voice picker). **9 of the 10 survive the 2026-08-08 UI landings**
   (re-checked against the device that evening): the styled shots were
   taken from a build that already had the engines-tab redesign now
   committed in `e31b34d`, and the set contains no onboarding shot, so
   the same-day onboarding rework (built-in Kitten card, device-probe
-  labels) doesn't invalidate any of them. Remaining: Max picks keepers
-  + order (F-Droid shows a horizontal strip; 4–8 is typical), then copy
-  into `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+  labels) doesn't invalidate any of them. **`07-engines.png` needs a
+  re-shoot:** `3e4b075` (later the same night) rewrote Kitten's tagline
+  from "The quickest to start speaking, and the smallest download." to
+  "The fastest, most responsive engine, and it runs on any device.",
+  and that shot shows the old line. It's the only styled shot that
+  renders an engine tagline. Remaining: re-shoot 07, then Max picks
+  keepers + order (F-Droid shows a horizontal strip; 4–8 is typical),
+  then copy into
+  `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+  *Standing rule: engine copy changes stale the engines screenshots —
+  check this gate whenever a tagline or spec string moves.*
 - **G2 Icon** — RESOLVED 2026-08-08 (Max): icon + mascot are good
   enough to launch as-is, with one change — flat background (amber ramp
   at depth 0.34, `#f97a20`), shipped in `ef748f2` incl. regenerated
