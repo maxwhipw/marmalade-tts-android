@@ -30,11 +30,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!--
-      INTERNET is used exclusively for engine model downloads via
-      EngineInstaller. No telemetry, no analytics, no other network use.
-      See PRIVACY.md / SECURITY.md for details. The set of hosts contacted
-      is enumerated in EngineCatalog (currently: the GitHub Releases of
-      github.com/maxwhipw/marmalade-tts-android-engines only).
+      INTERNET is used for: (1) engine model downloads via EngineInstaller
+      (hosts enumerated in EngineCatalog — the GitHub Releases of
+      github.com/maxwhipw/marmalade-tts-android-engines), (2) the opt-in
+      cloud engines (CloudApiEngine POSTs synthesis requests directly to
+      the provider baseUrl the user configured, HTTPS-enforced) and their
+      provider-list refresh (cloud-providers.json from this repo's GitHub
+      raw URL). No telemetry, no analytics, no backend of our own.
+      See PRIVACY.md / SECURITY.md for details.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 
