@@ -80,8 +80,8 @@ object EngineRecommender {
     const val FINE_MAX_RTF: Double = 0.9
 
     /**
-     * Tier-1 anchor. The Pixel 8a's Tensor G3 has 1× Cortex-X1 @ 2.91 GHz
-     * plus 4× Cortex-A78 @ 2.37 GHz in its non-efficiency clusters, so
+     * Tier-1 anchor. The Pixel 8a's Tensor G3 has 1× Cortex-X3 @ 2.91 GHz
+     * plus 4× Cortex-A715 @ 2.37 GHz in its non-efficiency clusters, so
      * `1×2.91 + 4×2.37 = 12.39`, and that device measures Kokoro at ~0.45
      * RTF cold. RTF is modelled as inversely proportional to compute score:
      * twice the weighted perf silicon, half the RTF.

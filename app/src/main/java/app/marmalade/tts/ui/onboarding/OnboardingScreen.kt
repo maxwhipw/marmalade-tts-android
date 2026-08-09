@@ -342,6 +342,12 @@ private fun EnginePickStep(
             }
         }
 
+        // Baked Kitten is permanently selected, so the button can be "enabled"
+        // with nothing to fetch — in that state it advances the wizard rather
+        // than installing, and the label must not promise a download.
+        val downloadsSomething = cards.any {
+            !it.isBuiltIn && selectedIds.contains(it.descriptor.name)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -355,7 +361,12 @@ private fun EnginePickStep(
                     onClick = onInstall,
                     enabled = selectedIds.isNotEmpty(),
                 ) {
-                    Text(stringResource(R.string.onboarding_install_selected))
+                    Text(
+                        stringResource(
+                            if (downloadsSomething) R.string.onboarding_install_selected
+                            else R.string.onboarding_continue,
+                        ),
+                    )
                 }
             }
         }
