@@ -178,9 +178,9 @@ finished tag; <code>versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + A
 ABI digit reserved now (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64). Encode as a Gradle helper
 + comment; apply at the 1.0.0 cut (not now — would bump in-flight engine builds). Safe: 32-bit int
 max 2.1e9, we're at 1e7.<br>
-<b>2. Reproducible-build signing key</b> — key-backup <b>in progress</b>: KeePassXC (keystore already
-attached to a vault entry) + a Syncthing <code>keys</code> folder now shared marmalade↔pixel-8a
-(accept on phone when it next connects). Optional 3rd location: share the folder with george.
+<b>2. Reproducible-build signing key</b> — key-backup <b>in progress</b>: password vault (keystore already
+attached to a vault entry) + a synced <code>keys</code> folder now shared desktop↔phone
+(accept on phone when it next connects). Optional 3rd location: share the folder with a third machine.
 Then decide reuse <code>marmalade-upload.jks</code> vs mint a dedicated distribution key.<br>
 <b>3. Holding note to linsui</b> — <b>DECIDED (Max, 2026-08-07): no holding note.</b>
 Reviewers aren't watching daily; an interim update just costs time. Close the gates, finish the

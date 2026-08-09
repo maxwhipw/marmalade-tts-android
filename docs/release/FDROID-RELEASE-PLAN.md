@@ -79,7 +79,7 @@ metadata ship from the tag.
   upscaled; before the set ships, restyle from the original 1080×2400
   (drop it in `screenshots-inbox/` or pull via ADB). Remaining: Max
   picks keepers + order in the **F-Droid listing lab**
-  (http://marmalade:8095/marmalade-tts-release/fdroid-listing-lab.html
+  (http://<labs-server>/marmalade-tts-release/fdroid-listing-lab.html
   — mock listing, picker persists in-browser; 4–8 is typical), then
   copy the picks into
   `fastlane/metadata/android/en-US/images/phoneScreenshots/`.

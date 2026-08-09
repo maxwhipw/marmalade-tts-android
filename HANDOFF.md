@@ -193,7 +193,7 @@ exact 7-vs-6 chunks on the Medium/Psalm-23 preset):
 **Proposed fix (CLI R16-1 rule): clause-split kitten but take the style row
 from the PRE-SPLIT sentence.** AWAITING MAX'S EAR before any code change:
 
-- Lab (NOW v3): http://marmalade:8095/kitten-clause-split/kitten-clause-split-lab.html
+- Lab (NOW v3): http://<labs-server>/kitten-clause-split/kitten-clause-split-lab.html
   (~/coding/scratch/kitten-clause-split — gen3.py renders, build_html.py makes
   the page from plans.json; gen.py/gen2.py superseded but imported for
   helpers). Voice KIKI (redone 2026-08-07: Max heard Bella as slow-motion at
@@ -237,7 +237,7 @@ from the PRE-SPLIT sentence.** AWAITING MAX'S EAR before any code change:
     F is Max-approved modulo this fix; awaiting final confirm on the
     regenerated lab. Max picks A/B/C/E/F.
 - SPEED SWEEP LAB (2026-08-07, after Max heard Kiki as too fast at 0.84 in
-  the clause lab): http://marmalade:8095/kitten-speed-sweep/kitten-speed-sweep-lab.html
+  the clause lab): http://<labs-server>/kitten-speed-sweep/kitten-speed-sweep-lab.html
   (~/coding/scratch/kitten-speed-sweep, gen_sweep.py in kittentts venv).
   All 8 voices × net speeds 0.72–1.00, one un-chunked render each, style row
   by text length (Android/CLI rule), upstream priors bypassed. Page has
@@ -261,7 +261,7 @@ from the PRE-SPLIT sentence.** AWAITING MAX'S EAR before any code change:
 
 ## Kokoro quant ear-lab REGENERATED (Max's ask: Bella/Adam/Nova)
 
-http://marmalade:8095/kokoro-quant/kokoro-quant-lab.html — new ROUND 3 on
+http://<labs-server>/kokoro-quant/kokoro-quant-lab.html — new ROUND 3 on
 top: 3 voices × 4 passages × (shipping fp32 `engines-respin/work` model vs
 shipping v23 QDQ-int8), 24 wavs in kokoro-onnx-bench/voices3/. Voice vectors
 extracted from NAMED upstream .pt files (af_bella/am_adam/af_nova, af_nova
@@ -604,7 +604,7 @@ NOT a clean install, and `connectedAndroidTest` was not run).
       itself must stay a VectorDrawable — Android reads the XML, not Compose.
 
 Labs (all archived, decisions in `docs/design/labs.json`):
-http://marmalade:8095/marmalade-tts-design/icon-v2-lab.html
+http://<labs-server>/marmalade-tts-design/icon-v2-lab.html
 
 ---
 
@@ -1226,12 +1226,11 @@ From Max's first on-device pass of the whole batch:
       **not** written back to `fastlane/metadata/android/en-US/`, because
       the copy is Max's voice and the 80-char short description needs his
       call.
-- [ ] **Keystore still has no durable backup.** `~/secure/marmalade-upload.jks`
-      plus a transit copy at `/sdcard/Download/marmalade-upload.jks` on
-      the Pixel that should be deleted. It is the *upload* key, which
-      Google will reset on request — an outage of days, not a lost app.
-      Wanted: KeePassXC + a non-git path under `~/.nexus`. **Not
-      agent-wiki**, which is a git repo pushed to Forgejo.
+- [ ] **Keystore still has no durable backup.** The upload keystore on
+      the desktop plus a transit copy in the phone's Downloads that
+      should be deleted. It is the *upload* key, which Google will
+      reset on request — an outage of days, not a lost app. Wanted:
+      password vault + a non-git local path.
 - [ ] **`keystore.properties`** is Max's to write (typing passwords into
       a transcript is the thing to avoid). Then
       `./gradlew :app:bundlePlayRelease`.
