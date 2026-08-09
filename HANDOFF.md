@@ -1,4 +1,36 @@
-# HANDOFF — voice order + pretty names on alias cards, 2026-08-07 (Fable, branch `main`, head `049a80c`, UNPUSHED)
+# HANDOFF — device probe + onboarding rework + tree consolidation, 2026-08-08 (Fable, branch `main`, head `24822e3`, pushed to Forgejo `origin`)
+
+## SHIPPED 2026-08-08 (Fable): P/Q/R capability-probe onboarding + WIP consolidation
+
+- **P** `af7624d` perf/DeviceCapability: Tier-1 sysfs compute score
+  (cores × maxGHz over non-efficiency clusters, shared with
+  CpuClusterDetector.readClusters()) + Tier-2 one-shot Kitten benchmark
+  synth to a discarded buffer (30 s cap, DataStore-persisted, mutex).
+  Device-verified on Pixel 8a: RTF 0.266, score 12.38.
+- **Q** `e4903b1` perf/EngineRecommender (pure logic): predicted Kokoro
+  RTF = 1.5 × Kitten (single-device anchor, re-derive on a second
+  datapoint); buckets <0.6 RECOMMENDED / ≤0.9 FINE / else MAY_BE_SLOW;
+  Pocket at 2× Kokoro capped FINE; exactly one RECOMMENDED pill; Tier-1
+  fallback inverse-linear on 12.39→0.45 with 15% pessimism. 15 tests.
+- **R** `75cd778` + `6b75c30` onboarding: Kitten card = "Built in — ready
+  to use" (tick, no toggle, no fake progress), cards ranked/labeled by
+  probe, "Checking your phone…" while pending, button says Continue when
+  only baked Kitten selected. Strings ×8 locales. Device-verified via
+  onboarded-flag flip (Kokoro wore the pill on the 8a, order
+  Kokoro/Kitten/Pocket).
+- **Consolidation** `a0239ed`/`e31b34d`/`24822e3` (Max's call: stop losing
+  working-tree UI to clean-HEAD builds): F-Droid cmake fix, engines-tab
+  redesign + PrivacyPolicyScreen + voice-picker WIP + labs + screenshots,
+  HANDOFF catch-up. Full unit suite (535) + assembleFdroidDebug green;
+  installed on the 8a.
+- **Open:** Engines tab still offers "Uninstall" on baked Kitten —
+  inconsistent with onboarding's built-in framing; Max earlier leaned
+  "Remove (restorable offline)" or hide — needs his call. Kitten↔Kokoro
+  1.5× anchor is one device; validate on a slower phone when available.
+  Earlier same day (see wiki 2026-08-08): langdetect device-verified (es
+  on Kokoro), ja/zh + ear checks still manual.
+
+# HANDOFF (prev) — voice order + pretty names on alias cards, 2026-08-07 (Fable, branch `main`, head `049a80c`, UNPUSHED)
 
 ## SHIPPED 2026-08-07 (Fable): picker honors sortOrder; alias-card voice names
 
