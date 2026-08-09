@@ -170,13 +170,16 @@ Obtainium APKs share one signature and cross-update.
     Still unproven locally: (a) across a different host gcc/glibc,
     (c) dependency drift, (f) runner drift — only a real `fdroid build`
     closes those.
-  - **⚠ Release-build blocker found by the same run:** a clean-tree
-    `assembleFdroidRelease` FAILS — `LintModelWriterTask` consumes the
-    generated espeak/privacy asset dirs without a task dependency
-    (`app/build.gradle.kts` wires only `MergeSourceSetFolders`). CI's
-    release.yml and F-Droid's buildserver would both hit it. Fix +
-    the native determinism flags are being verified in the worktrees
-    before landing on main.
+  - **Round 2 (same day): both fixes VERIFIED and LANDED (`b7cfb9e`).**
+    With the lint task-dependency fix + `-ffile-prefix-map` +
+    `--build-id=none`, two clean builds from different paths produce
+    **byte-identical APKs** (whole-file sha256 match, 694/694 entries,
+    no lint exclusions, 16 KB alignment re-verified). The clean-tree
+    `assembleFdroidRelease` failure (lint consumed generated
+    espeak/privacy assets with no task dependency — would have broken
+    CI release.yml AND F-Droid's buildserver) is fixed in the same
+    commit. Remaining R3 work = the real `fdroid build` run for items
+    (a)/(c)/(f).
 - **OPEN DECISION (Max): does RB failure gate the listing?** The
   one-way door means falling back to F-Droid-signed forfeits RB for
   `app.marmalade.tts` permanently (no signing-key change without
