@@ -46,7 +46,21 @@ is the complete corrected re-cut.
 Everything below must be in the commit we submit — graphics and
 metadata ship from the tag.
 
-- **G1 Screenshots** — SHOT 2026-08-08 (Max, 11 candidates) and styled
+- **G1 Screenshots — RESOLVED 2026-08-09 (Max approved).** Final set in
+  `fastlane/metadata/android/en-US/images/phoneScreenshots/`, order:
+  speak-light, aliases, kokoro-multilang, engines, effects,
+  engines-cloud, speak-dark. Styling: 90 px status-bar crop, bottom
+  60 px pill strip removed, black 1200×2400 frame; originals in
+  `screenshots-inbox/styled/`. Max wants a fancier stylized pass for
+  PLAY later; this set ships for F-Droid as-is. History below.
+- **G5 Copy + translations — RESOLVED 2026-08-09 (Max approved the
+  English).** fastlane en-US rewritten (private-first, bullet list
+  above the fold, F-Droid HTML) + translations in all 7 UI locales
+  (es-ES fr-FR it-IT pt-BR hi-IN ja-JP zh-CN), each verified for tag
+  structure, 80-char summary limit, and protected terms. Same copy =
+  the Play listing and the README. Native-speaker review of the
+  translations is optional polish, not a gate. History below.
+- *(history)* **G1 Screenshots** — SHOT 2026-08-08 (Max, 11 candidates) and styled
   in the Play treatment (status bar cropped, black 1200×2400 frame):
   `screenshots-inbox/styled/` (10 styled: speak light/dark, aliases,
   Kokoro voices ×2, effects, effect editor, engines, engines-cloud,
