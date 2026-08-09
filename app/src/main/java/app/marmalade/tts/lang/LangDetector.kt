@@ -38,7 +38,17 @@ import java.util.Base64
  * 6: base64 uint8 costs, trigram-major then language-minor
  * ```
  */
-class LangDetector(lines: List<String>) {
+class LangDetector(
+    lines: List<String>,
+    /**
+     * The Han-ambiguity tiebreak (Max, 2026-08-08): a short kana-free Han
+     * run with no marker characters resolves to the system default
+     * language when that default is itself ja or zh — any other default
+     * says nothing about Han text. Explicit in tests; the DI default
+     * reads the device locale.
+     */
+    private val systemCjk: String? = systemCjkDefault(),
+) {
 
     private val langs: List<String>
 
@@ -100,7 +110,7 @@ class LangDetector(lines: List<String>) {
     private fun hanDetect(text: String, han: Int): String? {
         if (text.any { it in HAN_ZH }) return "zh"
         if (text.any { it in HAN_JA }) return "ja"
-        return if (han >= HAN_ZH_MIN) "zh" else null
+        return if (han >= HAN_ZH_MIN) "zh" else systemCjk
     }
 
     /**
@@ -214,6 +224,14 @@ class LangDetector(lines: List<String>) {
          * a 0.3% abstain rate.
          */
         const val MIN_MARGIN = 2.0
+
+        /** "ja"/"zh" when the device locale is one of them, else null. */
+        fun systemCjkDefault(): String? =
+            when (java.util.Locale.getDefault().language) {
+                "ja" -> "ja"
+                "zh" -> "zh"
+                else -> null
+            }
 
         @Volatile
         private var cached: LangDetector? = null

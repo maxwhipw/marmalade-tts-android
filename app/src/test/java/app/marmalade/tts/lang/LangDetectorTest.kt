@@ -19,8 +19,11 @@ import org.junit.Test
  */
 class LangDetectorTest {
 
+    // systemCjk pinned to null so results don't depend on the test JVM's
+    // locale; the tiebreak itself is covered explicitly below.
     private val detector = LangDetector(
         File("src/main/assets/langdetect.tab").readLines(),
+        systemCjk = null,
     )
 
     /** Assert every sentence detects as [lang], naming the failure. */
@@ -137,6 +140,18 @@ class LangDetectorTest {
     fun shortUnmarkedHanRunAbstains() {
         assertNull(detector.detect("水草"))
         assertNull(detector.detect("明日"))
+    }
+
+    @Test
+    fun shortAmbiguousHanFallsBackToACjkSystemDefault() {
+        val lines = File("src/main/assets/langdetect.tab").readLines()
+        val jaDevice = LangDetector(lines, systemCjk = "ja")
+        val zhDevice = LangDetector(lines, systemCjk = "zh")
+        assertEquals("ja", jaDevice.detect("明日"))
+        assertEquals("zh", zhDevice.detect("明日"))
+        // Markers and length still outrank the system default.
+        assertEquals("zh", jaDevice.detect("我们的时间不多了"))
+        assertEquals("ja", zhDevice.detect("東京駅集合"))
     }
 
     @Test
