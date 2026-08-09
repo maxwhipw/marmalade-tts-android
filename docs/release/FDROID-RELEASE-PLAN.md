@@ -220,7 +220,12 @@ Obtainium APKs share one signature and cross-update.
   and iterate — NOT to switch to F-Droid-signed (one-way door).
   Consequences now live: R1 CI signing secrets (Max, CI-SIGNING.md),
   R2 recipe fields on the re-cut, and the permanent per-release RB cost
-  (see Maintenance).
+  (see Maintenance). **Key (Max, 2026-08-09): a DEDICATED distribution
+  keystore** (`marmalade-dist.jks`, alias `marmalade-dist`) signs the
+  F-Droid/GitHub releases — NOT the Play upload keystore, whose
+  resettability must never couple to the permanent F-Droid identity.
+  Uninstall-and-switch between stores is safe (fresh install, data
+  loss only); shared-signature updating applies to F-Droid↔GitHub.
 
 ## Submission re-cut (after gates + R)
 
