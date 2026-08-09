@@ -222,23 +222,22 @@
 </main>
 
 <script>
+// FINAL approved order (Max, 2026-08-09) — mirrors fastlane phoneScreenshots/
 const SHOTS = [
   ["01-speak-light","Speak — light"],
+  ["10-speak-dark","Speak — dark"],
   ["02-aliases","Aliases + routing"],
   ["04-kokoro-voices-multilang","Kokoro voices — multilang"],
   ["07-engines","Engines"],
   ["05-effects","Effects presets"],
   ["08-engines-cloud","Engines — cloud"],
-  ["10-speak-dark","Speak — dark"],
   ["03-kokoro-voices-en","Kokoro voices — EN"],
   ["06-effect-editor","Effect editor"],
   ["11-speak-dynamic-dark","Speak — dynamic dark"],
   ["09-voice-picker","Voice picker (Edit Nova)"],
 ];
-// 08 (cloud) included per review: the copy now headlines cloud voices, so
-// the strip should show the tab. Drop it if the section gets cut.
-const DEFAULT_ON = new Set(["01-speak-light","02-aliases","04-kokoro-voices-multilang","07-engines","05-effects","08-engines-cloud","10-speak-dark"]);
-const LSK="fdroid-listing-lab-v3";   // v3: post-review defaults 2026-08-09
+const DEFAULT_ON = new Set(["01-speak-light","10-speak-dark","02-aliases","04-kokoro-voices-multilang","07-engines","05-effects","08-engines-cloud"]);
+const LSK="fdroid-listing-lab-v4";   // v4: Max's FINAL approved order
 let state = JSON.parse(localStorage.getItem(LSK)||"null")
   || SHOTS.map(s=>({id:s[0],on:DEFAULT_ON.has(s[0])}));
 state = state.filter(e=>SHOTS.some(s=>s[0]===e.id));

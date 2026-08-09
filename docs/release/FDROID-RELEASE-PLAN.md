@@ -47,9 +47,9 @@ Everything below must be in the commit we submit — graphics and
 metadata ship from the tag.
 
 - **G1 Screenshots — RESOLVED 2026-08-09 (Max approved).** Final set in
-  `fastlane/metadata/android/en-US/images/phoneScreenshots/`, order:
-  speak-light, aliases, kokoro-multilang, engines, effects,
-  engines-cloud, speak-dark. Styling: 90 px status-bar crop, bottom
+  `fastlane/metadata/android/en-US/images/phoneScreenshots/`, order
+  (Max, final): speak-light, speak-dark, aliases, kokoro-multilang,
+  engines, effects, engines-cloud. Styling: 90 px status-bar crop, bottom
   60 px pill strip removed, black 1200×2400 frame; originals in
   `screenshots-inbox/styled/`. Max wants a fancier stylized pass for
   PLAY later; this set ships for F-Droid as-is. History below.
