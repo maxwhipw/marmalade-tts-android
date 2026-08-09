@@ -17,6 +17,15 @@ val keystoreProps = Properties().apply {
     if (f.isFile) f.inputStream().use { load(it) }
 }
 
+// Reproducible builds: pin the entire resolved dependency graph in
+// app/gradle.lockfile so a rebuild weeks later (F-Droid's verification
+// server) cannot pick up a newer transitive than the CI build did.
+// After any dependency change, regenerate with
+//   ./gradlew :app:dependencies --write-locks
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 android {
     namespace = "app.marmalade.tts"
     compileSdk = 36
