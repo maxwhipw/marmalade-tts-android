@@ -1,34 +1,40 @@
-Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. No cloud, no account, no tracking.
+<p>Marmalade TTS gives your phone a voice worth listening to. Set it as your system text-to-speech engine and every app that reads aloud, from screen readers to e-readers to chat apps, speaks through Marmalade.</p>
 
-WORKS EVERYWHERE ON YOUR DEVICE
-Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
+<ul>
+<li><b>Natural neural voices.</b> Ready to speak the moment you install</li>
+<li><b>Fast.</b> Speech responds quickly even on modest phones</li>
+<li><b>Private by default.</b> Everything runs on your device</li>
+<li><b>Optional cloud voices.</b> From private third parties with your own API key (Venice.ai)</li>
+<li><b>Per app voices.</b> Route each app to its own voice</li>
+<li><b>Speaks 8 languages.</b> Auto detects what language is being read on the Kokoro TTS engine</li>
+<li><b>Accessible.</b> TalkBack supported and designed to meet WCAG 2.1 AA</li>
+<li><b>Voice effects.</b> 22 voice effect presets plus an editor to make your own</li>
+<li><b>Free, open source, no ads, no accounts</b></li>
+</ul>
 
-ACCESSIBLE BY DESIGN
-Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
+<p><b>WORKS EVERYWHERE</b></p>
+<p>Marmalade implements Android's standard text-to-speech interface, so it is a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.</p>
 
-ON-DEVICE NEURAL VOICES
-Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
+<p><b>READY OUT OF THE BOX</b></p>
+<p>A fast English voice is built in, so Marmalade speaks offline from the first launch. Bigger and better engines download only when you choose them, and text read by on-device voices never leaves your phone.</p>
 
-MULTIPLE ENGINES AND VOICES
-Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
+<p><b>A VOICE FOR EVERY APP</b></p>
+<p>Marmalade is built around aliases. Build your favorite voice with speed and effect settings. Route apps to aliases and your e-reader can speak in one voice while your chat app uses another. Anything unrouted follows your primary alias.</p>
 
-EXPRESSIVE, EMOTION-AWARE SPEECH
-Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them — even when the base voice is neutral.
+<p><b>SPEAKS 8 LANGUAGES</b></p>
+<p>The multilingual Kokoro engine speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language as it reads and switches pronunciation on the fly.</p>
 
-AUDIO EFFECTS
-Apply built-in audio-effect presets (such as cave, robot, and telephone) to give spoken output character.
+<p><b>PRIVATE, WITH OR WITHOUT THE CLOUD</b></p>
+<p>No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Until you set one up, nothing you read ever leaves your phone. <i>Note: other providers may log requests. Refer to their privacy policies.</i></p>
 
-VOICE ALIASES / PERSONAS
-Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
+<p><b>BUILT FOR SCREEN READERS</b></p>
+<p>Marmalade is accessible with rich TalkBack support and designed to meet WCAG 2.1 AA with a high-contrast dark theme. Every control is labeled, and progress and errors are announced aloud when TalkBack is enabled. Nothing an assistive-tech user needs sits behind a purchase.</p>
 
-LONG-FORM READING
-A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
+<p><b>MAKE IT YOURS</b></p>
+<p>22 built-in effect presets like 8-bit, cyborg, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor.</p>
 
-HANDY SHORTCUTS
-Share text to Marmalade from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
+<p><b>READS THE LONG STUFF</b></p>
+<p>A foreground playback service reads long text reliably with the screen off, with lock-screen and Bluetooth controls. Share text from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.</p>
 
-PRIVATE BY DESIGN
-No analytics, no telemetry, no ads, no accounts, and no backend. The only network use is downloading the engine files you choose to install. See the in-app privacy policy for details.
-
-OPEN SOURCE
-Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.
+<p><b>OPEN SOURCE</b></p>
+<p>Marmalade's own source code is MIT licensed and its repository contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source at build time, so the app you install is distributed under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the project repository, and license details for every component are shown inside the app.</p>

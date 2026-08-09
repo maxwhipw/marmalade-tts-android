@@ -1,1 +1,1 @@
-Offline neural text-to-speech engine for your whole device. No cloud.
+Fast, natural, private text-to-speech for your whole phone. Works offline.

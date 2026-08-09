@@ -94,13 +94,20 @@ everything else Claude can do or has done.
     Max's keeper picks + order.
 15. App icon 512×512 + feature graphic 1024×500 (mascot art from
     `assets/` is the base).
-16. Listing text: reuse `fastlane/metadata/android/en-US/`
-    (title/short/full descriptions are current and accurate; the full
-    description's ACCESSIBLE BY DESIGN section says "designed to meet
-    WCAG 2.1 AA" — keep that wording, not "compliant/conformant",
-    until the on-device TalkBack pass is done; grounding in
-    `docs/ACCESSIBILITY-AUDIT-2026-08.md` and
-    `docs/WCAG-2.1-AA-SWEEP-2026-08.md`).
+16. Listing text: **DECIDED 2026-08-09 (Max): the Play copy IS the
+    approved F-Droid copy** in `fastlane/metadata/android/en-US/`
+    (signed off in the F-Droid listing lab; translations ×7 locales
+    alongside). One mechanical conversion at submission: the fastlane
+    file is F-Droid HTML (`<p>/<ul>/<li>/<b>/<i>`) — Play's console
+    renders only `<b>/<i>/<u>`, so flatten paragraphs/bullets to plain
+    lines ("• ") and keep bold/italic. The BUILT FOR SCREEN READERS
+    section says "designed to meet WCAG 2.1 AA" — keep that wording,
+    not "compliant/conformant", until the on-device TalkBack pass is
+    done; grounding in `docs/ACCESSIBILITY-AUDIT-2026-08.md` and
+    `docs/WCAG-2.1-AA-SWEEP-2026-08.md`. Screenshots: the approved
+    F-Droid set ships as-is; Max wants a stylized pass for Play later
+    (device frames/captions) — the styled originals live in
+    `screenshots-inbox/styled/`.
     - **[Max, 2026-08-04] Promotion note — call out that the app is
       MULTILINGUAL and name the languages.** The listing copy should say the
       app speaks multiple languages and specify which: via Kokoro it's **9
