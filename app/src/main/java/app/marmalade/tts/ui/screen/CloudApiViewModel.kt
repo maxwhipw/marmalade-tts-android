@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -28,7 +29,8 @@ import kotlinx.coroutines.launch
 //   CloudApiScreen
 //     │
 //     ├── providers    ◄── CloudProviderStore.providers() (descriptors +
-//     │                    discovery overlay; refreshed remotely on open)
+//     │                    discovery overlay; refreshed remotely on open,
+//     │                    only after the disclaimer is accepted)
 //     ├── keyedIds     ◄── SettingsRepository.cloudApiKeys (presence only)
 //     ├── voiceCounts  ◄── VoiceMetaDao.getByEngine(cloud) grouped by provider
 //     ├── busyIds / errors ◄── per-provider discovery state
@@ -43,9 +45,10 @@ import kotlinx.coroutines.launch
  * surface. One row per provider descriptor; a provider becomes active
  * (voices in Room, engine "installed") once its key is saved.
  *
- * Opening the screen opportunistically refreshes the provider list from
- * the engines repo, so new providers/models arrive without an app update;
- * failures are silent (bundled/cached descriptors stay in force).
+ * Once the cloud disclaimer is accepted, opening the screen
+ * opportunistically refreshes the provider list from the engines repo, so
+ * new providers/models arrive without an app update; failures are silent
+ * (bundled/cached descriptors stay in force).
  */
 @HiltViewModel
 class CloudApiViewModel @Inject constructor(
@@ -97,6 +100,10 @@ class CloudApiViewModel @Inject constructor(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             _providers.value = store.providers()
+            // The remote refresh waits for the cloud disclaimer: the app
+            // sends no network request before the user opts in. Resumes
+            // immediately when a past session already accepted.
+            settings.cloudDisclaimerAccepted.first { it }
             // Best-effort remote refresh; updates the list if it changed.
             if (store.refreshProviders()) {
                 _providers.value = store.providers()
