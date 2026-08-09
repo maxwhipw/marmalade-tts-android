@@ -316,7 +316,7 @@ private fun EngineCard(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = engine.tagline,
+                        text = stringResource(engine.taglineRes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -446,12 +446,12 @@ private fun EngineDetailsDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    text = engine.description,
+                    text = stringResource(engine.descriptionRes),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = engine.licenseSummary,
+                    text = stringResource(engine.licenseSummaryRes),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -556,7 +556,7 @@ private fun InstallConfirmDialog(
         title = { Text(stringResource(R.string.engines_install_confirm_title, engine.displayName)) },
         text = {
             Column {
-                Text(engine.description)
+                Text(stringResource(engine.descriptionRes))
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.engines_install_download_size, formatBytes(engine.downloadSizeBytes)),
@@ -564,7 +564,7 @@ private fun InstallConfirmDialog(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = engine.licenseSummary,
+                    text = stringResource(engine.licenseSummaryRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -154,4 +154,17 @@
     <string name="language_pt_br">ポルトガル語（ブラジル）</string>
     <string name="language_ja">日本語</string>
     <string name="language_zh">中国語（標準語）</string>
+
+    <!-- エンジンカタログの説明文（EngineCatalog） -->
+    <string name="engine_kitten_tagline">最も高速で反応が速いエンジン。どの端末でも動作します。</string>
+    <string name="engine_kitten_desc">小さくて高速 — ダウンロードが最も軽く、いちばん早く話し始めます。英語のみ、8 ボイス。対応言語の多さより、速さと容量の小ささを重視するときに向いています。espeak-ng フォナイザーを同梱し、すべて端末内で動作します。</string>
+    <string name="engine_kitten_license">Apache-2.0 のモデル。音素変換にはアプリ内蔵の espeak-ng（GPL-3.0-or-later）を使用します。</string>
+
+    <string name="engine_kokoro_tagline">対応言語がいちばん広く、総合的に最も優れたボイス。</string>
+    <string name="engine_kokoro_desc">総合的な品質が最も高く、対応言語もいちばん広いエンジンです。英語、スペイン語、フランス語、イタリア語、ヒンディー語、ポルトガル語、日本語、中国語（標準語）を含む 9 言語で 53 ボイス。ほとんどの方にはこれをおすすめします。すべて端末内で動作し、日本語と中国語は同梱の発音データを、その他の言語は espeak-ng を実行時に読み込んで使います。</string>
+    <string name="engine_kokoro_license">Apache-2.0 のモデル + BSD-3 の Open JTalk 辞書（日本語）。ヨーロッパの言語の音素変換にはアプリ内蔵の espeak-ng（GPL-3.0-or-later）を使用します。</string>
+
+    <string name="engine_pocket_tagline">最も表現力があり、個性的な英語ボイス。</string>
+    <string name="engine_pocket_desc">動作は重いものの、英語のボイスは最も表現力があります。内蔵ボイスは 6 種類。ハイエンド端末ではなめらかに再生されますが、ミドルレンジや古い端末では途切れることがあります。英語のみ。Kyutai Labs のモデルを、クリアな音質のために混合精度でビルドしたものです。</string>
+    <string name="engine_pocket_license">モデルのコードは MIT、ランタイム（onnxruntime-android）も MIT。ボイスは CC0 / CC-BY-4.0。GPL コンポーネントはありません。</string>
 </resources>

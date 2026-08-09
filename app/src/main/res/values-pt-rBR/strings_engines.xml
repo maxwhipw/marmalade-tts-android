@@ -155,4 +155,17 @@
     <string name="language_pt_br">Português (Brasil)</string>
     <string name="language_ja">Japonês</string>
     <string name="language_zh">Chinês mandarim</string>
+
+    <!-- Textos do catálogo de motores (EngineCatalog) -->
+    <string name="engine_kitten_tagline">O motor mais rápido e responsivo, e roda em qualquer aparelho.</string>
+    <string name="engine_kitten_desc">Pequeno e rápido — o download mais leve e o que começa a falar mais depressa. Só em inglês, 8 vozes. Boa escolha quando você prefere velocidade e pouco espaço à maior cobertura de idiomas. Roda inteiramente no seu dispositivo, com um fonemizador espeak-ng incluído.</string>
+    <string name="engine_kitten_license">Modelo Apache-2.0; a fonemização fica a cargo do espeak-ng integrado ao app (GPL-3.0-or-later).</string>
+
+    <string name="engine_kokoro_tagline">A maior cobertura de idiomas e as melhores vozes no geral.</string>
+    <string name="engine_kokoro_desc">A melhor qualidade geral com o maior suporte a idiomas — 53 vozes em 9 idiomas, incluindo inglês, espanhol, francês, italiano, híndi, português, japonês e mandarim. Recomendado para a maioria das pessoas. Roda inteiramente no seu dispositivo; japonês e mandarim usam dados de pronúncia incluídos e os demais idiomas usam espeak-ng, tudo carregado em tempo de execução.</string>
+    <string name="engine_kokoro_license">Modelo Apache-2.0 + dicionário Open JTalk BSD-3 (japonês); os idiomas europeus são fonemizados pelo espeak-ng integrado ao app (GPL-3.0-or-later).</string>
+
+    <string name="engine_pocket_tagline">As vozes em inglês mais expressivas e cheias de personalidade.</string>
+    <string name="engine_pocket_desc">Pesado, mas com as vozes em inglês mais expressivas — 6 vozes integradas. Reproduz sem falhas em celulares top de linha; pode engasgar em aparelhos intermediários e mais antigos. Só em inglês. O modelo da Kyutai Labs em uma build de precisão mista, para um som limpo.</string>
+    <string name="engine_pocket_license">Código do modelo MIT + runtime MIT (onnxruntime-android); vozes CC0 / CC-BY-4.0. Sem componentes GPL.</string>
 </resources>

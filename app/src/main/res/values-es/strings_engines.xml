@@ -155,4 +155,17 @@
     <string name="language_pt_br">Portugués (Brasil)</string>
     <string name="language_ja">Japonés</string>
     <string name="language_zh">Chino mandarín</string>
+
+    <!-- Prosa del catálogo de motores (EngineCatalog) -->
+    <string name="engine_kitten_tagline">El motor más rápido y con mejor respuesta, y funciona en cualquier dispositivo.</string>
+    <string name="engine_kitten_desc">Pequeño y rápido: la descarga más ligera y el que antes empieza a hablar. Solo en inglés, 8 voces. Buena opción si prefieres velocidad y poco espacio antes que la mayor cobertura de idiomas. Funciona por completo en tu dispositivo, con un fonemizador espeak-ng incluido.</string>
+    <string name="engine_kitten_license">Modelo Apache-2.0; la fonemización corre a cargo del espeak-ng integrado en la app (GPL-3.0-or-later).</string>
+
+    <string name="engine_kokoro_tagline">La mayor cobertura de idiomas y las mejores voces en general.</string>
+    <string name="engine_kokoro_desc">La mejor calidad general con la mayor compatibilidad de idiomas: 53 voces en 9 idiomas, incluidos inglés, español, francés, italiano, hindi, portugués, japonés y mandarín. Recomendado para la mayoría de la gente. Funciona por completo en tu dispositivo; el japonés y el mandarín usan datos de pronunciación incluidos y los demás idiomas usan espeak-ng, todo cargado al vuelo.</string>
+    <string name="engine_kokoro_license">Modelo Apache-2.0 + diccionario Open JTalk BSD-3 (japonés); los idiomas europeos se fonemizan con el espeak-ng integrado en la app (GPL-3.0-or-later).</string>
+
+    <string name="engine_pocket_tagline">Las voces en inglés más expresivas y con más carácter.</string>
+    <string name="engine_pocket_desc">Pesado, pero con las voces en inglés más expresivas: 6 voces integradas. Suena con fluidez en teléfonos de gama alta; puede entrecortarse en los de gama media y más antiguos. Solo en inglés. El modelo de Kyutai Labs en una compilación de precisión mixta para un sonido limpio.</string>
+    <string name="engine_pocket_license">Código del modelo MIT + entorno de ejecución MIT (onnxruntime-android); voces CC0 / CC-BY-4.0. Sin componentes GPL.</string>
 </resources>

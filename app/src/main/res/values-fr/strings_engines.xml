@@ -155,4 +155,17 @@
     <string name="language_pt_br">Portugais (Brésil)</string>
     <string name="language_ja">Japonais</string>
     <string name="language_zh">Chinois mandarin</string>
+
+    <!-- Texte du catalogue de moteurs (EngineCatalog) -->
+    <string name="engine_kitten_tagline">Le moteur le plus rapide et le plus réactif, et il tourne sur n\'importe quel appareil.</string>
+    <string name="engine_kitten_desc">Petit et rapide — le téléchargement le plus léger et celui qui commence à parler le plus vite. Anglais uniquement, 8 voix. Un bon choix si vous préférez la vitesse et l\'encombrement réduit à la plus large couverture linguistique. Fonctionne entièrement sur votre appareil, avec un phonémiseur espeak-ng intégré.</string>
+    <string name="engine_kitten_license">Modèle Apache-2.0&#160;; phonémisation assurée par l\'espeak-ng intégré à l\'application (GPL-3.0-or-later).</string>
+
+    <string name="engine_kokoro_tagline">La plus large couverture linguistique et les meilleures voix polyvalentes.</string>
+    <string name="engine_kokoro_desc">La meilleure qualité générale avec la plus large prise en charge linguistique — 53 voix dans 9 langues, dont l\'anglais, l\'espagnol, le français, l\'italien, le hindi, le portugais, le japonais et le mandarin. Recommandé pour la plupart des gens. Fonctionne entièrement sur votre appareil&#160;; le japonais et le mandarin utilisent des données de prononciation intégrées, les autres langues passent par espeak-ng, le tout chargé à l\'exécution.</string>
+    <string name="engine_kokoro_license">Modèle Apache-2.0 + dictionnaire Open JTalk BSD-3 (japonais)&#160;; les langues européennes sont phonémisées par l\'espeak-ng intégré à l\'application (GPL-3.0-or-later).</string>
+
+    <string name="engine_pocket_tagline">Les voix anglaises les plus expressives, avec le plus de caractère.</string>
+    <string name="engine_pocket_desc">Gourmand, mais ce sont les voix anglaises les plus expressives — 6 voix intégrées. La lecture est fluide sur les téléphones haut de gamme&#160;; elle peut hacher sur le milieu de gamme et le matériel plus ancien. Anglais uniquement. Le modèle de Kyutai Labs, dans une version en précision mixte pour un rendu propre.</string>
+    <string name="engine_pocket_license">Code du modèle MIT + moteur d\'exécution MIT (onnxruntime-android)&#160;; voix CC0 / CC-BY-4.0. Aucun composant GPL.</string>
 </resources>

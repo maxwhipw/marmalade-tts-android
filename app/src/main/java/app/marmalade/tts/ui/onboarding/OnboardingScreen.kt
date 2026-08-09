@@ -479,7 +479,7 @@ private fun EngineCard(
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = engine.tagline,
+                    text = stringResource(engine.taglineRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

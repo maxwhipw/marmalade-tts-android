@@ -154,4 +154,17 @@
     <string name="language_pt_br">葡萄牙语（巴西）</string>
     <string name="language_ja">日语</string>
     <string name="language_zh">普通话</string>
+
+    <!-- 引擎目录文案（EngineCatalog） -->
+    <string name="engine_kitten_tagline">最快、响应最灵敏的引擎，任何设备都能运行。</string>
+    <string name="engine_kitten_desc">小巧快速 — 下载体积最小，开口说话也最快。仅支持英语，8 个语音。如果你更看重速度和占用空间，而不是语言覆盖面，它是不错的选择。完全在本机运行，内置 espeak-ng 音素转换器。</string>
+    <string name="engine_kitten_license">模型采用 Apache-2.0；音素转换由应用内置的 espeak-ng 完成（GPL-3.0-or-later）。</string>
+
+    <string name="engine_kokoro_tagline">语言覆盖最广，综合表现最好的语音。</string>
+    <string name="engine_kokoro_desc">综合音质最佳，支持的语言也最多 — 9 种语言共 53 个语音，包括英语、西班牙语、法语、意大利语、印地语、葡萄牙语、日语和普通话。推荐给大多数人。完全在本机运行；日语和普通话使用随附的发音数据，其他语言使用 espeak-ng，都在运行时加载。</string>
+    <string name="engine_kokoro_license">模型采用 Apache-2.0，另含 BSD-3 的 Open JTalk 词典（日语）；欧洲语言的音素转换由应用内置的 espeak-ng 完成（GPL-3.0-or-later）。</string>
+
+    <string name="engine_pocket_tagline">最富表现力、最有个性的英语语音。</string>
+    <string name="engine_pocket_desc">体量较大，但英语语音最富表现力 — 内置 6 个语音。在旗舰手机上播放流畅；在中端和较旧的设备上可能卡顿。仅支持英语。采用 Kyutai Labs 的模型，以混合精度构建，输出干净。</string>
+    <string name="engine_pocket_license">模型代码为 MIT，运行时（onnxruntime-android）同为 MIT；语音采用 CC0 / CC-BY-4.0。不含 GPL 组件。</string>
 </resources>

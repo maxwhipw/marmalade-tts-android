@@ -302,12 +302,12 @@ private fun AboutEngineSection(descriptor: EngineDescriptor) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Text(
-            text = descriptor.description,
+            text = stringResource(descriptor.descriptionRes),
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = descriptor.licenseSummary,
+            text = stringResource(descriptor.licenseSummaryRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

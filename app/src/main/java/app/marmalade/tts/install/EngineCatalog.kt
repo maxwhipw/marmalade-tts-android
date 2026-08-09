@@ -1,5 +1,8 @@
 package app.marmalade.tts.install
 
+import androidx.annotation.StringRes
+import app.marmalade.tts.R
+
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
@@ -11,10 +14,10 @@ package app.marmalade.tts.install
 //     │                                       │     (url, sha256, sizeBytes,
 //     │                                       │      archiveRoot)
 //     │                                       │
-//     │                                       └── displayName, description,
+//     │                                       └── displayName, descriptionRes,
 //     │                                           downloadSizeBytes,
 //     │                                           installedSizeBytes,
-//     │                                           licenseSummary
+//     │                                           licenseSummaryRes
 //     │
 //     ▼
 //   Single HTTP GET → sha256 check → tar.bz2 extract → atomic rename
@@ -22,7 +25,7 @@ package app.marmalade.tts.install
 //   UI (Onboarding / EnginesScreen)
 //     │
 //     └── EngineCatalog.all  ──► render one card per engine, show
-//                                 description, size, licenseSummary
+//                                 description, size, license summary
 // -----------------------------------------------------------------------------
 
 /**
@@ -97,8 +100,9 @@ enum class QualityTier {
  *                             Stable across versions — part of the public
  *                             surface that aliases reference.
  * @property displayName       User-facing label (e.g. "Kitten TTS").
- * @property description       One-paragraph pitch for the engine, shown on
- *                             the install consent card. Keep it short.
+ * @property descriptionRes    String resource for the one-paragraph pitch
+ *                             shown on the install consent card and the
+ *                             engine detail screen. Keep it short.
  * @property downloadSizeBytes Compressed archive size on the wire — informs
  *                             the "this will download ~26 MB" copy. Equals
  *                             [archive.sizeBytes] by convention.
@@ -121,13 +125,14 @@ enum class QualityTier {
  *                             every file in the engine bundle.
  * @property licenseNotice     Path inside the APK to the long-form notice
  *                             shown on the license expand panel.
- * @property licenseSummary    One-liner shown on the install card, e.g.
- *                             "Includes GPL-3.0 components (espeak-ng)."
- * @property tagline           Short one-line pitch shown on the spec-column
- *                             engine card. This is the residual prose after
- *                             the structured Speed/Quality/Languages chrome
- *                             takes over the card — English-only by design,
- *                             like [description].
+ * @property licenseSummaryRes String resource for the one-liner shown on the
+ *                             install card, e.g. "Includes GPL-3.0
+ *                             components (espeak-ng)."
+ * @property taglineRes        String resource for the short one-line pitch
+ *                             shown on the spec-column engine card. This is
+ *                             the residual prose after the structured
+ *                             Speed/Quality/Languages chrome takes over the
+ *                             card.
  * @property speedTier         Relative synthesis-speed tier — the hero axis
  *                             on the engine-select card.
  * @property qualityTier       How this engine's output quality is framed (a
@@ -143,14 +148,14 @@ enum class QualityTier {
 data class EngineDescriptor(
     val name: String,
     val displayName: String,
-    val description: String,
+    @StringRes val descriptionRes: Int,
     val downloadSizeBytes: Long,
     val installedSizeBytes: Long,
     val isRecommended: Boolean,
     val archive: EngineArchive,
     val licenseNotice: String,
-    val licenseSummary: String,
-    val tagline: String,
+    @StringRes val licenseSummaryRes: Int,
+    @StringRes val taglineRes: Int,
     val speedTier: SpeedTier,
     val qualityTier: QualityTier,
     val languageCodes: List<String>,
@@ -197,10 +202,7 @@ object EngineCatalog {
     private val KITTEN_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kitten-direct-v0_8",
         displayName = "Kitten Nano (v0.8)",
-        description = "Small and fast — the lightest download and the quickest " +
-            "to start speaking. English only, 8 voices. A good pick when you want " +
-            "speed and a small footprint over the widest language coverage. Runs " +
-            "fully on your device with a bundled espeak-ng phonemizer.",
+        descriptionRes = R.string.engine_kitten_desc,
         downloadSizeBytes = 64_218_626L,
         installedSizeBytes = KITTEN_DIRECT_INSTALLED_SIZE_BYTES,
         // Recommended + onboarding-preselected default: it's baked into the
@@ -218,8 +220,8 @@ object EngineCatalog {
             archiveRoot = "kitten-direct-v0_8/",
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
-        licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
-        tagline = "The fastest, most responsive engine, and it runs on any device.",
+        licenseSummaryRes = R.string.engine_kitten_license,
+        taglineRes = R.string.engine_kitten_tagline,
         speedTier = SpeedTier.FASTEST,
         qualityTier = QualityTier.NATURAL,
         languageCodes = listOf("en"),
@@ -253,12 +255,7 @@ object EngineCatalog {
     private val KOKORO_DIRECT: EngineDescriptor = EngineDescriptor(
         name = "kokoro-direct-v1_0",
         displayName = "Kokoro (v1.0)",
-        description = "Best all-round quality with the widest language support — " +
-            "53 voices across 9 languages, including English, Spanish, French, " +
-            "Italian, Hindi, Portuguese, Japanese, and Mandarin. Recommended for " +
-            "most people. Runs fully on your device; Japanese and Mandarin use " +
-            "bundled pronunciation data and the other languages use espeak-ng, " +
-            "all loaded at runtime.",
+        descriptionRes = R.string.engine_kokoro_desc,
         downloadSizeBytes = 194_353_174L,
         installedSizeBytes = KOKORO_DIRECT_INSTALLED_SIZE_BYTES,
         // No longer the default — Kitten is baked + recommended. Kokoro stays
@@ -275,9 +272,8 @@ object EngineCatalog {
             archiveRoot = "kokoro-direct-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-direct.md",
-        licenseSummary = "Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); " +
-            "European langs phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
-        tagline = "The widest language coverage and the best all-round voices.",
+        licenseSummaryRes = R.string.engine_kokoro_license,
+        taglineRes = R.string.engine_kokoro_tagline,
         speedTier = SpeedTier.FAST,
         qualityTier = QualityTier.BEST_OVERALL,
         // The nine distinct locales KokoroDirectVoiceCatalog exposes. American
@@ -316,10 +312,7 @@ object EngineCatalog {
     private val POCKET_TTS_EN: EngineDescriptor = EngineDescriptor(
         name = "pocket-tts-en-v2026_04",
         displayName = "Pocket TTS (English, 2026-04)",
-        description = "Heavy, but the most expressive English voices — 6 built-in " +
-            "voices. Streams smoothly on flagship phones; can stutter on mid-range " +
-            "and older hardware. English only. Kyutai Labs' model in a " +
-            "mixed-precision build for clean output.",
+        descriptionRes = R.string.engine_pocket_desc,
         downloadSizeBytes = 97_291_178L,
         installedSizeBytes = POCKET_TTS_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -330,9 +323,8 @@ object EngineCatalog {
             archiveRoot = "pocket-tts-en/",
         ),
         licenseNotice = "LICENSES/pocket-tts.md",
-        licenseSummary = "MIT model code + MIT runtime (onnxruntime-android); " +
-            "voices CC0 / CC-BY-4.0. No GPL components.",
-        tagline = "The most expressive, characterful English voices.",
+        licenseSummaryRes = R.string.engine_pocket_license,
+        taglineRes = R.string.engine_pocket_tagline,
         speedTier = SpeedTier.HEAVY,
         qualityTier = QualityTier.MOST_EXPRESSIVE,
         languageCodes = listOf("en"),
@@ -352,12 +344,7 @@ object EngineCatalog {
     private val POCKET_TTS_EN_DEV: EngineDescriptor = EngineDescriptor(
         name = "pocket-tts-en-v2026_04-dev",
         displayName = "Pocket TTS — Clean Reference",
-        description = "Diagnostic clean-room build of the Pocket TTS pipeline " +
-            "— same model + voices as the regular Pocket engine, but running " +
-            "through a deliberately perf-optimization-free Kotlin port of the " +
-            "upstream Python inference loop. Used to isolate which production " +
-            "optimization causes audio artefacts. Slower than the regular " +
-            "Pocket engine; install both side-by-side to A/B them.",
+        descriptionRes = R.string.engine_pocket_dev_desc,
         downloadSizeBytes = 98_264_623L,
         installedSizeBytes = POCKET_TTS_DEV_INSTALLED_SIZE_BYTES,
         isRecommended = false,
@@ -369,9 +356,8 @@ object EngineCatalog {
             archiveRoot = "pocket-tts-en/",
         ),
         licenseNotice = "LICENSES/pocket-tts.md",
-        licenseSummary = "MIT model code + MIT runtime; voices CC0 / CC-BY-4.0. " +
-            "Diagnostic build — same bundle as Pocket TTS.",
-        tagline = "Diagnostic clean-room build of the Pocket TTS pipeline.",
+        licenseSummaryRes = R.string.engine_pocket_dev_license,
+        taglineRes = R.string.engine_pocket_dev_tagline,
         speedTier = SpeedTier.HEAVY,
         qualityTier = QualityTier.MOST_EXPRESSIVE,
         languageCodes = listOf("en"),

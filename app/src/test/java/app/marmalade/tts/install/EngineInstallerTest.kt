@@ -1,5 +1,6 @@
 package app.marmalade.tts.install
 
+import app.marmalade.tts.R
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -382,7 +383,7 @@ class EngineInstallerTest {
     ): EngineDescriptor = EngineDescriptor(
         name = name,
         displayName = name,
-        description = "test",
+        descriptionRes = R.string.engine_kitten_desc,
         downloadSizeBytes = archiveBytes.size.toLong().coerceAtLeast(1L),
         installedSizeBytes = (archiveBytes.size.toLong() * 2L).coerceAtLeast(2L),
         isRecommended = false,
@@ -393,8 +394,8 @@ class EngineInstallerTest {
             archiveRoot = archiveRoot,
         ),
         licenseNotice = "n/a",
-        licenseSummary = "n/a",
-        tagline = "test engine",
+        licenseSummaryRes = R.string.engine_kitten_license,
+        taglineRes = R.string.engine_kitten_tagline,
         speedTier = SpeedTier.FAST,
         qualityTier = QualityTier.NATURAL,
         languageCodes = listOf("en"),

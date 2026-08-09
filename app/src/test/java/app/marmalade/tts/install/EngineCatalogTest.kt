@@ -1,11 +1,16 @@
 package app.marmalade.tts.install
 
+import androidx.test.core.app.ApplicationProvider
+import app.marmalade.tts.R
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Pins the static catalog data so a stray edit can't silently change
@@ -15,8 +20,17 @@ import org.junit.Test
  * single archive bytes — this test only confirms the catalog schema is
  * well-formed (HTTPS URL, lower-case 64-hex sha256, non-zero sizes,
  * GPL disclosure present).
+ *
+ * Robolectric because the catalog's prose lives in string resources and
+ * the GPL-disclosure check reads the resolved text.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class EngineCatalogTest {
+
+    private val resources = ApplicationProvider
+        .getApplicationContext<android.content.Context>()
+        .resources
 
     @Test
     fun catalogContainsAllVariants() {
@@ -201,16 +215,17 @@ class EngineCatalogTest {
         val pocketEngines = setOf("pocket-tts-en-v2026_04", "pocket-tts-en-v2026_04-dev")
         val gplEngines = EngineCatalog.all.filter { it.name !in pocketEngines }
         for (engine in gplEngines) {
-            val haystack = engine.licenseSummary.lowercase()
+            val summary = resources.getString(engine.licenseSummaryRes)
             assertTrue(
-                "${engine.name}.licenseSummary should mention GPL — was '${engine.licenseSummary}'",
-                haystack.contains("gpl"),
+                "${engine.name} license summary should mention GPL — was '$summary'",
+                summary.lowercase().contains("gpl"),
             )
         }
         val pocket = EngineCatalog.byName("pocket-tts-en-v2026_04")!!
+        val pocketSummary = resources.getString(pocket.licenseSummaryRes)
         assertTrue(
-            "pocket licenseSummary should explicitly state it has no GPL — was '${pocket.licenseSummary}'",
-            pocket.licenseSummary.lowercase().contains("no gpl"),
+            "pocket license summary should explicitly state it has no GPL — was '$pocketSummary'",
+            pocketSummary.lowercase().contains("no gpl"),
         )
     }
 
@@ -222,7 +237,7 @@ class EngineCatalogTest {
             EngineDescriptor(
                 name = "empty",
                 displayName = "Empty",
-                description = "x",
+                descriptionRes = R.string.engine_kitten_desc,
                 downloadSizeBytes = 1L,
                 installedSizeBytes = 1L,
                 isRecommended = false,
@@ -232,8 +247,8 @@ class EngineCatalogTest {
                     sizeBytes = 1L,
                 ),
                 licenseNotice = "",
-                licenseSummary = "",
-                tagline = "",
+                licenseSummaryRes = R.string.engine_kitten_license,
+                taglineRes = R.string.engine_kitten_tagline,
                 speedTier = SpeedTier.FAST,
                 qualityTier = QualityTier.NATURAL,
                 languageCodes = listOf("en"),
@@ -250,7 +265,7 @@ class EngineCatalogTest {
             EngineDescriptor(
                 name = "tiny",
                 displayName = "Tiny",
-                description = "x",
+                descriptionRes = R.string.engine_kitten_desc,
                 downloadSizeBytes = 0L,
                 installedSizeBytes = 0L,
                 isRecommended = false,
@@ -260,8 +275,8 @@ class EngineCatalogTest {
                     sizeBytes = 0L,
                 ),
                 licenseNotice = "",
-                licenseSummary = "",
-                tagline = "",
+                licenseSummaryRes = R.string.engine_kitten_license,
+                taglineRes = R.string.engine_kitten_tagline,
                 speedTier = SpeedTier.FAST,
                 qualityTier = QualityTier.NATURAL,
                 languageCodes = listOf("en"),

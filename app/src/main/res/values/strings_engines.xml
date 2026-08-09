@@ -40,6 +40,26 @@
     <string name="language_ja">Japanese</string>
     <string name="language_zh">Mandarin Chinese</string>
 
+    <!-- Engine catalog prose (EngineCatalog): tagline on the engine cards,
+         description + license line on the install-consent card and engine
+         detail screen. Product names and license identifiers stay as-is. -->
+    <string name="engine_kitten_tagline">The fastest, most responsive engine, and it runs on any device.</string>
+    <string name="engine_kitten_desc">Small and fast — the lightest download and the quickest to start speaking. English only, 8 voices. A good pick when you want speed and a small footprint over the widest language coverage. Runs fully on your device with a bundled espeak-ng phonemizer.</string>
+    <string name="engine_kitten_license">Apache-2.0 model; phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).</string>
+
+    <string name="engine_kokoro_tagline">The widest language coverage and the best all-round voices.</string>
+    <string name="engine_kokoro_desc">Best all-round quality with the widest language support — 53 voices across 9 languages, including English, Spanish, French, Italian, Hindi, Portuguese, Japanese, and Mandarin. Recommended for most people. Runs fully on your device; Japanese and Mandarin use bundled pronunciation data and the other languages use espeak-ng, all loaded at runtime.</string>
+    <string name="engine_kokoro_license">Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); European langs phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).</string>
+
+    <string name="engine_pocket_tagline">The most expressive, characterful English voices.</string>
+    <string name="engine_pocket_desc">Heavy, but the most expressive English voices — 6 built-in voices. Streams smoothly on flagship phones; can stutter on mid-range and older hardware. English only. Kyutai Labs\' model in a mixed-precision build for clean output.</string>
+    <string name="engine_pocket_license">MIT model code + MIT runtime (onnxruntime-android); voices CC0 / CC-BY-4.0. No GPL components.</string>
+
+    <!-- Developer-only diagnostic engine: English only, by design. -->
+    <string name="engine_pocket_dev_tagline" translatable="false">Diagnostic clean-room build of the Pocket TTS pipeline.</string>
+    <string name="engine_pocket_dev_desc" translatable="false">Diagnostic clean-room build of the Pocket TTS pipeline — same model + voices as the regular Pocket engine, but running through a deliberately perf-optimization-free Kotlin port of the upstream Python inference loop. Used to isolate which production optimization causes audio artefacts. Slower than the regular Pocket engine; install both side-by-side to A/B them.</string>
+    <string name="engine_pocket_dev_license" translatable="false">MIT model code + MIT runtime; voices CC0 / CC-BY-4.0. Diagnostic build — same bundle as Pocket TTS.</string>
+
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>
     <string name="engines_retry">Retry</string>

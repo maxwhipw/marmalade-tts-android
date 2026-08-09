@@ -155,4 +155,17 @@
     <string name="language_pt_br">पुर्तगाली (ब्राज़ील)</string>
     <string name="language_ja">जापानी</string>
     <string name="language_zh">मैंडरिन चीनी</string>
+
+    <!-- इंजन कैटलॉग का विवरण (EngineCatalog) -->
+    <string name="engine_kitten_tagline">सबसे तेज़ और सबसे फुर्तीला इंजन, और यह हर डिवाइस पर चलता है।</string>
+    <string name="engine_kitten_desc">छोटा और तेज़ — सबसे हल्का डाउनलोड और सबसे जल्दी बोलना शुरू करने वाला। सिर्फ़ अंग्रेज़ी, 8 वॉइस। जब आपको ज़्यादा भाषाओं के बजाय रफ़्तार और कम जगह चाहिए, तो यह अच्छा विकल्प है। पूरी तरह आपके डिवाइस पर चलता है, साथ में espeak-ng फ़ोनमाइज़र शामिल है।</string>
+    <string name="engine_kitten_license">Apache-2.0 मॉडल; फ़ोनमाइज़ेशन ऐप में मौजूद espeak-ng से होता है (GPL-3.0-or-later)।</string>
+
+    <string name="engine_kokoro_tagline">सबसे ज़्यादा भाषाएँ और कुल मिलाकर सबसे अच्छी वॉइस।</string>
+    <string name="engine_kokoro_desc">सबसे अच्छी समग्र गुणवत्ता और सबसे ज़्यादा भाषाओं का समर्थन — 9 भाषाओं में 53 वॉइस, जिनमें अंग्रेज़ी, स्पेनिश, फ़्रेंच, इतालवी, हिन्दी, पुर्तगाली, जापानी और मैंडरिन शामिल हैं। ज़्यादातर लोगों के लिए यही सुझाया जाता है। पूरी तरह आपके डिवाइस पर चलता है; जापानी और मैंडरिन के लिए साथ में दिया गया उच्चारण डेटा इस्तेमाल होता है और बाकी भाषाओं के लिए espeak-ng, सब कुछ चलते समय लोड होता है।</string>
+    <string name="engine_kokoro_license">Apache-2.0 मॉडल + BSD-3 Open JTalk शब्दकोश (जापानी); यूरोपीय भाषाओं का फ़ोनमाइज़ेशन ऐप में मौजूद espeak-ng से होता है (GPL-3.0-or-later)।</string>
+
+    <string name="engine_pocket_tagline">सबसे भावपूर्ण और दमदार अंग्रेज़ी वॉइस।</string>
+    <string name="engine_pocket_desc">भारी है, पर अंग्रेज़ी की सबसे भावपूर्ण वॉइस देता है — 6 वॉइस पहले से मौजूद। फ़्लैगशिप फ़ोन पर बिना रुकावट चलता है; मिड-रेंज और पुराने हार्डवेयर पर अटक सकता है। सिर्फ़ अंग्रेज़ी। Kyutai Labs का मॉडल, साफ़ आउटपुट के लिए मिक्स्ड-प्रिसिज़न बिल्ड में।</string>
+    <string name="engine_pocket_license">MIT मॉडल कोड + MIT रनटाइम (onnxruntime-android); वॉइस CC0 / CC-BY-4.0। कोई GPL घटक नहीं।</string>
 </resources>

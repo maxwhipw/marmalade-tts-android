@@ -158,6 +158,10 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric tests resolve real string resources (e.g. the engine
+        // catalog's license disclosures), which needs the merged resources
+        // on the unit-test classpath.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
