@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
 //     ├── engines        ◄────── OnboardingViewModel.engines
 //     │                              ▲
 //     │                              │ EngineCatalog.visibleTo(false),
-//     │                              │ re-ordered + labelled by
+//     │                              │ catalog order, labelled by
 //     │                              │ EngineRecommender.recommend(
 //     │                              │     DeviceProbeSource.probe())
 //     ├── selectedIds    ◄────── OnboardingViewModel.selectedEngineIds
@@ -227,9 +227,12 @@ class OnboardingViewModel @Inject constructor(
      * never offered to new users in onboarding; they're an opt-in via
      * Settings afterward.
      *
-     * Order and labels come from [_recommendation] once it lands; before
-     * that the catalog's own order and its static `isRecommended` flag
-     * stand in, so the step is usable the instant it opens.
+     * Labels come from [_recommendation] once it lands; before that the
+     * catalog's static `isRecommended` flag stands in, so the step is
+     * usable the instant it opens. The order is ALWAYS the catalog's —
+     * cards never jump around when the probe answers (Max, 2026-08-08:
+     * the verdict moves the pill, not the cards; built-in Kitten stays
+     * on top).
      */
     val engines: StateFlow<List<EngineCardState>> =
         combine(_recommendation, _selectedEngineIds, ::cardsFor)
@@ -243,18 +246,7 @@ class OnboardingViewModel @Inject constructor(
         recommendation: EngineRecommendation?,
         selected: Set<String>,
     ): List<EngineCardState> {
-        val visible = EngineCatalog.visibleTo(showDeveloper = false)
-        // Stable sort, and engines the recommender doesn't rank sort to the
-        // tail keeping their catalog order.
-        val ordered = if (recommendation == null) {
-            visible
-        } else {
-            visible.sortedBy { d ->
-                recommendation.order.indexOf(d.name)
-                    .takeIf { it >= 0 } ?: recommendation.order.size
-            }
-        }
-        return ordered.map { d ->
+        return EngineCatalog.visibleTo(showDeveloper = false).map { d ->
             EngineCardState(
                 descriptor = d,
                 isSelected = selected.contains(d.name),

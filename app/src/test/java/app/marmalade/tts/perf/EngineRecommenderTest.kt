@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Bucket + ordering coverage for [EngineRecommender].
+ * Bucket coverage for [EngineRecommender].
  *
  * Pure logic with no injected collaborators, so these tests construct the
  * probe directly — no DataStore, no fake SettingsRepository (whose
@@ -44,7 +44,6 @@ class EngineRecommenderTest {
 
         assertEquals(0.42, rec.predictedKokoroRtf, 1e-9)
         assertEquals(EngineFit.RECOMMENDED, rec.fits[kokoro])
-        assertEquals(listOf(kokoro, kitten, pocket), rec.order)
         // Exactly one Recommended pill — Kitten steps aside for Kokoro.
         assertEquals(EngineFit.FINE, rec.fits[kitten])
         // Pocket at 0.84 is still inside the no-warning band.
@@ -52,11 +51,10 @@ class EngineRecommenderTest {
     }
 
     @Test
-    fun midDeviceKeepsKokoroUnwarnedButPutsKittenFirst() {
+    fun midDeviceKeepsKokoroUnwarnedAndHandsKittenThePill() {
         val rec = EngineRecommender.recommend(measured(0.75))!!
 
         assertEquals(EngineFit.FINE, rec.fits[kokoro])
-        assertEquals(listOf(kitten, kokoro, pocket), rec.order)
         // Kitten leads, so it takes the pill.
         assertEquals(EngineFit.RECOMMENDED, rec.fits[kitten])
         // Pocket at 1.5 is past the warning line.
@@ -69,7 +67,6 @@ class EngineRecommenderTest {
 
         assertEquals(EngineFit.MAY_BE_SLOW, rec.fits[kokoro])
         assertEquals(EngineFit.MAY_BE_SLOW, rec.fits[pocket])
-        assertEquals(listOf(kitten, kokoro, pocket), rec.order)
     }
 
     // -- boundaries ------------------------------------------------------------
@@ -186,7 +183,6 @@ class EngineRecommenderTest {
             DeviceProbe(null, EngineRecommender.ANCHOR_COMPUTE_SCORE / 3),
         )!!
         assertEquals(EngineFit.MAY_BE_SLOW, rec.fits[kokoro])
-        assertEquals(listOf(kitten, kokoro, pocket), rec.order)
     }
 
     @Test

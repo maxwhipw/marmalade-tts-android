@@ -411,7 +411,11 @@ private fun EngineCard(
                     )
                 },
             ),
-        colors = if (isSelected) {
+        // The permanently-ticked built-in card keeps the plain container:
+        // the selected tint means "you chose this", and Kitten isn't a
+        // choice (Max, 2026-08-08 — the loud terracotta card read as an
+        // error state in dark mode).
+        colors = if (isSelected && !isBuiltIn) {
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
             )
@@ -419,14 +423,34 @@ private fun EngineCard(
             CardDefaults.cardColors()
         },
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (isBuiltIn) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // The fit pill sits in its own full-width row at the card's top
+            // right (Max, 2026-08-08). Its own row rather than a line inside
+            // the text column, so a long engine name can never crush it
+            // (recommended-badge-lab R1) and it never collides with the spec
+            // column's header.
+            val showRecommended =
+                if (fit == null) engine.isRecommended else fit == EngineFit.RECOMMENDED
+            if (showRecommended || fit == EngineFit.MAY_BE_SLOW) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, end = 10.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    if (showRecommended) RecommendedTag() else MayBeSlowTag()
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp)
+                    .height(IntrinsicSize.Min),
+                // Top-aligned like the Engines tab cards — centering left the
+                // short built-in column floating mid-card.
+                verticalAlignment = Alignment.Top,
+            ) {
+                if (isBuiltIn) {
                 // Not a checkbox: nothing here is a choice. The adjacent
                 // "Built in — ready to use" line carries the meaning, so the
                 // tick itself is decorative for screen readers.
@@ -435,35 +459,19 @@ private fun EngineCard(
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
-            } else {
+                } else {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = null,
                 )
-            }
-            Spacer(Modifier.size(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                // Name and the Recommended pill sit on separate lines: inline,
-                // the pill competed with the name for the weight(1f) width and a
-                // long name ("Kitten Nano (v0.8)") starved it down to one glyph,
-                // char-wrapping "RECOMMENDED" into a vertical strip. Its own line
-                // can't be crushed (recommended-badge-lab R1).
+                }
+                Spacer(Modifier.size(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = engine.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                // Until the device probe answers, the catalog's static flag
-                // stands in for a measured verdict.
-                val showRecommended =
-                    if (fit == null) engine.isRecommended else fit == EngineFit.RECOMMENDED
-                if (showRecommended) {
-                    Spacer(Modifier.height(4.dp))
-                    RecommendedTag()
-                } else if (fit == EngineFit.MAY_BE_SLOW) {
-                    Spacer(Modifier.height(4.dp))
-                    MayBeSlowTag()
-                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = engine.tagline,
@@ -487,11 +495,12 @@ private fun EngineCard(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
+                }
+                Spacer(Modifier.size(12.dp))
+                VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                Spacer(Modifier.size(12.dp))
+                EngineSpecColumn(engine = engine)
             }
-            Spacer(Modifier.size(12.dp))
-            VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
-            Spacer(Modifier.size(12.dp))
-            EngineSpecColumn(engine = engine)
         }
     }
 }

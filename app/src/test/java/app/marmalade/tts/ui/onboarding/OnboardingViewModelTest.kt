@@ -289,7 +289,7 @@ class OnboardingViewModelTest {
         assertTrue("aliasCreated should flip to true after save", vm.aliasCreated.first { it })
     }
 
-    // -- device-driven card ordering + labels ------------------------------
+    // -- device-driven card labels (order is always the catalog's) ---------
 
     @Test
     fun cardsStartInCatalogOrderWhileTheProbeIsPending() = runTest {
@@ -307,7 +307,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun fastDeviceReordersKokoroToTheFrontAndLabelsIt() = runTest {
+    fun fastDeviceLabelsKokoroWithoutMovingTheCards() = runTest {
         val vm = newViewModel(
             deviceProbe = FakeDeviceProbe(
                 DeviceProbe(measuredKittenRtf = 0.28, computeScore = 12.39),
@@ -316,7 +316,8 @@ class OnboardingViewModelTest {
 
         val cards = vm.engines.first { cards -> cards.any { it.fit != null } }
 
-        assertEquals(listOf(KOKORO, KITTEN, POCKET), cards.map { it.descriptor.name })
+        // The verdict moves the pill, never the cards: catalog order holds.
+        assertEquals(listOf(KITTEN, KOKORO, POCKET), cards.map { it.descriptor.name })
         assertEquals(EngineFit.RECOMMENDED, cards.first { it.descriptor.name == KOKORO }.fit)
         assertEquals(EngineFit.FINE, cards.first { it.descriptor.name == KITTEN }.fit)
     }

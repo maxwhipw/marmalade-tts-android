@@ -33,13 +33,11 @@ enum class EngineFit {
 }
 
 /**
- * Per-engine fit plus the onboarding card order this device should see.
- *
- * [order] holds engine names best-first. Engines absent from it (the
- * developer-only diagnostics) keep their catalog position at the tail.
+ * Per-engine fit for this device. Fits move labels only — card order is
+ * always the catalog's (Max, 2026-08-08: the verdict moves the pill, not
+ * the cards).
  */
 data class EngineRecommendation(
-    val order: List<String>,
     val fits: Map<String, EngineFit>,
     /** The predicted Kokoro RTF the buckets were derived from. */
     val predictedKokoroRtf: Double,
@@ -131,13 +129,7 @@ object EngineRecommender {
         val kittenFit =
             if (kokoroFit == EngineFit.RECOMMENDED) EngineFit.FINE else EngineFit.RECOMMENDED
 
-        val order = if (kokoroFit == EngineFit.RECOMMENDED) {
-            listOf(KOKORO, KITTEN, POCKET)
-        } else {
-            listOf(KITTEN, KOKORO, POCKET)
-        }
         return EngineRecommendation(
-            order = order,
             fits = mapOf(KITTEN to kittenFit, KOKORO to kokoroFit, POCKET to pocketFit),
             predictedKokoroRtf = kokoroRtf,
         )
