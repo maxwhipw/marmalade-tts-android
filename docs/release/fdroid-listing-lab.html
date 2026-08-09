@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marmalade TTS — F-Droid Listing Lab</title>
+<link rel="stylesheet" href="/_assets/lab.css">
+<style>
+/* ---- page-specific: the F-Droid site mock is a light island ---- */
+.mockwrap{max-width:1060px;margin:0 auto;padding:0 28px}
+.fd{background:#fff;color:#212121;border-radius:12px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 8px 40px rgba(0,0,0,.45);
+  font:15.5px/1.55 Roboto,system-ui,sans-serif}
+.fd a{color:#1a6dbb;text-decoration:none}
+.fd-topbar{background:#1a4469;color:#fff;padding:12px 22px;display:flex;
+  align-items:center;gap:12px;font-size:16px}
+.fd-topbar .fdlogo{width:26px;height:26px;border-radius:5px;
+  background:#8ab000 url() center/cover;display:inline-flex;align-items:center;
+  justify-content:center;font-weight:700;color:#fff;font-size:15px}
+.fd-head{display:flex;gap:20px;padding:26px 26px 18px;align-items:flex-start}
+.fd-head img{width:96px;height:96px;border-radius:18px;flex:none}
+.fd-head h2{margin:0 0 4px;font-size:26px;font-weight:500;color:#111}
+.fd-summary{color:#444;font-size:16px;margin:0}
+.fd-badges{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.fd-badge{font-size:12px;padding:3px 10px;border-radius:999px;
+  background:#e8f0e8;color:#33691e;border:1px solid #c5d9c5}
+.fd-badge.lic{background:#e9eef5;color:#1a4469;border-color:#c9d6e4}
+.fd-dl{margin-left:auto;flex:none}
+.fd-dl .btn-dl{display:inline-block;background:#8ab000;color:#fff;
+  padding:10px 22px;border-radius:6px;font-weight:600;font-size:15px}
+.fd-shots{display:flex;gap:12px;overflow-x:auto;padding:6px 26px 18px;
+  scrollbar-width:thin}
+.fd-shots img{height:340px;border-radius:10px;border:1px solid #ddd;flex:none}
+.fd-desc{padding:6px 26px 10px;max-width:760px}
+.fd-desc p{margin:0 0 14px}
+.fd-desc p.caps{font-weight:600;color:#1a4469;margin-bottom:4px;
+  letter-spacing:.02em}
+.fd-desc p.proposed{background:#fff7e0;border-left:4px solid #f9a825;
+  padding:8px 12px;border-radius:0 6px 6px 0}
+.fd-meta{border-top:1px solid #e5e5e5;margin-top:14px;padding:18px 26px 24px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;font-size:14px;color:#444}
+.fd-meta b{display:block;color:#111;font-weight:600;margin-bottom:2px}
+/* ---- picker ---- */
+.shotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+  gap:16px;margin-top:14px}
+.shot{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:10px;text-align:center}
+.shot img{width:100%;border-radius:6px;cursor:pointer;opacity:.35;
+  transition:opacity .15s}
+.shot.on img{opacity:1;outline:2px solid var(--orange)}
+.shot .cap{font-size:13.5px;color:var(--dim);margin:8px 0 6px;line-height:1.3}
+.shot .ord{font-size:13px;color:var(--peach);min-height:18px}
+.shot .mv{display:flex;justify-content:center;gap:6px}
+.shot .mv button{background:var(--panel2);border:1px solid var(--line);
+  color:var(--ink);border-radius:6px;padding:2px 12px;cursor:pointer;font-size:14px}
+.shot.off .mv{visibility:hidden}
+.count-ok{color:var(--ok)} .count-warn{color:var(--warn)}
+.togglerow{display:flex;gap:10px;align-items:center;margin:10px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Marmalade TTS — <span>F-Droid Listing Lab</span></h1>
+  <div class="sub">Mock of the f-droid.org listing · pick screenshot keepers + order · sign off the English copy (G1 + G5)</div>
+</header>
+
+<main style="max-width:1120px;margin:0 auto;padding:26px 0 60px">
+
+<section class="mockwrap">
+  <h2 class="sec">The listing, as F-Droid will show it</h2>
+  <p class="lede">Everything below the dark shell is a faithful mock of an
+  f-droid.org app page: your fastlane texts, the current icon, and the styled
+  screenshots in your chosen order. The screenshot strip and description update
+  live as you change the controls further down.</p>
+
+  <div class="togglerow">
+    <input type="checkbox" id="proposed" checked>
+    <label for="proposed">Include the <b>proposed</b> multilingual + auto-detect
+    section (highlighted amber in the description — draft text, needs your
+    sign-off; it is <b>not</b> in fastlane yet)</label>
+  </div>
+
+  <div class="fd">
+    <div class="fd-topbar"><span class="fdlogo">f</span> F-Droid &nbsp;·&nbsp; Free and Open Source Android App Repository</div>
+    <div class="fd-head">
+      <img src="fdroid-assets/icon.png" alt="Marmalade TTS icon">
+      <div>
+        <h2>Marmalade TTS</h2>
+        <p class="fd-summary">Offline neural text-to-speech engine for your whole device. No cloud.</p>
+        <div class="fd-badges">
+          <span class="fd-badge lic">GPL-3.0-or-later</span>
+          <span class="fd-badge">No anti-features</span>
+          <span class="fd-badge">Multimedia</span>
+          <span class="fd-badge">Accessibility</span>
+        </div>
+      </div>
+      <div class="fd-dl"><span class="btn-dl">Download APK 1.0.0</span></div>
+    </div>
+    <div class="fd-shots" id="mockshots"></div>
+    <div class="fd-desc" id="mockdesc"></div>
+    <div class="fd-meta">
+      <div><b>Version</b>1.0.0 (10000000) — first release</div>
+      <div><b>License</b>APK: GPL-3.0-or-later (espeak-ng built in)<br>Source files: MIT</div>
+      <div><b>Source Code</b><a>github.com/maxwhipw/marmalade-tts-android</a></div>
+      <div><b>Issue Tracker</b><a>…/issues</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="mockwrap" style="margin-top:34px">
+  <h2 class="sec">Screenshot keepers + order (gate G1)</h2>
+  <p class="lede">Click a shot to include/exclude it; ◀ ▶ moves it within the
+  strip. F-Droid shows a horizontal strip — <b>4–8 shots is typical</b>; the
+  first two carry almost all the weight. Your picks persist in this browser.
+  Selected: <b id="selcount"></b></p>
+  <p class="note">07-engines is the <b>reshoot you sent 2026-08-09</b>, styled
+  into the standard treatment (status bar cropped, black 1200×2400 frame). It
+  came through chat at 900×2000 and was upscaled — text is slightly softer than
+  the other ten. Fine for picking; before the shots ship, drop the original
+  1080×2400 PNG into <code>docs/release/screenshots-inbox/</code> (or reconnect
+  ADB) and I'll restyle it losslessly.</p>
+  <div class="shotgrid" id="grid"></div>
+  <p class="note" style="margin-top:14px">When you're happy, say the word and
+  the selected set gets copied in order into
+  <code>fastlane/metadata/android/en-US/images/phoneScreenshots/</code>
+  (numbered 01…N), replacing the five stale ones there now.</p>
+</section>
+
+<section class="mockwrap" style="margin-top:34px">
+  <h2 class="sec">The copy, for sign-off (gate G5, step 1)</h2>
+  <p class="lede">This is the exact public text. Once you approve the English,
+  it gets translated into the 7 other in-app locales as fastlane folders —
+  both land before the 1.0.0 tag (F-Droid needs ≥1 translation for the
+  Latest tab, and fastlane ships from the tag).</p>
+
+  <h3>Title <span class="count-ok">(12 chars — limit 50)</span></h3>
+  <div class="copyblock"><pre>Marmalade TTS</pre></div>
+
+  <h3>Summary <span class="count-ok" id="sumcount"></span></h3>
+  <div class="copyblock"><pre id="sumtext">Offline neural text-to-speech engine for your whole device. No cloud.</pre></div>
+
+  <h3>Full description — current (verbatim from fastlane)</h3>
+  <p class="sub">Rendered in the mock above. Source:
+  <code>fastlane/metadata/android/en-US/full_description.txt</code></p>
+
+  <h3>Proposed addition (NOT in fastlane — your call)</h3>
+  <p class="sub">Inserted after "MULTIPLE ENGINES AND VOICES" when the toggle
+  is on. Per your 2026-08-04 note: name the languages, don't leave "English
+  TTS app" implied — plus the auto-detect feature that shipped since.</p>
+  <div class="copyblock"><pre id="proposedtext">SPEAKS 8 LANGUAGES
+With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting. Kitten and Pocket voices are English-only.</pre></div>
+
+  <h3>Your notes</h3>
+  <textarea class="tracker" data-k="fdl-notes" rows="4"
+    placeholder="Copy edits, screenshot verdicts, anything…"></textarea>
+</section>
+
+</main>
+
+<script>
+const SHOTS = [
+  ["01-speak-light","Speak — light"],
+  ["02-aliases","Aliases + routing"],
+  ["03-kokoro-voices-en","Kokoro voices — EN"],
+  ["04-kokoro-voices-multilang","Kokoro voices — multilang"],
+  ["05-effects","Effects presets"],
+  ["06-effect-editor","Effect editor"],
+  ["07-engines","Engines (reshoot)"],
+  ["08-engines-cloud","Engines — cloud"],
+  ["09-voice-picker","Voice picker"],
+  ["10-speak-dark","Speak — dark"],
+  ["11-speak-dynamic-dark","Speak — dynamic dark"],
+];
+const LSK="fdroid-listing-lab-v1";
+let state = JSON.parse(localStorage.getItem(LSK)||"null")
+  || SHOTS.map(s=>({id:s[0],on:true}));
+// heal state if the shot set changed
+state = state.filter(e=>SHOTS.some(s=>s[0]===e.id));
+SHOTS.forEach(s=>{ if(!state.some(e=>e.id===s[0])) state.push({id:s[0],on:false}); });
+
+const cap = id => SHOTS.find(s=>s[0]===id)[1];
+function save(){ localStorage.setItem(LSK, JSON.stringify(state)); }
+
+function render(){
+  const on = state.filter(e=>e.on);
+  // mock strip
+  document.getElementById("mockshots").innerHTML = on.map(e=>
+    `<img src="screenshots-inbox/styled/${e.id}.png" alt="${cap(e.id)}" title="${cap(e.id)}">`).join("");
+  // picker grid
+  document.getElementById("grid").innerHTML = state.map((e,i)=>{
+    const pos = e.on ? on.findIndex(x=>x.id===e.id)+1 : "";
+    return `<div class="shot ${e.on?'on':'off'}" data-i="${i}">
+      <img src="screenshots-inbox/styled/${e.id}.png" alt="${cap(e.id)}">
+      <div class="cap">${e.id}<br>${cap(e.id)}</div>
+      <div class="ord">${e.on?('position '+pos):'excluded'}</div>
+      <div class="mv"><button data-mv="-1">◀</button><button data-mv="1">▶</button></div>
+    </div>`;}).join("");
+  const n = on.length;
+  const sc = document.getElementById("selcount");
+  sc.textContent = n + " of " + SHOTS.length;
+  sc.className = (n>=4 && n<=8) ? "count-ok" : "count-warn";
+  renderDesc();
+  save();
+}
+
+const FULLDESC = `Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. No cloud, no account, no tracking.
+
+WORKS EVERYWHERE ON YOUR DEVICE
+Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
+
+ACCESSIBLE BY DESIGN
+Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
+
+ON-DEVICE NEURAL VOICES
+Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
+
+MULTIPLE ENGINES AND VOICES
+Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
+
+EXPRESSIVE, EMOTION-AWARE SPEECH
+Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them — even when the base voice is neutral.
+
+AUDIO EFFECTS
+Apply built-in audio-effect presets (such as cave, robot, and telephone) to give spoken output character.
+
+VOICE ALIASES / PERSONAS
+Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
+
+LONG-FORM READING
+A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
+
+HANDY SHORTCUTS
+Share text to Marmalade from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
+
+PRIVATE BY DESIGN
+No analytics, no telemetry, no ads, no accounts, and no backend. The only network use is downloading the engine files you choose to install. See the in-app privacy policy for details.
+
+OPEN SOURCE
+Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.`;
+
+function renderDesc(){
+  const withProposed = document.getElementById("proposed").checked;
+  const proposed = document.getElementById("proposedtext").textContent.trim();
+  let paras = FULLDESC.split(/\n\n/);
+  let html = "";
+  for(const p of paras){
+    const lines = p.split("\n");
+    for(const [j,line] of lines.entries()){
+      const isCaps = line === line.toUpperCase() && /[A-Z]/.test(line) && line.length < 60;
+      html += `<p class="${isCaps?'caps':''}">${line}</p>`;
+    }
+    if(withProposed && p.startsWith("MULTIPLE ENGINES")){
+      for(const [j,line] of proposed.split("\n").entries()){
+        const isCaps = j===0;
+        html += `<p class="proposed ${isCaps?'caps':''}">${line}</p>`;
+      }
+    }
+  }
+  document.getElementById("mockdesc").innerHTML = html;
+}
+
+document.getElementById("grid").addEventListener("click", ev=>{
+  const shot = ev.target.closest(".shot"); if(!shot) return;
+  const i = +shot.dataset.i;
+  const mv = ev.target.closest("button[data-mv]");
+  if(mv){
+    const d = +mv.dataset.mv, j = i+d;
+    if(j<0 || j>=state.length) return;
+    [state[i],state[j]] = [state[j],state[i]];
+  } else if(ev.target.tagName==="IMG"){
+    state[i].on = !state[i].on;
+  } else return;
+  render();
+});
+document.getElementById("proposed").addEventListener("change", renderDesc);
+
+// summary char count
+const sum = document.getElementById("sumtext").textContent;
+const scnt = document.getElementById("sumcount");
+scnt.textContent = `(${sum.length} chars — F-Droid limit 80)`;
+scnt.className = sum.length<=80 ? "count-ok" : "count-warn";
+
+// tracker textareas
+document.querySelectorAll(".tracker").forEach(t=>{
+  t.value = localStorage.getItem("fdl-"+t.dataset.k)||"";
+  t.addEventListener("input", ()=>localStorage.setItem("fdl-"+t.dataset.k, t.value));
+});
+
+render();
+</script>
+</body>
+</html>
