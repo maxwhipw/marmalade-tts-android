@@ -159,13 +159,17 @@
   </div>
 
   <div class="chg">
-    <h4>Full description — REWRITTEN (human pass, 2026-08-09)</h4>
-    <p class="why">Per your structure: short intro, then every selling point
-    in an above-the-fold bullet list (quality, fast, private, local,
-    Venice cloud, per-app routing, TalkBack/AA, effects), then short 1–4
-    sentence sections. Em dashes gone. This is the complete text that goes
-    into <code>full_description.txt</code> — it's what the mock above
-    renders.</p>
+    <h4>Full description — YOUR EDIT applied (2026-08-09)</h4>
+    <p class="why">This is your edited text verbatim, with only mechanical
+    fixes: capitalized "Everything" after "Private by default.", normalized
+    "Per App Voices " to "Per app voices." (matching the other bullets),
+    joined the dangling TalkBack sentence with a period, changed effect
+    examples verified against <code>BuiltinEffects.kt</code> (8-bit ✓
+    cyborg ✓ megaphone ✓ vintage radio ✓), and rewrote OPEN SOURCE to
+    answer your GPL question (see the decision log). The <b>**bold**</b>
+    and <i>*italic*</i> markers become <code>&lt;b&gt;</code>/<code>&lt;i&gt;</code>
+    HTML in the fastlane file — F-Droid renders basic HTML in
+    descriptions.</p>
     <div class="copyblock"><pre id="fulltext"></pre></div>
   </div>
 
@@ -194,6 +198,20 @@
       <code>BuiltinEffects.kt</code> (22 presets).</li>
     <li><b>Kitten built-in</b> — "bundles no model files" was false;
       "ready out of the box" is the honest replacement.</li>
+    <li><b>Your editorial Q1: lock-screen/Bluetooth controls + QS tile</b> —
+      all real: <code>MarmaladeSynthService</code> creates a
+      <code>MediaSessionCompat</code> ("lock-screen + BT transport",
+      pause/resume/stop callbacks) with a MediaStyle notification, and
+      <code>SpeakClipboardTileService</code> is a registered Quick Settings
+      tile. Worth one glance in the device smoke test, but the wiring is
+      the standard one.</li>
+    <li><b>Your editorial Q2: GPL in the repo?</b> — no contamination. The
+      repository contains zero GPL code; espeak-ng enters only as a pinned
+      git submodule (a pointer to upstream) compiled during the build. Your
+      source files stay MIT; the <i>installed app</i> is GPL because it
+      links the compiled espeak library. The old sentence read as if GPL
+      code lived in the repo, so OPEN SOURCE now says "its repository
+      contains no GPL code" explicitly.</li>
   </ul>
 
   <h3>Your notes</h3>
@@ -292,15 +310,15 @@ Marmalade TTS is open source. The source code is MIT-licensed; the published app
 const SUMMARY_PROPOSED = "Fast, natural, private text-to-speech for your whole phone. Works offline.";
 const DESC_PROPOSED = `Marmalade TTS gives your phone a voice worth listening to. Set it as your system text-to-speech engine and every app that reads aloud, from screen readers to e-readers to chat apps, speaks through Marmalade.
 
-* Natural neural voices, ready to speak the moment you install
-* Fast, speech starts quickly even on modest phones
-* Private by default, everything runs on your device
-* Optional cloud voices with your own API key (Venice.ai)
-* A voice for every app, route each app to its own voice
-* Speaks 8 languages and auto-detects which one it is reading
-* Works with TalkBack, designed to meet WCAG 2.1 AA
-* 22 audio effect presets plus an editor to make your own
-* Free, open source, no ads, no accounts
+* **Natural neural voices.** Ready to speak the moment you install
+* **Fast.** Speech responds quickly even on modest phones
+* **Private by default.** Everything runs on your device
+* **Optional cloud voices.** From private third parties with your own API key (Venice.ai)
+* **Per app voices.** Route each app to its own voice
+* **Speaks 8 languages.** Auto detects what language is being read on the Kokoro TTS engine
+* **Accessible.** TalkBack supported and designed to meet WCAG 2.1 AA
+* **Voice effects.** 22 voice effect presets plus an editor to make your own
+* **Free, open source, no ads, no accounts**
 
 WORKS EVERYWHERE
 Marmalade implements Android's standard text-to-speech interface, so it is a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
@@ -309,25 +327,25 @@ READY OUT OF THE BOX
 A fast English voice is built in, so Marmalade speaks offline from the first launch. Bigger and better engines download only when you choose them, and text read by on-device voices never leaves your phone.
 
 A VOICE FOR EVERY APP
-Save aliases, a voice plus its speed and effects, and switch between them instantly. Route apps to aliases and your e-reader can speak in one voice while your chat app uses another. Anything unrouted follows your primary alias.
+Marmalade is built around aliases. Build your favorite voice with speed and effect settings. Route apps to aliases and your e-reader can speak in one voice while your chat app uses another. Anything unrouted follows your primary alias.
 
 SPEAKS 8 LANGUAGES
-The multilingual Kokoro engine speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language as it reads and switches pronunciation on the fly, so Spanish text simply sounds Spanish.
+The multilingual Kokoro engine speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language as it reads and switches pronunciation on the fly.
 
 PRIVATE, WITH OR WITHOUT THE CLOUD
-No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Until you set one up, nothing you read ever leaves your phone.
+No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Until you set one up, nothing you read ever leaves your phone. *Note: other providers may log requests. Refer to their privacy policies.*
 
 BUILT FOR SCREEN READERS
-Marmalade is built for TalkBack users, not just compatible with them. Every control is labeled, progress and errors are announced aloud, and the app is designed to meet WCAG 2.1 AA with a high-contrast dark theme. Nothing an assistive-tech user needs sits behind a purchase.
+Marmalade is accessible with rich TalkBack support and designed to meet WCAG 2.1 AA with a high-contrast dark theme. Every control is labeled, and progress and errors are announced aloud when TalkBack is enabled. Nothing an assistive-tech user needs sits behind a purchase.
 
 MAKE IT YOURS
-22 built-in effect presets like cave, telephone, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor.
+22 built-in effect presets like 8-bit, cyborg, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor.
 
 READS THE LONG STUFF
 A foreground playback service reads long text reliably with the screen off, with lock-screen and Bluetooth controls. Share text from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
 
 OPEN SOURCE
-The source code is MIT licensed. The published app includes the espeak-ng phonemizer, built from source, and is therefore distributed under GPL-3.0-or-later, with complete corresponding source in the project repository. License details for every component are shown inside the app.`;
+Marmalade's own source code is MIT licensed and its repository contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source at build time, so the app you install is distributed under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the project repository, and license details for every component are shown inside the app.`;
 
 function renderDesc(){
   const rev = document.getElementById("proposed").checked;
@@ -335,7 +353,8 @@ function renderDesc(){
   sum.textContent = rev ? SUMMARY_PROPOSED : SUMMARY_CURRENT;
   sum.className = "fd-summary" + (rev ? " proposed" : "");
   const text = rev ? DESC_PROPOSED : DESC_CURRENT;
-  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>");
   let html = "", inList = false;
   const closeList = () => { if(inList){ html += "</ul>"; inList = false; } };
   for(const p of text.split(/\n\n/)){
