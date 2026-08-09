@@ -12,6 +12,9 @@
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_install_selected">Install selected</string>
     <string name="onboarding_recommended">RECOMMENDED</string>
+    <string name="onboarding_may_be_slow">May be slow on this device</string>
+    <string name="onboarding_checking_device">Checking your phone…</string>
+    <string name="onboarding_built_in_ready">Built in — ready to use</string>
     <string name="onboarding_download_size">Download: %1$s</string>
 
     <string name="onboarding_setup_complete">Setup complete</string>

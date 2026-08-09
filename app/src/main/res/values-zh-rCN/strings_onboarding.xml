@@ -12,6 +12,9 @@
     <string name="onboarding_skip">跳过</string>
     <string name="onboarding_install_selected">安装所选</string>
     <string name="onboarding_recommended">推荐</string>
+    <string name="onboarding_may_be_slow">在此设备上可能较慢</string>
+    <string name="onboarding_checking_device">正在检测你的手机…</string>
+    <string name="onboarding_built_in_ready">已内置 — 可直接使用</string>
     <string name="onboarding_download_size">下载大小：%1$s</string>
 
     <string name="onboarding_setup_complete">设置完成</string>

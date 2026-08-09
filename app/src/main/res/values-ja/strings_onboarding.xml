@@ -12,6 +12,9 @@
     <string name="onboarding_skip">スキップ</string>
     <string name="onboarding_install_selected">選択したものをインストール</string>
     <string name="onboarding_recommended">おすすめ</string>
+    <string name="onboarding_may_be_slow">この端末では遅くなる可能性があります</string>
+    <string name="onboarding_checking_device">お使いの端末を確認しています…</string>
+    <string name="onboarding_built_in_ready">内蔵済み — すぐに使えます</string>
     <string name="onboarding_download_size">ダウンロード: %1$s</string>
 
     <string name="onboarding_setup_complete">セットアップ完了</string>

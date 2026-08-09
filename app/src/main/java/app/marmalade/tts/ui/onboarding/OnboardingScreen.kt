@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,11 +75,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectPreset
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.perf.EngineFit
 import app.marmalade.tts.ui.components.EngineSpecColumn
 import app.marmalade.tts.ui.components.JarMascot
 import app.marmalade.tts.ui.components.JarMascotState
@@ -139,6 +142,7 @@ fun OnboardingScreen(
     val aliasCreated by viewModel.aliasCreated.collectAsStateWithLifecycle()
     val aliasEditor by viewModel.aliasEditorState.collectAsStateWithLifecycle()
     val installedVoices by viewModel.installedVoices.collectAsStateWithLifecycle()
+    val recommendation by viewModel.recommendation.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold { padding ->
@@ -149,7 +153,10 @@ fun OnboardingScreen(
             )
             OnboardingStep.EnginePick -> EnginePickStep(
                 padding = padding,
-                engines = engines.map { it.descriptor },
+                cards = engines,
+                // Null recommendation = the device probe is still running,
+                // so the cards are showing catalog order, not this phone's.
+                probePending = recommendation == null,
                 selectedIds = selected,
                 onToggle = viewModel::toggle,
                 onInstall = viewModel::installSelected,
@@ -274,7 +281,8 @@ private fun WelcomeStep(
 @Composable
 private fun EnginePickStep(
     padding: PaddingValues,
-    engines: List<EngineDescriptor>,
+    cards: List<EngineCardState>,
+    probePending: Boolean,
     selectedIds: Set<String>,
     onToggle: (String) -> Unit,
     onInstall: () -> Unit,
@@ -302,6 +310,19 @@ private fun EnginePickStep(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        // While the capability probe runs the list is in catalog order with
+        // the catalog's static Recommended flag. Say so rather than letting
+        // the cards silently reshuffle under the user's finger.
+        if (probePending) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.onboarding_checking_device),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(
@@ -309,11 +330,13 @@ private fun EnginePickStep(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-            items(items = engines, key = { it.name }) { engine ->
+            items(items = cards, key = { it.descriptor.name }) { card ->
                 EngineCard(
-                    engine = engine,
-                    isSelected = selectedIds.contains(engine.name),
-                    onToggle = { onToggle(engine.name) },
+                    engine = card.descriptor,
+                    isSelected = selectedIds.contains(card.descriptor.name),
+                    fit = card.fit,
+                    isBuiltIn = card.isBuiltIn,
+                    onToggle = { onToggle(card.descriptor.name) },
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -347,20 +370,35 @@ private fun EnginePickStep(
  * compare axis-to-axis down the list. The espeak/phonemizer/license prose is
  * gone from the resting card — the license still lives on the Engines-tab card
  * (behind "Show more") and in Settings → About → Licenses.
+ *
+ * [isBuiltIn] swaps the download affordances for a plain "ready to use"
+ * statement: the baked engine is already in the APK, so a checkbox and a
+ * download size would both be lies.
+ *
+ * [fit] is this device's measured verdict; null means the probe hasn't
+ * answered and the card falls back to the catalog's static flag.
  */
 @Composable
 private fun EngineCard(
     engine: EngineDescriptor,
     isSelected: Boolean,
+    fit: EngineFit?,
+    isBuiltIn: Boolean,
     onToggle: () -> Unit,
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(
-                value = isSelected,
-                role = Role.Checkbox,
-                onValueChange = { onToggle() },
+            .then(
+                if (isBuiltIn) {
+                    Modifier
+                } else {
+                    Modifier.toggleable(
+                        value = isSelected,
+                        role = Role.Checkbox,
+                        onValueChange = { onToggle() },
+                    )
+                },
             ),
         colors = if (isSelected) {
             CardDefaults.cardColors(
@@ -377,10 +415,21 @@ private fun EngineCard(
                 .height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = null,
-            )
+            if (isBuiltIn) {
+                // Not a checkbox: nothing here is a choice. The adjacent
+                // "Built in — ready to use" line carries the meaning, so the
+                // tick itself is decorative for screen readers.
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = null,
+                )
+            }
             Spacer(Modifier.size(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 // Name and the Recommended pill sit on separate lines: inline,
@@ -393,9 +442,16 @@ private fun EngineCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                if (engine.isRecommended) {
+                // Until the device probe answers, the catalog's static flag
+                // stands in for a measured verdict.
+                val showRecommended =
+                    if (fit == null) engine.isRecommended else fit == EngineFit.RECOMMENDED
+                if (showRecommended) {
                     Spacer(Modifier.height(4.dp))
                     RecommendedTag()
+                } else if (fit == EngineFit.MAY_BE_SLOW) {
+                    Spacer(Modifier.height(4.dp))
+                    MayBeSlowTag()
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -405,12 +461,20 @@ private fun EngineCard(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = stringResource(
-                        R.string.onboarding_download_size,
-                        formatBytes(engine.downloadSizeBytes),
-                    ),
+                    text = if (isBuiltIn) {
+                        stringResource(R.string.onboarding_built_in_ready)
+                    } else {
+                        stringResource(
+                            R.string.onboarding_download_size,
+                            formatBytes(engine.downloadSizeBytes),
+                        )
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isBuiltIn) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
             Spacer(Modifier.size(12.dp))
@@ -435,6 +499,26 @@ private fun RecommendedTag() {
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
+/**
+ * Warning counterpart to [RecommendedTag], shown when the device probe
+ * predicts this engine will synthesize slower than real time. Error-container
+ * tinted rather than error-solid: it's a caveat on an install the user may
+ * still legitimately want, not a blocked action.
+ */
+@Composable
+private fun MayBeSlowTag() {
+    Text(
+        text = stringResource(R.string.onboarding_may_be_slow),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onErrorContainer,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.errorContainer)
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
@@ -500,6 +584,7 @@ private fun InstallingStep(
                     InstallRow(
                         engine = engine,
                         state = installStates[engine.name] ?: InstallState.NotInstalled,
+                        isBuiltIn = engine.name == KittenDirectVoiceCatalog.ENGINE,
                         onRetry = { onRetry(engine.name) },
                     )
                     HorizontalDivider()
@@ -519,12 +604,47 @@ private fun InstallingStep(
     }
 }
 
+/**
+ * One engine's progress line.
+ *
+ * The baked engine ([isBuiltIn]) normally has nothing to download — its
+ * files are seeded from APK assets — so showing it a progress bar crawling
+ * to 100% would be theatre. It reports "ready to use" instead. The one case
+ * where it *does* download for real is a failed asset seed, and then it
+ * falls through to the ordinary progress rendering.
+ */
 @Composable
 private fun InstallRow(
     engine: EngineDescriptor,
     state: InstallState,
+    isBuiltIn: Boolean,
     onRetry: () -> Unit,
 ) {
+    val builtInReady = isBuiltIn &&
+        state !is InstallState.Downloading &&
+        state !is InstallState.Extracting &&
+        state !is InstallState.Failed
+    if (builtInReady) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = engine.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.onboarding_built_in_ready),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()

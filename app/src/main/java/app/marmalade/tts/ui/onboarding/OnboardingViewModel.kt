@@ -17,6 +17,10 @@ import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.perf.DeviceProbeSource
+import app.marmalade.tts.perf.EngineFit
+import app.marmalade.tts.perf.EngineRecommendation
+import app.marmalade.tts.perf.EngineRecommender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +42,12 @@ import kotlinx.coroutines.launch
 //   OnboardingScreen
 //     │
 //     ├── step           ◄────── OnboardingViewModel.step (StateFlow<OnboardingStep>)
-//     ├── engines        ◄────── EngineCatalog.all  (static)
+//     ├── engines        ◄────── OnboardingViewModel.engines
+//     │                              ▲
+//     │                              │ EngineCatalog.visibleTo(false),
+//     │                              │ re-ordered + labelled by
+//     │                              │ EngineRecommender.recommend(
+//     │                              │     DeviceProbeSource.probe())
 //     ├── selectedIds    ◄────── OnboardingViewModel.selectedEngineIds
 //     ├── installStates  ◄────── OnboardingViewModel.installStates (per engine)
 //     ├── aliasCreated   ◄────── OnboardingViewModel.aliasCreated
@@ -141,10 +150,18 @@ enum class OnboardingStep {
  * UI model for one engine card shown on the EnginePick step. Snapshots the
  * descriptor's display fields next to the user's selection state so the
  * composable doesn't have to thread two collections through.
+ *
+ * @property fit This device's predicted fit for the engine, or null while
+ *   the capability probe is still running — the card then falls back to the
+ *   catalog's static [EngineDescriptor.isRecommended] flag.
+ * @property isBuiltIn The engine ships inside the APK, so there is nothing
+ *   to download and nothing to opt out of.
  */
 data class EngineCardState(
     val descriptor: EngineDescriptor,
     val isSelected: Boolean,
+    val fit: EngineFit? = null,
+    val isBuiltIn: Boolean = false,
 )
 
 /**
@@ -167,6 +184,7 @@ class OnboardingViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val aliasDao: VoiceAliasDao,
     private val voiceDao: VoiceMetaDao,
+    private val deviceProbe: DeviceProbeSource,
 ) : ViewModel() {
 
     /**
@@ -197,19 +215,79 @@ class OnboardingViewModel @Inject constructor(
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()
 
     /**
-     * Convenience: the cards rendered on the EnginePick step. Production
-     * engines only — developer-only engines (e.g. the Pocket clean-reference
-     * build) are never offered to new users in onboarding; they're an opt-in
-     * via Settings afterward.
+     * This device's engine fit + ordering, or null until the capability
+     * probe answers. Null is the whole "still checking" signal the UI needs.
      */
-    val engines: StateFlow<List<EngineCardState>> = MutableStateFlow(
-        EngineCatalog.visibleTo(showDeveloper = false).map { d ->
-            EngineCardState(descriptor = d, isSelected = _selectedEngineIds.value.contains(d.name))
-        },
-    ).asStateFlow()
+    private val _recommendation = MutableStateFlow<EngineRecommendation?>(null)
+    val recommendation: StateFlow<EngineRecommendation?> = _recommendation.asStateFlow()
+
+    /**
+     * The cards rendered on the EnginePick step. Production engines only —
+     * developer-only engines (e.g. the Pocket clean-reference build) are
+     * never offered to new users in onboarding; they're an opt-in via
+     * Settings afterward.
+     *
+     * Order and labels come from [_recommendation] once it lands; before
+     * that the catalog's own order and its static `isRecommended` flag
+     * stand in, so the step is usable the instant it opens.
+     */
+    val engines: StateFlow<List<EngineCardState>> =
+        combine(_recommendation, _selectedEngineIds, ::cardsFor)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = cardsFor(null, _selectedEngineIds.value),
+            )
+
+    private fun cardsFor(
+        recommendation: EngineRecommendation?,
+        selected: Set<String>,
+    ): List<EngineCardState> {
+        val visible = EngineCatalog.visibleTo(showDeveloper = false)
+        // Stable sort, and engines the recommender doesn't rank sort to the
+        // tail keeping their catalog order.
+        val ordered = if (recommendation == null) {
+            visible
+        } else {
+            visible.sortedBy { d ->
+                recommendation.order.indexOf(d.name)
+                    .takeIf { it >= 0 } ?: recommendation.order.size
+            }
+        }
+        return ordered.map { d ->
+            EngineCardState(
+                descriptor = d,
+                isSelected = selected.contains(d.name),
+                fit = recommendation?.fits?.get(d.name),
+                isBuiltIn = d.name == KittenDirectVoiceCatalog.ENGINE,
+            )
+        }
+    }
+
+    // Kick the capability probe off as soon as onboarding starts, so the
+    // benchmark overlaps the Welcome step's reading time and the EnginePick
+    // step usually has its answer by the time the user gets there. Declared
+    // after [_recommendation] because the launch body assigns it and
+    // viewModelScope dispatches eagerly on an unconfined test dispatcher.
+    init {
+        viewModelScope.launch {
+            // The Tier 2 benchmark synthesizes on the baked Kitten engine, so
+            // it waits on the same first-run asset seed runInstall waits for.
+            // If the seed never lands the probe still answers, from CPU
+            // topology alone.
+            withTimeoutOrNull(SEED_WAIT_TIMEOUT_MS) {
+                settings.bakedDefaultSeeded.firstOrNull { it }
+            }
+            _recommendation.value = EngineRecommender.recommend(deviceProbe.probe())
+        }
+    }
 
     /** Toggle the selection state of [engineName] in the picker. */
     fun toggle(engineName: String) {
+        // The baked engine is already inside the APK — there is nothing to
+        // opt out of, and dropping it would strand a fresh offline install
+        // with no usable voice.
+        if (engineName == KittenDirectVoiceCatalog.ENGINE) return
         _selectedEngineIds.update { current ->
             if (current.contains(engineName)) current - engineName else current + engineName
         }

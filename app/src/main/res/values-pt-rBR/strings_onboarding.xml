@@ -12,6 +12,9 @@
     <string name="onboarding_skip">Pular</string>
     <string name="onboarding_install_selected">Instalar selecionados</string>
     <string name="onboarding_recommended">RECOMENDADO</string>
+    <string name="onboarding_may_be_slow">Pode ficar lento neste aparelho</string>
+    <string name="onboarding_checking_device">Verificando seu celular…</string>
+    <string name="onboarding_built_in_ready">Já incluído — pronto para usar</string>
     <string name="onboarding_download_size">Download: %1$s</string>
 
     <string name="onboarding_setup_complete">Configuração concluída</string>

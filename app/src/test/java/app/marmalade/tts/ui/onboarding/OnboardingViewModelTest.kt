@@ -2,9 +2,14 @@ package app.marmalade.tts.ui.onboarding
 
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.perf.DeviceProbe
+import app.marmalade.tts.perf.DeviceProbeSource
+import app.marmalade.tts.perf.EngineFit
 import app.marmalade.tts.ui.screen.FakeAliasDao
 import app.marmalade.tts.ui.screen.FakeDao
 import app.marmalade.tts.ui.screen.FakeSettings
@@ -15,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -72,14 +78,27 @@ class OnboardingViewModelTest {
     @Test
     fun toggleFlipsSelection() = runTest {
         val vm = newViewModel()
-        // Kitten is the recommended default (baked) → pre-selected.
-        assertTrue(vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
+        assertFalse(vm.selectedEngineIds.value.contains(KOKORO))
 
-        vm.toggle("kitten-direct-v0_8")
-        assertTrue(!vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
+        vm.toggle(KOKORO)
+        assertTrue(vm.selectedEngineIds.value.contains(KOKORO))
 
-        vm.toggle("kitten-direct-v0_8")
-        assertTrue(vm.selectedEngineIds.value.contains("kitten-direct-v0_8"))
+        vm.toggle(KOKORO)
+        assertFalse(vm.selectedEngineIds.value.contains(KOKORO))
+    }
+
+    @Test
+    fun bakedEngineCannotBeDeselected() = runTest {
+        val vm = newViewModel()
+        // Kitten is baked into the APK — pre-selected and not a choice.
+        assertTrue(vm.selectedEngineIds.value.contains(KITTEN))
+
+        vm.toggle(KITTEN)
+
+        assertTrue(
+            "The baked engine must survive a toggle",
+            vm.selectedEngineIds.value.contains(KITTEN),
+        )
     }
 
     @Test
@@ -96,14 +115,14 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun installSelectedWithNoSelectionsIsNoop() = runTest {
+    fun skipEngineInstallDownloadsNothing() = runTest {
         val installer = RecordingInstaller(behaviour = { Result.success(Unit) })
         val vm = newViewModel(installer = installer)
-        vm.toggle("kitten-direct-v0_8") // un-select the recommended default
+        vm.toggle(KOKORO)
 
-        vm.installSelected()
+        vm.skipEngineInstall()
 
-        assertEquals(OnboardingStep.Installing, vm.step.value)
+        assertEquals(OnboardingStep.CreateAlias, vm.step.value)
         assertTrue("no installs expected", installer.installCalls.isEmpty())
     }
 
@@ -270,6 +289,63 @@ class OnboardingViewModelTest {
         assertTrue("aliasCreated should flip to true after save", vm.aliasCreated.first { it })
     }
 
+    // -- device-driven card ordering + labels ------------------------------
+
+    @Test
+    fun cardsStartInCatalogOrderWhileTheProbeIsPending() = runTest {
+        // Catalog order (Kitten, Kokoro, Pocket) with the static
+        // isRecommended flag is what the step shows before the probe lands.
+        val vm = newViewModel()
+
+        assertEquals(
+            listOf(KITTEN, KOKORO, POCKET),
+            vm.engines.value.map { it.descriptor.name },
+        )
+        assertTrue("no measured fit before the probe answers",
+            vm.engines.value.all { it.fit == null })
+        assertNull(vm.recommendation.value)
+    }
+
+    @Test
+    fun fastDeviceReordersKokoroToTheFrontAndLabelsIt() = runTest {
+        val vm = newViewModel(
+            deviceProbe = FakeDeviceProbe(
+                DeviceProbe(measuredKittenRtf = 0.28, computeScore = 12.39),
+            ),
+        )
+
+        val cards = vm.engines.first { cards -> cards.any { it.fit != null } }
+
+        assertEquals(listOf(KOKORO, KITTEN, POCKET), cards.map { it.descriptor.name })
+        assertEquals(EngineFit.RECOMMENDED, cards.first { it.descriptor.name == KOKORO }.fit)
+        assertEquals(EngineFit.FINE, cards.first { it.descriptor.name == KITTEN }.fit)
+    }
+
+    @Test
+    fun slowDeviceKeepsKittenFirstAndWarnsOnTheHeavyEngines() = runTest {
+        val vm = newViewModel(
+            deviceProbe = FakeDeviceProbe(
+                DeviceProbe(measuredKittenRtf = 0.9, computeScore = 4.0),
+            ),
+        )
+
+        val cards = vm.engines.first { cards -> cards.any { it.fit != null } }
+
+        assertEquals(listOf(KITTEN, KOKORO, POCKET), cards.map { it.descriptor.name })
+        assertEquals(EngineFit.RECOMMENDED, cards.first { it.descriptor.name == KITTEN }.fit)
+        assertEquals(EngineFit.MAY_BE_SLOW, cards.first { it.descriptor.name == KOKORO }.fit)
+        assertEquals(EngineFit.MAY_BE_SLOW, cards.first { it.descriptor.name == POCKET }.fit)
+    }
+
+    @Test
+    fun onlyTheBakedEngineIsMarkedBuiltIn() = runTest {
+        val vm = newViewModel()
+        assertEquals(
+            listOf(KITTEN),
+            vm.engines.value.filter { it.isBuiltIn }.map { it.descriptor.name },
+        )
+    }
+
     // -- helpers ----------------------------------------------------------
 
     private fun newViewModel(
@@ -279,10 +355,22 @@ class OnboardingViewModelTest {
             initialOnboarded = false,
         ),
         aliasDao: FakeAliasDao = FakeAliasDao(),
+        deviceProbe: DeviceProbeSource = FakeDeviceProbe(DeviceProbe(null, null)),
     ): OnboardingViewModel {
         val voiceDao = FakeDao(voices = KittenDirectVoiceCatalog.voices)
-        return OnboardingViewModel(installer, settings, aliasDao, voiceDao)
+        return OnboardingViewModel(installer, settings, aliasDao, voiceDao, deviceProbe)
     }
+
+    private companion object {
+        const val KITTEN = KittenDirectVoiceCatalog.ENGINE
+        const val KOKORO = KokoroDirectVoiceCatalog.ENGINE
+        const val POCKET = PocketVoiceCatalog.ENGINE
+    }
+}
+
+/** Canned [DeviceProbeSource] — the real one needs an ORT session + sysfs. */
+private class FakeDeviceProbe(private val result: DeviceProbe) : DeviceProbeSource {
+    override suspend fun probe(): DeviceProbe = result
 }
 
 /**

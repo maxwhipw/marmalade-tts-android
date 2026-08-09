@@ -12,6 +12,9 @@
     <string name="onboarding_skip">छोड़ें</string>
     <string name="onboarding_install_selected">चुने हुए इंस्टॉल करें</string>
     <string name="onboarding_recommended">सुझाया गया</string>
+    <string name="onboarding_may_be_slow">इस डिवाइस पर धीमा हो सकता है</string>
+    <string name="onboarding_checking_device">आपका फ़ोन जाँचा जा रहा है…</string>
+    <string name="onboarding_built_in_ready">पहले से मौजूद — तुरंत इस्तेमाल करें</string>
     <string name="onboarding_download_size">डाउनलोड: %1$s</string>
 
     <string name="onboarding_setup_complete">सेटअप पूरा हुआ</string>

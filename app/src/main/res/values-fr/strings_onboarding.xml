@@ -12,6 +12,9 @@
     <string name="onboarding_skip">Ignorer</string>
     <string name="onboarding_install_selected">Installer la sélection</string>
     <string name="onboarding_recommended">RECOMMANDÉ</string>
+    <string name="onboarding_may_be_slow">Peut être lent sur cet appareil</string>
+    <string name="onboarding_checking_device">Analyse de votre téléphone…</string>
+    <string name="onboarding_built_in_ready">Intégré — prêt à l’emploi</string>
     <string name="onboarding_download_size">Téléchargement&#160;: %1$s</string>
 
     <string name="onboarding_setup_complete">Configuration terminée</string>

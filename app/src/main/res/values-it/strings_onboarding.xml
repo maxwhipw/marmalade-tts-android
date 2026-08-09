@@ -12,6 +12,9 @@
     <string name="onboarding_skip">Salta</string>
     <string name="onboarding_install_selected">Installa i selezionati</string>
     <string name="onboarding_recommended">CONSIGLIATO</string>
+    <string name="onboarding_may_be_slow">Potrebbe essere lento su questo dispositivo</string>
+    <string name="onboarding_checking_device">Controllo del tuo telefono…</string>
+    <string name="onboarding_built_in_ready">Integrato — pronto all’uso</string>
     <string name="onboarding_download_size">Download: %1$s</string>
 
     <string name="onboarding_setup_complete">Configurazione completata</string>
