@@ -18,9 +18,9 @@ F-Droid buildserver may not provide — **RESOLVED 2026-08-08 in
 `cmake/3.22.1/bin/cmake` and only falls back to `$PATH`, so no
 `sudo: apt-get install` line is needed in the recipe. (The fix sat
 uncommitted in the working tree for a day; it is now on `main`.)
-Still required before pinging the reviewer: re-run `fdroid build`
-(their CI or a local buildserver) against the new tag — the generator
-has still never run on their infrastructure. It builds the `v1.0.0-beta.1` tag
+The generator HAS now run under `fdroid build` in their buildserver
+container (2026-08-09, local run, R3 round 3 below: byte-identical
+PASS) — the remaining proof is their own CI on the re-cut MR. It builds the `v1.0.0-beta.1` tag
 (versionCode 33), which is premature: F-Droid reads icon, screenshots
 and descriptions from the fastlane folder **in the tag it builds**, and
 that tag's screenshots show a visually older app. Reviewer `linsui`
@@ -184,6 +184,22 @@ Obtainium APKs share one signature and cross-update.
     Still unproven locally: (a) across a different host gcc/glibc,
     (c) dependency drift, (f) runner drift — only a real `fdroid build`
     closes those.
+  - **Round 3 (2026-08-09): real `fdroid build` in the buildserver
+    container — PASS, whole-file byte-identical** (`ec061a97…`) vs a
+    host build of the same commit (`a867b6b`). Debian gcc 14.2 /
+    glibc 2.41 vs host toolchain: item (a) CLOSED — all 364 espeak
+    dictionaries matched; (f) approximated (container vs host); (c)
+    closed by Gradle dependency locking (`8334431`,
+    app/gradle.lockfile). Two new re-cut requirements found: the
+    recipe needs `scanignore` for
+    `app/src/main/assets/engines-seed/kitten-direct-v0_8/voices`
+    (8 baked Kitten voice `.bin`s fail the scanner), and likely
+    `sudo: apt-get install -y build-essential` (the buildserver
+    docker image has no host cc; generateEspeakData needs one — the
+    beta.1 CI green predates the generator and proves nothing).
+    Contributing fixes this round: `vcsInfo { include = false }`
+    (`a867b6b` — the entry's content depended on checkout shape).
+    Evidence: rb-experiment/FINDINGS.md round 3 + fdroid-build/.
   - **Round 2 (same day): both fixes VERIFIED and LANDED (`b7cfb9e`).**
     With the lint task-dependency fix + `-ffile-prefix-map` +
     `--build-id=none`, two clean builds from different paths produce
