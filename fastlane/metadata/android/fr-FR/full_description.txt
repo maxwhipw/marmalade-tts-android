@@ -1,0 +1,40 @@
+<p>Marmalade TTS donne à votre téléphone une voix qu'on a envie d'écouter. Définissez-le comme moteur de synthèse vocale du système et toutes les applis qui lisent à voix haute, des lecteurs d'écran aux liseuses en passant par les messageries, parlent avec Marmalade.</p>
+
+<ul>
+<li><b>Des voix neuronales naturelles.</b> Prêtes à parler dès l'installation</li>
+<li><b>Rapide.</b> La voix répond vite, même sur un téléphone modeste</li>
+<li><b>Privé par défaut.</b> Tout fonctionne sur votre appareil</li>
+<li><b>Voix cloud en option.</b> Auprès de tiers respectueux de la vie privée, avec votre propre clé API (Venice.ai)</li>
+<li><b>Une voix par appli.</b> Attribuez à chaque appli la voix de votre choix</li>
+<li><b>8 langues.</b> Détection automatique de la langue lue avec le moteur Kokoro</li>
+<li><b>Accessible.</b> Compatible TalkBack et conçu pour respecter WCAG 2.1 AA</li>
+<li><b>Effets vocaux.</b> 22 préréglages d'effets, plus un éditeur pour créer les vôtres</li>
+<li><b>Gratuit, open source, sans pub, sans compte</b></li>
+</ul>
+
+<p><b>FONCTIONNE PARTOUT</b></p>
+<p>Marmalade implémente l'interface de synthèse vocale standard d'Android, ce qui en fait un remplaçant direct du moteur TTS de Google ou de Samsung. Sélectionnez-le une fois dans les Paramètres et il assure la lecture vocale dans toutes vos applis.</p>
+
+<p><b>PRÊT À L'EMPLOI</b></p>
+<p>Une voix anglaise rapide est intégrée à l'appli, donc Marmalade parle hors ligne dès le premier lancement. Les moteurs plus gros et plus performants ne se téléchargent que si vous les choisissez, et le texte lu par les voix embarquées ne quitte jamais votre téléphone.</p>
+
+<p><b>UNE VOIX POUR CHAQUE APPLI</b></p>
+<p>Marmalade est construit autour des alias. Composez la voix que vous préférez avec ses réglages de vitesse et d'effets. Attribuez ensuite des alias aux applis et votre liseuse pourra parler avec une voix pendant que votre messagerie en utilise une autre. Tout ce qui n'est pas attribué suit votre alias principal.</p>
+
+<p><b>PARLE 8 LANGUES</b></p>
+<p>Le moteur multilingue Kokoro parle l'anglais (États-Unis et Royaume-Uni), l'espagnol, le français, l'italien, le portugais (Brésil), l'hindi, le japonais et le mandarin. Il détecte la langue au fil de la lecture et change de prononciation à la volée.</p>
+
+<p><b>PRIVÉ, AVEC OU SANS LE CLOUD</b></p>
+<p>Aucune statistique d'usage, aucune télémétrie, aucun compte et aucun serveur qui nous appartienne. Les voix embarquées n'utilisent le réseau que pour télécharger les moteurs que vous choisissez. Si vous voulez des voix qui dépassent les capacités de votre téléphone, ajoutez un moteur cloud avec votre propre clé API. Parmi les fournisseurs proposés, Venice.ai affirme ne rien stocker ni journaliser. Tant que vous n'en configurez aucun, rien de ce que vous lisez ne quitte votre téléphone. <i>Remarque : d'autres fournisseurs peuvent journaliser les requêtes. Consultez leurs politiques de confidentialité.</i></p>
+
+<p><b>CONÇU POUR LES LECTEURS D'ÉCRAN</b></p>
+<p>Marmalade est accessible, avec une prise en charge complète de TalkBack et un thème sombre à fort contraste conçu pour respecter WCAG 2.1 AA. Chaque commande est étiquetée, et la progression comme les erreurs sont annoncées à voix haute quand TalkBack est activé. Rien de ce dont un utilisateur de technologies d'assistance a besoin n'est payant.</p>
+
+<p><b>À VOTRE IMAGE</b></p>
+<p>22 préréglages d'effets intégrés comme 8-bit, cyborg, megaphone et vintage radio donnent du caractère à la voix. Ou créez vos propres chaînes d'effets dans l'éditeur.</p>
+
+<p><b>LIT LES TEXTES LONGS</b></p>
+<p>Un service de lecture en premier plan lit les textes longs de façon fiable, écran éteint, avec des commandes sur l'écran de verrouillage et en Bluetooth. Partagez du texte depuis n'importe quelle appli, utilisez l'action système « Lire la sélection » ou faites lire votre presse-papiers depuis une tuile de réglages rapides.</p>
+
+<p><b>OPEN SOURCE</b></p>
+<p>Le code source de Marmalade est sous licence MIT et son dépôt ne contient aucun code GPL. L'appli publiée contient aussi le phonémiseur espeak-ng, compilé depuis les sources au moment de la compilation, donc l'appli que vous installez est distribuée sous GPL-3.0-or-later. La version exacte d'espeak-ng utilisée est figée à partir du dépôt du projet, et les détails de licence de chaque composant sont affichés dans l'appli.</p>

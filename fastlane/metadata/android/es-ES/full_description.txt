@@ -1,0 +1,40 @@
+<p>Marmalade TTS le da a tu móvil una voz que merece la pena escuchar. Configúralo como motor de síntesis de voz del sistema y todas las apps que leen en voz alta, desde lectores de pantalla hasta lectores de libros y apps de mensajería, hablarán con Marmalade.</p>
+
+<ul>
+<li><b>Voces neuronales naturales.</b> Listas para hablar nada más instalar</li>
+<li><b>Rápido.</b> La voz responde enseguida incluso en móviles modestos</li>
+<li><b>Privado por defecto.</b> Todo funciona en tu dispositivo</li>
+<li><b>Voces en la nube opcionales.</b> De terceros que respetan tu privacidad, con tu propia clave de API (Venice.ai)</li>
+<li><b>Una voz para cada app.</b> Asigna a cada app la voz que quieras</li>
+<li><b>Habla 8 idiomas.</b> Detecta automáticamente el idioma del texto en el motor Kokoro</li>
+<li><b>Accesible.</b> Compatible con TalkBack y diseñada para cumplir WCAG 2.1 AA</li>
+<li><b>Efectos de voz.</b> 22 efectos predefinidos y un editor para crear los tuyos</li>
+<li><b>Gratis, de código abierto, sin anuncios y sin cuentas</b></li>
+</ul>
+
+<p><b>FUNCIONA EN TODAS PARTES</b></p>
+<p>Marmalade implementa la interfaz estándar de síntesis de voz de Android, así que sustituye sin más al motor de Google o de Samsung. Selecciónalo una vez en Ajustes y se encargará del texto hablado en todas tus apps.</p>
+
+<p><b>LISTO NADA MÁS INSTALARLO</b></p>
+<p>Incluye de serie una voz rápida en inglés, así que Marmalade habla sin conexión desde el primer arranque. Los motores más grandes y de mejor calidad solo se descargan si tú los eliges, y el texto que leen las voces del dispositivo nunca sale de tu móvil.</p>
+
+<p><b>UNA VOZ PARA CADA APP</b></p>
+<p>Marmalade se organiza en torno a los alias. Crea tu voz favorita con sus ajustes de velocidad y de efectos. Asigna apps a los alias y tu lector de libros podrá hablar con una voz mientras tu app de mensajería usa otra. Todo lo que no tenga asignación sigue a tu alias principal.</p>
+
+<p><b>HABLA 8 IDIOMAS</b></p>
+<p>El motor multilingüe Kokoro habla inglés (EE. UU. y Reino Unido), español, francés, italiano, portugués (Brasil), hindi, japonés y chino mandarín. Detecta el idioma mientras lee y cambia la pronunciación sobre la marcha.</p>
+
+<p><b>PRIVADO, CON NUBE O SIN ELLA</b></p>
+<p>Sin analíticas, sin telemetría, sin cuentas y sin ningún servidor nuestro. Las voces del dispositivo solo usan la red para descargar los motores que elijas. Si quieres voces que van más allá de lo que tu móvil puede mover, añade un motor en la nube con tu propia clave de API. Entre los proveedores está Venice.ai, que afirma no almacenar ni registrar las peticiones. Hasta que configures uno, nada de lo que leas sale de tu móvil. <i>Nota: otros proveedores sí pueden registrar las peticiones. Consulta sus políticas de privacidad.</i></p>
+
+<p><b>PENSADO PARA LECTORES DE PANTALLA</b></p>
+<p>Marmalade es accesible, con amplia compatibilidad con TalkBack y un tema oscuro de alto contraste diseñado para cumplir WCAG 2.1 AA. Todos los controles están etiquetados, y el progreso y los errores se anuncian en voz alta cuando TalkBack está activado. Nada de lo que necesita quien usa tecnología de apoyo queda detrás de un pago.</p>
+
+<p><b>HAZLO TUYO</b></p>
+<p>22 efectos predefinidos como 8-bit, Cyborg, Megaphone o Vintage radio dan carácter al texto hablado. O crea tus propias cadenas de efectos en el editor.</p>
+
+<p><b>LEE TEXTOS LARGOS</b></p>
+<p>Un servicio de reproducción en primer plano lee textos largos sin fallos con la pantalla apagada, con controles en la pantalla de bloqueo y por Bluetooth. Comparte texto desde cualquier app, usa la acción del sistema «Leer selección» o haz que lea el portapapeles desde un mosaico de Ajustes rápidos.</p>
+
+<p><b>CÓDIGO ABIERTO</b></p>
+<p>El código fuente propio de Marmalade tiene licencia MIT y su repositorio no contiene código GPL. La app publicada incluye además el fonemizador espeak-ng, compilado desde el código fuente al construirla, así que la app que instalas se distribuye bajo GPL-3.0-or-later. La versión exacta de espeak-ng está fijada desde el repositorio del proyecto, y los detalles de licencia de cada componente se muestran dentro de la app.</p>

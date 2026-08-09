@@ -1,0 +1,40 @@
+<p>O Marmalade TTS dá ao seu celular uma voz que vale a pena ouvir. Defina o app como o mecanismo de conversão de texto em voz do sistema e todo aplicativo que lê em voz alta, de leitores de tela a leitores de e-books e apps de mensagens, passa a falar pelo Marmalade.</p>
+
+<ul>
+<li><b>Vozes neurais naturais.</b> Prontas para falar assim que você instalar</li>
+<li><b>Rápido.</b> A fala responde depressa até em celulares modestos</li>
+<li><b>Privado por padrão.</b> Tudo roda no seu dispositivo</li>
+<li><b>Vozes na nuvem opcionais.</b> De provedores externos que respeitam a privacidade, com a sua própria chave de API (Venice.ai)</li>
+<li><b>Vozes por app.</b> Direcione cada aplicativo para a sua própria voz</li>
+<li><b>Fala 8 idiomas.</b> Detecta sozinho o idioma do texto no mecanismo Kokoro TTS</li>
+<li><b>Acessível.</b> Compatível com o TalkBack e projetado para atender à WCAG 2.1 AA</li>
+<li><b>Efeitos de voz.</b> 22 predefinições de efeito, mais um editor para criar as suas</li>
+<li><b>Grátis, código aberto, sem anúncios, sem contas</b></li>
+</ul>
+
+<p><b>FUNCIONA EM TODO LUGAR</b></p>
+<p>O Marmalade implementa a interface padrão de conversão de texto em voz do Android, então ele substitui direto o TTS do Google ou da Samsung. Basta escolher o app uma vez nas Configurações e ele passa a cuidar de todo texto falado nos seus aplicativos.</p>
+
+<p><b>PRONTO PARA USAR</b></p>
+<p>Uma voz rápida em inglês já vem embutida, então o Marmalade fala offline desde a primeira abertura. Mecanismos maiores e melhores são baixados só quando você escolhe, e o texto lido pelas vozes no dispositivo nunca sai do seu celular.</p>
+
+<p><b>UMA VOZ PARA CADA APP</b></p>
+<p>O Marmalade é construído em torno de apelidos. Monte a sua voz preferida com ajustes de velocidade e efeito. Direcione apps para apelidos e o seu leitor de e-books pode falar com uma voz enquanto o app de mensagens usa outra. Tudo que ficar sem direcionamento segue o seu apelido principal.</p>
+
+<p><b>FALA 8 IDIOMAS</b></p>
+<p>O mecanismo multilíngue Kokoro fala inglês (EUA e Reino Unido), espanhol, francês, italiano, português (Brasil), híndi, japonês e chinês mandarim. Ele detecta o idioma enquanto lê e troca a pronúncia na hora.</p>
+
+<p><b>PRIVADO, COM OU SEM A NUVEM</b></p>
+<p>Sem análises de uso, sem telemetria, sem contas e sem nenhum servidor nosso. As vozes no dispositivo acessam a rede apenas para baixar os mecanismos que você escolher. Se quiser vozes além do que o seu celular consegue rodar, adicione um mecanismo de nuvem com a sua própria chave de API. Entre os provedores está a Venice.ai, que afirma não armazenar nem registrar as solicitações. Até você configurar um, nada do que você lê sai do seu celular. <i>Observação: outros provedores podem registrar as solicitações. Consulte as políticas de privacidade deles.</i></p>
+
+<p><b>FEITO PARA LEITORES DE TELA</b></p>
+<p>O Marmalade é acessível, com amplo suporte ao TalkBack, e foi projetado para atender à WCAG 2.1 AA com um tema escuro de alto contraste. Todos os controles têm rótulo, e o progresso e os erros são anunciados em voz alta quando o TalkBack está ativado. Nada do que uma pessoa usuária de tecnologia assistiva precisa fica atrás de uma compra.</p>
+
+<p><b>DEIXE DO SEU JEITO</b></p>
+<p>22 predefinições de efeito integradas, como 8-bit, cyborg, megaphone e vintage radio, dão personalidade ao texto falado. Ou monte as suas próprias cadeias de efeito no editor.</p>
+
+<p><b>LÊ OS TEXTOS LONGOS</b></p>
+<p>Um serviço de reprodução em primeiro plano lê textos longos com segurança e a tela desligada, com controles na tela de bloqueio e no Bluetooth. Compartilhe texto de qualquer app, use a ação "ler seleção" do sistema ou fale a sua área de transferência a partir de um bloco de Configurações rápidas.</p>
+
+<p><b>CÓDIGO ABERTO</b></p>
+<p>O código-fonte do próprio Marmalade é licenciado sob MIT e o repositório dele não contém nenhum código GPL. O app publicado também inclui o fonemizador espeak-ng, compilado a partir do código-fonte no momento do build, então o app que você instala é distribuído sob GPL-3.0-or-later. A versão exata do espeak-ng usada é fixada a partir do repositório do projeto, e os detalhes de licença de cada componente são exibidos dentro do app.</p>
