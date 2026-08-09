@@ -15,7 +15,7 @@
 .fd-topbar{background:#1a4469;color:#fff;padding:12px 22px;display:flex;
   align-items:center;gap:12px;font-size:16px}
 .fd-topbar .fdlogo{width:26px;height:26px;border-radius:5px;
-  background:#8ab000 url() center/cover;display:inline-flex;align-items:center;
+  background:#8ab000;display:inline-flex;align-items:center;
   justify-content:center;font-weight:700;color:#fff;font-size:15px}
 .fd-head{display:flex;gap:20px;padding:26px 26px 18px;align-items:flex-start}
 .fd-head img{width:96px;height:96px;border-radius:18px;flex:none}
@@ -35,8 +35,8 @@
 .fd-desc p{margin:0 0 14px}
 .fd-desc p.caps{font-weight:600;color:#1a4469;margin-bottom:4px;
   letter-spacing:.02em}
-.fd-desc p.proposed{background:#fff7e0;border-left:4px solid #f9a825;
-  padding:8px 12px;border-radius:0 6px 6px 0}
+.fd-desc p.proposed, .fd-summary.proposed{background:#fff7e0;
+  border-left:4px solid #f9a825;padding:8px 12px;border-radius:0 6px 6px 0}
 .fd-meta{border-top:1px solid #e5e5e5;margin-top:14px;padding:18px 26px 24px;
   display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:14px;font-size:14px;color:#444}
@@ -57,6 +57,9 @@
 .shot.off .mv{visibility:hidden}
 .count-ok{color:var(--ok)} .count-warn{color:var(--warn)}
 .togglerow{display:flex;gap:10px;align-items:center;margin:10px 0}
+.chg{border-left:3px solid var(--warn);padding-left:14px;margin:18px 0}
+.chg h4{margin:0 0 6px;font-size:16px}
+.chg .why{color:var(--dim);font-size:14px;margin:0 0 8px}
 </style>
 </head>
 <body>
@@ -69,16 +72,17 @@
 
 <section class="mockwrap">
   <h2 class="sec">The listing, as F-Droid will show it</h2>
-  <p class="lede">Everything below the dark shell is a faithful mock of an
-  f-droid.org app page: your fastlane texts, the current icon, and the styled
-  screenshots in your chosen order. The screenshot strip and description update
-  live as you change the controls further down.</p>
+  <p class="lede">Everything inside the light card is a faithful mock of an
+  f-droid.org app page. The toggle switches between the copy that's in
+  fastlane <b>today</b> and the <b>proposed revision</b> (private-first
+  framing, honest about cloud, multilingual call-out). Amber highlights =
+  changed or new text awaiting your sign-off.</p>
 
   <div class="togglerow">
     <input type="checkbox" id="proposed" checked>
-    <label for="proposed">Include the <b>proposed</b> multilingual + auto-detect
-    section (highlighted amber in the description — draft text, needs your
-    sign-off; it is <b>not</b> in fastlane yet)</label>
+    <label for="proposed">Show <b>proposed revision</b> (off = current
+    fastlane text verbatim — which still claims "No cloud" and
+    "the only network use is engine downloads", both now false)</label>
   </div>
 
   <div class="fd">
@@ -87,10 +91,10 @@
       <img src="fdroid-assets/icon.png" alt="Marmalade TTS icon">
       <div>
         <h2>Marmalade TTS</h2>
-        <p class="fd-summary">Offline neural text-to-speech engine for your whole device. No cloud.</p>
+        <p class="fd-summary" id="mocksummary"></p>
         <div class="fd-badges">
           <span class="fd-badge lic">GPL-3.0-or-later</span>
-          <span class="fd-badge">No anti-features</span>
+          <span class="fd-badge" title="F-Droid assigns anti-features in review; the optional cloud engines may earn a NonFreeNet tag">Anti-features: F-Droid's call*</span>
           <span class="fd-badge">Multimedia</span>
           <span class="fd-badge">Accessibility</span>
         </div>
@@ -106,6 +110,11 @@
       <div><b>Issue Tracker</b><a>…/issues</a></div>
     </div>
   </div>
+  <p class="note" style="margin-top:12px">* Anti-features are assigned by
+  F-Droid reviewers, not us. Now that the app offers opt-in cloud engines
+  talking to a proprietary service, a <b>NonFreeNet</b> tag is plausible.
+  It doesn't block listing — it's a label — but the honest copy below is
+  also our best argument that cloud is strictly opt-in.</p>
 </section>
 
 <section class="mockwrap" style="margin-top:34px">
@@ -129,27 +138,64 @@
 
 <section class="mockwrap" style="margin-top:34px">
   <h2 class="sec">The copy, for sign-off (gate G5, step 1)</h2>
-  <p class="lede">This is the exact public text. Once you approve the English,
-  it gets translated into the 7 other in-app locales as fastlane folders —
-  both land before the 1.0.0 tag (F-Droid needs ≥1 translation for the
-  Latest tab, and fastlane ships from the tag).</p>
+  <p class="lede">Approve the English first; then it gets translated into the
+  7 other in-app locales as fastlane folders — both land before the 1.0.0 tag.
+  The changes below follow your call: <b>advertise "private", not "no
+  cloud"</b> — on-device is private, and the cloud path through a
+  privacy-respecting provider is private too.</p>
 
-  <h3>Title <span class="count-ok">(12 chars — limit 50)</span></h3>
+  <h3>Title <span class="count-ok">(13 chars — limit 50, unchanged)</span></h3>
   <div class="copyblock"><pre>Marmalade TTS</pre></div>
 
-  <h3>Summary <span class="count-ok" id="sumcount"></span></h3>
-  <div class="copyblock"><pre id="sumtext">Offline neural text-to-speech engine for your whole device. No cloud.</pre></div>
+  <div class="chg">
+    <h4>Summary — REVISED</h4>
+    <p class="why">Was: "Offline neural text-to-speech engine for your whole
+    device. No cloud." — "No cloud" is no longer true.</p>
+    <div class="copyblock"><pre id="sumtext">Private neural text-to-speech for your whole device. On-device by default.</pre></div>
+    <p class="sub" id="sumcount"></p>
+  </div>
 
-  <h3>Full description — current (verbatim from fastlane)</h3>
-  <p class="sub">Rendered in the mock above. Source:
-  <code>fastlane/metadata/android/en-US/full_description.txt</code></p>
+  <div class="chg">
+    <h4>Intro paragraph — REVISED (last sentence)</h4>
+    <p class="why">Was: "…works entirely on-device… No cloud, no account, no
+    tracking." Reframed: private first, on-device by default.</p>
+    <div class="copyblock"><pre>Marmalade TTS turns your phone into a private, high-quality text-to-speech engine. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. Voices run on-device by default. No account, no tracking, no ads.</pre></div>
+  </div>
 
-  <h3>Proposed addition (NOT in fastlane — your call)</h3>
-  <p class="sub">Inserted after "MULTIPLE ENGINES AND VOICES" when the toggle
-  is on. Per your 2026-08-04 note: name the languages, don't leave "English
-  TTS app" implied — plus the auto-detect feature that shipped since.</p>
-  <div class="copyblock"><pre id="proposedtext">SPEAKS 8 LANGUAGES
-With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting. Kitten and Pocket voices are English-only.</pre></div>
+  <div class="chg">
+    <h4>New section: SPEAKS 8 LANGUAGES</h4>
+    <p class="why">Your 2026-08-04 note: name the languages; plus the
+    auto-detect feature that shipped since. Inserted after MULTIPLE ENGINES
+    AND VOICES.</p>
+    <div class="copyblock"><pre>SPEAKS 8 LANGUAGES
+With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting.</pre></div>
+  </div>
+
+  <div class="chg">
+    <h4>New section: OPTIONAL CLOUD VOICES</h4>
+    <p class="why">The Cloud tab exists; the listing has to own it. Framed as
+    opt-in + privacy-respecting. Check the Venice claim wording before
+    sign-off — "doesn't store your text" is their promise, so the copy
+    attributes it rather than asserting it ourselves.</p>
+    <div class="copyblock"><pre>OPTIONAL CLOUD VOICES
+Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.</pre></div>
+  </div>
+
+  <div class="chg">
+    <h4>PRIVATE BY DESIGN — REVISED</h4>
+    <p class="why">Was: "…no backend. The only network use is downloading the
+    engine files you choose to install." Now false for cloud engines.</p>
+    <div class="copyblock"><pre>PRIVATE BY DESIGN
+No analytics, no telemetry, no ads, no accounts, and no backend of our own. On-device voices use the network only to download the engine files you choose. Cloud voices talk only to the provider you configured, using your own key — nothing passes through us. See the in-app privacy policy for details.</pre></div>
+  </div>
+
+  <h3>Unchanged sections</h3>
+  <p class="sub">WORKS EVERYWHERE, ACCESSIBLE BY DESIGN, ON-DEVICE NEURAL
+  VOICES, MULTIPLE ENGINES AND VOICES, EXPRESSIVE, AUDIO EFFECTS, ALIASES,
+  LONG-FORM READING, HANDY SHORTCUTS, OPEN SOURCE — verbatim from fastlane.
+  (ON-DEVICE NEURAL VOICES keeps "the text you have it read never leaves your
+  phone" — still true under that heading, which is explicitly about the
+  on-device engines.)</p>
 
   <h3>Your notes</h3>
   <textarea class="tracker" data-k="fdl-notes" rows="4"
@@ -175,7 +221,6 @@ const SHOTS = [
 const LSK="fdroid-listing-lab-v1";
 let state = JSON.parse(localStorage.getItem(LSK)||"null")
   || SHOTS.map(s=>({id:s[0],on:true}));
-// heal state if the shot set changed
 state = state.filter(e=>SHOTS.some(s=>s[0]===e.id));
 SHOTS.forEach(s=>{ if(!state.some(e=>e.id===s[0])) state.push({id:s[0],on:false}); });
 
@@ -184,10 +229,8 @@ function save(){ localStorage.setItem(LSK, JSON.stringify(state)); }
 
 function render(){
   const on = state.filter(e=>e.on);
-  // mock strip
   document.getElementById("mockshots").innerHTML = on.map(e=>
     `<img src="screenshots-inbox/styled/${e.id}.png" alt="${cap(e.id)}" title="${cap(e.id)}">`).join("");
-  // picker grid
   document.getElementById("grid").innerHTML = state.map((e,i)=>{
     const pos = e.on ? on.findIndex(x=>x.id===e.id)+1 : "";
     return `<div class="shot ${e.on?'on':'off'}" data-i="${i}">
@@ -204,7 +247,9 @@ function render(){
   save();
 }
 
-const FULLDESC = `Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. No cloud, no account, no tracking.
+/* Current fastlane text, verbatim. */
+const SUMMARY_CURRENT = "Offline neural text-to-speech engine for your whole device. No cloud.";
+const DESC_CURRENT = `Marmalade TTS turns your phone into a private, high-quality text-to-speech engine that works entirely on-device. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. No cloud, no account, no tracking.
 
 WORKS EVERYWHERE ON YOUR DEVICE
 Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
@@ -239,22 +284,63 @@ No analytics, no telemetry, no ads, no accounts, and no backend. The only networ
 OPEN SOURCE
 Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.`;
 
+/* Proposed revision. Paragraphs prefixed with "§" render highlighted
+   (changed or new vs current fastlane). */
+const SUMMARY_PROPOSED = "Private neural text-to-speech for your whole device. On-device by default.";
+const DESC_PROPOSED = `§Marmalade TTS turns your phone into a private, high-quality text-to-speech engine. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. Voices run on-device by default. No account, no tracking, no ads.
+
+WORKS EVERYWHERE ON YOUR DEVICE
+Marmalade implements Android's standard text-to-speech engine interface, so it's a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.
+
+ACCESSIBLE BY DESIGN
+Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
+
+ON-DEVICE NEURAL VOICES
+Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
+
+MULTIPLE ENGINES AND VOICES
+Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
+
+§SPEAKS 8 LANGUAGES
+§With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting.
+
+§OPTIONAL CLOUD VOICES
+§Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.
+
+EXPRESSIVE, EMOTION-AWARE SPEECH
+Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them — even when the base voice is neutral.
+
+AUDIO EFFECTS
+Apply built-in audio-effect presets (such as cave, robot, and telephone) to give spoken output character.
+
+VOICE ALIASES / PERSONAS
+Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
+
+LONG-FORM READING
+A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
+
+HANDY SHORTCUTS
+Share text to Marmalade from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.
+
+§PRIVATE BY DESIGN
+§No analytics, no telemetry, no ads, no accounts, and no backend of our own. On-device voices use the network only to download the engine files you choose. Cloud voices talk only to the provider you configured, using your own key — nothing passes through us. See the in-app privacy policy for details.
+
+OPEN SOURCE
+Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.`;
+
 function renderDesc(){
-  const withProposed = document.getElementById("proposed").checked;
-  const proposed = document.getElementById("proposedtext").textContent.trim();
-  let paras = FULLDESC.split(/\n\n/);
+  const rev = document.getElementById("proposed").checked;
+  const sum = document.getElementById("mocksummary");
+  sum.textContent = rev ? SUMMARY_PROPOSED : SUMMARY_CURRENT;
+  sum.className = "fd-summary" + (rev ? " proposed" : "");
+  const text = rev ? DESC_PROPOSED : DESC_CURRENT;
   let html = "";
-  for(const p of paras){
-    const lines = p.split("\n");
-    for(const [j,line] of lines.entries()){
+  for(const p of text.split(/\n\n/)){
+    for(let line of p.split("\n")){
+      const hl = line.startsWith("§");
+      if(hl) line = line.slice(1);
       const isCaps = line === line.toUpperCase() && /[A-Z]/.test(line) && line.length < 60;
-      html += `<p class="${isCaps?'caps':''}">${line}</p>`;
-    }
-    if(withProposed && p.startsWith("MULTIPLE ENGINES")){
-      for(const [j,line] of proposed.split("\n").entries()){
-        const isCaps = j===0;
-        html += `<p class="proposed ${isCaps?'caps':''}">${line}</p>`;
-      }
+      html += `<p class="${isCaps?'caps':''}${hl?' proposed':''}">${line}</p>`;
     }
   }
   document.getElementById("mockdesc").innerHTML = html;
@@ -275,13 +361,10 @@ document.getElementById("grid").addEventListener("click", ev=>{
 });
 document.getElementById("proposed").addEventListener("change", renderDesc);
 
-// summary char count
-const sum = document.getElementById("sumtext").textContent;
-const scnt = document.getElementById("sumcount");
-scnt.textContent = `(${sum.length} chars — F-Droid limit 80)`;
-scnt.className = sum.length<=80 ? "count-ok" : "count-warn";
+const sumP = document.getElementById("sumtext").textContent;
+document.getElementById("sumcount").textContent =
+  `${sumP.length} chars — F-Droid limit 80 (current text is 69)`;
 
-// tracker textareas
 document.querySelectorAll(".tracker").forEach(t=>{
   t.value = localStorage.getItem("fdl-"+t.dataset.k)||"";
   t.addEventListener("input", ()=>localStorage.setItem("fdl-"+t.dataset.k, t.value));
