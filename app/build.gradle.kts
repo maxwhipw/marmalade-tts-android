@@ -297,16 +297,25 @@ run {
                 )
             }
             val buildDir = cmakeBuildDir.get().asFile.apply { mkdirs() }
+            // Prefer the SDK's own cmake (same version externalNativeBuild pins):
+            // a bare PATH `cmake` doesn't exist on minimal build hosts like the
+            // F-Droid buildserver, where only the SDK package is guaranteed.
+            val sdkCmake = android.sdkDirectory.resolve("cmake/3.22.1/bin/cmake")
+            val cmakeBin = if (sdkCmake.isFile) sdkCmake.absolutePath else "cmake"
             exec {
                 commandLine(
-                    "cmake", "-S", hostgenSrc.absolutePath, "-B", buildDir.absolutePath,
+                    cmakeBin, "-S", hostgenSrc.absolutePath, "-B", buildDir.absolutePath,
                     "-DCMAKE_BUILD_TYPE=Release",
                 )
             }
+            // Dict compiles share one dictsource working dir, so the espeakdata
+            // target must run single-job: parallel dict jobs race on that dir
+            // and make the output byte-order depend on host core count —
+            // poison for F-Droid reproducible-build verification.
             exec {
                 commandLine(
-                    "cmake", "--build", buildDir.absolutePath, "--target", "espeakdata",
-                    "-j", Runtime.getRuntime().availableProcessors().toString(),
+                    cmakeBin, "--build", buildDir.absolutePath, "--target", "espeakdata",
+                    "-j", "1",
                 )
             }
             val generated = File(buildDir, "espeak-ng-data")
@@ -343,5 +352,26 @@ run {
     // Every flavor×buildType's asset merge must wait for generation.
     tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
         dependsOn(generateEspeakData)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// In-app privacy policy
+// -----------------------------------------------------------------------------
+// The canonical policy is the repo-root PRIVACY.md. It's copied into the APK
+// assets at build (build/generated/privacyAssets/PRIVACY.md, gitignored under
+// build/) and rendered by PrivacyPolicyScreen — one source of truth, no
+// committed duplicate to drift. full_description.txt promises this in-app policy.
+run {
+    val privacyAssetsDir = layout.buildDirectory.dir("generated/privacyAssets")
+    val copyPrivacyPolicy = tasks.register<Copy>("copyPrivacyPolicy") {
+        group = "build"
+        description = "Bundle the canonical repo-root PRIVACY.md into app assets for the in-app privacy screen."
+        from(rootProject.file("PRIVACY.md"))
+        into(privacyAssetsDir)
+    }
+    android.sourceSets.getByName("main").assets.srcDir(privacyAssetsDir)
+    tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
+        dependsOn(copyPrivacyPolicy)
     }
 }
