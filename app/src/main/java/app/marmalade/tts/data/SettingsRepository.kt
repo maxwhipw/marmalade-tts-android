@@ -3,10 +3,13 @@ package app.marmalade.tts.data
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.perf.KittenRtfMeasurement
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.theme.ThemePreset
@@ -495,6 +498,30 @@ open class SettingsRepository @Inject constructor(
         return claimed
     }
 
+    /**
+     * The one-off Kitten benchmark result, or null when it hasn't run on
+     * this install yet. Written exactly once by
+     * [app.marmalade.tts.perf.DeviceCapability]; the timestamp rides along
+     * so a future app version can decide a stored measurement is too old to
+     * trust (e.g. after an engine bundle rev changes the workload).
+     *
+     * Both halves are read as one atomic snapshot — a value without a
+     * timestamp is treated as absent rather than half-trusted.
+     */
+    open val kittenRtfMeasurement: Flow<KittenRtfMeasurement?> = dataStore.data.map { prefs ->
+        val rtf = prefs[KEY_KITTEN_RTF] ?: return@map null
+        val at = prefs[KEY_KITTEN_RTF_AT] ?: return@map null
+        KittenRtfMeasurement(rtf = rtf, measuredAtMillis = at)
+    }
+
+    /** Records the device benchmark. Overwrites any previous measurement. */
+    open suspend fun setKittenRtfMeasurement(rtf: Double, measuredAtMillis: Long) {
+        dataStore.edit { prefs ->
+            prefs[KEY_KITTEN_RTF] = rtf
+            prefs[KEY_KITTEN_RTF_AT] = measuredAtMillis
+        }
+    }
+
     /** Persist the show-developer-engines toggle. */
     open suspend fun setShowDeveloperEngines(value: Boolean) {
         dataStore.edit { prefs ->
@@ -574,6 +601,12 @@ open class SettingsRepository @Inject constructor(
         // Venice's key until a per-provider write supersedes it.
         private val KEY_CLOUD_API_KEY = stringPreferencesKey("cloud_api_key")
         private const val LEGACY_CLOUD_PROVIDER = "venice"
+
+        // Device benchmark (Feature P). Derived data — safe to drop; the
+        // benchmark just re-runs. Deliberately NOT semver-frozen for that
+        // reason.
+        private val KEY_KITTEN_RTF = doublePreferencesKey("device_kitten_rtf")
+        private val KEY_KITTEN_RTF_AT = longPreferencesKey("device_kitten_rtf_at")
 
         // P-K — keepalive mode, stored as KeepaliveMode.name string.
         // Absent ⇒ Smart (default). Stable key; semver-protected.

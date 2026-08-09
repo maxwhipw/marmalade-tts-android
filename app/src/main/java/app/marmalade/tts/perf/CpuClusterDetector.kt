@@ -47,20 +47,31 @@ object CpuClusterDetector {
         return coerced
     }
 
-    private fun readFromSysfs(): Int {
+    /** One CPU cluster as sysfs describes it: a top frequency and a core count. */
+    data class Cluster(val maxFreqKhz: Long, val cpuCount: Int)
+
+    /**
+     * The device's CPU clusters, or an empty list when sysfs isn't readable.
+     *
+     * Shared with [DeviceCapability], which weighs cores by frequency instead
+     * of just counting them — same parse, two consumers, so the sysfs layout
+     * knowledge stays in one place.
+     */
+    fun readClusters(): List<Cluster> {
         val root = File(CPUFREQ_ROOT)
         val policies = root.listFiles { f -> f.isDirectory && f.name.startsWith("policy") }
-            ?: return fallbackEstimate()
-        if (policies.isEmpty()) return fallbackEstimate()
-
-        data class Cluster(val maxFreqKhz: Long, val cpuCount: Int)
-        val clusters = policies.mapNotNull { policy ->
+            ?: return emptyList()
+        return policies.mapNotNull { policy ->
             val maxFreq = readLong(File(policy, "cpuinfo_max_freq")) ?: return@mapNotNull null
             val relatedCpus = readText(File(policy, "related_cpus")) ?: return@mapNotNull null
             val cpus = relatedCpus.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             if (cpus.isEmpty()) return@mapNotNull null
             Cluster(maxFreq, cpus.size)
         }
+    }
+
+    private fun readFromSysfs(): Int {
+        val clusters = readClusters()
         if (clusters.isEmpty()) return fallbackEstimate()
 
         val minFreq = clusters.minOf { it.maxFreqKhz }

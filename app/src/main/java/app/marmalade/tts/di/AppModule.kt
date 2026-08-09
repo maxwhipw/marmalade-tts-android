@@ -41,6 +41,8 @@ import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
 import app.marmalade.tts.install.UrlHttpFetcher
+import app.marmalade.tts.perf.DeviceCapability
+import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.PreprocessingRules
 import dagger.Module
@@ -184,6 +186,14 @@ object AppModule {
         pocket.release()
         pocketDev.release()
     }
+
+    /**
+     * Device capability probe seam. Concrete impl needs an ORT session +
+     * sysfs; ViewModel unit tests hand in a canned [DeviceProbe] instead.
+     */
+    @Provides
+    @Singleton
+    fun provideDeviceProbeSource(impl: DeviceCapability): DeviceProbeSource = impl
 
     /**
      * Synthesis POST seam for the Cloud API engine. Tests substitute a
