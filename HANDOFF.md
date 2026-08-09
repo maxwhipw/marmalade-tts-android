@@ -1,3 +1,26 @@
+# HANDOFF — onboarding polish round 2 + data-clear post-mortem, 2026-08-08 late (Fable, branch `main`, head `da6df61`, pushed to Forgejo)
+
+## Late-evening round (Max's design calls after using it)
+
+- `c61c74d` cards keep catalog order (Kitten on top — the verdict moves the
+  pill, never the cards; EngineRecommendation.order removed), built-in card
+  keeps plain colors, content top-aligns like the Engines tab.
+- `da6df61` spinner on "Checking your phone…", fit pill back under the
+  title (Max's pick after seeing the top-right variant), and the benchmark
+  now waits (bounded 15 s) for the baked Kitten seed — racing it turned a
+  fast phone into a Tier-1 "may be slow" verdict.
+- **Data-clear post-mortem:** app data was wiped twice tonight by "Clear
+  storage" taps in Android Settings (`pm_clear_app_data_caller` from the
+  Settings uid at 23:09:54), NOT by adb installs — the per-install
+  `installer_clear_app_data_caller` flags=39 events are routine
+  profile/cache clears and retain data. Fully restored: Kokoro v23 +
+  Pocket v21 re-downloaded in-app; Hugo/Heart/Marius aliases, Heart's
+  auto-detect + audiobook effect + 3-app routing (Home Assistant, Bible
+  Study, Firefox), Hugo primary — reinserted via sqlite with original
+  UUIDs and verified on-device (Spanish phonemization on Heart works).
+  Snapshot habit: back up databases/ + datastore before device surgery
+  (backups land in ~/coding/scratch/mtts-device-backups/).
+
 # HANDOFF — device probe + onboarding rework + tree consolidation, 2026-08-08 (Fable, branch `main`, head `24822e3`, pushed to Forgejo `origin`)
 
 ## SHIPPED 2026-08-08 (Fable): P/Q/R capability-probe onboarding + WIP consolidation
