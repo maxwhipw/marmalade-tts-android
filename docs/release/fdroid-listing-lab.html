@@ -60,6 +60,7 @@
 .chg{border-left:3px solid var(--warn);padding-left:14px;margin:18px 0}
 .chg h4{margin:0 0 6px;font-size:16px}
 .chg .why{color:var(--dim);font-size:14px;margin:0 0 8px}
+.chg .why code{font-size:13px}
 </style>
 </head>
 <body>
@@ -72,17 +73,18 @@
 
 <section class="mockwrap">
   <h2 class="sec">The listing, as F-Droid will show it</h2>
-  <p class="lede">Everything inside the light card is a faithful mock of an
-  f-droid.org app page. The toggle switches between the copy that's in
-  fastlane <b>today</b> and the <b>proposed revision</b> (private-first
-  framing, honest about cloud, multilingual call-out). Amber highlights =
+  <p class="lede">The light card is a faithful mock of an f-droid.org app
+  page. The toggle switches between the copy in fastlane <b>today</b> and the
+  <b>proposed revision</b> — every changed paragraph was checked against the
+  app's actual code this round (evidence under each change below). Amber =
   changed or new text awaiting your sign-off.</p>
 
   <div class="togglerow">
     <input type="checkbox" id="proposed" checked>
     <label for="proposed">Show <b>proposed revision</b> (off = current
-    fastlane text verbatim — which still claims "No cloud" and
-    "the only network use is engine downloads", both now false)</label>
+    fastlane text verbatim, which has four false claims: "No cloud",
+    "bundles no model files", a "robot" preset that doesn't exist, and
+    "the only network use is engine downloads")</label>
   </div>
 
   <div class="fd">
@@ -111,24 +113,23 @@
     </div>
   </div>
   <p class="note" style="margin-top:12px">* Anti-features are assigned by
-  F-Droid reviewers, not us. Now that the app offers opt-in cloud engines
-  talking to a proprietary service, a <b>NonFreeNet</b> tag is plausible.
-  It doesn't block listing — it's a label — but the honest copy below is
-  also our best argument that cloud is strictly opt-in.</p>
+  F-Droid reviewers, not us. With opt-in cloud engines talking to a
+  proprietary service, a <b>NonFreeNet</b> tag is plausible. It doesn't block
+  listing — it's a label — and the copy's "strictly opt-in" framing is our
+  best argument.</p>
 </section>
 
 <section class="mockwrap" style="margin-top:34px">
   <h2 class="sec">Screenshot keepers + order (gate G1)</h2>
   <p class="lede">Click a shot to include/exclude it; ◀ ▶ moves it within the
-  strip. F-Droid shows a horizontal strip — <b>4–8 shots is typical</b>; the
-  first two carry almost all the weight. Your picks persist in this browser.
-  Selected: <b id="selcount"></b></p>
-  <p class="note">07-engines is the <b>reshoot you sent 2026-08-09</b>, styled
-  into the standard treatment (status bar cropped, black 1200×2400 frame). It
-  came through chat at 900×2000 and was upscaled — text is slightly softer than
-  the other ten. Fine for picking; before the shots ship, drop the original
-  1080×2400 PNG into <code>docs/release/screenshots-inbox/</code> (or reconnect
-  ADB) and I'll restyle it losslessly.</p>
+  strip. <b>4–8 shots is typical</b>; the first two carry almost all the
+  weight. Per your calls: <b>09 (Edit Nova two-sheet) is out</b> and
+  <b>Aliases sits second</b> — the default lineup below is a proposal, rearrange
+  freely. Picks persist in this browser. Selected: <b id="selcount"></b></p>
+  <p class="note">All 11 restyled this round: original 07 pulled from the
+  device over ADB (lossless now), status-bar crop reduced to the minimum
+  (90 px — the app keeps its own headroom), and the bottom 60 px gesture-pill
+  strip removed set-wide.</p>
   <div class="shotgrid" id="grid"></div>
   <p class="note" style="margin-top:14px">When you're happy, say the word and
   the selected set gets copied in order into
@@ -139,10 +140,9 @@
 <section class="mockwrap" style="margin-top:34px">
   <h2 class="sec">The copy, for sign-off (gate G5, step 1)</h2>
   <p class="lede">Approve the English first; then it gets translated into the
-  7 other in-app locales as fastlane folders — both land before the 1.0.0 tag.
-  The changes below follow your call: <b>advertise "private", not "no
-  cloud"</b> — on-device is private, and the cloud path through a
-  privacy-respecting provider is private too.</p>
+  7 other in-app locales as fastlane folders — both land before the 1.0.0
+  tag. Framing per your call: <b>advertise "private", not "no cloud"</b>.
+  Every claim below was verified against the code this round.</p>
 
   <h3>Title <span class="count-ok">(13 chars — limit 50, unchanged)</span></h3>
   <div class="copyblock"><pre>Marmalade TTS</pre></div>
@@ -158,44 +158,89 @@
   <div class="chg">
     <h4>Intro paragraph — REVISED (last sentence)</h4>
     <p class="why">Was: "…works entirely on-device… No cloud, no account, no
-    tracking." Reframed: private first, on-device by default.</p>
+    tracking."</p>
     <div class="copyblock"><pre>Marmalade TTS turns your phone into a private, high-quality text-to-speech engine. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. Voices run on-device by default. No account, no tracking, no ads.</pre></div>
   </div>
 
   <div class="chg">
+    <h4>ON-DEVICE NEURAL VOICES — REVISED</h4>
+    <p class="why">Was: "The app ships small and bundles no model files" —
+    false since 2026-08-04: Kitten Nano is baked into the APK
+    (<code>assets/engines-seed/kitten-direct-v0_8</code>, 58 MB) so the app
+    speaks offline out of the box. Turned the inaccuracy into the selling
+    point.</p>
+    <div class="copyblock"><pre>ON-DEVICE NEURAL VOICES
+Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and the text you have read by on-device voices never leaves your phone.</pre></div>
+  </div>
+
+  <div class="chg">
     <h4>New section: SPEAKS 8 LANGUAGES</h4>
-    <p class="why">Your 2026-08-04 note: name the languages; plus the
-    auto-detect feature that shipped since. Inserted after MULTIPLE ENGINES
-    AND VOICES.</p>
+    <p class="why">Your 2026-08-04 note + the auto-detect feature. Inserted
+    after MULTIPLE ENGINES AND VOICES.</p>
     <div class="copyblock"><pre>SPEAKS 8 LANGUAGES
 With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting.</pre></div>
   </div>
 
   <div class="chg">
     <h4>New section: OPTIONAL CLOUD VOICES</h4>
-    <p class="why">The Cloud tab exists; the listing has to own it. Framed as
-    opt-in + privacy-respecting. Check the Venice claim wording before
-    sign-off — "doesn't store your text" is their promise, so the copy
-    attributes it rather than asserting it ourselves.</p>
+    <p class="why">The Cloud tab exists; the listing has to own it. The
+    no-logging claim is attributed to Venice's design, not asserted as our
+    guarantee.</p>
     <div class="copyblock"><pre>OPTIONAL CLOUD VOICES
 Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.</pre></div>
   </div>
 
   <div class="chg">
+    <h4>EXPRESSIVE, EMOTION-AWARE SPEECH — REVISED + your call</h4>
+    <p class="why">You asked "we do not have emoji text?" — <b>we do, it's
+    live</b>: <code>SynthesisPipeline</code> runs
+    <code>EmojiProsody.detect()</code> on every utterance and
+    <code>ProsodyApplier</code> shapes the audio (pitch/rate/volume per
+    emotion; 11 emoji: 😍😡😎😭🙄😁🙂🤣😮😅🤔) on all engines, in the app and
+    as system TTS. It's a simple audio-shaping pass, not model-level acting —
+    so the copy is toned down to what it honestly does. <b>Ear-check it
+    before sign-off</b> (same sentence with and without 😭); if you don't
+    hear it or don't like it, we cut this section.</p>
+    <div class="copyblock"><pre>EXPRESSIVE, EMOTION-AWARE SPEECH
+Emoji shape the delivery. End a line with an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.</pre></div>
+  </div>
+
+  <div class="chg">
+    <h4>AUDIO EFFECTS — REVISED</h4>
+    <p class="why">Was: "presets (such as cave, robot, and telephone)" —
+    there is no "robot" preset. The app ships 23
+    (<code>BuiltinEffects.kt</code>) plus a full chain editor
+    (screenshot 06).</p>
+    <div class="copyblock"><pre>AUDIO EFFECTS
+Give spoken output character with over 20 built-in effect presets — cave, telephone, megaphone, vintage radio, dragon, and more — or build your own effect chains in the editor.</pre></div>
+  </div>
+
+  <div class="chg">
+    <h4>VOICE ALIASES — REVISED (personas out, routing in)</h4>
+    <p class="why">Your calls: they're just "aliases", no "personas". Also
+    dropped the desktop-tool reference and added <b>per-app routing</b> —
+    the distinguishing feature the old copy never mentioned (alias cards
+    route apps; unrouted apps follow the primary alias).</p>
+    <div class="copyblock"><pre>VOICE ALIASES
+Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.</pre></div>
+  </div>
+
+  <div class="chg">
     <h4>PRIVATE BY DESIGN — REVISED</h4>
     <p class="why">Was: "…no backend. The only network use is downloading the
-    engine files you choose to install." Now false for cloud engines.</p>
+    engine files you choose to install." False for cloud engines.</p>
     <div class="copyblock"><pre>PRIVATE BY DESIGN
 No analytics, no telemetry, no ads, no accounts, and no backend of our own. On-device voices use the network only to download the engine files you choose. Cloud voices talk only to the provider you configured, using your own key — nothing passes through us. See the in-app privacy policy for details.</pre></div>
   </div>
 
-  <h3>Unchanged sections</h3>
-  <p class="sub">WORKS EVERYWHERE, ACCESSIBLE BY DESIGN, ON-DEVICE NEURAL
-  VOICES, MULTIPLE ENGINES AND VOICES, EXPRESSIVE, AUDIO EFFECTS, ALIASES,
-  LONG-FORM READING, HANDY SHORTCUTS, OPEN SOURCE — verbatim from fastlane.
-  (ON-DEVICE NEURAL VOICES keeps "the text you have it read never leaves your
-  phone" — still true under that heading, which is explicitly about the
-  on-device engines.)</p>
+  <h3>Verified unchanged</h3>
+  <p class="sub">WORKS EVERYWHERE (system TTS engine interface — manifest),
+  ACCESSIBLE BY DESIGN (grounded in the two audit docs; TalkBack device pass
+  still pending — wording stays "designed to meet"), MULTIPLE ENGINES AND
+  VOICES, LONG-FORM READING (MediaSession in MarmaladeSynthService =
+  lock-screen/Bluetooth controls), HANDY SHORTCUTS (ACTION_SEND +
+  PROCESS_TEXT + SpeakClipboardTileService all in the manifest), OPEN
+  SOURCE — all verbatim and all code-checked this round.</p>
 
   <h3>Your notes</h3>
   <textarea class="tracker" data-k="fdl-notes" rows="4"
@@ -208,19 +253,20 @@ No analytics, no telemetry, no ads, no accounts, and no backend of our own. On-d
 const SHOTS = [
   ["01-speak-light","Speak — light"],
   ["02-aliases","Aliases + routing"],
-  ["03-kokoro-voices-en","Kokoro voices — EN"],
   ["04-kokoro-voices-multilang","Kokoro voices — multilang"],
+  ["07-engines","Engines"],
   ["05-effects","Effects presets"],
-  ["06-effect-editor","Effect editor"],
-  ["07-engines","Engines (reshoot)"],
-  ["08-engines-cloud","Engines — cloud"],
-  ["09-voice-picker","Voice picker"],
   ["10-speak-dark","Speak — dark"],
+  ["03-kokoro-voices-en","Kokoro voices — EN"],
+  ["06-effect-editor","Effect editor"],
+  ["08-engines-cloud","Engines — cloud"],
   ["11-speak-dynamic-dark","Speak — dynamic dark"],
+  ["09-voice-picker","Voice picker (Edit Nova)"],
 ];
-const LSK="fdroid-listing-lab-v1";
+const DEFAULT_ON = new Set(["01-speak-light","02-aliases","04-kokoro-voices-multilang","07-engines","05-effects","10-speak-dark"]);
+const LSK="fdroid-listing-lab-v2";   // v2: new defaults per Max 2026-08-09
 let state = JSON.parse(localStorage.getItem(LSK)||"null")
-  || SHOTS.map(s=>({id:s[0],on:true}));
+  || SHOTS.map(s=>({id:s[0],on:DEFAULT_ON.has(s[0])}));
 state = state.filter(e=>SHOTS.some(s=>s[0]===e.id));
 SHOTS.forEach(s=>{ if(!state.some(e=>e.id===s[0])) state.push({id:s[0],on:false}); });
 
@@ -284,8 +330,7 @@ No analytics, no telemetry, no ads, no accounts, and no backend. The only networ
 OPEN SOURCE
 Marmalade TTS is open source. The source code is MIT-licensed; the published app includes the espeak-ng phonemizer (built from source) and is therefore distributed under the GPL-3.0-or-later, with complete corresponding source in the project repository. Full license details for every component are shown inside the app.`;
 
-/* Proposed revision. Paragraphs prefixed with "§" render highlighted
-   (changed or new vs current fastlane). */
+/* Proposed revision. Paragraphs prefixed with "§" render highlighted. */
 const SUMMARY_PROPOSED = "Private neural text-to-speech for your whole device. On-device by default.";
 const DESC_PROPOSED = `§Marmalade TTS turns your phone into a private, high-quality text-to-speech engine. Register it as your system TTS engine and every app that reads text aloud — your screen reader, e-reader, podcast or article reader, accessibility tools, and AI chat apps — can speak through Marmalade. Voices run on-device by default. No account, no tracking, no ads.
 
@@ -295,8 +340,8 @@ Marmalade implements Android's standard text-to-speech engine interface, so it's
 ACCESSIBLE BY DESIGN
 Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
 
-ON-DEVICE NEURAL VOICES
-Speech is synthesized locally using neural voice models. The text you have it read never leaves your phone. The app ships small and bundles no model files: on first launch you choose which engines to install, and each downloads only when you opt in.
+§ON-DEVICE NEURAL VOICES
+§Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and the text you have read by on-device voices never leaves your phone.
 
 MULTIPLE ENGINES AND VOICES
 Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
@@ -307,14 +352,14 @@ Choose the trade-off that fits you — a tiny, fast engine that runs on any devi
 §OPTIONAL CLOUD VOICES
 §Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.
 
-EXPRESSIVE, EMOTION-AWARE SPEECH
-Emoji in your text drive emotional prosody, so the same words can sound cheerful, worried, or calm depending on how you write them — even when the base voice is neutral.
+§EXPRESSIVE, EMOTION-AWARE SPEECH
+§Emoji shape the delivery. End a line with an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.
 
-AUDIO EFFECTS
-Apply built-in audio-effect presets (such as cave, robot, and telephone) to give spoken output character.
+§AUDIO EFFECTS
+§Give spoken output character with over 20 built-in effect presets — cave, telephone, megaphone, vintage radio, dragon, and more — or build your own effect chains in the editor.
 
-VOICE ALIASES / PERSONAS
-Save named voice "personas" — a voice plus its preprocessing and effect settings — and switch between them instantly, just like the Marmalade desktop tool.
+§VOICE ALIASES
+§Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.
 
 LONG-FORM READING
 A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
