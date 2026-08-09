@@ -219,7 +219,7 @@ object EngineCatalog {
         ),
         licenseNotice = "LICENSES/kitten-direct.md",
         licenseSummary = "Apache-2.0 model; phonemized by the app\u2019s built-in espeak-ng (GPL-3.0-or-later).",
-        tagline = "The quickest to start speaking, and the smallest download.",
+        tagline = "The fastest, most responsive engine, and it runs on any device.",
         speedTier = SpeedTier.FASTEST,
         qualityTier = QualityTier.NATURAL,
         languageCodes = listOf("en"),
