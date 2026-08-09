@@ -157,6 +157,26 @@ Obtainium APKs share one signature and cross-update.
   `reproducible-apk-tools` against the R0 register before claiming it.
   If it fails, the RB fields (R2) are **omitted** from the recipe, not
   included.
+  - **Local two-path experiment RUN 2026-08-09** (full evidence:
+    `~/coding/scratch/rb-experiment/FINDINGS.md`): two clean worktrees
+    at different absolute paths, sequential `assembleFdroidRelease`,
+    per-entry sha256. **688/694 entries byte-identical** — espeak
+    dictionaries (a)(b), classes.dex (g), baseline profiles (e), zip
+    metadata all reproduced. The ONLY diffs are the six natively-built
+    `.so` (register (d)): linker build-ids + absolute `__FILE__` paths
+    in libopenjtalk-jni (path strings reorder LLD's `.rodata` string
+    merge, cascading ~35 KB — must be fixed at compile time with
+    `-ffile-prefix-map` + `-Wl,--build-id=none`, not post-processed).
+    Still unproven locally: (a) across a different host gcc/glibc,
+    (c) dependency drift, (f) runner drift — only a real `fdroid build`
+    closes those.
+  - **⚠ Release-build blocker found by the same run:** a clean-tree
+    `assembleFdroidRelease` FAILS — `LintModelWriterTask` consumes the
+    generated espeak/privacy asset dirs without a task dependency
+    (`app/build.gradle.kts` wires only `MergeSourceSetFolders`). CI's
+    release.yml and F-Droid's buildserver would both hit it. Fix +
+    the native determinism flags are being verified in the worktrees
+    before landing on main.
 - **OPEN DECISION (Max): does RB failure gate the listing?** The
   one-way door means falling back to F-Droid-signed forfeits RB for
   `app.marmalade.tts` permanently (no signing-key change without
