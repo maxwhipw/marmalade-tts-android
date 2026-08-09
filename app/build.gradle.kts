@@ -48,7 +48,24 @@ android {
         // cpp/espeak_jni.c + NOTICE.md.
         externalNativeBuild {
             cmake {
-                cppFlags += ""
+                // Reproducible builds: without these, the same source built from
+                // two different checkout paths produces different .so bytes, which
+                // fails F-Droid's reproducible-build verification.
+                //   -ffile-prefix-map  strips the absolute checkout path out of
+                //     __FILE__ strings (openjtalk/mecab embeds a dozen of them).
+                //     Those strings live in a merge-strings .rodata section, so a
+                //     one-character path difference reorders the whole section and
+                //     cascades into .rela.dyn addends and .text address literals —
+                //     ~37 KB of diff from 12 strings.
+                //   --build-id=none  drops the GNU build-id note, which the NDK
+                //     derives from something path-sensitive: libespeak-ng.so was
+                //     otherwise byte-identical across two checkouts and still
+                //     differed in exactly those 20 bytes.
+                // Verified 2026-08-09 by building the same commit from two paths
+                // and comparing every APK zip entry.
+                val prefixMapRoot = rootProject.layout.projectDirectory.asFile.absolutePath
+                cFlags += listOf("-ffile-prefix-map=$prefixMapRoot=.")
+                cppFlags += listOf("-ffile-prefix-map=$prefixMapRoot=.")
                 // 16 KB page-size compliance (required by Google Play for apps
                 // targeting SDK 35+ submitted/updated after 2025-11-01). NDK
                 // 26.3 (r26) does NOT align to 16 KB by default — that only
@@ -57,7 +74,8 @@ android {
                 // Verify with `readelf -lW` → LOAD segments at 0x4000.
                 arguments += listOf(
                     "-DANDROID_STL=c++_static",
-                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",
+                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384 -Wl,--build-id=none",
+                    "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--build-id=none",
                 )
             }
         }
@@ -357,6 +375,14 @@ run {
     tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
         dependsOn(generateEspeakData)
     }
+    // Lint reads the asset source roots too, so its model/analysis tasks consume
+    // this task's output. Without the edge, `assembleFdroidRelease` fails
+    // Gradle's implicit-dependency validation before it ever reaches packaging.
+    // Matched by name rather than by type: the task class
+    // (com.android.build.gradle.internal.lint.LintModelWriterTask) is AGP-internal.
+    tasks.matching { it.name.contains("lint", ignoreCase = true) }.configureEach {
+        dependsOn(generateEspeakData)
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -376,6 +402,10 @@ run {
     }
     android.sourceSets.getByName("main").assets.srcDir(privacyAssetsDir)
     tasks.withType<com.android.build.gradle.tasks.MergeSourceSetFolders>().configureEach {
+        dependsOn(copyPrivacyPolicy)
+    }
+    // Same implicit-dependency problem as generateEspeakData above.
+    tasks.matching { it.name.contains("lint", ignoreCase = true) }.configureEach {
         dependsOn(copyPrivacyPolicy)
     }
 }
