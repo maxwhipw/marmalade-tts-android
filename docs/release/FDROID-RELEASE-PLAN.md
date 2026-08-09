@@ -212,17 +212,15 @@ Obtainium APKs share one signature and cross-update.
     CI release.yml AND F-Droid's buildserver) is fixed in the same
     commit. Remaining R3 work = the real `fdroid build` run for items
     (a)/(c)/(f).
-- **OPEN DECISION (Max): does RB failure gate the listing?** The
-  one-way door means falling back to F-Droid-signed forfeits RB for
-  `app.marmalade.tts` permanently (no signing-key change without
-  reinstall). Option A: hold the MR and iterate until the build
-  reproduces (defensible given irreversibility; costs reviewer wait
-  time). Option B: ship 1.0.0 F-Droid-signed and accept the split
-  signature forever. The plan previously said both "we try first" and
-  "fallback is normal" without choosing — this is the actual call.
-  Context: RB is rare in this app class (only Muse among comparable
-  recipes), so Option B is respectable; but note RB also carries a
-  **permanent per-release cost** (see Maintenance).
+- **DECIDED (Max, 2026-08-09): Option A — reproducible, developer key.**
+  Rationale: publishing on Play and GitHub too, so one signature across
+  F-Droid/GitHub matters, and R3 round 3 (byte-identical `fdroid build`
+  in the buildserver container) retired the technical risk. If a future
+  release ever fails to reproduce, the fallback is to hold that release
+  and iterate — NOT to switch to F-Droid-signed (one-way door).
+  Consequences now live: R1 CI signing secrets (Max, CI-SIGNING.md),
+  R2 recipe fields on the re-cut, and the permanent per-release RB cost
+  (see Maintenance).
 
 ## Submission re-cut (after gates + R)
 
