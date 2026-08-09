@@ -31,6 +31,33 @@ and add four repository secrets:
 | `KEY_PASSWORD`            | Same value as above (PKCS12 default — set both for safety)|
 | `KEY_ALIAS`               | `marmalade-upload` (or whatever alias you used)           |
 
+### Second keystore: the distribution key (F-Droid/GitHub)
+
+Decided 2026-08-09 (FDROID-RELEASE-PLAN.md R-track): the fdroid-flavor
+APK — the reproducible-build reference binary and the GitHub sideload
+artifact — signs with a **dedicated distribution key**, not the Play
+upload key. The F-Droid identity is permanent (pinned by
+`AllowedAPKSigningKeys`, no rotation without every user reinstalling),
+so it must not share fate with a key Google can reset. Generate it the
+same way as SIGNING.md §1 but with keystore `marmalade-dist.jks` and
+alias `marmalade-dist`, then add four more secrets:
+
+| Name                     | Value                                          |
+|--------------------------|------------------------------------------------|
+| `DIST_KEYSTORE_BASE64`   | base64 of `marmalade-dist.jks`                 |
+| `DIST_KEYSTORE_PASSWORD` | The dist keystore password                     |
+| `DIST_KEY_PASSWORD`      | Same value (PKCS12)                            |
+| `DIST_KEY_ALIAS`         | `marmalade-dist`                               |
+
+The workflow **fails without both keystores** — publishing a release
+whose fdroid APK carries the wrong signature would break F-Droid's
+reproducible-build verification. Locally the `dist*` quartet is an
+optional extension of the same `keystore.properties`
+(`distStoreFile` / `distStorePassword` / `distKeyAlias` /
+`distKeyPassword`); when absent, fdroid release builds fall back to the
+upload key or unsigned, which is fine for everything except a real
+distribution build.
+
 That's the whole setup. The workflow at
 [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
 reads them, never logs them, and they live only in GitHub's encrypted
@@ -51,13 +78,15 @@ The workflow fires on the tag push:
    `third_party/espeak-ng`; CI must clone that too).
 2. Installs JDK 17, NDK r26d, CMake 3.22.1 — same versions pinned in
    `app/build.gradle.kts`.
-3. Decodes the keystore from `UPLOAD_KEYSTORE_BASE64`, writes
-   `keystore.properties`, sanity-checks both with `keytool`.
-4. `./gradlew :app:bundleRelease :app:assembleRelease` — builds the
-   signed AAB and APK.
-5. Attaches `marmalade-tts-<version>.aab`, `.apk`, and `SHA256SUMS.txt`
-   to a freshly-created GitHub Release for the tag, with auto-generated
-   release notes from the commit log.
+3. Decodes both keystores (`UPLOAD_KEYSTORE_BASE64` +
+   `DIST_KEYSTORE_BASE64`), writes `keystore.properties`,
+   sanity-checks each with `keytool`.
+4. Builds the Play AAB + APK (upload key) and the F-Droid APK
+   (distribution key).
+5. Attaches `marmalade-tts-<version>-play.aab`, `-play.apk`,
+   `-fdroid.apk`, and `SHA256SUMS.txt` to a freshly-created GitHub
+   Release for the tag, with auto-generated release notes from the
+   commit log.
 
 You upload the AAB to Play yourself (one drag-and-drop). F-Droid pulls
 from the tag automatically once the recipe is merged.

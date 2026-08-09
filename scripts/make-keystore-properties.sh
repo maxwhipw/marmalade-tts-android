@@ -3,11 +3,17 @@
 # keystore password never sits in shell history or a dotfile you might sync.
 #
 # Usage:
-#   scripts/make-keystore-properties.sh <db.kdbx> <entry-name> [keystore.jks]
+#   scripts/make-keystore-properties.sh <db.kdbx> <entry-name> [keystore.jks] \
+#       [dist-entry-name] [dist-keystore.jks]
 #
-# Example:
+# Example (upload key only):
 #   scripts/make-keystore-properties.sh ~/Passwords.kdbx marmalade-upload \
 #       ~/secure/marmalade-upload.jks
+#
+# Example (both keys — a real distribution build needs the dist key too,
+# see docs/release/CI-SIGNING.md):
+#   scripts/make-keystore-properties.sh ~/Passwords.kdbx marmalade-upload \
+#       ~/secure/marmalade-upload.jks marmalade-dist ~/secure/marmalade-dist.jks
 #
 # The KeePassXC entry's Password field must hold the keystore password
 # (the same password is used for the store and the key — that's how
@@ -47,6 +53,25 @@ storePassword=$PASSWORD
 keyAlias=$ALIAS
 keyPassword=$PASSWORD
 EOF
+
+# Optional second quartet: the dedicated distribution key that signs the
+# fdroid flavor (permanent F-Droid/GitHub identity).
+if [ $# -ge 4 ]; then
+    DIST_ENTRY=$4
+    DIST_KEYSTORE=${5:-$HOME/secure/marmalade-dist.jks}
+    if [ ! -f "$DIST_KEYSTORE" ]; then
+        echo "Dist keystore not found at $DIST_KEYSTORE — generate it first (docs/release/CI-SIGNING.md)." >&2
+        exit 1
+    fi
+    DIST_PASSWORD=$(keepassxc-cli show -s -a Password "$DB" "$DIST_ENTRY")
+    DIST_ALIAS=$(keepassxc-cli show -a keyAlias "$DB" "$DIST_ENTRY" 2>/dev/null || echo "$DIST_ENTRY")
+    cat >> "$OUT" <<EOF
+distStoreFile=$DIST_KEYSTORE
+distStorePassword=$DIST_PASSWORD
+distKeyAlias=$DIST_ALIAS
+distKeyPassword=$DIST_PASSWORD
+EOF
+fi
 
 echo "Wrote $OUT (mode 600). It is gitignored — never commit it."
 echo "Build a signed release with: ./gradlew :app:bundleRelease"

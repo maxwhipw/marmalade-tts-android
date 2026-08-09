@@ -127,6 +127,21 @@ android {
                 keyPassword = keystoreProps.getProperty("keyPassword")
             }
         }
+        // Dedicated distribution key for the F-Droid/GitHub releases
+        // (decided 2026-08-09, FDROID-RELEASE-PLAN.md R-track): the
+        // permanent F-Droid signing identity must not share fate with
+        // the Play upload key, which Google can reset. Optional dist*
+        // quartet in the same keystore.properties; absent → the fdroid
+        // flavor falls back to "release" (or unsigned), which is fine
+        // everywhere except a real distribution build.
+        if (keystoreProps.getProperty("distStoreFile") != null) {
+            create("dist") {
+                storeFile = file(keystoreProps.getProperty("distStoreFile"))
+                storePassword = keystoreProps.getProperty("distStorePassword")
+                keyAlias = keystoreProps.getProperty("distKeyAlias")
+                keyPassword = keystoreProps.getProperty("distKeyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -223,6 +238,19 @@ configurations.all {
         force("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
         force("com.google.guava:guava:33.0.0-jre")
         force("com.google.devtools.ksp:symbol-processing-api:2.1.0-1.0.29")
+    }
+}
+
+// The fdroid release variant signs with the dedicated distribution key
+// when one is configured (see the signingConfigs comment). Variant API
+// because signingConfig set on a buildType can't differ per flavor.
+// smokeRelease keeps its debug-key override — never ship that variant.
+androidComponents {
+    onVariants(selector().withFlavor("distribution" to "fdroid").withBuildType("release")) { variant ->
+        val dist = android.signingConfigs.findByName("dist")
+        if (dist != null && !project.hasProperty("smokeRelease")) {
+            variant.signingConfig.setConfig(dist)
+        }
     }
 }
 
