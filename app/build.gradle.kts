@@ -34,8 +34,14 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 36
-        versionCode = 33
-        versionName = "1.0.0-beta.1"
+        // G4 versioning (docs/release/FDROID-RELEASE-PLAN.md):
+        // versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI.
+        // The trailing ABI digit is reserved for possible future split
+        // APKs (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64); a split
+        // build must give every ABI a distinct, ascending versionCode.
+        // Safe headroom: 32-bit int caps at ~214.7.0.0.
+        versionCode = 1 * 10_000_000 + 0 * 10_000 + 0 * 10 + 0
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
