@@ -163,6 +163,19 @@
   </div>
 
   <div class="chg">
+    <h4>VOICE ALIASES — REVISED + MOVED UP (personas out, routing in)</h4>
+    <p class="why">Your calls: they're just "aliases", no "personas"; desktop
+    reference dropped; <b>per-app routing</b> added — and both reviewers
+    agreed it's the distinguishing feature, so it moved from 9th place to
+    right after ACCESSIBLE BY DESIGN. ⚠ Reviewer flag: routing is
+    device-verified visually but cross-app routing has never been
+    functionally tested end-to-end — <b>test two routed apps before
+    sign-off</b>, or we soften the sentence.</p>
+    <div class="copyblock"><pre>VOICE ALIASES
+Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.</pre></div>
+  </div>
+
+  <div class="chg">
     <h4>ON-DEVICE NEURAL VOICES — REVISED</h4>
     <p class="why">Was: "The app ships small and bundles no model files" —
     false since 2026-08-04: Kitten Nano is baked into the APK
@@ -170,24 +183,34 @@
     speaks offline out of the box. Turned the inaccuracy into the selling
     point.</p>
     <div class="copyblock"><pre>ON-DEVICE NEURAL VOICES
-Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and the text you have read by on-device voices never leaves your phone.</pre></div>
+Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and text read by on-device voices never leaves your phone.</pre></div>
   </div>
 
   <div class="chg">
     <h4>New section: SPEAKS 8 LANGUAGES</h4>
     <p class="why">Your 2026-08-04 note + the auto-detect feature. Inserted
-    after MULTIPLE ENGINES AND VOICES.</p>
+    after MULTIPLE ENGINES AND VOICES. Verified: the 8-language list matches
+    <code>KokoroDirectVoiceCatalog</code> exactly. Note the in-app Kokoro
+    card says "See all 9" — that's <i>locales</i> (US + UK English counted
+    separately); the copy counts languages. Reconcilable, but if the
+    mismatch bugs you the app label could say "9 locales" instead.</p>
     <div class="copyblock"><pre>SPEAKS 8 LANGUAGES
-With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting.</pre></div>
+With the multilingual Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language automatically as it reads and switches pronunciation on the fly — Spanish text gets Spanish pronunciation without you touching a setting.</pre></div>
   </div>
 
   <div class="chg">
-    <h4>New section: OPTIONAL CLOUD VOICES</h4>
-    <p class="why">The Cloud tab exists; the listing has to own it. The
-    no-logging claim is attributed to Venice's design, not asserted as our
-    guarantee.</p>
+    <h4>New section: OPTIONAL CLOUD VOICES — reworded after review</h4>
+    <p class="why">Both reviewers hit the same problem: the bundled provider
+    list (<code>assets/cloud-providers.json</code>) ships <b>OpenAI</b>
+    alongside Venice, so "built around privacy-respecting providers" would
+    read as spin to a traffic-literate F-Droid user one screen deep. Reworded:
+    the privacy note now attaches to Venice alone, phrased as <i>their</i>
+    stated policy ("says it does not…"), not our guarantee. ⚠ Also flagged:
+    opening the Cloud tab fires the provider-list refresh (a GET to GitHub)
+    before any opt-in — decide whether to gate that behind the disclaimer
+    pre-tag.</p>
     <div class="copyblock"><pre>OPTIONAL CLOUD VOICES
-Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.</pre></div>
+Want voices beyond what your phone can run? Add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Cloud engines are strictly opt-in: until you add one yourself, nothing you have read ever leaves your phone.</pre></div>
   </div>
 
   <div class="chg">
@@ -202,27 +225,17 @@ Want voices beyond what your phone can run? Add a cloud engine with your own API
     before sign-off</b> (same sentence with and without 😭); if you don't
     hear it or don't like it, we cut this section.</p>
     <div class="copyblock"><pre>EXPRESSIVE, EMOTION-AWARE SPEECH
-Emoji shape the delivery. End a line with an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.</pre></div>
+Emoji shape the delivery. Add an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.</pre></div>
   </div>
 
   <div class="chg">
     <h4>AUDIO EFFECTS — REVISED</h4>
     <p class="why">Was: "presets (such as cave, robot, and telephone)" —
-    there is no "robot" preset. The app ships 23
+    there is no "robot" preset. The app ships 22
     (<code>BuiltinEffects.kt</code>) plus a full chain editor
     (screenshot 06).</p>
     <div class="copyblock"><pre>AUDIO EFFECTS
 Give spoken output character with over 20 built-in effect presets — cave, telephone, megaphone, vintage radio, dragon, and more — or build your own effect chains in the editor.</pre></div>
-  </div>
-
-  <div class="chg">
-    <h4>VOICE ALIASES — REVISED (personas out, routing in)</h4>
-    <p class="why">Your calls: they're just "aliases", no "personas". Also
-    dropped the desktop-tool reference and added <b>per-app routing</b> —
-    the distinguishing feature the old copy never mentioned (alias cards
-    route apps; unrouted apps follow the primary alias).</p>
-    <div class="copyblock"><pre>VOICE ALIASES
-Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.</pre></div>
   </div>
 
   <div class="chg">
@@ -256,15 +269,17 @@ const SHOTS = [
   ["04-kokoro-voices-multilang","Kokoro voices — multilang"],
   ["07-engines","Engines"],
   ["05-effects","Effects presets"],
+  ["08-engines-cloud","Engines — cloud"],
   ["10-speak-dark","Speak — dark"],
   ["03-kokoro-voices-en","Kokoro voices — EN"],
   ["06-effect-editor","Effect editor"],
-  ["08-engines-cloud","Engines — cloud"],
   ["11-speak-dynamic-dark","Speak — dynamic dark"],
   ["09-voice-picker","Voice picker (Edit Nova)"],
 ];
-const DEFAULT_ON = new Set(["01-speak-light","02-aliases","04-kokoro-voices-multilang","07-engines","05-effects","10-speak-dark"]);
-const LSK="fdroid-listing-lab-v2";   // v2: new defaults per Max 2026-08-09
+// 08 (cloud) included per review: the copy now headlines cloud voices, so
+// the strip should show the tab. Drop it if the section gets cut.
+const DEFAULT_ON = new Set(["01-speak-light","02-aliases","04-kokoro-voices-multilang","07-engines","05-effects","08-engines-cloud","10-speak-dark"]);
+const LSK="fdroid-listing-lab-v3";   // v3: post-review defaults 2026-08-09
 let state = JSON.parse(localStorage.getItem(LSK)||"null")
   || SHOTS.map(s=>({id:s[0],on:DEFAULT_ON.has(s[0])}));
 state = state.filter(e=>SHOTS.some(s=>s[0]===e.id));
@@ -340,26 +355,26 @@ Marmalade implements Android's standard text-to-speech engine interface, so it's
 ACCESSIBLE BY DESIGN
 Marmalade is built for screen-reader users, not just compatible with them. The whole app works with TalkBack: every control is labeled, playback status, errors, and download progress are announced aloud, and every setting is a single clearly described switch. Designed to meet WCAG 2.1 AA, with a high-contrast dark theme that follows your system setting (or can be chosen in Settings). Every feature is free — nothing an assistive-tech user needs sits behind a purchase.
 
+§VOICE ALIASES
+§Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.
+
 §ON-DEVICE NEURAL VOICES
-§Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and the text you have read by on-device voices never leaves your phone.
+§Speech is synthesized locally using neural voice models, and a fast English voice is built in — Marmalade speaks out of the box, fully offline. Bigger engines and voices download only when you choose to install them, and text read by on-device voices never leaves your phone.
 
 MULTIPLE ENGINES AND VOICES
 Choose the trade-off that fits you — a tiny, fast engine that runs on any device, or larger high-quality and multilingual voices. Each engine offers several distinct voices, and the catalog grows over time.
 
 §SPEAKS 8 LANGUAGES
-§With the Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language of each utterance automatically and switches pronunciation on the fly — a Kokoro voice reads Spanish text with Spanish pronunciation without you touching a setting.
+§With the multilingual Kokoro engine, Marmalade speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language automatically as it reads and switches pronunciation on the fly — Spanish text gets Spanish pronunciation without you touching a setting.
 
 §OPTIONAL CLOUD VOICES
-§Want voices beyond what your phone can run? Add a cloud engine with your own API key. Marmalade is built around privacy-respecting providers — such as Venice.ai, which is designed not to store or log your requests. Cloud engines are strictly opt-in: until you add one yourself, the text you have read never leaves your phone.
+§Want voices beyond what your phone can run? Add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Cloud engines are strictly opt-in: until you add one yourself, nothing you have read ever leaves your phone.
 
 §EXPRESSIVE, EMOTION-AWARE SPEECH
-§Emoji shape the delivery. End a line with an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.
+§Emoji shape the delivery. Add an emoji like 😁 or 😭 and Marmalade shifts the pitch, pace, and energy of the spoken audio to match the mood — on any voice.
 
 §AUDIO EFFECTS
 §Give spoken output character with over 20 built-in effect presets — cave, telephone, megaphone, vintage radio, dragon, and more — or build your own effect chains in the editor.
-
-§VOICE ALIASES
-§Save named voice setups — a voice plus its speed and effects — and switch between them instantly. Route apps to aliases: your e-reader can speak in one voice while your chat app uses another, automatically, per app. Everything unrouted follows your primary alias.
 
 LONG-FORM READING
 A foreground playback service reads long text reliably, with lock-screen and Bluetooth transport controls and the screen off.
@@ -379,13 +394,14 @@ function renderDesc(){
   sum.textContent = rev ? SUMMARY_PROPOSED : SUMMARY_CURRENT;
   sum.className = "fd-summary" + (rev ? " proposed" : "");
   const text = rev ? DESC_PROPOSED : DESC_CURRENT;
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   let html = "";
   for(const p of text.split(/\n\n/)){
     for(let line of p.split("\n")){
       const hl = line.startsWith("§");
       if(hl) line = line.slice(1);
       const isCaps = line === line.toUpperCase() && /[A-Z]/.test(line) && line.length < 60;
-      html += `<p class="${isCaps?'caps':''}${hl?' proposed':''}">${line}</p>`;
+      html += `<p class="${isCaps?'caps':''}${hl?' proposed':''}">${esc(line)}</p>`;
     }
   }
   document.getElementById("mockdesc").innerHTML = html;
@@ -396,7 +412,11 @@ document.getElementById("grid").addEventListener("click", ev=>{
   const i = +shot.dataset.i;
   const mv = ev.target.closest("button[data-mv]");
   if(mv){
-    const d = +mv.dataset.mv, j = i+d;
+    // move within the on-subset: skip over excluded tiles so the strip
+    // order and the grid order stay in step
+    const d = +mv.dataset.mv;
+    let j = i+d;
+    while(j>=0 && j<state.length && !state[j].on) j += d;
     if(j<0 || j>=state.length) return;
     [state[i],state[j]] = [state[j],state[i]];
   } else if(ev.target.tagName==="IMG"){
