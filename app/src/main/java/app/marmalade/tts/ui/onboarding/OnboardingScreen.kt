@@ -33,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -310,18 +311,27 @@ private fun EnginePickStep(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        // While the capability probe runs the list is in catalog order with
-        // the catalog's static Recommended flag. Say so rather than letting
-        // the cards silently reshuffle under the user's finger.
+        // While the capability probe runs, the fit labels aren't this
+        // phone's verdict yet. A spinner + line says the check is live
+        // (Max, 2026-08-08: text alone read as static copy).
         if (probePending) {
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.onboarding_checking_device),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = stringResource(R.string.onboarding_checking_device),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.height(16.dp))
 
@@ -423,33 +433,15 @@ private fun EngineCard(
             CardDefaults.cardColors()
         },
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // The fit pill sits in its own full-width row at the card's top
-            // right (Max, 2026-08-08). Its own row rather than a line inside
-            // the text column, so a long engine name can never crush it
-            // (recommended-badge-lab R1) and it never collides with the spec
-            // column's header.
-            val showRecommended =
-                if (fit == null) engine.isRecommended else fit == EngineFit.RECOMMENDED
-            if (showRecommended || fit == EngineFit.MAY_BE_SLOW) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, end = 10.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    if (showRecommended) RecommendedTag() else MayBeSlowTag()
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp)
-                    .height(IntrinsicSize.Min),
-                // Top-aligned like the Engines tab cards — centering left the
-                // short built-in column floating mid-card.
-                verticalAlignment = Alignment.Top,
-            ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+                .height(IntrinsicSize.Min),
+            // Top-aligned like the Engines tab cards — centering left the
+            // short built-in column floating mid-card.
+            verticalAlignment = Alignment.Top,
+        ) {
                 if (isBuiltIn) {
                 // Not a checkbox: nothing here is a choice. The adjacent
                 // "Built in — ready to use" line carries the meaning, so the
@@ -472,6 +464,19 @@ private fun EngineCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
+                // The fit pill sits under the title (Max's pick after seeing
+                // the top-right corner variant, 2026-08-08), on its own line
+                // so a long engine name can never crush it
+                // (recommended-badge-lab R1).
+                val showRecommended =
+                    if (fit == null) engine.isRecommended else fit == EngineFit.RECOMMENDED
+                if (showRecommended) {
+                    Spacer(Modifier.height(4.dp))
+                    RecommendedTag()
+                } else if (fit == EngineFit.MAY_BE_SLOW) {
+                    Spacer(Modifier.height(4.dp))
+                    MayBeSlowTag()
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = engine.tagline,
@@ -500,7 +505,6 @@ private fun EngineCard(
                 VerticalDivider(modifier = Modifier.padding(vertical = 2.dp))
                 Spacer(Modifier.size(12.dp))
                 EngineSpecColumn(engine = engine)
-            }
         }
     }
 }

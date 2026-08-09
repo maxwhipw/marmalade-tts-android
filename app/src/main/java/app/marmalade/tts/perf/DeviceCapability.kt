@@ -7,6 +7,7 @@ import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -146,6 +147,14 @@ class DeviceCapability @Inject constructor(
      */
     private suspend fun runBenchmark(): Double? = withTimeoutOrNull(BENCH_TIMEOUT_MS) {
         runCatching {
+            // On a truly fresh install the baked Kitten seed may still be
+            // copying when onboarding starts the probe — racing it turned a
+            // fast phone into a Tier-1 "may be slow" verdict (seen on the
+            // Pixel 8a, 2026-08-08). Wait for the seed inside the benchmark
+            // cap; a genuine seed failure still falls through to Tier 1.
+            withTimeoutOrNull(SEED_WAIT_MS) {
+                settings.bakedDefaultSeeded.firstOrNull { it }
+            }
             if (!kitten.isInstalled()) return@runCatching null
             kitten.ensureModelLoaded()
             val startNanos = System.nanoTime()
@@ -190,5 +199,12 @@ class DeviceCapability @Inject constructor(
 
         /** Below this the synth clearly produced nothing usable. */
         const val MIN_BENCH_AUDIO_MS = 200.0
+
+        /**
+         * How long the benchmark will wait for the baked Kitten seed on a
+         * fresh install before giving up and letting Tier 1 answer. Inside
+         * [BENCH_TIMEOUT_MS], so the overall cap still holds.
+         */
+        const val SEED_WAIT_MS = 15_000L
     }
 }
