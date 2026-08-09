@@ -89,8 +89,10 @@ metadata ship from the tag.
   enough to launch as-is, with one change — flat background (amber ramp
   at depth 0.34, `#f97a20`), shipped in `ef748f2` incl. regenerated
   fastlane icon. No further icon work blocks the tag.
-- **G3 Engines** — Kitten nano + Pocket finalization; the tag must
-  contain the final engine builds.
+- **G3 Engines** — RESOLVED (Max, 2026-08-09): ship as-is. Baked
+  Kitten nano v0_8 seed and the Pocket v9 bundle are final for 1.0.0
+  (the prompt-clean/opening-thump bundle rev is deferred past 1.0.0;
+  Kitten and Kokoro are the headline engines).
 - **G5 Fastlane translations** — the app UI ships 8 locales but
   fastlane has only `en-US`, and F-Droid's Latest-tab visibility gate
   requires **at least one translation** of the listing texts. Because
