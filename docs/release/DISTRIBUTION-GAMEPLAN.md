@@ -45,13 +45,48 @@ listing is live, so there's a one-tap install link.
    rewritten with §6 provenance. v16→v22 update flow device-verified.
 4. ~~Screenshots~~ DONE 2026-07-11: fresh 5-screen set in fastlane +
    the README's docs/screenshots/ (which had been EMPTY — broken
-   embeds since the README was written).
+   embeds since the README was written). **Superseded 2026-08-08:**
+   the fastlane set is now stale against the shipped UI; a 10-shot
+   styled replacement waits in `screenshots-inbox/styled/` for Max's
+   keeper picks (F-Droid gate G1).
 5. **[Max] Decide version**: promote to `1.0.0` (or `-rc.1`), bump
    versionCode, update changelog, tag annotated `v1.0.0`, push tag.
    CI builds Play AAB + both APKs.
-6. targetSdk: Google requires 36 for new apps by ~Aug 31 2026. We ship
-   35 — fine if the listing goes live before then, but schedule the
-   36 bump regardless.
+6. ~~targetSdk~~ DONE: Google requires 36 for new apps by ~Aug 31 2026
+   and the tree now ships `compileSdk`/`targetSdk` 36 (minSdk 28), so
+   the deadline no longer constrains the listing date.
+
+### Tag-readiness snapshot — 2026-08-08
+
+Where the tree stands against Phase A, and the raw material for
+`changelogs/10000000.txt` (which still has to be *written*, and is
+public copy, so it needs Max's sign-off). ~96 commits sit between
+`v1.0.0-beta.1` and `main`; the user-visible ones since 2026-08-07:
+
+- **Automatic language detection** — own char-trigram + script
+  detector sharing an 81 KB table with the CLI; per-utterance, replaces
+  request-language voice switching. Auto-detect is the Kokoro default,
+  Kitten/Pocket pin English, and Kitten renders a detected language
+  when no Kokoro voice can. Device-verified for Spanish on a Kokoro
+  voice; ja/zh verified by unit test only.
+- **Onboarding rework** — a device-capability probe (CPU topology score
+  + a one-shot benchmark on the baked-in Kitten engine) labels each
+  engine card as recommended / fine / may-be-slow for *this* phone, and
+  Kitten now reads as "Built in — ready to use" instead of faking a
+  download. Card order never changes.
+- **Engines tab redesign** — On-device / Cloud segmented control, spec
+  columns with a traffic-light speed meter, "See all 9" languages
+  affordance.
+- **In-app privacy policy** at Settings → About (Play Console item 9).
+- **Launcher icon** — flat background (`ef748f2`); system-bar icon
+  contrast now follows the in-app theme.
+- **F-Droid buildability** — `generateEspeakData` resolves the SDK's
+  pinned cmake rather than a bare `$PATH` one (`a0239ed`), removing the
+  buildserver's missing-cmake risk.
+
+Not yet done for the tag: G1 keeper picks, G5 fastlane translations,
+the versionCode formula switch (G4 → 10000000, applied *at* the cut),
+the engines bundle re-spin, and the RB decision (F-Droid R3).
 
 ### Phase B — Play Console (Max-heavy, needs GMS device for testing)
 

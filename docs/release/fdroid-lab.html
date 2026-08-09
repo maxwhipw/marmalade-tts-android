@@ -45,7 +45,7 @@ cross-update. Full durable KB: agent-wiki <code>tech/coding/fdroid-publishing.md
 <code>fdroid-publishing</code> skill.</div>
 
 <div class="warnbox" style="margin:18px 0;padding:14px 16px;border-radius:10px">
-<b>Status: ON HOLD — corrected plan (2026-08-03).</b> The open MR
+<b>Status: ON HOLD — corrected plan (last synced 2026-08-08).</b> The open MR
 <a href="https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44636">!44636</a> is green but
 <b>premature</b>: it points at the <code>1.0.0-beta.1</code> tag whose fastlane screenshots are a
 visually older app, and it predates the reproducible-build + versioning decisions. We keep it open
@@ -64,7 +64,10 @@ commit we submit. Green = done · amber = I/others can do · red = needs Max.</p
   <div class="body"><p>Shot 2026-08-08 (Max, 11 candidates) and styled in the Play treatment —
   status bar cropped, black 1200×2400 frame: <code>screenshots-inbox/styled/</code>. Remaining:
   Max picks keepers + order (F-Droid shows a horizontal strip; 4–8 is typical), then they land in
-  <code>fastlane/…/phoneScreenshots/</code>. F-Droid publishes exactly what's in the tag.</p></div></div>
+  <code>fastlane/…/phoneScreenshots/</code>. F-Droid publishes exactly what's in the tag.
+  <b>Re-checked 2026-08-08 evening: still current.</b> The shots already show the engines-tab
+  redesign (committed that night in <code>e31b34d</code>), and the set has no onboarding shot, so
+  the same-day onboarding rework didn't stale any of them.</p></div></div>
 
 <div class="wstep done"><div class="hd"><span class="n">G2</span><span class="t">App icon — RESOLVED: launch as-is with flat background</span><span class="tag done">done</span><span class="chev">▸</span></div>
   <div class="body"><p>Max (2026-08-08): icon + mascot are good enough to launch; the one change —
@@ -74,7 +77,18 @@ commit we submit. Green = done · amber = I/others can do · red = needs Max.</p
 <div class="wstep claude"><div class="hd"><span class="n">G3</span><span class="t">Kitten nano + Pocket TTS optimization — finalizing</span><span class="tag claude">in flight</span><span class="chev">▸</span></div>
   <div class="body"><p>Both engine optimizations are being finalized as of 2026-08-03 (Kitten nano;
   Pocket QDQ parity). These change the shipped APK, so the release tag must include the final engine
-  builds. This is the real "not quite ready yet" gate.</p></div></div>
+  builds. This is the real "not quite ready yet" gate. <b>Update 2026-08-08:</b> Pocket QDQ is
+  closed (static QDQ no faster than the shipping dynamic int8 on the Pixel 8a — keep dynamic);
+  Kitten nano is the baked-in default and unchanged since. What still moves the APK is the
+  bundle re-spin, not the model choice.</p></div></div>
+
+<div class="wstep max"><div class="hd"><span class="n">G5</span><span class="t">Fastlane translations — needed for the Latest-tab gate</span><span class="tag max">needs Max</span><span class="chev">▸</span></div>
+  <div class="body"><p>The app UI ships 8 locales but <code>fastlane/metadata/android/</code> has only
+  <code>en-US</code>, and F-Droid's Latest-tab visibility gate wants <b>at least one translation</b> of
+  the listing texts. Because fastlane ships from the built tag, adding a locale later costs a whole
+  release. Sequence (Max, 2026-08-07): <b>Max signs off the final English listing text first</b>
+  (title, short + full description — public copy), <b>then</b> it's translated into the shipped in-app
+  languages as <code>fastlane/metadata/android/&lt;locale&gt;/</code>. Both land before the tag.</p></div></div>
 
 <div class="wstep done"><div class="hd"><span class="n">G4</span><span class="t">Versioning — DECIDED (1.0.0 + widened scheme, ABI reserved)</span><span class="tag done">done</span><span class="chev">▸</span></div>
   <div class="body"><p>Ship <b>1.0.0</b> (feature-complete; perpetual 0.x is a habit, not a rule).
@@ -98,7 +112,36 @@ F-Droid / GitHub / Obtainium share one signature and cross-update; higher supply
   Max's one-time setup per <code>docs/release/CI-SIGNING.md</code> (needs the keystore password +
   base64 of the jks). Until both land, <b>no signed APK ships on GitHub/Obtainium either</b> — this
   was silently broken. Key decision resolved: <b>reuse <code>marmalade-upload.jks</code></b> (strong
-  PKCS12, now backed up) as the permanent F-Droid/GitHub distribution key.</p></div></div>
+  PKCS12, now backed up) as the permanent F-Droid/GitHub distribution key.</p>
+  <p><b>Signing verdict (2026-08-07, 3-reviewer panel, round-trip-tested on a real APK): keep the
+  Gradle <code>signingConfig</code> exactly as-is.</b> The apksigner-≥35 problem (fdroiddata#3299 —
+  <code>0xd935</code> alignment fields apksigcopier can't reproduce) applies only to the standalone
+  apksigner binary; AGP signs in-process via apksig with zero padding, and an AGP-8.9.3-signed APK
+  verifies with apksigcopier 1.1.1. The earlier "build unsigned + sign with build-tools 34" idea is
+  <b>withdrawn</b> — its zipalign step would have silently broken 16 KB page alignment. Instead add
+  cheap CI guards after <code>assembleFdroidRelease</code>: <code>apksigcopier extract</code> must
+  succeed, <code>zipalign -c -P 16 -v 4</code> must pass, fail on any <code>0xd935</code> field.
+  Pre-tag, decide two config details <b>before</b> the cert is pinned forever in
+  <code>AllowedAPKSigningKeys</code>: whether to set <code>enableV3Signing = true</code> (rotation
+  lineage; the current release APK signs v2-only) and <code>dependenciesInfo { includeInApk = false }</code>
+  (F-Droid scanners dislike the encrypted Google dependency block).</p></div></div>
+
+<div class="wstep claude"><div class="hd"><span class="n">R0</span><span class="t">Reproducibility risk register — what breaks first</span><span class="tag claude">I track</span><span class="chev">▸</span></div>
+  <div class="body"><p>In rough order of likelihood: <b>(a)</b> host-compiled espeak dictionaries —
+  a host gcc/glibc binary is the least-controlled input in the build; <b>(b)</b>
+  <code>generateEspeakData</code> parallelism, all dicts sharing one <code>dictsource</code> working
+  dir — <b>FIXED and committed</b>: <code>-j 1</code> (2026-08-07) plus the SDK's pinned cmake
+  instead of a bare <code>$PATH</code> lookup (<code>a0239ed</code>, 2026-08-08), which also removes
+  the need for an <code>apt-get cmake</code> line in the recipe; <b>(c)</b> no Gradle dependency
+  locking — a transitive published between our run and theirs changes bytes; <b>(d)</b> NDK object
+  determinism — no <code>--build-id=none</code> / <code>-ffile-prefix-map</code> today, and embedded
+  build paths differ between the GitHub runner and their buildserver (F-Droid's most-cited native RB
+  failure); <b>(e)</b> baseline profiles (<code>androidx.profileinstaller</code> is in the graph, so
+  release APKs likely embed <code>assets/dexopt/baseline.prof</code> — disable the
+  <code>*ArtProfile*</code> tasks); <b>(f)</b> unpinned <code>ubuntu-latest</code> drift; <b>(g)</b>
+  R8 (least risky, pinned by AGP). Dependency locking is worth doing regardless of RB. Watch item:
+  fdroidserver#1354 (open) — signature copying broken on newer Fedora/Debian could cause spurious
+  verification failures on their side.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">R2</span><span class="t">Recipe: <code>Binaries</code> + <code>AllowedAPKSigningKeys</code></span><span class="tag claude">I do</span><span class="chev">▸</span></div>
   <div class="body"><p><code>Binaries: https://github.com/maxwhipw/marmalade-tts-android/releases/download/v%v/marmalade-tts-%v-fdroid.apk</code>
@@ -111,8 +154,17 @@ F-Droid / GitHub / Obtainium share one signature and cross-update; higher supply
 <div class="wstep claude"><div class="hd"><span class="n">R3</span><span class="t">Prove byte-for-byte reproducibility</span><span class="tag claude">I verify</span><span class="chev">▸</span></div>
   <div class="body"><p>Native code (NDK, ONNX, espeak) is the hard part. Verify locally with
   <code>fdroid build</code> + <code>reproducible-apk-tools</code> (CRLF, ZIP ordering,
-  <code>resources.arsc</code>) <b>before</b> claiming RB, or the MR bounces. If it can't be made
-  reproducible, fall back to F-Droid-signed for 1.0.0 and note it — but we try first.</p></div></div>
+  <code>resources.arsc</code>) <b>before</b> claiming RB, or the MR bounces. If R3 fails, the RB
+  fields (R2) are <b>omitted</b> from the recipe rather than included.</p>
+  <p class="warn"><b>OPEN DECISION (Max) — does an RB failure gate the listing?</b> This supersedes
+  the old "fall back to F-Droid-signed, but we try first" line, which quietly said both things at
+  once. The one-way door: falling back forfeits RB for <code>app.marmalade.tts</code> permanently
+  (no signing-key change without a reinstall). <b>Option A</b> — hold the MR and iterate until the
+  build reproduces: defensible given the irreversibility, costs reviewer wait time. <b>Option B</b> —
+  ship 1.0.0 F-Droid-signed and accept the split signature forever: respectable, since RB is rare in
+  this app class (only Muse among comparable recipes) — but note RB also carries a <b>permanent
+  per-release cost</b> (every future release must reproduce byte-for-byte, or F-Droid users get
+  nothing for that version).</p></div></div>
 
 <h2 class="sec">Decisions — status 2026-08-03</h2>
 <div class="note">

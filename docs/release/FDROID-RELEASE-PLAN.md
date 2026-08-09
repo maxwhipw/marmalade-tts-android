@@ -1,6 +1,6 @@
 # F-Droid release plan — marmalade-tts-android
 
-Corrected plan as of 2026-08-07. Live tracker with checkboxes + copy
+Corrected plan as of 2026-08-08. Live tracker with checkboxes + copy
 deck: [fdroid-lab.html](fdroid-lab.html). Durable app-agnostic
 knowledge: agent-wiki `tech/coding/fdroid-publishing.md` + the
 `fdroid-publishing` skill.
@@ -8,16 +8,19 @@ knowledge: agent-wiki `tech/coding/fdroid-publishing.md` + the
 **Current state: MR !44636 is OPEN and ON HOLD.** Opened 2026-08-02
 (fork `maxwhipw/fdroiddata`, branch `marmalade-tts`), CI fully green
 including `fdroid build`. **That green run is stale evidence** (Opus
-review 2026-08-07): main is 60+ commits past the built tag and now
+review 2026-08-07): main is ~96 commits past the built tag and now
 contains the build-time espeak-data generator
 (`tools/espeak-hostgen/`, `generateEspeakData` in
-`app/build.gradle.kts`), which the buildserver has never exercised —
-it shells out to a bare host `cmake` from `$PATH`, which the F-Droid
-buildserver may not provide. Before the re-cut: either make the Gradle
-task resolve the SDK's own cmake, or add
-`sudo: apt-get install -y cmake build-essential` to the recipe — and
-re-run `fdroid build` (their CI or local buildserver) against the new
-tag before pinging the reviewer. It builds the `v1.0.0-beta.1` tag
+`app/build.gradle.kts`), which the buildserver has never exercised.
+It used to shell out to a bare host `cmake` from `$PATH`, which the
+F-Droid buildserver may not provide — **RESOLVED 2026-08-08 in
+`a0239ed`**: the task now prefers the SDK's own pinned
+`cmake/3.22.1/bin/cmake` and only falls back to `$PATH`, so no
+`sudo: apt-get install` line is needed in the recipe. (The fix sat
+uncommitted in the working tree for a day; it is now on `main`.)
+Still required before pinging the reviewer: re-run `fdroid build`
+(their CI or a local buildserver) against the new tag — the generator
+has still never run on their infrastructure. It builds the `v1.0.0-beta.1` tag
 (versionCode 33), which is premature: F-Droid reads icon, screenshots
 and descriptions from the fastlane folder **in the tag it builds**, and
 that tag's screenshots show a visually older app. Reviewer `linsui`
@@ -45,9 +48,16 @@ metadata ship from the tag.
 
 - **G1 Screenshots** — SHOT 2026-08-08 (Max, 11 candidates) and styled
   in the Play treatment (status bar cropped, black 1200×2400 frame):
-  `screenshots-inbox/styled/`. Remaining: Max picks keepers + order
-  (F-Droid shows a horizontal strip; 4–8 is typical), then copy into
-  `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+  `screenshots-inbox/styled/` (10 styled: speak light/dark, aliases,
+  Kokoro voices ×2, effects, effect editor, engines, engines-cloud,
+  voice picker). **Still current after the 2026-08-08 UI landings**
+  (re-checked against the device that evening): the styled shots were
+  taken from a build that already had the engines-tab redesign now
+  committed in `e31b34d`, and the set contains no onboarding shot, so
+  the same-day onboarding rework (built-in Kitten card, device-probe
+  labels) doesn't invalidate any of them. Remaining: Max picks keepers
+  + order (F-Droid shows a horizontal strip; 4–8 is typical), then copy
+  into `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
 - **G2 Icon** — RESOLVED 2026-08-08 (Max): icon + mascot are good
   enough to launch as-is, with one change — flat background (amber ramp
   at depth 0.34, `#f97a20`), shipped in `ef748f2` incl. regenerated
@@ -116,8 +126,11 @@ Obtainium APKs share one signature and cross-update.
   nondeterminism source (workaround: disable `*ArtProfile*` tasks);
   (f) unpinned `ubuntu-latest` runner drift; (g) R8 (least risky —
   pinned by AGP). Fixing (b) and adding dependency locking are worth
-  doing regardless of RB. (b) is FIXED 2026-08-07: `generateEspeakData`
-  now uses the SDK's cmake and `-j 1`. Watch item: fdroidserver#1354
+  doing regardless of RB. (b) is FIXED and now fully committed:
+  `generateEspeakData` serialises with `-j 1` (2026-08-07) and resolves
+  the SDK's pinned cmake instead of `$PATH` (`a0239ed`, 2026-08-08 —
+  the change existed only in the working tree when this register was
+  first written). Watch item: fdroidserver#1354
   (open) — signature copying broken on newer Fedora/Debian, could cause
   spurious verification failures on their side.
 - **R2 Recipe fields** —

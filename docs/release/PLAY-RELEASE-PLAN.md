@@ -63,7 +63,11 @@ everything else Claude can do or has done.
 8. Create app → "Marmalade TTS", Free, App (not game).
 9. **Privacy policy URL** (required even with zero data collection):
    host PRIVACY.md publicly — GitHub blob URL works; GitHub Pages is
-   nicer. Add the same link to the in-app About section.
+   nicer. *In-app half DONE 2026-08-08 (`e31b34d`):* the policy now
+   renders in-app at Settings → About → "Privacy policy"
+   (`PrivacyPolicyScreen.kt`, `Routes.Privacy`). Remaining is the
+   public URL for the Console field — and when it exists, check the
+   in-app copy still matches the hosted text.
 10. **Data safety form:** "No data collected, no data shared." The
     user-initiated engine download is exempt (ephemeral processing).
 11. **Foreground service declarations** (App content page, each needs
@@ -82,6 +86,10 @@ everything else Claude can do or has done.
 14. Screenshots: at least 2 phone screenshots (Speak / Voices /
     Effects / Licenses screens) — captured from the device, dropped in
     `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+    **SHOT + styled 2026-08-08** — 10 candidates in
+    `screenshots-inbox/styled/` (1200×2400, status bar cropped, black
+    frame), shared with the F-Droid gate G1 and re-verified against the
+    shipped UI that evening. Awaiting Max's keeper picks + order.
 15. App icon 512×512 + feature graphic 1024×500 (mascot art from
     `assets/` is the base).
 16. Listing text: reuse `fastlane/metadata/android/en-US/`
@@ -101,6 +109,12 @@ everything else Claude can do or has done.
       locales). Kitten/Pocket are English-only. Also localize the store
       listing itself into the 7 shipped UI locales over time. Don't leave
       "English TTS app" implied. Final public copy needs Max's sign-off.
+    - **New since that note (2026-08-08): the app auto-detects the
+      language per utterance** — a Kokoro voice reads Spanish with
+      Spanish pronunciation with no setting changed (device-verified;
+      auto-detect is the Kokoro default, Kitten/Pocket pin English).
+      Worth a listing line, and it's the feature that makes the
+      multilingual claim land for someone who never opens settings.
 
 ## Phase 4 — submit
 
