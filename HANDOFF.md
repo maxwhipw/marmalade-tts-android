@@ -1,3 +1,32 @@
+# HANDOFF — engine-catalog prose i18n ×7, 2026-08-09 (Fable orchestrated, Opus implemented; branch `main`, head `79fab7c`, pushed to Forgejo)
+
+- `3e4b075` Kitten tagline reworded (Max's ask — it's baked in, so the
+  "smallest download" pitch was wrong on the onboarding/Engines cards):
+  "The fastest, most responsive engine, and it runs on any device."
+- `79fab7c` the "engine catalog descriptions are English-only by design"
+  exception is GONE: `EngineDescriptor.description/tagline/licenseSummary`
+  → `@StringRes` (`descriptionRes`/`taglineRes`/`licenseSummaryRes`),
+  English verbatim in `values/strings_engines.xml`
+  (`engine_{kitten,kokoro,pocket,pocket_dev}_{tagline,desc,license}`),
+  Kitten/Kokoro/Pocket translated ×7 (es/fr/hi/it/ja/pt-rBR/zh-rCN) with
+  terminology matched to existing locale files; the developerOnly
+  clean-reference entry stays English (`translatable="false"`, the
+  speak_wordmark pattern). Consumers now `stringResource(...)`:
+  OnboardingScreen, EnginesScreen (card + show-more + install-consent),
+  EngineDetailScreen.
+- Test-infra side effect: EngineCatalogTest's GPL-disclosure assertions
+  resolve real strings via Robolectric → `unitTests.isIncludeAndroidResources
+  = true` in app/build.gradle.kts + new `app/src/test/resources/
+  robolectric.properties` pinning sdk=34 (Robolectric 4.13 max vs
+  targetSdk 36). This also un-skipped 4 Robolectric classes that
+  previously aborted at init: full fdroidDebug suite now **535 tests,
+  0 failures**.
+- DEVICE-VERIFIED 2026-08-09 (Pixel 8a, fdroid debug `adb install -r`):
+  Max flipped the app to Japanese — Engines tab renders translated
+  taglines on all three cards, no truncation. Other 6 locales not
+  eyeballed on device (same mechanism; spot-check if suspicious).
+- github push still needs Max's all-clear (Forgejo is current).
+
 # HANDOFF — onboarding polish round 2 + data-clear post-mortem, 2026-08-08 late (Fable, branch `main`, head `da6df61`, pushed to Forgejo)
 
 ## Late-evening round (Max's design calls after using it)
