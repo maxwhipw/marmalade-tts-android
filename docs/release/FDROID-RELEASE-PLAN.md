@@ -60,9 +60,14 @@ metadata ship from the tag.
   from "The quickest to start speaking, and the smallest download." to
   "The fastest, most responsive engine, and it runs on any device.",
   and that shot shows the old line. It's the only styled shot that
-  renders an engine tagline. Remaining: re-shoot 07, then Max picks
-  keepers + order (F-Droid shows a horizontal strip; 4–8 is typical),
-  then copy into
+  renders an engine tagline. **Re-shot 2026-08-09** (Max) and styled in
+  `dadb247` — but the reshoot arrived via chat at 900×2000 and was
+  upscaled; before the set ships, restyle from the original 1080×2400
+  (drop it in `screenshots-inbox/` or pull via ADB). Remaining: Max
+  picks keepers + order in the **F-Droid listing lab**
+  (http://marmalade:8095/marmalade-tts-release/fdroid-listing-lab.html
+  — mock listing, picker persists in-browser; 4–8 is typical), then
+  copy the picks into
   `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
   *Standing rule: engine copy changes stale the engines screenshots —
   check this gate whenever a tagline or spec string moves.*
@@ -80,7 +85,10 @@ metadata ship from the tag.
   the final English listing text** (title, short + full description —
   public copy), **then** translate it into all supported in-app
   languages as `fastlane/metadata/android/<locale>/` folders. Both
-  steps land before the tag.
+  steps land before the tag. The sign-off surface is the F-Droid
+  listing lab (URL under G1): current fastlane copy rendered in a mock
+  listing, plus a highlighted proposed multilingual/auto-detect section
+  awaiting Max's verdict.
 - **G4 Versioning** — DECIDED 2026-08-03: ship **1.0.0**,
   `versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI`
   → 1.0.0 universal = **10000000**. ABI digit reserved from the start
