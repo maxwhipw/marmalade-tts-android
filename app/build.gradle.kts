@@ -138,6 +138,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Reproducible builds: AGP embeds META-INF/version-control-info
+            // whose content depends on the checkout's shape (git worktrees
+            // yield NO_VALID_GIT_FOUND, real clones the revision) — the one
+            // entry that differed between an fdroid-build and a host build
+            // of the same commit. Omit it entirely.
+            vcsInfo { include = false }
             signingConfig = signingConfigs.findByName("release")
             // On-device R8 smoke testing: `-PsmokeRelease` builds this same
             // minified release variant but installable side-by-side as
