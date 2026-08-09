@@ -1,4 +1,328 @@
-# HANDOFF — Kitten baked default + licensing verified + A3 engine-select redesign, 2026-08-04 (branch `main`, UNPUSHED)
+# HANDOFF — voice order + pretty names on alias cards, 2026-08-07 (Fable, branch `main`, head `049a80c`, UNPUSHED)
+
+## SHIPPED 2026-08-07 (Fable): picker honors sortOrder; alias-card voice names
+
+- `049a80c` feat(voices): `buildVoiceTree` (VoiceTree.kt) now sorts model
+  voices by `compareBy(sortOrder, displayName)` — it previously re-sorted by
+  displayName alone, which defeated v32's curation everywhere the tree is
+  shown (Kokoro's flag emoji sorted by codepoint → 🇺🇸 last; Kitten
+  best-first never appeared). Kokoro now lists US → GB → other languages in
+  speaker-id order.
+- Alias cards stop showing machinery keys: `VoicePathResolver` renders
+  Kokoro keys via new `KokoroDirectVoiceCatalog.bareName()` (`am_adam` →
+  "Adam", no flag) and capitalizes other on-device keys. Pocket catalog
+  displayNames are now capitalized ("Marius"); ids and `voices/<name>.wav`
+  lookups keep the lowercase key (PocketEngine/PocketDevEngine verify now
+  derive the filename from the id, PocketDevVoiceCatalog ids likewise).
+  CATALOG_VERSION 32→33 reseeds existing installs.
+- Full unit suite green (VoicePathTest + VoiceTreeTest extended). DEVICE
+  VERIFY pending: picker order, alias-card names, v33 reseed on Max's
+  daily install (no ADB connection this session).
+- `bcace29` follow-up from a whole-app voice-name audit: the full-screen
+  picker's preview phrase + preview-button contentDescription used
+  `displayName` (espeak/TalkBack read the Kokoro flag as "United
+  States") — both now use `spokenName`. Committed via surgical index
+  patch: VoicePickerScreen.kt also carries another session's
+  uncommitted WIP hunks (contentReady gate, BackHandler fall-through),
+  which remain in the working tree only. Audit found all other surfaces
+  clean (Speak persona, onboarding dropdown, sheet/drill-down, alias
+  editor row, benchmark, system TTS service = engine-level names only;
+  engine-side substringAfter uses are machinery file lookups).
+
+# HANDOFF (prev) — F SHIPPED both platforms, 2026-08-07 (Fable, branch `main`, head `c33838e`, UNPUSHED)
+
+## F chunking SHIPPED (Max's pick, 2026-08-07)
+
+- Android `c33838e`: `TextChunker.clauseChunks` (quote-aware sentence ends,
+  newline=sentence boundary, dialogue-intro cut, clause cuts at `;` `:`,
+  no merge, comma-ending line = continuation) + KittenDirect gap-by-boundary
+  (CLAUSE_GAP_MS 80 / SENTENCE_GAP_MS 260) + style row from ClauseChunk
+  .rowText (pre-split sentence). 453 unit tests green (8 new
+  ClauseChunksTest, fixtures mirror audited lab plans); assembleFdroidDebug
+  clean. DEVICE-VERIFY pending: Benchmark-screen TTFA (expect ~0.5-0.6 s vs
+  1018 ms) + general kitten listening.
+- CLI `ebd0876` then `1e14f86` (marmalade-tts-cli): SUPERSEDED the ph-space
+  approximation with EXACT Android parity (Max's rule: "a bug in one
+  informs me of a bug in the other"). `chunking.clause_chunks` +
+  `_sentences_quote_aware` are line-for-line ports of TextChunker
+  .clauseChunks with IDENTICAL test fixtures (TestClauseChunks ==
+  ClauseChunksTest); kitten plans in text space via
+  `stream_play._text_clause_plan` (flag `TEXT_CLAUSE_PLAN`): per-chunk
+  phonemize, no conditioning, NO pad_marks (both stream + --out loops),
+  style row = pre-split sentence TEXT length, gaps 80/260. Trim already
+  matched (KittenTrim is the _trim_run port, same 2/3-frame keeps). 971
+  tests green, redeployed, smoke: `;`≈350 ms `.`≈490 ms measured. KNOWN
+  SHARED BEHAVIOR: chunk-final `:` carries ~640 ms — extra model-rendered
+  pause rides the preceding speech token where duration-trim can't cut it;
+  identical on Android by construction (the lab's tight energy trim
+  underestimated colons). Kokoro path untouched (uniform 150 + pad_marks).
+  RULE GOING FORWARD: any change to F chunking/gaps/rows/trim lands on
+  BOTH platforms with mirrored fixtures, or not at all.
+
+# HANDOFF (prev) — kitten chunking investigation + two ear-labs UP, 2026-08-07 (Fable, branch `main`, head `1d3bb6b`, UNPUSHED)
+
+## SHIPPED 2026-08-07 (Fable): voice v32 — priors + order + flagged names
+
+- `d08051f` feat(kitten): per-voice SPEED_PRIORS from Max's sweep picks —
+  bella 1.24, jasper 0.84, luna 0.92, bruno 0.88, rosie 0.96, hugo 0.84,
+  kiki 0.84, leo 1.25. (Bella "x1.0 … x1.24" ambiguity resolved to the
+  LATER line, 1.24 — flag to Max if wrong.)
+- `1d3bb6b` feat(voices): `voice_meta.sortOrder` (Room v10→v11 additive
+  migration, aliases/routes survive; 11.json committed), DAO orders by it;
+  Kitten curated order Rosie→Bruno→Kiki→Hugo→Bella→Jasper→Luna→Leo; Kokoro
+  displayName now "🇺🇸 Bella"/"🇯🇵 Kumo" (raw key STAYS in the id and all
+  machinery — speakerIdFor/espeak routing/voices.bin; espeakVoiceFor caller
+  in MarmaladeTtsService switched id-side); kokoro-style cloud voices same
+  pretty names; `VoiceMeta.spokenName` strips the flag for the picker's
+  spoken preview (espeak reads 🇺🇸 as "United States" — venv-verified);
+  CATALOG_VERSION 32. The preview one-liner in VoicePickerViewModel was
+  partial-staged around the still-uncommitted Opus UI diff.
+- 445 unit tests green (new `VoiceCatalogOrderingTest`); assembleFdroidDebug
+  clean. DEVICE-VERIFY pending: per-voice pace by ear, picker order, flag
+  rendering, preview phrase, and a Kokoro JA/ES voice via system-TTS
+  language routing (the espeakVoiceFor call-site changed).
+- Open q for Max: CLI kitten-daemon still uses upstream flat 0.8 priors —
+  mirror the per-voice picks there? (Different playback context; not done.)
+- Pause compression at speed>1 (bella/leo): intra-render pauses shrink
+  ~20% — model has one global speed scalar, no per-segment control. The
+  150 ms inter-chunk join gaps do NOT compress. Possible future fix: DSP
+  pass that detects internal silences and re-stretches them by 1/speed
+  (silence stretching is artifact-free). Not built.
+
+## Kitten TTFA investigation (bench: kitten 1018 ms > kokoro 929 ms despite 3× RTF)
+
+Root cause CONFIRMED by offline chunker simulation (reproduced the bench's
+exact 7-vs-6 chunks on the Medium/Psalm-23 preset):
+
+- Kokoro chunks at `.!?:;` + merges <80 chars with the FIRST chunk exempt →
+  chunk 0 = "The Lord is my shepherd;" (24 chars ≈ 1.5 s audio).
+- Kitten chunks at `.!?` ONLY (`terminalMarksOnly` — deliberate: per-sentence
+  style rows, R16) → chunk 0 = whole first sentence (42 chars ≈ 4.0 s audio,
+  more because Kitten also speaks slower at its 0.84 prior).
+- TTFA ≈ chunk0_audio × RTF reconciles both numbers (~680 vs ~770 ms infer +
+  warmup-lock wait). Kitten's 3× speed is cancelled by 2.6× the audio.
+- Benchmark fidelity: bench drives engine.synthesizeStream directly — same
+  chunking/inference as Speak + system TTS; skips Preprocessor (cheap);
+  TTFA excludes model load (ensureModelLoaded before the clock) but INCLUDES
+  the async warmup's synthLock wait.
+
+**Proposed fix (CLI R16-1 rule): clause-split kitten but take the style row
+from the PRE-SPLIT sentence.** AWAITING MAX'S EAR before any code change:
+
+- Lab (NOW v3): http://marmalade:8095/kitten-clause-split/kitten-clause-split-lab.html
+  (~/coding/scratch/kitten-clause-split — gen3.py renders, build_html.py makes
+  the page from plans.json; gen.py/gen2.py superseded but imported for
+  helpers). Voice KIKI (redone 2026-08-07: Max heard Bella as slow-motion at
+  the 0.84 prior), Android's 0.84 prior, identical trim/join across variants.
+  All wavs whisper-verified word-complete.
+- v3 rules (Max's 2026-08-07 asks, implemented in gen3.py, edge-cases
+  verified — port these to TextChunker when a variant ships):
+  * Quote-aware sentence end: `.!?` + closing quotes/brackets also ends a
+    sentence IF the next word starts uppercase/digit/open-quote; lowercase
+    next word = attribution («"Stop!" he said») → no cut. (Why shipped never
+    cut at `shoreline!"`: the regex needs whitespace IMMEDIATELY after `.!?`;
+    the quote blocks it → whole lighthouse passage was ONE 235-char chunk.)
+  * Dialogue-intro cut: `, "` / `: "` starts a new chunk at the quote —
+    lighthouse chunk 0 becomes "Then the lighthouse keeper said," (32 chars,
+    also a TTFA win).
+  * Clause merges (<80) never cross a sentence boundary.
+  * Punctuation pause study (measured at one junction, Kiki 0.84): `.` in
+    render = 390 ms; `,`/`;`/`:` = only 50–60 ms — confirms Max's ear
+    ("colon sounds non-existent" in B; B's good first `;` was a real chunk
+    split). In-render pause is untunable (one global speed scalar) → clause
+    pauses need splits.
+  * Variant E `gradedGaps`: C's cuts, gap by boundary type (80 ms clause /
+    150 ms sentence). Max's verdict: lighthouse good, Psalm flat — (a) the
+    <80 merge re-glued the Psalm colon clauses (mid-chunk = ~50 ms; he
+    confirmed the ONE good colon was a chunk boundary), (b) 150 ms
+    sentence join ≈285 ms effective < the model's own 390 ms in-render
+    period, so periods felt weak.
+  * Variant F `tunedGaps` (the E findings applied): NO merge — every
+    clause mark is a boundary — clause 80 ms (≈215 effective), sentence
+    260 ms (≈395 effective, matches natural period). Newline = sentence
+    boundary (Max's rule; matches shipped Android chunker — my v3 lab
+    splitter had dropped it, fixed in gen3). New `list` passage (colon
+    introducing newline items) in every variant. Implementation if F:
+    TextChunker emits boundary type (clause/sentence), no merging for
+    kitten (shipped kitten already doesn't merge), Synthesizer/engine
+    picks the gap per boundary + raise sentence gap 150→260 ms.
+  * F refinement (Max: "F good, but don't chunk at every comma" — he was
+    hearing the newline-split list items at the full 260 ms): a newline
+    boundary whose line ends in a comma keeps the 80 ms clause gap.
+    Rule: newline = sentence boundary, but trailing comma = continuation.
+    F is Max-approved modulo this fix; awaiting final confirm on the
+    regenerated lab. Max picks A/B/C/E/F.
+- SPEED SWEEP LAB (2026-08-07, after Max heard Kiki as too fast at 0.84 in
+  the clause lab): http://marmalade:8095/kitten-speed-sweep/kitten-speed-sweep-lab.html
+  (~/coding/scratch/kitten-speed-sweep, gen_sweep.py in kittentts venv).
+  All 8 voices × net speeds 0.72–1.00, one un-chunked render each, style row
+  by text length (Android/CLI rule), upstream priors bypassed. Page has
+  per-voice radio picks (localStorage) that emit the replacement
+  SPEED_PRIORS map. AWAITING MAX'S PICKS — then update Android
+  KittenDirectEngine SPEED_PRIORS (and consider CLI kitten-daemon parity).
+- Bella speed follow-up (2026-08-07): scanned KittenML GitHub + live HF
+  config.json — upstream's ONLY per-speaker speed data is `speed_priors`
+  (0.8 all voices, 0.9 Hugo), unchanged from what Android already encodes at
+  0.84/0.9. No newer per-voice tuning exists upstream. If Bella is to sound
+  right, it's OUR per-voice prior to raise (e.g. bella → 0.9) — needs Max's
+  ear; no code changed. Variants: A shipped · B eagerFirst
+  (ONLY sentence 0 clause-split, minimal) · C full clause split+merge80
+  (kokoro parity) · D fragment-rows control (the register defect, on purpose).
+  All whisper-verified word-complete. Expected device TTFA if B or C ships:
+  ~0.5–0.6 s (vs 1018 ms).
+- Implementation after his pick: TextChunker gains a mode (B: split only the
+  first sentence at its first clause mark; C: kokoro's params) + KittenDirect
+  passes a row-text ≠ chunk-text (style row from pre-split sentence — today
+  row = chunk text length in runInference).
+
+## Kokoro quant ear-lab REGENERATED (Max's ask: Bella/Adam/Nova)
+
+http://marmalade:8095/kokoro-quant/kokoro-quant-lab.html — new ROUND 3 on
+top: 3 voices × 4 passages × (shipping fp32 `engines-respin/work` model vs
+shipping v23 QDQ-int8), 24 wavs in kokoro-onnx-bench/voices3/. Voice vectors
+extracted from NAMED upstream .pt files (af_bella/am_adam/af_nova, af_nova
+freshly downloaded) and verified BIT-EXACT against blocks of the shipping
+voices.bin (indices 2/11/7). No verdict columns — Max judges. AWAITING HIS EAR.
+
+---
+
+# HANDOFF (prev) — speak-stuck fix + engine residency + Loading label + shared espeak data, 2026-08-06 (Fable, branch `main`, UNPUSHED)
+
+## `c49326b` — shared full-language espeak-ng-data (Max's design, DECIDED; Fable-implemented)
+
+The espeak data-capture defect is FIXED at the root. One app-level shared
+FULL espeak-ng-data (all ~110 languages, ~19 MB uncompressed / +8.5 MB APK →
+debug APK now 190.7 MB, release-equiv ~115 MB, Play cap 200):
+
+- `tools/espeak-hostgen` compiles the complete dict set (mirrors upstream
+  cmake/data.cmake; still offline/F-Droid-safe); `generateEspeakData` lands it
+  at asset path `espeak/espeak-ng-data`, asserts required dicts, purges the
+  legacy per-seed tree from stale build dirs.
+- New `phonemizer/SharedEspeakData` seeds assets → `filesDir/espeak-ng-data`
+  once per versionCode (marker-last, integrity-checked, re-seeds on damage;
+  dev caveat: data change without versionCode bump keeps old seed on an
+  installed debug build). Both espeak engines load from it; bundle/seed espeak
+  trees are ignored legacy; installer verify no longer requires them.
+- **Bundle re-spin opportunity (later, Max's call):** kokoro/kitten bundles
+  still carry ~13 MB espeak data each — droppable at next bundle rev for
+  smaller downloads.
+- Suite 440 green; assembleFdroidDebug verified (shared tree in APK, legacy
+  path gone). **NOT device-verified** — the decisive on-device check: Kokoro
+  Spanish/French voice on a fresh install where Kitten (baked) spoke first.
+- Note: `app/build.gradle.kts` was committed via a partial stage — only the
+  espeak hunks; the other sessions' uncommitted privacy-policy task block
+  remains in the worktree, untouched.
+
+## `be937fd` — engine residency policy (Max's design, DECIDED 2026-08-06)
+
+Defect "cold-load pile-up" (below) is FIXED per Max's verdict: *"only the
+selected alias should stay warm in the speak screen… for routed usage only
+keep warm engines activated within the active window, unless someone sets it
+to always on."* Implementation:
+
+- New `service/EngineResidency.kt` (@Singleton, unit-testable seams): engine
+  stays loaded iff Speak-screen selected (signal = `Synthesizer.preload`,
+  fires on every voice selection) OR synth-activated within SMART_TIMEOUT_MS
+  (10 min) on any path OR keepalive == Persistent (always-on opt-in keeps
+  warm-everything). Others released on activation-triggered sweeps
+  (serialized, IO, in-flight-counted so a live utterance is never evicted).
+- Warm-alls now Persistent-only (`KeepaliveCoordinator`,
+  `MarmaladeTtsService.warmUpEngine` — the latter otherwise warms only the
+  routed voice's engine via `router.resolveAlias(null) ?: defaultVoiceId`).
+- begin/endSynth bracketing: `Synthesizer.speak`, `MarmaladeTtsService`
+  onSynthesizeText + speakFallback, `MarmaladeSynthService.runOne`.
+- 432 unit tests green (8 new in `EngineResidencyTest`); assembleFdroidDebug
+  clean. **NOT device-verified.**
+- Known accepted edges: (a) no periodic sweep — eviction only on next
+  activation, so one-shot usage keeps that engine resident until process
+  death (matches what Smart keepalive implies; flag to Max if a
+  countdown-tied sweep is wanted); (b) microsecond race where a synth
+  starting on an engine mid-eviction loses that utterance — recoverable
+  (d010138 backstop), accepted.
+
+## State (head `be937fd`)
+
+424 unit tests green (`./gradlew testFdroidDebugUnitTest`). Two new commits on
+top of the still-UNCOMMITTED Opus 5/4.8 working-tree diff (see below — that
+diff is NOT mine and NOT committed):
+
+- **`d010138` fix(speak)** — Max's "switching aliases with a different engine
+  sticks on processing forever" bug: `Synthesizer.speak` captured its own
+  `coroutineScope` job as `currentJob`, so `cancel()` from any OTHER screen's
+  VM (EffectsViewModel/EffectEditorViewModel/VoicePickerViewModel onCleared,
+  releaseAll) rethrew CancellationException after success → SpeakViewModel's
+  coroutine died silently before its terminal state write → stuck "Speaking…"
+  (Speak VM is the nav start destination, never cleared; speak() no-ops on the
+  is-Speaking guard). Fix: pipeline runs in an `async` child the singleton
+  owns + generation-guarded `finally` backstop in SpeakViewModel. Regression
+  test `externalCancellation_doesNotStickOnSpeaking`. **NOT device-verified.**
+- **`03c1222`** — committed the orphaned Room v10 schema export (matches
+  `a05196e`'s committed code; had floated untracked across sessions).
+
+## `5679c59` — "Loading <engine>…" on cold Speak taps (Max's UX call 2026-08-06)
+
+Cold Speak tap now shows `PlaybackState.Loading(engine label)` until the
+model is resident, then flips to Speaking; background pre-loads stay
+label-free (Max: "only show the label if the user taps speak"). Built on
+`TtsEngine.isLoaded()` + `SpeechPlayer.isWarm()`. Stop reachable during the
+load. Strings ×8 locales. Suite 436 green. Max also OK'd no-periodic-sweep
+for residency (eviction on next activation only — decided, don't revisit).
+
+## Bug-hunt defects (2 fixed, 1 still open)
+
+1. **Cold-load pile-up — FIXED by `be937fd`** (residency policy) **+
+   `5679c59`** (Loading label).
+2. **Baked Kitten espeak data capture — FIXED by `c49326b`** (shared
+   full-language data above). Historical description: the seed shipped ENGLISH-ONLY
+   espeak-ng-data (~2 MB) but `EspeakPhonemizer.open()` is refcounted and the
+   FIRST opener's dataPath serves every engine. If Kitten opens espeak first,
+   Kokoro ja/es/fr/de silently phonemize as en-us until process restart
+   (setVoice fails, keeps previous voice, failure ignored). Fix options: seed
+   full espeak data (APK size), or re-init espeak with the failing instance's
+   dataPath on setVoice failure. Design call → Max.
+
+## Device discriminator for Max's actual hang (needs ADB port)
+
+```
+adb logcat -c && adb logcat -v time Synthesizer:V StreamPerf:V \
+  KokoroDirectEngine:V KittenDirectEngine:V PocketEngine:V \
+  EspeakPhonemizer:V EngineWarmup:V KeepaliveCoordinator:V '*:S'
+```
+Repro: speak engine A → switch persona to engine B → speak. Complete
+StreamPerf run but UI stuck = d010138's bug (now fixed). No StreamPerf for
+many seconds + late "loaded in NNNN ms" = cold-load pile-up (#1). No lines at
+all after "Streaming:" = true deadlock (none found statically).
+
+## Opus 5/4.8 uncommitted diff — REVIEWED, still uncommitted
+
+Units: Engines tab On-device/Cloud segmented toggle (CloudApi route deleted),
+4-tick speed meter + Kitten-first catalog, "See all N languages" affordance,
+EngineDetail status-card removal, new PrivacyPolicyScreen (+ copyPrivacyPolicy
+gradle task), onboarding Recommended-badge line, VoicePicker contentReady
+gate. Overall coherent + complete; nav wiring checked; new strings present in
+all 8 locales. Issues for whoever commits it:
+
+- **VoicePickerViewModel.refresh() needs try/finally** — if
+  `installer.verify()` throws, `_installProbeDone` never sets and the screen
+  is permanently blank (VoicePickerViewModel.kt:310-326 / Screen :203).
+- Latent: scoped picker blanks if an engine tree has >1 source (multi-provider
+  cloud; unreachable today).
+- 4 orphaned strings ×8 locales (`engines_cloud_title/_card_desc/_configured/
+  _not_configured`); dead `EngineDetailViewModel.install()`/`isInstalling`;
+  unused FontWeight import (EngineDetailScreen.kt:39); stale comment
+  (VoicePickerViewModel.kt:319); MarmaladeDb KDoc history stops at v8.
+- PrivacyPolicyScreen renders English-only PRIVACY.md in all locales.
+- Reminder: v10 re-key has NO migration by design — pre-v10 installs lose all
+  aliases + per-app routes on upgrade (documented AppModule.kt:82-93).
+
+## F-Droid status (Max, 2026-08-06)
+
+MR stays ON HOLD; app must be release-final first (graphics come from the
+tag). Don't touch the fdroiddata MR until Max says the app is release-ready.
+
+---
+
+# HANDOFF (prev) — Kitten baked default + licensing verified + A3 engine-select redesign, 2026-08-04 (branch `main`, UNPUSHED)
 
 ## State (head `f9aca5b`)
 
