@@ -195,9 +195,24 @@ class Synthesizer @Inject constructor(
         val completion = async(start = CoroutineStart.UNDISPATCHED) {
             completions.events.first { it.requestId == requestId }
         }
+        // Intent extras cross a binder transaction (~1 MB cap) even
+        // same-process; the old in-process path had no cap, so huge pastes
+        // travel as a cache file the service consumes (reads + deletes).
+        val textFile = if (text.length > LARGE_TEXT_CHARS) {
+            withContext(Dispatchers.IO) {
+                java.io.File(appContext.cacheDir, "speak-$requestId.txt")
+                    .apply { writeText(text) }
+            }
+        } else {
+            null
+        }
         val intent = Intent(appContext, MarmaladeSynthService::class.java).apply {
             action = MarmaladeSynthService.ACTION_SPEAK
-            putExtra(MarmaladeSynthService.EXTRA_TEXT, text)
+            if (textFile == null) {
+                putExtra(MarmaladeSynthService.EXTRA_TEXT, text)
+            } else {
+                putExtra(MarmaladeSynthService.EXTRA_TEXT_FILE, textFile.absolutePath)
+            }
             // Explicit voice → the service skips its primary-alias rerouting.
             putExtra(MarmaladeSynthService.EXTRA_VOICE, voiceId)
             putExtra(MarmaladeSynthService.EXTRA_SPEED, speed)
@@ -208,19 +223,24 @@ class Synthesizer @Inject constructor(
             phonemizationLanguage?.let { putExtra(MarmaladeSynthService.EXTRA_LANG, it) }
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
         }
-        try {
-            appContext.startForegroundService(intent)
-        } catch (t: Throwable) {
-            completion.cancel()
-            return@coroutineScope Result.failure(SynthesizerException.SynthesisFailed(t))
-        }
+        activeRequestId = requestId
         val done = try {
-            completion.await()
-        } catch (e: CancellationException) {
-            // Caller's scope died (ViewModel teardown) — nobody is left to
-            // hear the result, so stop the playback on the way out.
-            cancel()
-            throw e
+            try {
+                appContext.startForegroundService(intent)
+            } catch (t: Throwable) {
+                completion.cancel()
+                return@coroutineScope Result.failure(SynthesizerException.SynthesisFailed(t))
+            }
+            try {
+                completion.await()
+            } catch (e: CancellationException) {
+                // Caller's scope died (ViewModel teardown) — nobody is left
+                // to hear the result, so stop this request on the way out.
+                cancel()
+                throw e
+            }
+        } finally {
+            if (activeRequestId == requestId) activeRequestId = 0L
         }
         when (done.error) {
             null -> Result.success(Unit)
@@ -269,15 +289,23 @@ class Synthesizer @Inject constructor(
     }
 
     override fun cancel() {
-        // Stops the service's current playback + queue; the awaiting
+        // Scoped stop: only THIS class's active request is cancelled —
+        // never the whole service queue. ViewModels call cancel() from
+        // lifecycle teardown (onCleared, preview pre-cancel, releaseAll),
+        // and a global ACTION_STOP there would kill an unrelated
+        // share-sheet read in progress, which is exactly the long-form
+        // playback the foreground service exists to protect. The awaiting
         // speak() resolves through its completion (cancel = success).
-        // Idempotent when nothing is playing, and runCatching because a
+        // No-op when no in-app request is active; runCatching because a
         // background-state start can legitimately be refused — in which
         // case the service isn't running and there is nothing to stop.
+        val id = activeRequestId
+        if (id == 0L) return
         runCatching {
             appContext.startService(
                 Intent(appContext, MarmaladeSynthService::class.java)
-                    .setAction(MarmaladeSynthService.ACTION_STOP),
+                    .setAction(MarmaladeSynthService.ACTION_STOP_REQUEST)
+                    .putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, id),
             )
         }
     }
@@ -303,7 +331,7 @@ class Synthesizer @Inject constructor(
         }
     }
 
-    /** TtsEngine handle for an engine name. Used for the maxInputChars lookup. */
+    /** TtsEngine handle for an engine name — serves preload/isWarm/releaseAll. */
     private fun engineFor(engineName: String): TtsEngine = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
@@ -313,8 +341,15 @@ class Synthesizer @Inject constructor(
         else -> kokoroDirect
     }
 
+    /** The in-flight in-app request, so [cancel] can target exactly it. */
+    @Volatile
+    private var activeRequestId: Long = 0L
+
     companion object {
         private const val TAG = "Synthesizer"
+
+        /** Above this many chars the text travels as a cache file, not an extra. */
+        private const val LARGE_TEXT_CHARS = 50_000
 
     }
 }

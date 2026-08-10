@@ -93,53 +93,39 @@ import kotlinx.coroutines.withContext
 // Data flow
 // -----------------------------------------------------------------------------
 //
-//   Caller (Activity / share-sheet / future Tasker integration)
+//   Caller — external (share sheet / process-text / Tasker) OR in-app
+//   (Synthesizer.speak: every Speak-screen / preview / effects playback;
+//   in-app requests add EXTRA_REQUEST_ID + EXTRA_EFFECT_BLOCKS json +
+//   EXTRA_LANG, use EXTRA_TEXT_FILE for huge text, and always set
+//   EXTRA_VOICE so alias rerouting is skipped)
 //     │
-//     │  Intent { action = ACTION_SPEAK, extras = text/engine/voice/speed }
+//     │  Intent { action = ACTION_SPEAK, extras as above }
 //     ▼
-//   MarmaladeSynthService.onStartCommand(intent, flags, startId)
-//     │
-//     ├── parseRequest(intent) ──► SpeakRequest
-//     │
-//     ├── ensureForegroundNotification()  (channel + Notification.MediaStyle)
-//     │
-//     ├── ensureMediaSession()  (lock-screen + BT transport)
-//     │
-//     ├── if a synthesis job is already active:
-//     │     queue.offer(request)         (idempotent — see spec)
-//     │   else:
-//     │     beginJob(request)
-//     │
+//   onStartCommand ──► parseRequest ──► enqueue ──► startNextLocked
+//     │                 (foreground notification + MediaSession ensured;
+//     │                  a busy service queues the request)
 //     ▼
-//   beginJob(req):
+//   runOne(req):
 //     │
+//     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
+//     │     voice/speed/effect/lang (share-sheet path only)
+//     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
 //     ├── requestAudioFocus(AUDIOFOCUS_GAIN)
-//     │     - LOSS_TRANSIENT → pause the AudioTrack
-//     │     - LOSS           → stop + release; clear queue
-//     │     - GAIN (after transient loss) → resume
-//     │
-//     ├── if (!req.voiceExplicit) — share-sheet / clipboard-tile path,
-//     │     no EXTRA_VOICE on the intent:
-//     │       TtsRouter.resolveAlias(callerPackage = null) ──► primary alias?
-//     │         └── if non-null, replace req.voice/engine/speed/effect with
-//     │             the alias's fields. Else keep the engine defaults.
-//     ├── EmojiProsody.detect(raw text)  ──► ProsodyHint
-//     ├── settings.enabledRules(engineName).first() ──► Set<String>
-//     ├── Preprocessor.apply(raw, enabled) ──► normalised text
-//     │     (currency, numbers, abbreviations, … per Settings)
-//     ├── EmojiProsody.stripEmojis(normalised) ──► engine-safe text
-//     ├── synthesizeForEngine(engineName, text, voice, speed) → SynthAudio
-//     │     ├── "kokoro" → KokoroEngine.synthesize(...)
-//     │     └── "kitten" → KittenEngine.synthesize(...)
-//     ├── ProsodyApplier.apply(pcm, sr, hint.emotion)     → emotion-shaped PCM
-//     ├── EffectChain.applyChain(pcm, sr, effectBlocks)   → effect-shaped PCM
-//     │
-//     ├── stream into AudioTrack (MODE_STREAM, 24 kHz PCM_16BIT mono)
-//     │     - pausable / cancellable via volatile flags
-//     │
-//     └── on completion:
-//           if queue.isNotEmpty() → beginJob(queue.poll())
-//           else                  → releaseAudioFocus, stopForeground, stopSelf
+//     │     - LOSS_TRANSIENT → pause; GAIN → resume; LOSS → doStop
+//     ├── settings.enabledRules → Preprocessor.apply → stripEmojis
+//     ├── neutral emotion → streamAndPlay (engine synthesizeStream →
+//     │     StreamingEffectChain → AudioTrack; TTFA sampled into
+//     │     VoiceLatencyTracker) ; else synthesizeBatchedAndPlay
+//     │     (ProsodyApplier + EffectChain need the whole PCM)
+//     └── finally: residency/focus released, and the request's terminal
+//           state posts to PreviewCompletions (resolves the awaiting
+//           in-app speak(); external requests post nothing) — then
+//           startNextLocked continues the queue or the service stops.
+//
+//   ACTION_STOP stops everything; ACTION_STOP_REQUEST stops only the
+//   named in-app request (ViewModel teardown must not kill an external
+//   read). Drain loops bail out if the playback head stalls (Android 16
+//   audio hardening parks policy-muted tracks).
 //
 //   Bluetooth headset hand-off: not implemented explicitly — AudioTrack
 //   honours the system routing automatically, and audio-focus loss when
@@ -192,6 +178,9 @@ class MarmaladeSynthService : Service() {
     private val lock = Any()
     private val queue: ArrayDeque<SpeakRequest> = ArrayDeque()
     private var activeJob: Job? = null
+
+    /** The in-app request id currently playing (0 = none / external). */
+    @Volatile private var activeRequestId: Long = 0L
 
     // AudioTrack owner-thread invariant: `currentTrack` is created and
     // destroyed by the synthesis coroutine. Read by `pause` / `resume`
@@ -246,6 +235,13 @@ class MarmaladeSynthService : Service() {
                 val req = parseRequest(intent)
                 if (req == null) {
                     Log.w(TAG, "ACTION_SPEAK without ${EXTRA_TEXT} — ignoring")
+                    // A malformed in-app request must still resolve its
+                    // awaiting speak() call.
+                    completions.post(
+                        intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
+                        PreviewCompletions.ErrorKind.FAILED,
+                        "malformed request",
+                    )
                     stopIfIdle()
                     return START_NOT_STICKY
                 }
@@ -254,6 +250,8 @@ class MarmaladeSynthService : Service() {
             ACTION_PAUSE -> doPause()
             ACTION_RESUME -> doResume()
             ACTION_STOP -> doStop()
+            ACTION_STOP_REQUEST ->
+                doStopRequest(intent.getLongExtra(EXTRA_REQUEST_ID, 0L))
             else -> {
                 // Unknown action — ignore but don't crash.
                 Log.w(TAG, "Unknown action: ${intent.action}")
@@ -277,7 +275,17 @@ class MarmaladeSynthService : Service() {
     // -- request handling -----------------------------------------------------
 
     private fun parseRequest(intent: Intent): SpeakRequest? {
+        // In-app callers hand very long text over as a cache file: intent
+        // extras cross a binder transaction (~1 MB) even same-process, and
+        // the Speak screen accepts pastes the old in-process path played
+        // without any such cap. The file is consumed (deleted) here.
         val text = intent.getStringExtra(EXTRA_TEXT)?.takeIf { it.isNotBlank() }
+            ?: intent.getStringExtra(EXTRA_TEXT_FILE)?.let { path ->
+                val f = java.io.File(path)
+                // Only ever our own cache files — refuse anything else.
+                if (!f.absolutePath.startsWith(cacheDir.absolutePath)) return null
+                runCatching { f.readText() }.getOrNull().also { f.delete() }
+            }?.takeIf { it.isNotBlank() }
             ?: return null
         // Track whether the caller specified a voice explicitly. When they
         // didn't, we leave voice/engine/speed/effect as "default" sentinels
@@ -383,10 +391,12 @@ class MarmaladeSynthService : Service() {
         // is already foregrounded, so starting the keepalive service from
         // here is FGS-from-FGS, which is always allowed.
         keepaliveCoordinator.onSynthCompleted()
-        activeJob = scope.launch {
+        activeRequestId = next.requestId
+        val job = scope.launch {
             runOne(next)
             synchronized(lock) {
                 activeJob = null
+                activeRequestId = 0L
                 if (queue.isNotEmpty()) {
                     startNextLocked()
                 } else {
@@ -394,9 +404,22 @@ class MarmaladeSynthService : Service() {
                 }
             }
         }
+        // Safety net for the one window runOne's own finally can't cover:
+        // the coroutine cancelled (onDestroy's scope.cancel) before its
+        // body ever dispatched. A duplicate post for an id that already
+        // resolved is harmless — the awaiting speak() collected the first.
+        job.invokeOnCompletion { cause ->
+            if (cause is kotlinx.coroutines.CancellationException) {
+                completions.post(next.requestId, null)
+            }
+        }
+        activeJob = job
     }
 
     private suspend fun runOne(req: SpeakRequest) {
+        var outcome: PreviewCompletions.ErrorKind? = null
+        var outcomeMessage: String? = null
+        try {
         // Per-app routing: when the caller didn't specify a voice, ask
         // TtsRouter for the user's primary alias and inject voice + speed
         // + effect from it. Share-sheet and clipboard-tile callers never
@@ -448,11 +471,10 @@ class MarmaladeSynthService : Service() {
 
         if (!requestFocus()) {
             Log.w(TAG, "Audio focus denied — skipping request")
-            completions.post(req.requestId, PreviewCompletions.ErrorKind.FAILED, "audio focus denied")
+            outcome = PreviewCompletions.ErrorKind.FAILED
+            outcomeMessage = "audio focus denied"
             return
         }
-        var outcome: PreviewCompletions.ErrorKind? = null
-        var outcomeMessage: String? = null
         // Marks this engine resident for the residency window, and keeps a
         // sweep from releasing it mid-utterance (Pocket's release() cancels
         // an in-flight synthesis). Paired in the finally below.
@@ -530,10 +552,14 @@ class MarmaladeSynthService : Service() {
         } finally {
             residency.endSynth(engineName)
             releaseFocus()
-            // The one post site, so every exit — played through, user
-            // cancel (a terminal success), error, or the service being
-            // torn down mid-utterance — resolves the awaiting in-app
-            // speak() call exactly once.
+        }
+        } finally {
+            // The post site covering every exit that entered runOne's body
+            // — played through, user cancel (a terminal success), error,
+            // focus denied, or cancellation anywhere including the
+            // pre-focus routing suspension — so the awaiting in-app
+            // speak() call always resolves. (The never-dispatched case is
+            // covered by the invokeOnCompletion net in startNextLocked.)
             completions.post(req.requestId, outcome, outcomeMessage)
         }
     }
@@ -700,6 +726,37 @@ class MarmaladeSynthService : Service() {
         } catch (_: IllegalStateException) { /* track gone */ }
         updateMediaState(PlaybackStateCompat.STATE_PLAYING)
         updateNotification(getString(R.string.service_synth_state_speaking))
+    }
+
+    /**
+     * Stop ONE in-app request — [Synthesizer.cancel]'s scoped stop. Unlike
+     * [doStop] this never touches other work: an external share-sheet read
+     * in progress (or queued) keeps playing. Queued → removed + resolved;
+     * currently playing → current job cancelled (the queue continues);
+     * already finished / unknown → no-op.
+     */
+    private fun doStopRequest(requestId: Long) {
+        if (requestId == 0L) return
+        synchronized(lock) {
+            val queued = queue.firstOrNull { it.requestId == requestId }
+            if (queued != null) {
+                queue.remove(queued)
+                completions.post(requestId, null)
+                return
+            }
+            if (activeRequestId != requestId) return
+            cancelled = true
+        }
+        val track = currentTrack
+        if (track != null) {
+            try {
+                if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
+                    track.pause()
+                    track.flush()
+                    track.stop()
+                }
+            } catch (_: IllegalStateException) { /* already stopped */ }
+        }
     }
 
     private fun doStop() {
@@ -1080,6 +1137,14 @@ class MarmaladeSynthService : Service() {
         const val ACTION_RESUME: String = "app.marmalade.tts.action.RESUME"
         const val ACTION_STOP: String = "app.marmalade.tts.action.STOP"
 
+        /**
+         * Stop a single in-app request by [EXTRA_REQUEST_ID] without
+         * touching the rest of the queue — [ACTION_STOP] kills everything
+         * including an external share-sheet read, which is exactly what a
+         * ViewModel teardown must NOT do.
+         */
+        const val ACTION_STOP_REQUEST: String = "app.marmalade.tts.action.STOP_REQUEST"
+
         const val EXTRA_TEXT: String = "app.marmalade.tts.extra.TEXT"
         const val EXTRA_ENGINE: String = "app.marmalade.tts.extra.ENGINE"
         const val EXTRA_VOICE: String = "app.marmalade.tts.extra.VOICE"
@@ -1093,6 +1158,11 @@ class MarmaladeSynthService : Service() {
         const val EXTRA_LANG: String = "app.marmalade.tts.extra.LANG"
         /** [PreviewCompletions] request id (Long). */
         const val EXTRA_REQUEST_ID: String = "app.marmalade.tts.extra.REQUEST_ID"
+        /**
+         * Path (inside our own cacheDir) holding the text, used instead of
+         * [EXTRA_TEXT] when the text is too large for a binder transaction.
+         */
+        const val EXTRA_TEXT_FILE: String = "app.marmalade.tts.extra.TEXT_FILE"
 
         /**
          * Convenience: build a SPEAK intent without the caller needing to
