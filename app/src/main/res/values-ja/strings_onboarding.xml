@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_mascot_content_description">Marmalade のマスコット</string>
 
     <string name="onboarding_welcome_title">Marmalade TTS へようこそ</string>
     <string name="onboarding_welcome_body">Marmalade は、お好みのボイスでテキストをオフラインで読み上げます。まずはエンジンを選んでください。</string>

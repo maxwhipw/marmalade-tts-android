@@ -251,7 +251,9 @@ private fun WelcomeStep(
     ) {
         Image(
             painter = painterResource(id = R.drawable.mascot_happy),
-            contentDescription = stringResource(R.string.onboarding_mascot_content_description),
+            // Decorative everywhere — the mascot is never a TalkBack stop
+            // (Max, 2026-08-09). The welcome copy below carries the meaning.
+            contentDescription = null,
             modifier = Modifier.size(160.dp),
         )
         Spacer(Modifier.height(24.dp))
@@ -412,7 +414,11 @@ private fun EngineCard(
             .fillMaxWidth()
             .then(
                 if (isBuiltIn) {
-                    Modifier
+                    // toggleable() merges each selectable card into ONE
+                    // TalkBack object; the built-in card must merge the same
+                    // way or TalkBack walks its every text fragment
+                    // separately (Max's 2026-08-09 TalkBack pass).
+                    Modifier.semantics(mergeDescendants = true) {}
                 } else {
                     Modifier.toggleable(
                         value = isSelected,

@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -132,8 +133,9 @@ private fun SpecValueText(text: String) {
  * (leading info glyph, trailing chevron) that opens a dialog listing which
  * languages — styled and phrased as an action so it plainly reads as tappable,
  * with a full-width ~44 dp touch target rather than the old text-sized sliver.
- * The whole Row is one TalkBack button: the visible "See all <n>" is its name
- * and the "show languages" label rides along; the two glyphs are decorative.
+ * For TalkBack the row is NOT a button — it reads as the plain list of
+ * language names, merging into the engine card's single object; the dialog
+ * (whose only content is that same list) stays sighted-only.
  * The "LANGUAGES" overline directly above supplies the noun the action drops.
  */
 @Composable
@@ -145,6 +147,15 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
 
     var showDialog by remember { mutableStateOf(false) }
     val openLabel = stringResource(R.string.engine_languages_info_cd)
+    // TalkBack reads the actual language names, not "See all <n>": the
+    // names merge into the engine card's single object (the cards merge
+    // descendants), so the dialog — whose only content IS this list — stays
+    // a sighted-only affordance. A button here would break out of the
+    // merged card and strand the languages outside the engine's one object
+    // (Max's 2026-08-09 TalkBack pass).
+    val spokenLanguages = languageCodes
+        .map { stringResource(languageNameRes(it)) }
+        .joinToString(", ")
     // Primary/orange, matching the app's other in-app "link" actions (the
     // Engines-tab "Show more"); it's the tap cue. A single small action doesn't
     // flood the card the way a column of accent-filled meters would.
@@ -162,6 +173,7 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
             .offset(y = -LanguagesTapPadding)
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClickLabel = openLabel, role = Role.Button) { showDialog = true }
+            .clearAndSetSemantics { contentDescription = spokenLanguages }
             .fillMaxWidth()
             .padding(vertical = LanguagesTapPadding),
     ) {

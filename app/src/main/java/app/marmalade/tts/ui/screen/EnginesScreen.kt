@@ -288,7 +288,18 @@ private fun EngineCard(
     // reflowed the whole list and pushed the neighbouring cards around.
     var showDetails by remember(engine.name) { mutableStateOf(false) }
 
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    // One TalkBack object per engine (Max's 2026-08-09 TalkBack pass):
+    // the card's text fragments — name, tagline, sizes, the spec column
+    // with speed tier / quality / language names — merge into a single
+    // swipe stop, matching the onboarding picker's toggleable cards. The
+    // action buttons, "Show more", and the transient progress/error lines
+    // (their own merge boundaries, so their live regions keep announcing)
+    // remain separate stops.
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {},
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -342,7 +353,7 @@ private fun EngineCard(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .padding(vertical = 4.dp)
-                            .clickable { showDetails = true },
+                            .clickable(role = Role.Button) { showDetails = true },
                     )
                 }
                 Spacer(Modifier.width(12.dp))
@@ -372,7 +383,7 @@ private fun EngineCard(
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
                 )
             }
             if (state is InstallState.Extracting) {
@@ -395,7 +406,7 @@ private fun EngineCard(
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
                 )
             }
             if (state is InstallState.Failed) {
@@ -404,7 +415,7 @@ private fun EngineCard(
                     text = state.reason,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
                 )
             }
 

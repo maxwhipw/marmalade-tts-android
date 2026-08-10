@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_mascot_content_description">Mascotte di Marmalade</string>
 
     <string name="onboarding_welcome_title">Benvenuto in Marmalade TTS</string>
     <string name="onboarding_welcome_body">Marmalade legge i testi ad alta voce, offline, con le voci che scegli tu. Scegli un motore per iniziare.</string>

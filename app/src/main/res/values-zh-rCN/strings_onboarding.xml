@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_mascot_content_description">Marmalade 吉祥物</string>
 
     <string name="onboarding_welcome_title">欢迎使用 Marmalade TTS</string>
     <string name="onboarding_welcome_body">Marmalade 用你选择的语音离线朗读文本。先选择一个引擎开始吧。</string>
