@@ -36,7 +36,7 @@ the pinned `third_party/espeak-ng` submodule. See
 ## 2. Phonemizer — espeak-ng
 
 - **Library:** `libespeak-ng.so` — in the **APK**, compiled from source
-  (submodule `third_party/espeak-ng`, tag 1.52.0) by
+  (submodule `third_party/espeak-ng`, commit 96f0dbfb: the 1.52.0 release plus upstream determinism fix espeak-ng#2071) by
   `app/src/main/cpp/espeak-ng/CMakeLists.txt`.
 - **Data:** `phonemizer/espeak-ng-data/` (full tree) — in the bundle;
   derives from Debian package `espeak-ng-data 1.51+dfsg-12build1`.
@@ -49,7 +49,7 @@ the pinned `third_party/espeak-ng` submodule. See
   mode (`espeak_TextToPhonemes` with `phonememode = IPA`).
 - **Source availability:** Per GPL-3.0 §6, corresponding source for the
   APK's libespeak-ng.so is the pinned submodule in this repository
-  (upstream tag 1.52.0).
+  (upstream commit 96f0dbfb: 1.52.0 plus determinism fix espeak-ng#2071).
 
 ## 3. JNI shim — Marmalade (this repo)
 

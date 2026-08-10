@@ -25,7 +25,7 @@ APK from vendored BSD-3 source (`app/src/main/cpp/openjtalk/`) — see
 This engine depends on **espeak-ng (GPL-3.0-or-later)** for
 phonemization. The library (`libespeak-ng.so`) is compiled from source
 into the APK from the pinned `third_party/espeak-ng` submodule (tag
-1.52.0) and `dlopen()`d at runtime by the JNI shim
+commit 96f0dbfb: 1.52.0 plus determinism fix espeak-ng#2071) and `dlopen()`d at runtime by the JNI shim
 (`app/src/main/cpp/espeak_jni.c`); the bundle supplies the
 `espeak-ng-data` dictionaries.
 

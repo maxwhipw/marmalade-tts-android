@@ -25,7 +25,7 @@ the other files in this folder). Versions are authoritative in
 
 espeak-ng is **GPL-3.0-or-later** and ships **in the APK** as
 `libespeak-ng.so`, compiled from source out of the pinned
-`third_party/espeak-ng` submodule (tag 1.52.0) by
+`third_party/espeak-ng` submodule (commit 96f0dbfb: 1.52.0 plus determinism fix espeak-ng#2071) by
 `app/src/main/cpp/espeak-ng/CMakeLists.txt`. The MIT JNI shim
 (`app/src/main/cpp/espeak_jni.c`) `dlopen`s it at runtime and contains
 zero espeak code. Because of this component the distributed APK is a

@@ -29,12 +29,14 @@ Complete corresponding source for the APK is this repository, including
 the pinned espeak-ng submodule it is built from:
 
 > **https://github.com/maxwhipw/marmalade-tts-android**
-> espeak-ng: **https://github.com/espeak-ng/espeak-ng** at tag
-> **1.52.0** (pinned in `third_party/espeak-ng`; built by
+> espeak-ng: **https://github.com/espeak-ng/espeak-ng** at commit
+> **96f0dbfb** (the 1.52.0 release plus upstream's determinism fix for
+> dictionary compilation, espeak-ng#2071; pinned in
+> `third_party/espeak-ng`; built by
 > `app/src/main/cpp/espeak-ng/CMakeLists.txt`)
 
 The `espeak-ng-data` directory shipped in the engine bundles (v22+) is
-built from the same 1.52.0 tag, so the library and its data cite one
+built from the same pinned commit, so the library and its data cite one
 upstream commit. (Bundles up to v21 carried data derived from Debian
 `1.51+dfsg` plus a legacy `libttsespeak.so` the app never loaded; both
 were removed in the v22 re-spin — see the engines repo's release notes.)
