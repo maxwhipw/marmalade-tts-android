@@ -1,21 +1,6 @@
 Marmalade TTS 1.0.0, the first stable release.
-
-Voices and engines
-- Kitten Nano built in: a fast, natural English voice that works fully offline from first launch. No downloads, no setup.
-- Kokoro: the best all-round voices. Speaks English (US and UK), Spanish, French, Italian, Hindi, Brazilian Portuguese, Japanese, and Mandarin, and detects the language automatically.
-- Pocket TTS: the most expressive, characterful English voices.
-- Optional cloud voices with your own API keys, off by default and clearly separated from on-device engines.
-
-Read anywhere
-- A full system TTS engine: e-book readers, browsers, and screen readers can all speak through Marmalade.
-- Accessibility first: TalkBack can use Marmalade as its voice, the built-in voice needs no download to get there, and the app itself is built to be navigated with a screen reader.
-- Share text or an article to Marmalade to hear it read aloud.
-- Per-app voices: give each app its own voice.
-
-Make it yours
-- 22 effect presets, from radio to cathedral to trailer, plus a full effects editor.
-- Voice aliases for quick switching between favorite setups.
-- Emoji in your text shape the voice's expression (supported engines).
-
-Private by default
-- On-device speech never leaves your phone. No ads, no accounts, no analytics.
+- Speaks offline from first launch with the built-in Kitten Nano voice.
+- Kokoro speaks 8 languages with automatic detection; Pocket TTS adds expressive English voices; optional cloud voices with your own keys.
+- Full system TTS engine with TalkBack support and per-app voices.
+- 22 effect presets plus an editor, voice aliases, emoji-driven expression.
+- Private by default: no ads, no accounts, no analytics.
