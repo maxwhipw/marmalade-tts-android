@@ -31,23 +31,25 @@ and add four repository secrets:
 | `KEY_PASSWORD`            | Same value as above (PKCS12 default — set both for safety)|
 | `KEY_ALIAS`               | `marmalade-upload` (or whatever alias you used)           |
 
-### Second keystore: the distribution key (F-Droid/GitHub)
+### Second secret quartet: the distribution key (F-Droid/GitHub)
 
-Decided 2026-08-09 (FDROID-RELEASE-PLAN.md R-track): the fdroid-flavor
-APK — the reproducible-build reference binary and the GitHub sideload
-artifact — signs with a **dedicated distribution key**, not the Play
-upload key. The F-Droid identity is permanent (pinned by
-`AllowedAPKSigningKeys`, no rotation without every user reinstalling),
-so it must not share fate with a key Google can reset. Generate it the
-same way as SIGNING.md §1 but with keystore `marmalade-dist.jks` and
-alias `marmalade-dist`, then add four more secrets:
+Decided 2026-08-09 (revised; FDROID-RELEASE-PLAN.md R-track): the
+fdroid-flavor APK — the reproducible-build reference binary and the
+GitHub sideload artifact — signs with `marmalade-upload.jks` too. One
+key, both channels. The workflow still reads a separate `DIST_*`
+quartet so the two roles can decouple later without touching the
+permanent F-Droid identity (pinned by `AllowedAPKSigningKeys`, no
+rotation without every user reinstalling): if decoupling is ever
+wanted, mint a FRESH key for *Play* (upload keys are the side Google
+can reset) and swap only the `UPLOAD_*` secrets. For now the `DIST_*`
+quartet carries the same values as the upload quartet:
 
 | Name                     | Value                                          |
 |--------------------------|------------------------------------------------|
-| `DIST_KEYSTORE_BASE64`   | base64 of `marmalade-dist.jks`                 |
-| `DIST_KEYSTORE_PASSWORD` | The dist keystore password                     |
+| `DIST_KEYSTORE_BASE64`   | base64 of `marmalade-upload.jks` (same as `UPLOAD_KEYSTORE_BASE64`) |
+| `DIST_KEYSTORE_PASSWORD` | Same keystore password as `KEYSTORE_PASSWORD`  |
 | `DIST_KEY_PASSWORD`      | Same value (PKCS12)                            |
-| `DIST_KEY_ALIAS`         | `marmalade-dist`                               |
+| `DIST_KEY_ALIAS`         | `marmalade-upload`                             |
 
 The workflow **fails without both keystores** — publishing a release
 whose fdroid APK carries the wrong signature would break F-Droid's

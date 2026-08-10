@@ -10,10 +10,11 @@
 #   scripts/make-keystore-properties.sh ~/Passwords.kdbx marmalade-upload \
 #       ~/secure/marmalade-upload.jks
 #
-# Example (both keys — a real distribution build needs the dist key too,
-# see docs/release/CI-SIGNING.md):
+# Example (with the dist quartet — a real distribution build needs it too;
+# decided 2026-08-09 the dist key IS the upload key, so both quartets point
+# at the same keystore, see docs/release/CI-SIGNING.md):
 #   scripts/make-keystore-properties.sh ~/Passwords.kdbx marmalade-upload \
-#       ~/secure/marmalade-upload.jks marmalade-dist ~/secure/marmalade-dist.jks
+#       ~/secure/marmalade-upload.jks marmalade-upload ~/secure/marmalade-upload.jks
 #
 # The KeePassXC entry's Password field must hold the keystore password
 # (the same password is used for the store and the key — that's how
@@ -54,11 +55,12 @@ keyAlias=$ALIAS
 keyPassword=$PASSWORD
 EOF
 
-# Optional second quartet: the dedicated distribution key that signs the
-# fdroid flavor (permanent F-Droid/GitHub identity).
+# Optional second quartet: the distribution key that signs the fdroid
+# flavor (permanent F-Droid/GitHub identity — currently the same keystore
+# as the upload key).
 if [ $# -ge 4 ]; then
     DIST_ENTRY=$4
-    DIST_KEYSTORE=${5:-$HOME/secure/marmalade-dist.jks}
+    DIST_KEYSTORE=${5:-$HOME/secure/marmalade-upload.jks}
     if [ ! -f "$DIST_KEYSTORE" ]; then
         echo "Dist keystore not found at $DIST_KEYSTORE — generate it first (docs/release/CI-SIGNING.md)." >&2
         exit 1
