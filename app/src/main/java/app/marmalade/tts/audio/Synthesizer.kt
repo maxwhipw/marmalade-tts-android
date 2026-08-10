@@ -691,11 +691,27 @@ class Synthesizer @Inject constructor(
                     }
                     totalWritten += off
                 }
-                // Drain — block until the head plays through the last write.
+                // Drain — block until the head plays through the last write,
+                // or until the head stops moving entirely. Android 16's audio
+                // hardening can mute-and-park a track it deems ineligible
+                // (app behind the keyguard / backgrounded mid-utterance):
+                // gain -inf, deactivated from the mix, frames never consumed
+                // — an unconditional head-wait then spins forever and the UI
+                // shows "Speaking…" until force-stop (observed 2026-08-09).
                 val t = track ?: return@withContext
+                var lastPos = -1
+                var lastProgressAt = SystemClock.elapsedRealtime()
                 while (!cancelled) {
                     val pos = t.playbackHeadPosition
                     if (pos >= totalWritten) break
+                    val now = SystemClock.elapsedRealtime()
+                    if (pos != lastPos) {
+                        lastPos = pos
+                        lastProgressAt = now
+                    } else if (now - lastProgressAt >= DRAIN_STALL_MS) {
+                        Log.w(TAG, "playback head stalled at $pos/$totalWritten; abandoning drain")
+                        break
+                    }
                     try {
                         Thread.sleep(10L)
                     } catch (_: InterruptedException) {
@@ -774,12 +790,22 @@ class Synthesizer @Inject constructor(
                 written += n
             }
 
-            // Block until the playback head reaches the end of what we wrote.
-            // 10 ms granularity keeps the cancel path responsive without
-            // pinning the IO thread.
+            // Block until the playback head reaches the end of what we wrote,
+            // with the same stall bailout as [playFromChannel]: a track the
+            // OS has muted-and-parked never advances its head.
+            var lastPos = -1
+            var lastProgressAt = SystemClock.elapsedRealtime()
             while (!cancelled) {
                 val pos = track.playbackHeadPosition
                 if (pos >= written) break
+                val now = SystemClock.elapsedRealtime()
+                if (pos != lastPos) {
+                    lastPos = pos
+                    lastProgressAt = now
+                } else if (now - lastProgressAt >= DRAIN_STALL_MS) {
+                    Log.w(TAG, "playback head stalled at $pos/$written; abandoning drain")
+                    break
+                }
                 try {
                     Thread.sleep(10L)
                 } catch (_: InterruptedException) {
@@ -804,6 +830,15 @@ class Synthesizer @Inject constructor(
 
     companion object {
         private const val TAG = "Synthesizer"
+
+        /**
+         * Zero playback-head progress for this long while frames remain
+         * means the track is dead (OS-muted and deactivated, device gone)
+         * — finish instead of holding "Speaking…" forever. Generous vs
+         * any real pause the mixer takes: even a route change resumes in
+         * well under a second.
+         */
+        private const val DRAIN_STALL_MS = 2_500L
         /** Logcat tag for the P-A streaming perf diagnostic — `adb logcat -s StreamPerf`. */
         private const val PERF_TAG = "StreamPerf"
     }
