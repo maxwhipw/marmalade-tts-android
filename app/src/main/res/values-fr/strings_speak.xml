@@ -9,6 +9,7 @@
 
     <!-- Speak screen -->
     <string name="speak_text_field_label">Texte à lire</string>
+    <string name="speak_text_field_cd">Texte à lire. Saisissez ou collez le texte que Marmalade lira à voix haute.</string>
     <string name="speak_button_speak">Lire</string>
     <string name="speak_button_stop">Arrêter</string>
     <string name="speak_status_speaking">Lecture en cours…</string>

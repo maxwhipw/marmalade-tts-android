@@ -9,6 +9,7 @@
 
     <!-- Speak screen -->
     <string name="speak_text_field_label">読み上げるテキスト</string>
+    <string name="speak_text_field_cd">読み上げるテキスト。Marmalade に読み上げさせるテキストを入力または貼り付けてください。</string>
     <string name="speak_button_speak">読み上げ</string>
     <string name="speak_button_stop">停止</string>
     <string name="speak_status_speaking">読み上げ中…</string>

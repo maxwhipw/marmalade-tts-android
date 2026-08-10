@@ -208,6 +208,11 @@ object EngineCatalog {
         // Recommended + onboarding-preselected default: it's baked into the
         // APK (works instantly + offline on first run) and the fastest engine
         // on any device. Kokoro/Pocket are optional higher-quality downloads.
+        // Baking is also an ACCESSIBILITY commitment, not just convenience
+        // (Max, 2026-08-09): a blind user can pick Marmalade as their
+        // TalkBack voice and have working speech from the very first boot,
+        // no download step. Never un-bake Kitten without an equivalent
+        // built-in voice.
         isRecommended = true,
         archive = EngineArchive(
             // v22: legacy libttsespeak.so removed (bundles carry no executable

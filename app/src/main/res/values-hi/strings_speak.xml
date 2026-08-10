@@ -9,6 +9,7 @@
 
     <!-- Speak screen -->
     <string name="speak_text_field_label">बोलने के लिए टेक्स्ट</string>
+    <string name="speak_text_field_cd">बोलने के लिए टेक्स्ट। वह टेक्स्ट लिखें या पेस्ट करें जिसे Marmalade ज़ोर से पढ़ेगा।</string>
     <string name="speak_button_speak">बोलें</string>
     <string name="speak_button_stop">रोकें</string>
     <string name="speak_status_speaking">बोल रहा है…</string>

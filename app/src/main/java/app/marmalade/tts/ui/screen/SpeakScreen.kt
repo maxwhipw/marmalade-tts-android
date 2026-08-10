@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -187,6 +189,9 @@ fun SpeakScreen(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 22.sp,
                         color = LocalWordmarkColor.current,
+                        // Brand wordmark, not a screen title — cosmetic like
+                        // the mascot, so no TalkBack stop (Max, 2026-08-09).
+                        modifier = Modifier.clearAndSetSemantics {},
                     )
                 },
                 windowInsets = WindowInsets(0),
@@ -222,13 +227,19 @@ fun SpeakScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            // The semantics description names the field's purpose for
+            // TalkBack — the visible floating label alone read bare
+            // (Max, 2026-08-09). TalkBack announces it as the field's
+            // name, then the current value, then "edit box".
+            val speakFieldCd = stringResource(R.string.speak_text_field_cd)
             OutlinedTextField(
                 value = text,
                 onValueChange = viewModel::onTextChanged,
                 label = { Text(stringResource(R.string.speak_text_field_label)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 160.dp),
+                    .heightIn(min = 160.dp)
+                    .semantics { contentDescription = speakFieldCd },
                 minLines = 5,
                 maxLines = 8,
             )
@@ -285,18 +296,25 @@ fun SpeakScreen(
                         )
                     }
                 } else {
-                    Text(
-                        text = statusText(playbackState, installCta),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = when (playbackState) {
-                            is PlaybackState.Error -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { liveRegion = LiveRegionMode.Polite },
-                    )
+                    // Composed only when there is something to say: the Idle
+                    // state's empty string used to leave an empty-but-focusable
+                    // TalkBack target under the Speak button (Max, 2026-08-09).
+                    // Appearing with liveRegion still announces the new status.
+                    val status = statusText(playbackState, installCta)
+                    if (status.isNotEmpty()) {
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = when (playbackState) {
+                                is PlaybackState.Error -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
                 }
             }
         }

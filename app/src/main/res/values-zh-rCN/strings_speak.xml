@@ -9,6 +9,7 @@
 
     <!-- Speak screen -->
     <string name="speak_text_field_label">要朗读的文本</string>
+    <string name="speak_text_field_cd">要朗读的文本。输入或粘贴 Marmalade 要朗读的文本。</string>
     <string name="speak_button_speak">朗读</string>
     <string name="speak_button_stop">停止</string>
     <string name="speak_status_speaking">正在朗读…</string>

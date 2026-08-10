@@ -9,6 +9,7 @@
 
     <!-- Tela Falar -->
     <string name="speak_text_field_label">Texto a falar</string>
+    <string name="speak_text_field_cd">Texto a falar. Digite ou cole o texto que o Marmalade lerá em voz alta.</string>
     <string name="speak_button_speak">Falar</string>
     <string name="speak_button_stop">Parar</string>
     <string name="speak_status_speaking">Falando…</string>

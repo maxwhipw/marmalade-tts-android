@@ -9,6 +9,7 @@
 
     <!-- Schermata Leggi -->
     <string name="speak_text_field_label">Testo da leggere</string>
+    <string name="speak_text_field_cd">Testo da leggere. Scrivi o incolla il testo che Marmalade leggerà ad alta voce.</string>
     <string name="speak_button_speak">Leggi</string>
     <string name="speak_button_stop">Interrompi</string>
     <string name="speak_status_speaking">Lettura in corso…</string>

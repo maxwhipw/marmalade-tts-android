@@ -10,6 +10,7 @@
     <!-- Speak screen -->
     <string name="speak_wordmark" translatable="false">marmalade tts</string>
     <string name="speak_text_field_label">Text to speak</string>
+    <string name="speak_text_field_cd">Text to speak. Enter or paste the text Marmalade will read aloud.</string>
     <string name="speak_button_speak">Speak</string>
     <string name="speak_button_stop">Stop</string>
     <string name="speak_status_speaking">Speaking…</string>

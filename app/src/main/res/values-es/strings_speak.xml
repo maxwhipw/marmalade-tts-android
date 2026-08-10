@@ -9,6 +9,7 @@
 
     <!-- Pantalla Hablar -->
     <string name="speak_text_field_label">Texto para leer</string>
+    <string name="speak_text_field_cd">Texto para leer. Escribe o pega el texto que Marmalade leerá en voz alta.</string>
     <string name="speak_button_speak">Hablar</string>
     <string name="speak_button_stop">Detener</string>
     <string name="speak_status_speaking">Hablando…</string>
