@@ -53,31 +53,34 @@ each project's own copyright line (Marmalade, ONNX Runtime / Microsoft, Pocket
 (GPL-3.0, Apache-2.0, CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0) are shared, with
 attribution shown per component. All in-app texts are bundled in the APK under `assets/licenses/`.
 
-## On-demand engine bundles
+## Baked-in engine and on-demand engine bundles
 
-The default APK bundles **no neural model files**. Engines and their
-phonemizer assets are downloaded on opt-in from
+The APK ships one engine out of the box: **Kitten Nano** (Apache-2.0
+model weights + 8 voices, baked in as `assets/engines-seed/`), so the
+app speaks offline from first launch. It also ships **one full
+`espeak-ng-data` set** (GPL-3.0-or-later), generated at build time from
+the pinned `third_party/espeak-ng` submodule and shared by all
+espeak-phonemized engines. All other engines download on opt-in from
 **https://github.com/maxwhipw/marmalade-tts-android-engines/releases**
 into app-private storage. Bundles contain model weights and phonemizer
-data — no executable code is downloaded. The Kitten and Kokoro bundles
-include the GPL-licensed `espeak-ng-data` dictionaries (older bundle
-versions also carried a now-unused `libttsespeak.so`); the install
-screen discloses each bundle's licenses before download. The Pocket
-bundle contains no GPL components. Per-bundle detail is in the
-[`LICENSES/`](LICENSES/) folder.
+data — no executable code is downloaded (older bundle versions carried
+a now-unused `libttsespeak.so`); the install screen discloses each
+bundle's licenses before download. The Pocket bundle contains no GPL
+components. Per-bundle detail is in the [`LICENSES/`](LICENSES/)
+folder.
 
 ## Per-component summary
 
 | Component | Role | Where it ships | License |
 |---|---|---|---|
 | Marmalade app code | The app | APK (source) | **MIT** |
-| espeak-ng | Phonemizer (English/multi) | APK (compiled from source); data in engine bundles | **GPL-3.0-or-later** |
+| espeak-ng | Phonemizer (English/multi) | APK (compiled from source; full `espeak-ng-data` generated at build time) | **GPL-3.0-or-later** |
 | ONNX Runtime Mobile | Inference runtime | APK | MIT |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
 | Open JTalk + MeCab | Japanese phonemizer frontend | APK (compiled in) | BSD-3-Clause |
 | misaki / cutlet (port) | Japanese G2P tables (clean-room Kotlin port) | APK (source) | MIT |
 | Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 |
-| KittenTTS (nano/mini) | Neural voice model | Engine bundle | Apache-2.0 |
+| KittenTTS (nano/mini) | Neural voice model | APK (nano, baked-in seed); engine bundle (mini) | Apache-2.0 |
 | Pocket TTS (Kyutai) — model code | Neural voice model (English) | Engine bundle | **MIT** |
 | Pocket TTS predefined voices (6) | Reference voice prompts | Engine bundle | CC0 / CC-BY-4.0 (per voice — see [`LICENSES/pocket-tts.md`](LICENSES/pocket-tts.md)) |
 | open_jtalk dictionary | Japanese MeCab dictionary | Engine bundle | Modified BSD |

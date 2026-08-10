@@ -3,20 +3,20 @@
 Covers **Kitten Direct** (nano, 15M params, `kitten-direct-v0_8`), which
 runs the upstream KittenML acoustic model directly on
 `com.microsoft.onnxruntime:onnxruntime-android`, with espeak-ng as the
-phonemizer. espeak-ng (GPL-3.0-or-later) is compiled from source into the
-APK; the bundle carries its `espeak-ng-data` dictionaries plus the
-Apache-2.0 model files.
+phonemizer. espeak-ng (GPL-3.0-or-later) is compiled from source into
+the APK, and the APK also ships the full `espeak-ng-data` dictionaries
+(generated at build time from the pinned submodule).
 
-The bundle is downloaded from `marmalade-tts-android-engines` (release
-pinned in `EngineCatalog.kt`) into `${filesDir}/engines/<engine>/` when
-the user opts in.
+The nano engine is **baked into the APK** as a seed
+(`assets/engines-seed/kitten-direct-v0_8/`: model + 8 voices,
+Apache-2.0) so the app speaks offline from first launch, with no
+download.
 
 ## License posture — APK vs bundle
 
 | Layer | Contents | License |
 |---|---|---|
-| Marmalade APK | Kotlin engine code, ORT bindings, JNI shim, **libespeak-ng.so (compiled from source)** | Source files MIT; **APK distributed under GPL-3.0-or-later** because of espeak-ng |
-| Engine bundle | espeak-ng-data (GPL), acoustic model + voices (Apache-2.0) | Per-component; no executable code |
+| Marmalade APK | Kotlin engine code, ORT bindings, JNI shim, **libespeak-ng.so (compiled from source)**, full espeak-ng-data (build-time generated), baked nano model + voices | Source files MIT; model files Apache-2.0; **APK distributed under GPL-3.0-or-later** because of espeak-ng |
 
 The JNI shim (`app/src/main/cpp/espeak_jni.c`) links no espeak code at
 build time — it `dlopen()`s the APK's own `libespeak-ng.so`, built from
