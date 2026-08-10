@@ -3,6 +3,7 @@ package app.marmalade.tts.lang
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -257,5 +258,45 @@ class LangDetectorTest {
         // fallback locale, so the voice's own language stands.
         assertNull(LangDetector.espeakCodeFor(null, "ja"))
         assertNull(LangDetector.espeakCodeFor(null, null))
+    }
+
+    // -----------------------------------------------------------------
+    // Short-text margin ramp (Max, 2026-08-09: "button" spoke Italian)
+    // -----------------------------------------------------------------
+    // English input must NEVER come back as a non-English language —
+    // "en" and null (fall back to the alias language) are both fine.
+    // LOCKSTEP with the CLI's tests/test_langdetect.py battery.
+
+    @Test
+    fun shortEnglishNeverSwitchesLanguage() {
+        val words = listOf(
+            "button", "hello", "menu", "system", "pause", "volume",
+            "language", "settings", "voice", "camera", "message",
+            "calendar", "computer", "important", "different",
+            "application", "developer", "calculator", "no", "done",
+            "undo", "close", "delete", "cancel", "resume",
+            "no signal", "well done", "turn it up", "good morning",
+        )
+        for (w in words) {
+            val got = detector.detect(w)
+            assertTrue("detect(\"$w\") -> $got", got == "en" || got == null)
+        }
+    }
+
+    @Test
+    fun shortButDecisiveForeignStillDetects() {
+        assertAll("fr", "bonjour à tous", "merci beaucoup", "à bientôt")
+        assertAll("es", "buenos días", "¿cómo estás?", "hasta mañana")
+        assertAll("it", "grazie mille", "va bene così", "arrivederci amici")
+        assertAll("pt", "muito obrigado", "até amanhã", "bom dia pessoal")
+    }
+
+    @Test
+    fun requiredMarginRampShape() {
+        assertEquals(LangDetector.MIN_MARGIN, LangDetector.requiredMargin(LangDetector.SHORT_TRIGRAMS), 0.0)
+        assertEquals(LangDetector.MIN_MARGIN, LangDetector.requiredMargin(1000), 0.0)
+        assertEquals(LangDetector.SHORT_MARGIN, LangDetector.requiredMargin(LangDetector.MIN_TRIGRAMS), 0.0)
+        val mid = LangDetector.requiredMargin((LangDetector.MIN_TRIGRAMS + LangDetector.SHORT_TRIGRAMS) / 2)
+        assertTrue(mid > LangDetector.MIN_MARGIN && mid < LangDetector.SHORT_MARGIN)
     }
 }

@@ -148,7 +148,7 @@ class LangDetector(
             if (li != best && (second == -1 || totals[li] < totals[second])) second = li
         }
         if (second == -1) return null
-        if ((totals[second] - totals[best]).toDouble() / nTri < MIN_MARGIN) return null
+        if ((totals[second] - totals[best]).toDouble() / nTri < requiredMargin(nTri)) return null
         return langs[best]
     }
 
@@ -211,7 +211,7 @@ class LangDetector(
         const val AUTO = "auto"
 
         /** Below this many trigrams the trigram guess is noise. */
-        const val MIN_TRIGRAMS = 6
+        const val MIN_TRIGRAMS = 8
 
         /**
          * Minimum per-trigram cost gap between winner and runner-up.
@@ -224,6 +224,29 @@ class LangDetector(
          * a 0.3% abstain rate.
          */
         const val MIN_MARGIN = 2.0
+
+        /**
+         * Short text must be decisive (Max's 2026-08-09 device report:
+         * "button" detected as Italian and rerouted a Kitten alias to an
+         * accented Kokoro voice). Common English words score junk
+         * margins — up to ~15 below 8 trigrams (hence MIN_TRIGRAMS 6→8:
+         * nothing separates them there) and up to ~5.7 in the 8–23 band
+         * — while genuinely foreign short phrases score 10–45. The
+         * required margin ramps linearly from [SHORT_MARGIN] at
+         * [MIN_TRIGRAMS] down to [MIN_MARGIN] at [SHORT_TRIGRAMS]; the
+         * original 25–200-char tuning above is untouched. An abstention
+         * falls back to the alias/request language — the sticky default.
+         * Tuning data + the CLI twin: marmalade-tts-cli langdetect.py,
+         * ~/coding/scratch/langdetect-short/. LOCKSTEP with the CLI.
+         */
+        const val SHORT_TRIGRAMS = 24
+        const val SHORT_MARGIN = 8.0
+
+        internal fun requiredMargin(nTri: Int): Double {
+            if (nTri >= SHORT_TRIGRAMS) return MIN_MARGIN
+            val frac = (SHORT_TRIGRAMS - nTri).toDouble() / (SHORT_TRIGRAMS - MIN_TRIGRAMS)
+            return MIN_MARGIN + (SHORT_MARGIN - MIN_MARGIN) * frac
+        }
 
         /** "ja"/"zh" when the device locale is one of them, else null. */
         fun systemCjkDefault(): String? =
