@@ -172,8 +172,14 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
         modifier = Modifier
             .offset(y = -LanguagesTapPadding)
             .clip(RoundedCornerShape(8.dp))
-            .clickable(onClickLabel = openLabel, role = Role.Button) { showDialog = true }
+            // clearAndSetSemantics BEFORE clickable: it clears semantics
+            // contributed by later modifiers (and descendants), so this
+            // order strips the click/button semantics while the pointer
+            // handler keeps working — the row reads as plain text and can
+            // merge into the engine card's single object. The other order
+            // left the row an interactive (unmerged) node.
             .clearAndSetSemantics { contentDescription = spokenLanguages }
+            .clickable(onClickLabel = openLabel, role = Role.Button) { showDialog = true }
             .fillMaxWidth()
             .padding(vertical = LanguagesTapPadding),
     ) {

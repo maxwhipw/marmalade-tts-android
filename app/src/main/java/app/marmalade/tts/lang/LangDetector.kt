@@ -236,8 +236,9 @@ class LangDetector(
          * [MIN_TRIGRAMS] down to [MIN_MARGIN] at [SHORT_TRIGRAMS]; the
          * original 25–200-char tuning above is untouched. An abstention
          * falls back to the alias/request language — the sticky default.
-         * Tuning data + the CLI twin: marmalade-tts-cli langdetect.py,
-         * ~/coding/scratch/langdetect-short/. LOCKSTEP with the CLI.
+         * Tuned on a battery of 100+ common English words/short phrases
+         * vs 20 short foreign phrases (see LangDetectorTest's mirror).
+         * LOCKSTEP with the CLI's langdetect.py.
          */
         const val SHORT_TRIGRAMS = 24
         const val SHORT_MARGIN = 8.0
