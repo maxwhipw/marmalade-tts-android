@@ -3,7 +3,7 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0] - 2026-08-10
 
 ### Removed
 - **Kitten Mini (v0.8)** is gone. Upstream KittenML only ever published
