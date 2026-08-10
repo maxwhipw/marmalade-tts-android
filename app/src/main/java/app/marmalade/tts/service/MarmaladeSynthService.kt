@@ -21,6 +21,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
+import android.os.SystemClock
+import app.marmalade.tts.audio.EffectBlockJson
 import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.EffectResolver
@@ -30,6 +32,7 @@ import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
@@ -58,6 +61,8 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -175,6 +180,10 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var residency: EngineResidency
 
     @Inject lateinit var langDetector: LangDetector
+
+    @Inject lateinit var completions: PreviewCompletions
+
+    @Inject lateinit var latency: VoiceLatencyTracker
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -297,8 +306,12 @@ class MarmaladeSynthService : Service() {
         // The Intent contract still speaks in presets; turn it into a block
         // chain here (no DB round-trip — third parties can't reference our
         // custom effect ids). The alias path in runOne overrides this with
-        // the alias's own effectId-resolved chain.
-        val effectBlocks = EffectChain.blocksForPreset(effectPreset)
+        // the alias's own effectId-resolved chain. In-app requests carry
+        // their exact chain as JSON instead (custom effects have no preset
+        // name); a malformed payload degrades to the preset/dry chain.
+        val effectBlocks = intent.getStringExtra(EXTRA_EFFECT_BLOCKS)
+            ?.let { json -> runCatching { EffectBlockJson.decode(json) }.getOrNull() }
+            ?: EffectChain.blocksForPreset(effectPreset)
         // voiceExplicit drives the routing decision in runOne: when false,
         // the per-app router fires (which for the share-sheet path resolves
         // to the primary alias — share-sheet doesn't carry a callerUid).
@@ -309,6 +322,8 @@ class MarmaladeSynthService : Service() {
             speed = speed,
             effectBlocks = effectBlocks,
             voiceExplicit = explicitVoice != null,
+            phonemizationLanguage = intent.getStringExtra(EXTRA_LANG)?.takeIf { it.isNotBlank() },
+            requestId = intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
         )
     }
 
@@ -433,8 +448,11 @@ class MarmaladeSynthService : Service() {
 
         if (!requestFocus()) {
             Log.w(TAG, "Audio focus denied — skipping request")
+            completions.post(req.requestId, PreviewCompletions.ErrorKind.FAILED, "audio focus denied")
             return
         }
+        var outcome: PreviewCompletions.ErrorKind? = null
+        var outcomeMessage: String? = null
         // Marks this engine resident for the residency window, and keeps a
         // sweep from releasing it mid-utterance (Pocket's release() cancels
         // an in-flight synthesis). Paired in the finally below.
@@ -473,21 +491,50 @@ class MarmaladeSynthService : Service() {
                 }
             } catch (e: EngineNotInstalledException) {
                 Log.w(TAG, "Engine not installed", e)
-                postErrorNotification(
-                    getString(
-                        R.string.service_synth_error_engine_not_installed,
-                        displayNameFor(engineName),
-                    ),
-                )
+                outcome = PreviewCompletions.ErrorKind.MODEL_MISSING
+                // In-app requests surface errors in the Speak screen's
+                // status line; a system notification on top would nag twice.
+                if (req.requestId == 0L) {
+                    postErrorNotification(
+                        getString(
+                            R.string.service_synth_error_engine_not_installed,
+                            displayNameFor(engineName),
+                        ),
+                    )
+                }
+                return
+            } catch (e: UnsupportedOperationException) {
+                // The direct engines' "model files absent" signal — same
+                // meaning as EngineNotInstalledException for the caller.
+                Log.w(TAG, "Engine not installed", e)
+                outcome = PreviewCompletions.ErrorKind.MODEL_MISSING
+                if (req.requestId == 0L) {
+                    postErrorNotification(
+                        getString(
+                            R.string.service_synth_error_engine_not_installed,
+                            displayNameFor(engineName),
+                        ),
+                    )
+                }
                 return
             } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 Log.e(TAG, "Synthesis failed", t)
-                postErrorNotification(getString(R.string.service_synth_error_failed))
+                outcome = PreviewCompletions.ErrorKind.FAILED
+                outcomeMessage = t.message
+                if (req.requestId == 0L) {
+                    postErrorNotification(getString(R.string.service_synth_error_failed))
+                }
                 return
             }
         } finally {
             residency.endSynth(engineName)
             releaseFocus()
+            // The one post site, so every exit — played through, user
+            // cancel (a terminal success), error, or the service being
+            // torn down mid-utterance — resolves the awaiting in-app
+            // speak() call exactly once.
+            completions.post(req.requestId, outcome, outcomeMessage)
         }
     }
 
@@ -596,13 +643,31 @@ class MarmaladeSynthService : Service() {
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
-    ): Flow<SynthAudio> = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-        else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+    ): Flow<SynthAudio> {
+        val stream = when (engineName) {
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+        }
+        // Time-to-first-audio sampling — feeds the Speak screen's per-voice
+        // latency hints (VoiceLatencySource). Lived in Synthesizer before
+        // every in-app playback routed through this service; the write is
+        // fire-and-forget on the service scope so a slow DataStore can't
+        // stall the chunk pipeline.
+        var startedAt = 0L
+        var recorded = false
+        return stream
+            .onStart { startedAt = SystemClock.elapsedRealtime() }
+            .onEach {
+                if (!recorded) {
+                    recorded = true
+                    val millis = SystemClock.elapsedRealtime() - startedAt
+                    scope.launch { runCatching { latency.record(voiceId, engineName, millis, text.length) } }
+                }
+            }
     }
 
     /** Human-friendly engine label for notification copy. */
@@ -640,6 +705,9 @@ class MarmaladeSynthService : Service() {
     private fun doStop() {
         cancelled = true
         synchronized(lock) {
+            // Queued in-app requests will never reach runOne — complete
+            // them now (as cancels) or their awaiting speak() calls hang.
+            queue.forEach { completions.post(it.requestId, null) }
             queue.clear()
         }
         val track = currentTrack
@@ -759,11 +827,29 @@ class MarmaladeSynthService : Service() {
         return written
     }
 
-    /** Busy-wait until [track]'s playback head reaches [written] samples. */
+    /**
+     * Busy-wait until [track]'s playback head reaches [written] samples.
+     *
+     * Bails out if the head makes no progress for [DRAIN_STALL_MS] while
+     * not paused: a track the OS has muted-and-parked (Android 16 audio
+     * hardening) never advances, and an unconditional wait would hold the
+     * job forever. Pause legitimately freezes the head, so the stall
+     * clock only runs while unpaused.
+     */
     private fun drainTrack(track: AudioTrack, written: Int) {
+        var lastPos = -1
+        var lastProgressAt = SystemClock.elapsedRealtime()
         while (!cancelled) {
             val pos = try { track.playbackHeadPosition } catch (_: IllegalStateException) { written }
             if (pos >= written) break
+            val now = SystemClock.elapsedRealtime()
+            if (pos != lastPos || paused) {
+                lastPos = pos
+                lastProgressAt = now
+            } else if (now - lastProgressAt >= DRAIN_STALL_MS) {
+                Log.w(TAG, "playback head stalled at $pos/$written; abandoning drain")
+                break
+            }
             try { Thread.sleep(10L) } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt(); break
             }
@@ -958,12 +1044,25 @@ class MarmaladeSynthService : Service() {
         val voiceExplicit: Boolean,
         /** See [VoiceAlias.phonemizationLanguage]. Null = engine default. */
         val phonemizationLanguage: String? = null,
+        /**
+         * Non-zero for in-app requests routed here by
+         * [app.marmalade.tts.audio.Synthesizer] — the terminal state
+         * posts to [PreviewCompletions] under this id. 0 = external
+         * caller (share sheet, Tasker), nothing is posted.
+         */
+        val requestId: Long = 0L,
     )
 
     companion object {
         private const val TAG = "MarmaladeSynthService"
         private const val CHANNEL_ID = "marmalade_synth"
         private const val NOTIFICATION_ID = 1
+
+        /**
+         * Zero playback-head progress for this long (while unpaused, with
+         * frames remaining) means the track is dead — see [drainTrack].
+         */
+        private const val DRAIN_STALL_MS = 2_500L
 
         /** Separate id so stopForeground's removal can't take errors with it. */
         private const val ERROR_NOTIFICATION_ID = 2
@@ -986,6 +1085,14 @@ class MarmaladeSynthService : Service() {
         const val EXTRA_VOICE: String = "app.marmalade.tts.extra.VOICE"
         const val EXTRA_SPEED: String = "app.marmalade.tts.extra.SPEED"
         const val EXTRA_EFFECT: String = "app.marmalade.tts.extra.EFFECT"
+
+        // -- in-app contract (Synthesizer → service; not for third parties) ----
+        /** JSON-encoded List<EffectBlock> ([EffectBlockJson]); wins over [EXTRA_EFFECT]. */
+        const val EXTRA_EFFECT_BLOCKS: String = "app.marmalade.tts.extra.EFFECT_BLOCKS"
+        /** Espeak phonemization override — see [VoiceAlias.phonemizationLanguage]. */
+        const val EXTRA_LANG: String = "app.marmalade.tts.extra.LANG"
+        /** [PreviewCompletions] request id (Long). */
+        const val EXTRA_REQUEST_ID: String = "app.marmalade.tts.extra.REQUEST_ID"
 
         /**
          * Convenience: build a SPEAK intent without the caller needing to
