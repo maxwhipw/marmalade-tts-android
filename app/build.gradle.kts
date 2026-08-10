@@ -40,7 +40,10 @@ android {
         // APKs (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64); a split
         // build must give every ABI a distinct, ascending versionCode.
         // Safe headroom: 32-bit int caps at ~214.7.0.0.
-        versionCode = 1 * 10_000_000 + 0 * 10_000 + 0 * 10 + 0
+        // Written as a plain literal (not the formula as arithmetic):
+        // F-Droid's checkupdates parses this line with a regex and only
+        // sees the first number of an expression.
+        versionCode = 10000000
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -247,9 +250,12 @@ configurations.all {
 // smokeRelease keeps its debug-key override — never ship that variant.
 androidComponents {
     onVariants(selector().withFlavor("distribution" to "fdroid").withBuildType("release")) { variant ->
-        val dist = android.signingConfigs.findByName("dist")
-        if (dist != null && !project.hasProperty("smokeRelease")) {
-            variant.signingConfig.setConfig(dist)
+        // Single line on purpose: F-Droid's remove_signing_keys() strips
+        // gradle lines matching `android.signingConfigs.` with no `{` on
+        // the line. A multi-line form leaves a dangling reference behind
+        // and the stripped script no longer compiles on their builder.
+        if (!project.hasProperty("smokeRelease")) {
+            android.signingConfigs.findByName("dist")?.let { variant.signingConfig.setConfig(it) }
         }
     }
 }
