@@ -30,6 +30,15 @@ android {
     namespace = "app.marmalade.tts"
     compileSdk = 36
 
+    // No Google-encrypted dependency blob in the APK signing block:
+    // F-Droid's scanner rejects it as an opaque extra signing block,
+    // and only Google can decrypt it anyway. The AAB keeps it for Play
+    // Console's dependency insights.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = true
+    }
+
     defaultConfig {
         applicationId = "app.marmalade.tts"
         minSdk = 28
