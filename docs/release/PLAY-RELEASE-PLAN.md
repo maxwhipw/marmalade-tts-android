@@ -1,8 +1,17 @@
 # Google Play release plan — marmalade-tts-android
 
-Step-by-step path from the current tree (1.0.0-beta.1, versionCode 33)
-to a published Play listing. Steps marked **[Max]** need a human;
-everything else Claude can do or has done.
+Step-by-step path from the released tree (v1.0.0 = `0673905`,
+versionCode 10000000) to a published Play listing. Steps marked
+**[Max]** need a human; everything else Claude can do or has done.
+
+> **State as of 2026-08-11:** v1.0.0 is tagged and released on GitHub
+> with the signed Play AAB attached
+> (`marmalade-tts-1.0.0-play.aab` on the v1.0.0 release) — Phases 0–1
+> are DONE. What remains is the Play Console itself (Phase 2, all
+> [Max]) plus listing upload and the closed test (Phases 3–4).
+> Console answers are pre-written in
+> [PLAY-CONSOLE-RESPONSES.md](PLAY-CONSOLE-RESPONSES.md); the live
+> tracker is `launch-lab.html`.
 
 > **There is no paywall.** The app ships free with every feature
 > unlocked in both flavors — the Pro plan was withdrawn on 2026-07-26
@@ -39,18 +48,19 @@ everything else Claude can do or has done.
    dontwarn), 16 KB alignment for in-APK libs, Room v7→v8 migration,
    licensing docs/in-app screen tell the MIT-APK story.
 
-## Phase 1 — signing **[Max]**
+## Phase 1 — signing — DONE
 
-4. Generate an upload keystore (keep it OUT of the repo):
-   `keytool -genkeypair -v -keystore ~/secure/marmalade-upload.jks
-   -alias marmalade-upload -keyalg RSA -keysize 4096 -validity 10000`
-   Back it up somewhere safe (password manager + offline copy).
-5. Wire it in WITHOUT committing secrets: `keystore.properties` at the
-   repo root (gitignored) holding storeFile/storePassword/keyAlias/
-   keyPassword, read from `app/build.gradle.kts` into a
-   `signingConfigs.release` block. Claude can write this wiring.
-6. Build the release artifact: `./gradlew :app:bundleRelease` → AAB at
-   `app/build/outputs/bundle/release/`. (Play requires AAB; enroll in
+4. **DONE (2026-07-26):** upload keystore `~/secure/marmalade-upload.jks`
+   (RSA 4096, alias `marmalade-upload`), backed up in `~/secure` +
+   `~/keys` (sha256-identical). Signing decision (revised 2026-08-09):
+   this one keystore is the permanent F-Droid/GitHub identity too —
+   both CI secret quartets point at it; a fresh Play key only if ever
+   needed. See [SIGNING.md](SIGNING.md) / [CI-SIGNING.md](CI-SIGNING.md).
+5. **DONE:** CI signs on tag — all 8 signing secrets live on the
+   GitHub repo; no local `keystore.properties` needed for releases.
+6. **DONE:** the signed AAB is attached to the v1.0.0 GitHub release
+   as `marmalade-tts-1.0.0-play.aab` (with SHA256SUMS.txt). Download
+   that for the Console upload — don't rebuild locally. (Enroll in
    Play App Signing at upload — Google holds the signing key, the
    keystore above is your upload key.)
 
@@ -65,11 +75,19 @@ everything else Claude can do or has done.
    host PRIVACY.md publicly — GitHub blob URL works; GitHub Pages is
    nicer. *In-app half DONE 2026-08-08 (`e31b34d`):* the policy now
    renders in-app at Settings → About → "Privacy policy"
-   (`PrivacyPolicyScreen.kt`, `Routes.Privacy`). Remaining is the
-   public URL for the Console field — and when it exists, check the
-   in-app copy still matches the hosted text.
-10. **Data safety form:** "No data collected, no data shared." The
-    user-initiated engine download is exempt (ephemeral processing).
+   (`PrivacyPolicyScreen.kt`, `Routes.Privacy`). The repo is public
+   since the v1.0.0 push, so the URL is live:
+   `https://github.com/maxwhipw/marmalade-tts-android/blob/main/PRIVACY.md`
+   — before pasting it into the Console, check the in-app copy still
+   matches the hosted text.
+10. **Data safety form:** collect = **Yes** (decided 2026-07-27 — the
+    cloud API engine transmits the text to be spoken plus the user's
+    API key when a provider is configured). Declare exactly two types:
+    App activity → Other user-generated content, and Personal info →
+    User IDs; Shared unticked (user-initiated-action exemption relied
+    on). Full reasoning + every checkbox in
+    [PLAY-CONSOLE-RESPONSES.md](PLAY-CONSOLE-RESPONSES.md) — transcribe
+    from there, don't re-derive.
 11. **Foreground service declarations** (App content page, each needs
     a use-case text + demo video):
     - `mediaPlayback` (MarmaladeSynthService) — straightforward.
@@ -83,17 +101,15 @@ everything else Claude can do or has done.
 
 ## Phase 3 — listing assets
 
-14. Screenshots: at least 2 phone screenshots (Speak / Voices /
-    Effects / Licenses screens) — captured from the device, dropped in
-    `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
-    **SHOT + styled 2026-08-08** — 10 candidates in
-    `screenshots-inbox/styled/` (1200×2400, status bar cropped, black
-    frame), shared with the F-Droid gate G1. Re-verified against the
-    shipped UI that evening: 9 are current, `07-engines.png` needs a
-    re-shoot after Kitten's tagline changed in `3e4b075`. Awaiting
-    Max's keeper picks + order.
-15. App icon 512×512 + feature graphic 1024×500 (mascot art from
-    `assets/` is the base).
+14. **DONE:** the Max-approved 7-screenshot set (order: speak-light,
+    speak-dark, aliases, kokoro-multilang, engines, effects,
+    engines-cloud) ships in
+    `fastlane/metadata/android/en-US/images/phoneScreenshots/` — the
+    F-Droid set is the Play set. Max wants a stylized pass (device
+    frames/captions) for Play *later*; sources in
+    `screenshots-inbox/styled/`. Not a launch blocker.
+15. **DONE:** `icon.png` (512×512) + `featureGraphic.png` (1024×500)
+    are in `fastlane/metadata/android/en-US/images/`.
 16. Listing text: **DECIDED 2026-08-09 (Max): the Play copy IS the
     approved F-Droid copy** in `fastlane/metadata/android/en-US/`
     (signed off in the F-Droid listing lab; translations ×7 locales

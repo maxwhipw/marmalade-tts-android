@@ -18,15 +18,16 @@ prepared answers, not gospel. Companion to
    — privacy policy, data safety, FGS declarations, content rating,
    target audience, ads.
 4. Set up the **store listing** (Grow → Store presence → Main store
-   listing): copy title/short/full description from
-   `fastlane/metadata/android/en-US/`, icon from
-   `fastlane/metadata/android/en-US/images/icon.png`, feature graphic
-   1024×500 (TODO — see handoff), 2+ phone screenshots (TODO — capture
-   on the Pixel once the release build is smoke-tested).
-5. Generate the upload keystore + `keystore.properties`
-   (see [SIGNING.md](SIGNING.md)).
-6. `./gradlew :app:bundleRelease` → AAB at
-   `app/build/outputs/bundle/release/app-release.aab`.
+   listing): everything is in `fastlane/metadata/android/en-US/` —
+   title/short/full description (flatten the F-Droid HTML to plain
+   "• " lines, keep `<b>/<i>`), `images/icon.png`,
+   `images/featureGraphic.png`, and the 7 approved screenshots in
+   `images/phoneScreenshots/`.
+5. Signing — DONE: upload keystore exists and CI signs on tag
+   (see [SIGNING.md](SIGNING.md) / [CI-SIGNING.md](CI-SIGNING.md)).
+6. AAB — DONE: download `marmalade-tts-1.0.0-play.aab` from the
+   v1.0.0 GitHub release (verify against SHA256SUMS.txt); don't
+   rebuild locally.
 7. Release → Testing → **Closed testing** → create track, upload the
    AAB, enroll in **Play App Signing** when prompted.
 8. Run the **pre-launch report** (automatic on upload) — fix anything

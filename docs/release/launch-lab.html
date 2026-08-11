@@ -28,9 +28,9 @@
     <code>tech/coding/android-app-publishing.md</code>). Checkboxes persist in this browser.</div>
   </div>
   <div class="meta">
-    <b>1.0.0-beta.1</b> · versionCode <b>33</b> · targetSdk <b>36</b> ✓<br>
-    keystore <b>created</b> · privacy policy <b>live</b><br>
-    route: <b>GitHub+Obtainium & F-Droid → Play</b>
+    <b>v1.0.0 RELEASED</b> · versionCode <b>10000000</b> · targetSdk <b>36</b> ✓<br>
+    GitHub release <b>live (APKs + AAB)</b> · F-Droid MR !44636 <b>pipeline green, in review</b><br>
+    remaining: <b>Play Console (you) → closed test → production</b>
   </div>
 </header>
 
@@ -43,7 +43,7 @@ their policy is "strongly opposed to apps which are fully or in part created by 
 tools" — this project is openly AI-assisted, so submitting means concealment or rejection.
 GitHub Releases + Obtainium fills that niche; official F-Droid has no such policy and stays in.</div>
 
-<!-- ════════════════ MECHANICS (from play-release-lab, statuses accurate 2026-07-26) ════════════════ -->
+<!-- ════════════════ MECHANICS (statuses refreshed 2026-08-11 — v1.0.0 released) ════════════════ -->
 
 <h2 class="sec">Release mechanics — who does what</h2>
 <p class="lede">Green = done · amber = I can do when asked · red = needs you.
@@ -52,18 +52,14 @@ transcribe, not compose. Click a step to expand.</p>
 
 <div class="wstep done"><div class="hd"><span class="n">M1</span><span class="t">Code gates — all clear</span><span class="tag done">done</span><span class="chev">▸</span></div>
   <div class="body"><p><b>espeak-ng compiled from source into the APK</b> (Play forbids downloading executable code; this was <strong>the</strong> blocker for a year — consequence: distributed APK is GPL-3.0-or-later, source stays MIT). <b>targetSdk 36</b> landed (<code>d1a5c8e</code>, verified on the Pixel 8a's Android 16). <b>No paywall</b> — zero <code>billingclient</code> references. <b>Minified R8 release build passes.</b></p>
-  <p class="warnbox" style="margin:10px 0">Still unverified: what edge-to-edge enforcement <em>looks</em> like at targetSdk 36 — needs your eyes; re-shoot the store screenshots after checking.</p></div></div>
+  <p style="margin:10px 0">Since then: v1.0.0 cut (versionCode 10000000), tagged, released — the store screenshots were re-shot and approved on the shipped targetSdk-36 UI (2026-08-09), so the old edge-to-edge re-shoot warning is closed.</p></div></div>
 
 <div class="wstep done"><div class="hd"><span class="n">M2</span><span class="t">Upload keystore generated — backup pending</span><span class="tag done">done</span><span class="chev">▸</span></div>
-  <div class="body"><p>Created 26 Jul — RSA 4096, alias <code>marmalade-upload</code>, at <code>~/secure/marmalade-upload.jks</code> (mode 600). This is the <em>upload</em> key: losing it is a Console reset request, not a lost app — the unrecoverable app-signing key stays with Google at enrolment.</p>
-  <p><b>Pending:</b> KeePassXC-attachment backup + delete the transit copy at <code>/sdcard/Download/marmalade-upload.jks</code> (readable by any storage-permission app). <b>Not agent-wiki</b> — it's a git repo pushed to Forgejo.</p></div></div>
+  <div class="body"><p>Created 26 Jul — RSA 4096, alias <code>marmalade-upload</code>, at <code>~/secure/marmalade-upload.jks</code> (mode 600), backed up sha256-identical in <code>~/keys</code>. Decision 2026-08-09: this keystore is the permanent F-Droid/GitHub signing identity too (cert sha256 <code>556ebcb6…2118d0</code> is pinned in the F-Droid recipe). This is the <em>upload</em> key for Play: losing it is a Console reset request, not a lost app — the unrecoverable app-signing key stays with Google at enrolment.</p>
+  <p><b>Still yours if not done:</b> delete the transit copy at <code>/sdcard/Download/marmalade-upload.jks</code> (readable by any storage-permission app). <b>Not agent-wiki</b> — it's a git repo pushed to Forgejo.</p></div></div>
 
-<div class="wstep max"><div class="hd"><span class="n">M3</span><span class="t">keystore.properties — yours, then I build the AAB</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
-  <div class="body"><p>Four properties in the repo root (gitignored line 31). Writing it means typing the passwords — pasting them to me puts them in a transcript on disk, so create the file yourself; I take over from <code>./gradlew :app:bundlePlayRelease</code>.</p>
-  <pre>storeFile=/home/max/secure/marmalade-upload.jks
-storePassword=…
-keyAlias=marmalade-upload
-keyPassword=…<button class="mini" onclick="cp(this)">copy</button></pre></div></div>
+<div class="wstep done"><div class="hd"><span class="n">M3</span><span class="t">Signed AAB — on the v1.0.0 GitHub release</span><span class="tag done">done</span><span class="chev">▸</span></div>
+  <div class="body"><p>CI signs on tag (all 8 secrets live; both quartets = <code>marmalade-upload.jks</code>, the permanent identity — decision 2026-08-09). The Console artifact is <b><code>marmalade-tts-1.0.0-play.aab</code></b> on the v1.0.0 GitHub release — download it, check it against <code>SHA256SUMS.txt</code>, upload it. No local build, no <code>keystore.properties</code> needed.</p></div></div>
 
 <div class="wstep max"><div class="hd"><span class="n">M4</span><span class="t">Play Console — account, app, forms</span><span class="tag max">needs you</span><span class="chev">▸</span></div>
   <div class="body"><p>USD 25 one-time at <a href="https://play.google.com/console/signup">console/signup</a>. App: <strong>Marmalade TTS</strong> · Free · English (US). Then the forms, all pre-answered in PLAY-CONSOLE-RESPONSES.md:</p>
@@ -73,19 +69,19 @@ keyPassword=…<button class="mini" onclick="cp(this)">copy</button></pre></div>
   <p><b>Content rating (IARC)</b> → Everyone, answers prepared.</p></div></div>
 
 <div class="wstep done"><div class="hd"><span class="n">M5</span><span class="t">Listing assets — v1 done; design-lab refresh optional</span><span class="tag done">done</span><span class="chev">▸</span></div>
-  <div class="body"><p>Feature graphic (verified no-alpha), 5 screenshots, icon, title/short/full text all in <code>fastlane/metadata/android/en-US/</code> (doubles as the F-Droid source). Upgrades staged in the <a href="play-design-lab.html">design lab</a>: icon/feature/screenshot variants + copy alternatives — pick winners, export per its section F, write back. Re-shoot screenshots after the edge-to-edge check (current set is targetSdk 35). Add the 140-char alt text per screenshot.</p></div></div>
+  <div class="body"><p>Approved and shipped in <code>fastlane/metadata/android/en-US/</code>: title/short/full text (signed off in the F-Droid listing lab; translations ×7 alongside), icon, feature graphic, and the 7-screenshot set in Max's approved order. Play conversion at paste time: flatten the F-Droid HTML to plain "• " lines, keep <code>&lt;b&gt;/&lt;i&gt;</code>; add 140-char alt text per screenshot. A stylized Play screenshot pass (device frames/captions) is wanted <em>later</em>, not a launch gate — sources in <code>screenshots-inbox/styled/</code>, variants in the <a href="play-design-lab.html">design lab</a>.</p></div></div>
 
 <div class="wstep max"><div class="hd"><span class="n">M6</span><span class="t">Upload AAB to the closed track · pre-launch report</span><span class="tag max">shared</span><span class="chev">▸</span></div>
   <div class="body"><p>Closed track first, always. <b>Your phone has GMS disabled</b> — you can't install the Play build yourself; testing runs on Tahlia's phone or another GMS device. The pre-launch report runs the build on Google's device farm; send me what it flags (typical: ANRs on cold start, contrast warnings — 16 KB alignment is already handled by the from-source builds, but the report is the proof).</p></div></div>
 
-<div class="wstep claude"><div class="hd"><span class="n">M7</span><span class="t">F-Droid submission — in parallel, not after</span><span class="tag claude">I can do</span><span class="chev">▸</span></div>
-  <div class="body"><p>F-Droid builds and signs from a tagged commit themselves — no keystore involved; recipe pins <code>gradle: [fdroid]</code>. Review takes days→months, so file alongside the Console work. Expect a <code>NonFreeNet</code> anti-feature flag for the cloud engine — a label, not a rejection. Have the model-weights licensing story airtight (CREDITS.md). F-Droid's own key means Play↔F-Droid installs can't cross-update: same applicationId, coordinated versionCodes, document the reinstall.</p></div></div>
+<div class="wstep done"><div class="hd"><span class="n">M7</span><span class="t">F-Droid submission — filed, pipeline green, in review</span><span class="tag done">in review</span><span class="chev">▸</span></div>
+  <div class="body"><p>fdroiddata MR <b>!44636</b> re-cut against v1.0.0 (2026-08-11): all 9 pipeline jobs green, reproducible build verified byte-identical, <code>Binaries:</code> points at the developer-signed release APK with <code>AllowedAPKSigningKeys</code> pinned — so F-Droid ships <em>our</em> signature and Play↔F-Droid installs stay cross-compatible. <code>NonFreeNet</code> declared for the cloud engine (a label, not a rejection). Awaiting reviewer (linsui); a systemd timer watches the MR. All reply text goes through Max before posting.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">M8</span><span class="t">GitHub Releases + Obtainium — the Izzy replacement</span><span class="tag claude">I can do</span><span class="chev">▸</span></div>
   <div class="body"><p>CI already attaches APKs on tag. Add an "Install via Obtainium" section to the README (deep link) so the no-Play crowd has a first-class path. <b>Engine-bundle URLs must stay stable forever</b> — the catalog pins exact release assets by SHA-256; moving or re-tagging breaks installs for existing users.</p></div></div>
 
 <div class="wstep claude"><div class="hd"><span class="n">M9</span><span class="t">Open items</span><span class="tag claude">open</span><span class="chev">▸</span></div>
-  <div class="body"><p><b>Kitten "Yeah" mispronunciation</b> — <b>fixed (178b789), device check pending.</b> Root cause: espeak-ng has no dictionary entry for "yeah" (not even upstream master); letter-to-sound emits /jɛh/ with a literal aspirated H. Ear-picked per-model targets via the <a href="http://<labs-server>/yeah-fix/">yeah-fix lab</a>: Kitten gets flat /jæ/ (it renders misaki's /jɛə/ poorly at every model size), Kokoro Direct gets the training-faithful /jɛə/. CLI kitten daemon matches (0b00468). Remaining: fresh debug build on the Pixel, confirm by ear in-app. <b>Two flavors</b> — play/fdroid now differ only in the Sponsors link; collapsing to one is small whenever wanted.</p></div></div>
+  <div class="body"><p><b>Kitten "Yeah" mispronunciation</b> — <b>fixed (178b789)</b>, shipped in v1.0.0 (espeak has no dict entry for "yeah"; per-model phoneme fixups, CLI daemon matches). <b>Two flavors</b> — play/fdroid now differ only in the Sponsors link; collapsing to one is small whenever wanted. <b>Pixel currently runs <code>5e87801</code> fdroidDebug</b> — reinstalling the released build is optional (none of the 4 release-fix commits change runtime behavior beyond the espeak data regen).</p></div></div>
 
 <!-- ════════════════ CAMPAIGN ════════════════ -->
 
