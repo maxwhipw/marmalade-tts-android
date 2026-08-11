@@ -27,7 +27,8 @@ aux_source_directory(njd_set_long_vowel libnjd_set_long_vowel_source)
 aux_source_directory(njd_set_pronunciation libnjd_set_pronunciation_source)
 aux_source_directory(njd_set_unvoiced_vowel libnjd_set_unvoiced_vowel_source)
 aux_source_directory(text2mecab libtext2mecab_source)
-include_directories(jpcommon mecab/src mecab2njd njd njd2jpcommon njd_set_accent_phrase
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/mecab-config
+                    jpcommon mecab/src mecab2njd njd njd2jpcommon njd_set_accent_phrase
                     njd_set_accent_type njd_set_digit njd_set_long_vowel
                     njd_set_pronunciation njd_set_unvoiced_vowel text2mecab)
 
@@ -77,7 +78,10 @@ check_type_size(long SIZEOF_LONG)
 check_type_size("long long" SIZEOF_LONG_LONG)
 check_type_size(short SIZEOF_SHORT)
 check_type_size(size_t SIZEOF_SIZE_T)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mecab/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/mecab/src/config.h)
+# Into the (per-ABI) build dir, NOT the source tree: the answers differ per
+# ABI (SIZEOF_LONG 4 on armv7, 8 on arm64), so generating into src/ left the
+# checkout permanently dirty and the last-configured ABI's answers on disk.
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mecab/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/mecab-config/config.h)
 add_definitions(-DHAVE_CONFIG_H
                 -DDIC_VERSION=102
                 -DMECAB_DEFAULT_RC="dummy"
