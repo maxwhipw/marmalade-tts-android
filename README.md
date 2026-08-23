@@ -58,9 +58,8 @@ selection" action, or speak your clipboard from a Quick Settings tile.
 
 ## Install
 
-Store listings (Google Play and F-Droid) are in progress — see
-[docs/release/DISTRIBUTION-GAMEPLAN.md](docs/release/DISTRIBUTION-GAMEPLAN.md).
-Until they land (and forever after, for sideloaders):
+Store listings (Google Play and F-Droid) are in progress. Until they
+land (and forever after, for sideloaders):
 
 - **[GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases)** —
   grab the latest `fdroid`-flavor APK (every feature unlocked, no

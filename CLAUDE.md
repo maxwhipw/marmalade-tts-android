@@ -115,10 +115,8 @@ investigation won't find what one `onnx.load(...).metadata_props` will.
 
 ## Distribution flavors — `play` vs `fdroid`
 
-**Not yet implemented (2026-06-14); spec in
-[docs/release/PAYWALL-PLAN.md](docs/release/PAYWALL-PLAN.md).** Once it
-lands, the project has two product flavors sharing one signing config
-and one applicationId:
+The project has two product flavors sharing one signing config and one
+applicationId:
 
 - **`fdroid`** — every feature unlocked, no billing dep, no Google
   classes. What F-Droid's buildserver compiles.

@@ -5,9 +5,7 @@ signs, and attaches the signed AAB + APK to a GitHub Release. No local
 keystore juggling, no `gradlew bundleRelease` from a laptop with battery
 left.
 
-Companion to [SIGNING.md](SIGNING.md) (one-time keystore generation) and
-[PLAY-RELEASE-PLAN.md](PLAY-RELEASE-PLAN.md) (the rest of the path to a
-listing).
+Companion to [SIGNING.md](SIGNING.md) (one-time keystore generation).
 
 ## One-time setup
 
@@ -33,7 +31,7 @@ and add four repository secrets:
 
 ### Second secret quartet: the distribution key (F-Droid/GitHub)
 
-Decided 2026-08-09 (revised; FDROID-RELEASE-PLAN.md R-track): the
+Decided 2026-08-09 (revised): the
 fdroid-flavor APK — the reproducible-build reference binary and the
 GitHub sideload artifact — signs with `marmalade-upload.jks` too. One
 key, both channels. The workflow still reads a separate `DIST_*`
@@ -143,8 +141,7 @@ publishes *our* signed APK — so F-Droid, GitHub and Obtainium installs
 share one signature and cross-update. This makes the release keystore
 (`marmalade-upload.jks`, reused as the permanent distribution key) and
 this CI workflow load-bearing for F-Droid too. Play remains separate:
-Google re-signs with their app-signing key regardless. Details:
-[FDROID-RELEASE-PLAN.md](FDROID-RELEASE-PLAN.md) §R.
+Google re-signs with their app-signing key regardless.
 
 ## Failure modes
 

@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
  * lives in the README and on the repo for Play users who go looking.
  *
  * This is the only difference between the two flavors now that the Pro
- * paywall is gone — see docs/release/PAYWALL-PLAN.md for why it went.
+ * paywall is gone — see the internal release notes for why it went.
  */
 @Composable
 internal fun AboutExtras() = Unit

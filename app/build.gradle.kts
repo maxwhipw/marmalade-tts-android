@@ -43,7 +43,7 @@ android {
         applicationId = "app.marmalade.tts"
         minSdk = 28
         targetSdk = 36
-        // G4 versioning (docs/release/FDROID-RELEASE-PLAN.md):
+        // G4 versioning (internal release notes):
         // versionCode = MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI.
         // The trailing ABI digit is reserved for possible future split
         // APKs (0=universal, 1=armv7, 2=arm64, 3=x86, 4=x86_64); a split
@@ -119,7 +119,7 @@ android {
 
     // Two distribution flavors sharing one applicationId, signing config and
     // feature set. Every feature is free in both — the Pro paywall was removed
-    // in 1.0.0-beta.1 (see docs/release/PAYWALL-PLAN.md for why). The split
+    // in 1.0.0-beta.1 (see the internal release notes for why). The split
     // survives for one difference: `src/fdroid/` carries a GitHub Sponsors
     // link in About, and `src/play/` deliberately doesn't, because Google's
     // payments policy is unsettled on out-of-app donation links for a
@@ -140,7 +140,7 @@ android {
             }
         }
         // Dedicated distribution key for the F-Droid/GitHub releases
-        // (decided 2026-08-09, FDROID-RELEASE-PLAN.md R-track): the
+        // (decided 2026-08-09, internal release notes, R-track): the
         // permanent F-Droid signing identity must not share fate with
         // the Play upload key, which Google can reset. Optional dist*
         // quartet in the same keystore.properties; absent → the fdroid

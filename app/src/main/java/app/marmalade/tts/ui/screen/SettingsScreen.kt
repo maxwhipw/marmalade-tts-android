@@ -350,7 +350,7 @@ private fun SupportSection() {
 
     // Flavor-specific entry — see src/{play,fdroid}/.../AboutExtras.kt.
     // F-Droid renders a "Support development" link to GitHub Sponsors first;
-    // Play renders nothing (per docs/release/PAYWALL-PLAN.md the donate link
+    // Play renders nothing (per the internal release notes the donate link
     // is omitted from Play for first-listing policy safety), so on Play this
     // section starts at "More Marmalade".
     app.marmalade.tts.ui.screen.AboutExtras()

@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
  * F-Droid flavor: a "Support development" link to GitHub Sponsors,
  * rendered as a second link row in the About section. Play flavor's
  * symmetric file is intentionally empty — the donate link is omitted
- * from the Play build per docs/release/PAYWALL-PLAN.md (safe posture
+ * from the Play build per the internal release notes (safe posture
  * for first-listing; Google's "alternative billing" policy treats
  * voluntary OSS donations as a gray area).
  *

@@ -46,3 +46,13 @@ build-scratch/
 .venv/
 __pycache__/
 *.pyc
+
+# Internal planning / handoff docs — local + Forgejo only, never GitHub
+# (removed from the tip 2026-08-22; full history scrub queued for after the
+# F-Droid MR !44636 merge, since it re-hashes the pinned v1.0.0 commit).
+HANDOFF.md
+docs/HANDOFF-*.md
+docs/release/*-GAMEPLAN.md
+docs/release/*-PLAN.md
+docs/release/PLAY-CONSOLE-RESPONSES.md
+docs/release/*-lab.html
