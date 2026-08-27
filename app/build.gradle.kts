@@ -320,6 +320,11 @@ dependencies {
     // + TarArchiveInputStream. Apache-2.0.
     implementation("org.apache.commons:commons-compress:1.27.1")
 
+    // Reader mode: article extraction (Apache-2.0; JitPack-only artifact).
+    implementation("com.github.dankito:Readability4J:1.0.8")
+    // Force-upgrade Readability4J's transitive jsoup 1.11.2 (CVE-2021-37714).
+    implementation("org.jsoup:jsoup:1.23.2")
+
     // Testing — JVM
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
