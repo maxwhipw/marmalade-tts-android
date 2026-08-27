@@ -36,7 +36,10 @@
       cloud engines (CloudApiEngine POSTs synthesis requests directly to
       the provider baseUrl the user configured, HTTPS-enforced) and their
       provider-list refresh (cloud-providers.json from this repo's GitHub
-      raw URL). No telemetry, no analytics, no backend of our own.
+      raw URL), and (3) reader mode (ArticleFetcher GETs the article URL
+      the user shared — that host and its redirects only, no hardcoded
+      third-party endpoint of any kind, and never without a user share).
+      No telemetry, no analytics, no backend of our own.
       See PRIVACY.md / SECURITY.md for details.
     -->
     <uses-permission android:name="android.permission.INTERNET" />

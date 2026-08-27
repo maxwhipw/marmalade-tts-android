@@ -173,6 +173,31 @@ object LicenseCatalog {
             copyright = listOf("Copyright (c) The Apache Software Foundation"),
         ),
         Component(
+            key = "readability4j",
+            name = "Readability4J", role = "Reader-mode article extraction",
+            shipsIn = "APK",
+            licenseId = "Apache-2.0",
+            copyright = listOf(
+                "Copyright 2017 dankito",
+                "Kotlin port of Mozilla's Readability.js — Copyright (c) 2010 " +
+                    "Arc90 Inc; Copyright (c) 2010-2026 Mozilla and Contributors",
+            ),
+            note = "Pulls the article text out of a web page the user shared. " +
+                "Upstream's own NOTICE attribution for Readability.js is " +
+                "reproduced above (Apache-2.0 §4(d)).",
+        ),
+        Component(
+            key = "jsoup",
+            name = "jsoup", role = "HTML parser (reader mode)",
+            shipsIn = "APK",
+            licenseId = "MIT",
+            copyright = listOf("Copyright (c) 2009-2026 Jonathan Hedley"),
+            textAsset = "jsoup.txt",
+            note = "Parses fetched article HTML for Readability4J. Declared " +
+                "directly so it also replaces Readability4J's own transitive " +
+                "jsoup 1.11.2, which carries CVE-2021-37714.",
+        ),
+        Component(
             key = "open-jtalk",
             name = "Open JTalk", role = "Japanese phonemizer frontend",
             shipsIn = "APK (compiled in)",

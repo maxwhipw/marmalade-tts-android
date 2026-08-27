@@ -67,6 +67,12 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 - **ONNX Runtime (Mobile)** — Microsoft. MIT. Inference runtime for every
   engine.
 - **Apache Commons Compress** — Apache-2.0. Engine-bundle extraction.
+- **Readability4J** (dankito) — Apache-2.0. Pulls the article out of a
+  shared web page for reader mode. It is a Kotlin port of **Mozilla's
+  Readability.js** (© 2010 Arc90 Inc; © 2010-2026 Mozilla and
+  Contributors), the same extractor behind Firefox's Reader View.
+- **jsoup** (Jonathan Hedley) — MIT. The HTML parser reader mode hands
+  fetched pages to.
 - **AndroidX, Jetpack Compose, Kotlin, Hilt, Room** — Apache-2.0.
 
 ## Concept lineage

@@ -1,6 +1,6 @@
 # Privacy Policy — Marmalade TTS
 
-_Last updated: 2026-07-26_
+_Last updated: 2026-08-27_
 
 Marmalade TTS is a **text-to-speech app that speaks entirely on your
 device by default** — offline, with no internet connection needed —
@@ -26,6 +26,9 @@ described in full below.
   ours. See below.
 - **Your API keys stay on your device** and are sent only to the
   provider they belong to.
+- **Reader mode contacts only the page you shared.** Sharing a link makes
+  the app fetch that one page, text only, held in memory and never saved.
+  See below.
 
 ## What stays on your device
 
@@ -86,6 +89,27 @@ aloud — is also sent to that provider. If you want a guarantee that
 nothing ever leaves your device, use only the on-device engines. The app
 labels cloud voices as such wherever they appear.
 
+## Reader mode (shared links)
+
+When you share a link to Marmalade, it fetches that page so it can read
+the article aloud. This is the only thing that triggers a fetch: there is
+no background or speculative fetching, nothing is pre-loaded, and links
+*inside* an article are never followed unless you share one yourself.
+
+- **Only the page you shared is contacted** — that host, and any host it
+  redirects you to, exactly as a browser would. No favicon service, no
+  image proxy, no link unshortener, no third-party "reader" or parsing
+  API. There is no other server in the path.
+- **Text only.** The page's HTML is downloaded and the article text
+  extracted from it on your device. Images, videos, fonts, ads, and
+  trackers embedded in the page are never fetched.
+- **Nothing is stored.** The article is held in memory only while it is
+  open or being read aloud, and is gone when the app's process ends. It is
+  never written to disk, not cached, and not added to any history.
+- **No analytics.** We are not told what you read, and neither is anyone
+  else. The site you shared sees an ordinary page request, the same as
+  any visit, and handles it under its own privacy policy.
+
 ## Other network activity
 
 When you tap "Install" on an on-device engine (during onboarding or in
@@ -111,9 +135,9 @@ whether or not you use cloud voices.
 GitHub's handling of that request (e.g. server logs) is governed by
 [GitHub's Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 
-Apart from the two GitHub requests above and any cloud provider you
-explicitly configure, the app contacts no other server. Marmalade has no
-server of its own.
+Apart from the two GitHub requests above, a page you share to reader mode,
+and any cloud provider you explicitly configure, the app contacts no other
+server. Marmalade has no server of its own.
 
 ## Deleting your data
 
@@ -134,7 +158,7 @@ nothing about you anywhere but on your own phone.
 
 | Permission | Why Marmalade needs it |
 |---|---|
-| `INTERNET` | To download optional engine/model files from GitHub Releases, and — only if you configure one — to reach your chosen cloud voice provider. |
+| `INTERNET` | To download optional engine/model files from GitHub Releases, to fetch a web page you share to reader mode, and — only if you configure one — to reach your chosen cloud voice provider. |
 | `POST_NOTIFICATIONS` (Android 13+) | To show the "speaking" / "keeping engine loaded" foreground notice Android requires when the app plays audio or runs a foreground service. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | To keep long-form speech playing reliably (including with the screen off) and to expose lock-screen / Bluetooth playback controls. |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | For the optional "keep engine loaded" service so the next speak request is instant. You opt into this in Settings → Performance. |

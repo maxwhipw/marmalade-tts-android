@@ -27,6 +27,9 @@
 <p><b>PRIVATE, WITH OR WITHOUT THE CLOUD</b></p>
 <p>No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Until you set one up, nothing you read ever leaves your phone. <i>Note: other providers may log requests. Refer to their privacy policies.</i></p>
 
+<p><b>READ THE WEB</b></p>
+<p>Share a link to Marmalade and it opens the article in a clean reader view, then reads it aloud with the current paragraph highlighted as it goes. Only the page you shared is contacted, no images or trackers are loaded, and nothing is stored.</p>
+
 <p><b>BUILT FOR SCREEN READERS</b></p>
 <p>Marmalade is accessible with rich TalkBack support and designed to meet WCAG 2.1 AA with a high-contrast dark theme. Every control is labeled, and progress and errors are announced aloud when TalkBack is enabled. Nothing an assistive-tech user needs sits behind a purchase.</p>
 

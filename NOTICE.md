@@ -51,7 +51,7 @@ license text reachable for each component. License texts that embed the
 licensor's copyright (MIT, BSD) ship **per component with the correct holder**
 — the verbatim Open JTalk / MeCab `COPYING`, and the standard MIT body with
 each project's own copyright line (Marmalade, ONNX Runtime / Microsoft, Pocket
-/ Kyutai). The standalone bodies that carry no embedded licensor copyright
+/ Kyutai, jsoup / Jonathan Hedley). The standalone bodies that carry no embedded licensor copyright
 (GPL-3.0, Apache-2.0, CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0) are shared, with
 attribution shown per component. All in-app texts are bundled in the APK under `assets/licenses/`.
 
@@ -79,6 +79,8 @@ folder.
 | espeak-ng | Phonemizer (English/multi) | APK (compiled from source; full `espeak-ng-data` generated at build time) | **GPL-3.0-or-later** |
 | ONNX Runtime Mobile | Inference runtime | APK | MIT |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
+| Readability4J | Reader-mode article extraction | APK | Apache-2.0 |
+| jsoup | HTML parser (reader mode) | APK | MIT |
 | Open JTalk + MeCab | Japanese phonemizer frontend | APK (compiled in) | BSD-3-Clause |
 | misaki / cutlet (port) | Japanese G2P tables (clean-room Kotlin port) | APK (source) | MIT |
 | Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 |

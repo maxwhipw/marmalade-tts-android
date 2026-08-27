@@ -21,7 +21,46 @@ the other files in this folder). Versions are authoritative in
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) The Apache Software Foundation.
 
-## 3. espeak-ng
+## 3. Readability4J — com.github.dankito:Readability4J
+
+- **Role:** Reader mode's article extractor. Given the HTML of a page the
+  user shared, it returns the article content with navigation, ads, and
+  other clutter stripped.
+- **Upstream:** https://github.com/dankito/Readability4J
+- **License:** Apache-2.0 (`LICENSE` at the upstream repository)
+- **Notice:** Copyright 2017 dankito.
+- **Upstream attribution preserved:** Readability4J is a Kotlin port of
+  **Mozilla's Readability.js** (https://github.com/mozilla/readability),
+  also Apache-2.0, whose `NOTICE` file reads:
+
+  > Readability
+  > Copyright (c) 2010 Arc90 Inc
+  > Copyright (c) 2010-2026 Mozilla and Contributors
+
+  Readability4J's own LICENSE does not carry that notice, so we reproduce
+  it here and in the in-app license entry (Apache-2.0 §4(d)).
+
+The full Apache-2.0 body is in
+[`full-texts/Apache-2.0.txt`](full-texts/Apache-2.0.txt) and ships in the
+APK at `assets/licenses/Apache-2.0.txt`.
+
+## 4. jsoup — org.jsoup:jsoup
+
+- **Role:** HTML parser. Readability4J parses with jsoup, and reader mode
+  uses it directly to walk the extracted article into paragraphs.
+- **Upstream:** https://github.com/jhy/jsoup
+- **License:** MIT
+- **Notice:** Copyright (c) 2009-2026 Jonathan Hedley <https://jsoup.org/>
+- **Why it is a direct dependency:** Readability4J (unmaintained since
+  2021) pulls in jsoup 1.11.2, which carries **CVE-2021-37714** — a
+  denial-of-service on crafted HTML, directly relevant to a feature that
+  parses arbitrary pages from the web. Declaring `org.jsoup:jsoup`
+  explicitly upgrades the whole graph to the current release.
+
+The exact MIT text with Jonathan Hedley's copyright ships in the APK at
+`assets/licenses/jsoup.txt`.
+
+## 5. espeak-ng
 
 espeak-ng is **GPL-3.0-or-later** and ships **in the APK** as
 `libespeak-ng.so`, compiled from source out of the pinned
