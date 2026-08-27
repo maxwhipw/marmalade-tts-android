@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Reader screen (shared link → article view) -->
+    <string name="reader_title">Reader</string>
+    <string name="reader_back">Back</string>
+    <string name="reader_loading">Fetching the article…</string>
+
+    <!-- Failure states: one message per category, plus the two escapes -->
+    <string name="reader_failed_title">Can\'t read this page</string>
+    <string name="reader_failed_network">Marmalade couldn\'t reach the site. Check your connection and try again.</string>
+    <string name="reader_failed_http">The site refused the request. Some publishers block apps that aren\'t a browser.</string>
+    <string name="reader_failed_too_large">That page is too large to read.</string>
+    <string name="reader_failed_not_html">That link isn\'t a web page.</string>
+    <string name="reader_failed_extraction">No article text was found on that page.</string>
+    <string name="reader_open_in_browser">Open in browser</string>
+    <string name="reader_read_as_is">Read text as-is</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- रीडर स्क्रीन (साझा किया गया लिंक → लेख दृश्य) -->
+    <string name="reader_title">रीडर</string>
+    <string name="reader_back">वापस</string>
+    <string name="reader_loading">लेख लाया जा रहा है…</string>
+
+    <!-- विफलता की स्थितियाँ -->
+    <string name="reader_failed_title">यह पेज पढ़ा नहीं जा सकता</string>
+    <string name="reader_failed_network">Marmalade साइट तक नहीं पहुँच सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।</string>
+    <string name="reader_failed_http">साइट ने अनुरोध अस्वीकार कर दिया। कुछ प्रकाशक ब्राउज़र के अलावा अन्य ऐप्स को रोक देते हैं।</string>
+    <string name="reader_failed_too_large">यह पेज पढ़ने के लिए बहुत बड़ा है।</string>
+    <string name="reader_failed_not_html">यह लिंक कोई वेब पेज नहीं है।</string>
+    <string name="reader_failed_extraction">इस पेज पर लेख का कोई टेक्स्ट नहीं मिला।</string>
+    <string name="reader_open_in_browser">ब्राउज़र में खोलें</string>
+    <string name="reader_read_as_is">टेक्स्ट जैसा है वैसा पढ़ें</string>
+</resources>

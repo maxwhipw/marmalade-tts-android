@@ -20,6 +20,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
@@ -38,6 +39,8 @@ import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.R
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
+import app.marmalade.tts.ui.reader.ReaderScreen
+import app.marmalade.tts.ui.reader.ReaderViewModel
 import app.marmalade.tts.ui.screen.AdvancedSettingsScreen
 import app.marmalade.tts.ui.screen.AliasScreen
 import app.marmalade.tts.ui.screen.BenchmarkScreen
@@ -162,6 +165,27 @@ object Routes {
     fun licenseText(key: String): String = "$LicenseText/${Uri.encode(key)}"
 
     /**
+     * Reader mode — a link the user shared, fetched and rendered as article
+     * text. Entered only from [app.marmalade.tts.ui.intent.ShareIntentActivity]
+     * (no tab, no other entry point in v1). Leaf detail screen; the bottom nav
+     * bar hides while it's open.
+     *
+     * Both args are **query** args: a URL is full of colons and slashes that a
+     * path segment can't carry cleanly, and the shared text is free prose. Use
+     * [reader] to build the concrete route.
+     */
+    const val Reader = "reader"
+
+    /**
+     * Build the reader route for [url]. [sharedText] is the original share
+     * payload, carried along so the failure screen can fall back to speaking
+     * what the user actually shared.
+     */
+    fun reader(url: String, sharedText: String): String =
+        "$Reader?${ReaderViewModel.ARG_URL}=${Uri.encode(url)}" +
+            "&${ReaderViewModel.ARG_TEXT}=${Uri.encode(sharedText)}"
+
+    /**
      * Debug-only benchmark surface — measures per-engine synth timings
      * across the installed engines. Reachable from Settings only in
      * `BuildConfig.DEBUG` builds; the composable + route still exist in
@@ -205,14 +229,30 @@ private val NAV_TABS = listOf(
 )
 
 /**
+ * A link the user shared, waiting to be opened in reader mode.
+ * [sharedText] is the whole share payload; [url] is the link found inside it.
+ */
+data class ReaderRequest(val url: String, val sharedText: String)
+
+/**
  * Top-level navigation root. Gates on onboarding state, then renders the
  * main app shell — a Scaffold with a bottom NavigationBar and a NavHost.
  *
  * Onboarding sits outside the nav graph as a pre-flight gate so the wizard
  * is never reachable via back navigation once dismissed.
+ *
+ * [readerRequest] is set when MainActivity was launched (or re-entered) by a
+ * shared link; [onReaderRequestConsumed] clears it once we've navigated, so a
+ * configuration change doesn't re-open the reader. A request that arrives
+ * before onboarding finishes stays pending — the navigation happens on the
+ * first composition that has a nav graph.
  */
 @Composable
-fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
+fun AppRoot(
+    viewModel: AppRootViewModel = viewModel(),
+    readerRequest: ReaderRequest? = null,
+    onReaderRequestConsumed: () -> Unit = {},
+) {
     val onboarded by viewModel.onboarded.collectAsStateWithLifecycle(initialValue = null)
 
     val onboardedNow = onboarded ?: return
@@ -223,6 +263,13 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
     }
 
     val navController = rememberNavController()
+
+    LaunchedEffect(readerRequest) {
+        val request = readerRequest ?: return@LaunchedEffect
+        navController.navigate(Routes.reader(request.url, request.sharedText))
+        onReaderRequestConsumed()
+    }
+
     val currentRoute = navController.currentBackStackEntryAsState().value
         ?.destination?.route
 
@@ -244,7 +291,9 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
         // The editor's route template carries query args
         // ("effect_editor?editId={editId}&dupeId={dupeId}"), so match the
         // family by prefix rather than exact string.
-        currentRoute?.startsWith(Routes.EffectEditor) != true
+        currentRoute?.startsWith(Routes.EffectEditor) != true &&
+        // Same reason: the reader's route template carries ?url=&text=.
+        currentRoute?.startsWith(Routes.Reader) != true
 
     Scaffold(
         bottomBar = {
@@ -362,6 +411,19 @@ fun AppRoot(viewModel: AppRootViewModel = viewModel()) {
                 ),
             ) {
                 EffectEditorScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "${Routes.Reader}?${ReaderViewModel.ARG_URL}={${ReaderViewModel.ARG_URL}}" +
+                    "&${ReaderViewModel.ARG_TEXT}={${ReaderViewModel.ARG_TEXT}}",
+                arguments = listOf(
+                    navArgument(ReaderViewModel.ARG_URL) { type = NavType.StringType },
+                    navArgument(ReaderViewModel.ARG_TEXT) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
+            ) {
+                ReaderScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.Benchmark) {
                 BenchmarkScreen(onBack = { navController.popBackStack() })

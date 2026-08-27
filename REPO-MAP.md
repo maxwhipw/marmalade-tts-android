@@ -179,7 +179,11 @@ When investigating **{concern}**, start at **{files}**:
 - `service/MarmaladeSynthService.kt` — foreground service for long-
   form Speak with media-session/lock-screen transport
 - `ui/intent/ShareIntentActivity.kt` — share-sheet target +
-  `PROCESS_TEXT` selection action; dispatches to MarmaladeSynthService
+  `PROCESS_TEXT` selection action; dispatches to MarmaladeSynthService,
+  or hands a shared link to reader mode
+- `ui/intent/ShareRouting.kt` — the pure "reader or speak?" decision the
+  share trampoline makes (ACTION_SEND carrying a URL → reader;
+  everything else, PROCESS_TEXT included → speak). Unit-tested on the JVM.
 - `service/SpeakClipboardTileService.kt` — Quick Settings tile that
   speaks the current clipboard
 - `service/SpeakDispatcher.kt` — wraps the foreground-service start
@@ -192,8 +196,16 @@ When investigating **{concern}**, start at **{files}**:
   rejoined it in v0.3.0-alpha.12 — Voices is now a detail route
   `voices?engine={e}`, reached from Speak or engine-scoped from
   EngineDetailScreen). Other detail routes: EngineDetail/{name},
-  CloudApi, Licenses, EffectEditor. Bottom bar hides on detail routes
-  (`showBottomBar` predicate at the top of AppRoot).
+  CloudApi, Licenses, EffectEditor, Reader. Bottom bar hides on detail
+  routes (`showBottomBar` predicate at the top of AppRoot).
+- **Reader mode** (`reader?url=…&text=…` → `ui/reader/ReaderScreen.kt`
+  + `ReaderViewModel.kt`): share a link → fetch + extract
+  (`reader/ArticleFetcher`, `reader/ArticleExtractor`) → article
+  rendered as native Compose text blocks. Entered only from
+  ShareIntentActivity, which starts MainActivity with
+  `EXTRA_READER_URL`; MainActivity holds it as state (so a second
+  share arriving at `onNewIntent` re-opens the reader) and AppRoot
+  navigates once. The article is in-memory only — never persisted.
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

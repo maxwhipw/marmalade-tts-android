@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- リーダー画面（共有されたリンク → 記事表示） -->
+    <string name="reader_title">リーダー</string>
+    <string name="reader_back">戻る</string>
+    <string name="reader_loading">記事を取得しています…</string>
+
+    <!-- 失敗時の表示 -->
+    <string name="reader_failed_title">このページは読み上げられません</string>
+    <string name="reader_failed_network">サイトに接続できませんでした。接続を確認してもう一度お試しください。</string>
+    <string name="reader_failed_http">サイトがリクエストを拒否しました。ブラウザ以外のアプリをブロックしている媒体もあります。</string>
+    <string name="reader_failed_too_large">このページは大きすぎて読み込めません。</string>
+    <string name="reader_failed_not_html">このリンクはウェブページではありません。</string>
+    <string name="reader_failed_extraction">このページから記事の本文が見つかりませんでした。</string>
+    <string name="reader_open_in_browser">ブラウザで開く</string>
+    <string name="reader_read_as_is">テキストをそのまま読み上げる</string>
+</resources>

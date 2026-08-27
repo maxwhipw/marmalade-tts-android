@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tela de leitura (link compartilhado → visualização do artigo) -->
+    <string name="reader_title">Leitura</string>
+    <string name="reader_back">Voltar</string>
+    <string name="reader_loading">Obtendo o artigo…</string>
+
+    <!-- Estados de falha -->
+    <string name="reader_failed_title">Não dá para ler esta página</string>
+    <string name="reader_failed_network">O Marmalade não conseguiu acessar o site. Verifique sua conexão e tente de novo.</string>
+    <string name="reader_failed_http">O site recusou a solicitação. Alguns veículos bloqueiam apps que não são um navegador.</string>
+    <string name="reader_failed_too_large">Essa página é grande demais para ler.</string>
+    <string name="reader_failed_not_html">Esse link não é uma página da web.</string>
+    <string name="reader_failed_extraction">Nenhum texto de artigo foi encontrado nessa página.</string>
+    <string name="reader_open_in_browser">Abrir no navegador</string>
+    <string name="reader_read_as_is">Ler o texto como está</string>
+</resources>
