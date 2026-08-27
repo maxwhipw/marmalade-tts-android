@@ -4,9 +4,12 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,30 +22,41 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -55,6 +69,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.reader.ArticleBlock
+import app.marmalade.tts.reader.ReaderPlaybackState
+import app.marmalade.tts.reader.ReaderPlaybackStatus
 import app.marmalade.tts.service.SpeakDispatcher
 
 // -----------------------------------------------------------------------------
@@ -70,12 +86,11 @@ import app.marmalade.tts.service.SpeakDispatcher
 //
 //   Nothing here renders HTML: blocks are typed text, so there is no WebView
 //   and no remote resource load. Both failure actions are user-triggered, on
-//   purpose — the reader never opens a browser or speaks by itself.
+//   purpose — the reader never opens a browser.
 //
-//   Playback controls (play/pause, next/previous paragraph) are deliberately
-//   absent until the playback pipeline exists; the per-block highlight and
-//   tap handler below are already wired to the ViewModel so that step adds
-//   no UI plumbing.
+//   Ready also carries the transport bar (previous / play-pause / next and a
+//   "N of M" readout) and follows the spoken block with a smooth scroll. The
+//   scroll defers to the user: a recent drag suppresses it (ReaderAutoScroll).
 // -----------------------------------------------------------------------------
 
 /** Horizontal margin for the reading column — a comfortable measure, not edge-to-edge. */
@@ -92,6 +107,7 @@ fun ReaderScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val currentBlockIndex by viewModel.currentBlockIndex.collectAsStateWithLifecycle()
+    val playback by viewModel.playback.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -111,6 +127,18 @@ fun ReaderScreen(
                     }
                 },
             )
+        },
+        bottomBar = {
+            val ready = state as? ReaderUiState.Ready
+            if (ready != null) {
+                TransportBar(
+                    blockCount = ready.blocks.size,
+                    playback = playback,
+                    onPlayPause = viewModel::onPlayPause,
+                    onPrevious = viewModel::onPreviousBlock,
+                    onNext = viewModel::onNextBlock,
+                )
+            }
         },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
@@ -198,7 +226,11 @@ private fun ArticleBody(
     currentBlockIndex: Int?,
     onBlockTapped: (Int) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    FollowSpokenBlock(listState = listState, currentBlockIndex = currentBlockIndex)
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = READING_MARGIN,
@@ -217,6 +249,42 @@ private fun ArticleBody(
                 onClick = { onBlockTapped(index) },
             )
         }
+    }
+}
+
+/**
+ * Smooth-scroll the list to the block being spoken, unless the user has just
+ * been scrolling (see [ReaderAutoScroll]).
+ *
+ * The `+ 1` is the header item: the article's own blocks start at list index 1
+ * whether or not the header has a title to draw.
+ */
+@Composable
+private fun FollowSpokenBlock(listState: LazyListState, currentBlockIndex: Int?) {
+    var lastUserScrollAt by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(listState) {
+        // Only drags reach the list's own interaction source — a tap on a
+        // block is that block's clickable, so tapping to seek never counts as
+        // "the user is reading somewhere else".
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start ||
+                interaction is DragInteraction.Stop ||
+                interaction is DragInteraction.Cancel
+            ) {
+                lastUserScrollAt = SystemClock.elapsedRealtime()
+            }
+        }
+    }
+
+    LaunchedEffect(currentBlockIndex) {
+        val index = currentBlockIndex ?: return@LaunchedEffect
+        val allowed = ReaderAutoScroll.shouldAutoScroll(
+            nowMillis = SystemClock.elapsedRealtime(),
+            lastUserScrollMillis = lastUserScrollAt,
+            userIsScrolling = listState.isScrollInProgress,
+        )
+        if (allowed) listState.animateScrollToItem(index + 1)
     }
 }
 
@@ -244,6 +312,71 @@ private fun ArticleHeader(title: String?, byline: String?) {
 }
 
 /**
+ * Previous / play-pause / next, plus "N of M".
+ *
+ * Backward is not a seek — audio is synthesised one block at a time, so there
+ * is nothing to scrub. It restarts the current block, or steps back a block if
+ * the current one only just started (see [app.marmalade.tts.reader.ReaderPlaybackController.previous]).
+ */
+@Composable
+private fun TransportBar(
+    blockCount: Int,
+    playback: ReaderPlaybackState,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val isPlaying = playback.status == ReaderPlaybackStatus.Playing
+    Surface(tonalElevation = 3.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = READING_MARGIN, end = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.reader_progress,
+                    playback.currentIndex + 1,
+                    blockCount,
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onPrevious) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_reader_skip_previous),
+                        contentDescription = stringResource(R.string.reader_previous_block),
+                    )
+                }
+                FilledIconButton(onClick = onPlayPause) {
+                    if (isPlaying) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_reader_pause),
+                            contentDescription = stringResource(R.string.reader_pause),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(R.string.reader_play),
+                        )
+                    }
+                }
+                IconButton(onClick = onNext) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_reader_skip_next),
+                        contentDescription = stringResource(R.string.reader_next_block),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * One article block. The highlight background is the whole point of the row
  * wrapper: playback marks its current block by index, and the row it lands on
  * has to read as "this is what you're hearing" without moving the text.
@@ -251,11 +384,16 @@ private fun ArticleHeader(title: String?, byline: String?) {
 @Composable
 private fun BlockRow(block: ArticleBlock, isCurrent: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
-    val background = if (isCurrent) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        Color.Transparent
-    }
+    // Cross-fade rather than snap: the highlight moves on every block
+    // boundary, and a hard swap of a full-width background reads as a flicker.
+    val background by animateColorAsState(
+        targetValue = if (isCurrent) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+        label = "blockHighlight",
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()

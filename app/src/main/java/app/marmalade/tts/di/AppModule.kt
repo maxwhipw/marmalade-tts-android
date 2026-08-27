@@ -42,6 +42,9 @@ import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
 import app.marmalade.tts.install.UrlHttpFetcher
 import app.marmalade.tts.perf.DeviceCapability
+import app.marmalade.tts.reader.ReaderPlaybackController
+import app.marmalade.tts.reader.ReaderSpeechClient
+import app.marmalade.tts.reader.SynthServiceReaderSpeechClient
 import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.PreprocessingRules
@@ -132,6 +135,17 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSpeechPlayer(impl: Synthesizer): SpeechPlayer = impl
+
+    /**
+     * The reader's per-block speak/cancel/transport seam onto
+     * MarmaladeSynthService. An interface so [ReaderPlaybackController]'s
+     * sequencing is unit-testable without a Context.
+     */
+    @Provides
+    @Singleton
+    fun provideReaderSpeechClient(
+        impl: SynthServiceReaderSpeechClient,
+    ): ReaderSpeechClient = impl
 
     /**
      * The launchable-app roster behind the alias screen's routing sheet.

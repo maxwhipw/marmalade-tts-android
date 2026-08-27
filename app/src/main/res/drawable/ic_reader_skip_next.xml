@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See ic_reader_pause.xml for why these are hand-authored. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:autoMirrored="true">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M6,5l10,7l-10,7z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M17,5h3v14h-3z" />
+</vector>

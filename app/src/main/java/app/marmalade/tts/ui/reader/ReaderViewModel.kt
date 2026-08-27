@@ -8,12 +8,17 @@ import app.marmalade.tts.reader.ArticleExtractor
 import app.marmalade.tts.reader.ArticleFetcher
 import app.marmalade.tts.reader.ExtractionResult
 import app.marmalade.tts.reader.FetchResult
+import app.marmalade.tts.reader.ReaderPlaybackController
+import app.marmalade.tts.reader.ReaderPlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URL
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 // -----------------------------------------------------------------------------
@@ -25,13 +30,22 @@ import kotlinx.coroutines.launch
 //     │            fall back to the plain "speak what you shared" behaviour
 //     │
 //     ├── init: ArticleFetcher.fetch(url) → ArticleExtractor.extract(bytes)
+//     │           └── on success: hand the blocks to ReaderPlaybackController
+//     │               and, if it's a new article, start reading
 //     │
-//     └── state: ReaderUiState.Loading / Failed(reason) / Ready(blocks)
+//     ├── state: ReaderUiState.Loading / Failed(reason) / Ready(blocks)
+//     │
+//     └── playback / currentBlockIndex: projections of the controller's state
 //
 //   The article lives here and nowhere else — no disk cache, no database row
 //   (reader-mode design point 8: nothing about a fetched page is persisted).
 //   Process death therefore re-fetches, which is correct: the alternative is
 //   writing someone's article to storage.
+//
+//   Playback is NOT owned here. ReaderPlaybackController is an app-scoped
+//   singleton so leaving the screen keeps the article being read (design
+//   point 7) and coming back re-binds to the block it has reached. onCleared
+//   deliberately does nothing.
 // -----------------------------------------------------------------------------
 
 /** Why the reader has nothing to show. One message per case in the failure UI. */
@@ -73,6 +87,7 @@ sealed interface ReaderUiState {
 class ReaderViewModel @Inject constructor(
     private val fetcher: ArticleFetcher,
     private val extractor: ArticleExtractor,
+    private val playbackController: ReaderPlaybackController,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -89,22 +104,31 @@ class ReaderViewModel @Inject constructor(
     val state: StateFlow<ReaderUiState> = _state.asStateFlow()
 
     /**
-     * Index of the block currently being spoken, or null when nothing is.
-     * Always null until the playback pipeline lands; the screen already binds
-     * its highlight to it so that step is ViewModel-only.
+     * The controller's transport state, filtered to this article: another
+     * article's playback (the user shared a second link, say) must not drive
+     * this screen's controls.
      */
-    private val _currentBlockIndex = MutableStateFlow<Int?>(null)
-    val currentBlockIndex: StateFlow<Int?> = _currentBlockIndex.asStateFlow()
+    val playback: StateFlow<ReaderPlaybackState> = playbackController.state
+        .map { if (it.articleKey == url) it else ReaderPlaybackState() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderPlaybackState())
+
+    /** Index of the block currently being spoken, or null when nothing is. */
+    val currentBlockIndex: StateFlow<Int?> = playback
+        .map { if (it.isActive) it.currentIndex else null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         viewModelScope.launch { load() }
     }
 
-    /**
-     * Move playback to the tapped block. A no-op until the playback pipeline
-     * exists; taps are wired up now so the screen needs no change then.
-     */
-    fun onBlockTapped(index: Int) = Unit
+    /** Move playback to the tapped block (design point 9's tap-to-seek). */
+    fun onBlockTapped(index: Int) = playbackController.seekTo(index)
+
+    fun onPlayPause() = playbackController.togglePlayPause()
+
+    fun onNextBlock() = playbackController.next()
+
+    fun onPreviousBlock() = playbackController.previous()
 
     private suspend fun load() {
         if (url.isEmpty()) {
@@ -125,11 +149,21 @@ class ReaderViewModel @Inject constructor(
 
     private fun extractFrom(fetched: FetchResult.Success): ReaderUiState =
         when (val extracted = extractor.extract(fetched.bytes, fetched.finalUrl)) {
-            is ExtractionResult.Success -> ReaderUiState.Ready(
-                title = extracted.title,
-                byline = extracted.byline,
-                blocks = extracted.blocks,
-            )
+            is ExtractionResult.Success -> {
+                // Sharing a link to a TTS app means "read me this", so a
+                // freshly-opened article starts speaking on its own. Coming
+                // back to an article that is already loaded does NOT restart
+                // it — open() reports that, and playback carries on wherever
+                // it had got to.
+                if (playbackController.open(url, extracted.blocks.map { it.text })) {
+                    playbackController.play()
+                }
+                ReaderUiState.Ready(
+                    title = extracted.title,
+                    byline = extracted.byline,
+                    blocks = extracted.blocks,
+                )
+            }
             ExtractionResult.ExtractionFailed ->
                 ReaderUiState.Failed(ReaderFailure.ExtractionFailed)
         }

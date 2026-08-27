@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Transport icons for the reader (pause / skip-next / skip-previous).
+  Hand-authored 24dp glyphs on the standard Material grid:
+  material-icons-extended is not a dependency — only the core icon set ships
+  with material3 — and one more artifact for three shapes isn't worth it.
+  Colour comes from the caller: Icon(painter, tint = …).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M6,5h4v14h-4z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M14,5h4v14h-4z" />
+</vector>

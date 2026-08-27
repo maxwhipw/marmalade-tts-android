@@ -14,4 +14,11 @@
     <string name="reader_failed_extraction">No se encontró texto de artículo en esa página.</string>
     <string name="reader_open_in_browser">Abrir en el navegador</string>
     <string name="reader_read_as_is">Leer el texto tal cual</string>
+
+    <!-- Controles de reproducción -->
+    <string name="reader_play">Reproducir</string>
+    <string name="reader_pause">Pausar</string>
+    <string name="reader_previous_block">Párrafo anterior</string>
+    <string name="reader_next_block">Párrafo siguiente</string>
+    <string name="reader_progress">%1$d de %2$d</string>
 </resources>

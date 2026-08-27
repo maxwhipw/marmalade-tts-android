@@ -14,4 +14,11 @@
     <string name="reader_failed_extraction">在该页面上未找到文章正文。</string>
     <string name="reader_open_in_browser">在浏览器中打开</string>
     <string name="reader_read_as_is">按原文朗读</string>
+
+    <!-- 播放控制 -->
+    <string name="reader_play">播放</string>
+    <string name="reader_pause">暂停</string>
+    <string name="reader_previous_block">上一段</string>
+    <string name="reader_next_block">下一段</string>
+    <string name="reader_progress">第 %1$d 段，共 %2$d 段</string>
 </resources>

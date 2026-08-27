@@ -14,4 +14,11 @@
     <string name="reader_failed_extraction">इस पेज पर लेख का कोई टेक्स्ट नहीं मिला।</string>
     <string name="reader_open_in_browser">ब्राउज़र में खोलें</string>
     <string name="reader_read_as_is">टेक्स्ट जैसा है वैसा पढ़ें</string>
+
+    <!-- प्लेबैक नियंत्रण -->
+    <string name="reader_play">चलाएँ</string>
+    <string name="reader_pause">रोकें</string>
+    <string name="reader_previous_block">पिछला अनुच्छेद</string>
+    <string name="reader_next_block">अगला अनुच्छेद</string>
+    <string name="reader_progress">%2$d में से %1$d</string>
 </resources>
