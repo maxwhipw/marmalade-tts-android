@@ -10,6 +10,7 @@ import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackStatus
 import app.marmalade.tts.service.PreviewCompletions
+import app.marmalade.tts.ui.screen.FakeSettings
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -127,6 +128,7 @@ class ReaderViewModelTest {
             fetcher = fetcher,
             extractor = FakeExtractor(ExtractionResult.ExtractionFailed),
             playbackController = newController(),
+            settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
             savedStateHandle = SavedStateHandle(),
         )
 
@@ -215,6 +217,42 @@ class ReaderViewModelTest {
         contentType = "text/html; charset=utf-8",
     )
 
+    // -- display settings ----------------------------------------------------
+
+    @Test
+    fun `display prefs default to unset background, sans, and the theme body size`() =
+        runTest {
+            val vm = newViewModel(extraction = threeBlocks())
+
+            val prefs = vm.display.first()
+            assertNull("background stays unset until the user picks one", prefs.background)
+            assertEquals(ReaderFont.Sans, prefs.font)
+            assertEquals(ReaderDisplayPrefs.DEFAULT_FONT_SIZE_SP, prefs.fontSizeSp)
+        }
+
+    @Test
+    fun `background and font choices round-trip through the settings store`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+
+        vm.onBackgroundChange(ReaderBackground.Paper)
+        vm.onFontChange(ReaderFont.Serif)
+
+        assertEquals(ReaderBackground.Paper, vm.display.first().background)
+        assertEquals(ReaderFont.Serif, vm.display.first().font)
+    }
+
+    @Test
+    fun `text size steps clamp at both ends of the range`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+
+        // Far past the top: the stepper stops at MAX rather than running away.
+        repeat(20) { vm.onFontSizeStep(ReaderDisplayPrefs.FONT_SIZE_STEP_SP) }
+        assertEquals(ReaderDisplayPrefs.MAX_FONT_SIZE_SP, vm.display.first().fontSizeSp)
+
+        repeat(20) { vm.onFontSizeStep(-ReaderDisplayPrefs.FONT_SIZE_STEP_SP) }
+        assertEquals(ReaderDisplayPrefs.MIN_FONT_SIZE_SP, vm.display.first().fontSizeSp)
+    }
+
     private fun threeBlocks() = ExtractionResult.Success(
         title = "Marmalade Ships",
         byline = "By Max",
@@ -246,10 +284,12 @@ class ReaderViewModelTest {
         extraction: ExtractionResult = ExtractionResult.ExtractionFailed,
         extractor: FakeExtractor = FakeExtractor(extraction),
         sharedText: String = "Marmalade Ships $url",
+        settings: FakeSettings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
     ) = ReaderViewModel(
         fetcher = FakeFetcher(fetch),
         extractor = extractor,
         playbackController = newController(),
+        settings = settings,
         savedStateHandle = SavedStateHandle(
             mapOf(
                 ReaderViewModel.ARG_URL to url,

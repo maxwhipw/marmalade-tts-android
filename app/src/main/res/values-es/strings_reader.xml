@@ -21,4 +21,22 @@
     <string name="reader_previous_block">Párrafo anterior</string>
     <string name="reader_next_block">Párrafo siguiente</string>
     <string name="reader_progress">%1$d de %2$d</string>
+
+    <!-- Panel de visualización: fondo, tipografía, tamaño del texto -->
+    <string name="reader_display_sample">Aa</string>
+    <string name="reader_display_step_glyph">A</string>
+    <string name="reader_display_open">Opciones de visualización</string>
+    <string name="reader_display_title">Visualización</string>
+    <string name="reader_display_background">Fondo</string>
+    <string name="reader_display_background_white">Blanco</string>
+    <string name="reader_display_background_black">Negro</string>
+    <string name="reader_display_background_paper">Papel</string>
+    <string name="reader_display_font">Tipografía</string>
+    <string name="reader_display_font_sans">Palo seco</string>
+    <string name="reader_display_font_serif">Serif</string>
+    <string name="reader_display_font_mono">Monoespaciada</string>
+    <string name="reader_display_text_size">Tamaño del texto</string>
+    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_smaller">Texto más pequeño</string>
+    <string name="reader_display_text_larger">Texto más grande</string>
 </resources>

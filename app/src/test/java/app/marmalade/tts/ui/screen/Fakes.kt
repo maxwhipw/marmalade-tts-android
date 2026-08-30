@@ -173,6 +173,28 @@ internal class FakeSettings(
         disclaimerAccepted.value = true
     }
 
+    // Reader display settings. Same trap as above — ReaderViewModel combines
+    // all three, so leaving them on the NoOp store would freeze its `display`
+    // flow at the constructor default. Null = "user hasn't chosen", which is
+    // the real fresh-install state.
+    private val readerBackgroundState = MutableStateFlow<String?>(null)
+    override val readerBackground: Flow<String?> = readerBackgroundState
+    override suspend fun setReaderBackground(value: String) {
+        readerBackgroundState.value = value
+    }
+
+    private val readerFontState = MutableStateFlow<String?>(null)
+    override val readerFont: Flow<String?> = readerFontState
+    override suspend fun setReaderFont(value: String) {
+        readerFontState.value = value
+    }
+
+    private val readerFontSizeState = MutableStateFlow<Int?>(null)
+    override val readerFontSizeSp: Flow<Int?> = readerFontSizeState
+    override suspend fun setReaderFontSizeSp(value: Int) {
+        readerFontSizeState.value = value
+    }
+
     // Per-engine preprocessing-rule sets. Defaults to "nothing stored"
     // — `enabledRules(engine)` falls back to EngineProfiles.defaultsFor.
     // Tests that want to start from a stored set can call

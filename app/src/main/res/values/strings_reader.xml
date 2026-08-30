@@ -21,4 +21,22 @@
     <string name="reader_previous_block">Previous paragraph</string>
     <string name="reader_next_block">Next paragraph</string>
     <string name="reader_progress">%1$d of %2$d</string>
+
+    <!-- Display settings sheet: background preset, font family, text size -->
+    <string name="reader_display_sample">Aa</string>
+    <string name="reader_display_step_glyph">A</string>
+    <string name="reader_display_open">Display options</string>
+    <string name="reader_display_title">Display</string>
+    <string name="reader_display_background">Background</string>
+    <string name="reader_display_background_white">White</string>
+    <string name="reader_display_background_black">Black</string>
+    <string name="reader_display_background_paper">Paper</string>
+    <string name="reader_display_font">Font</string>
+    <string name="reader_display_font_sans">Sans</string>
+    <string name="reader_display_font_serif">Serif</string>
+    <string name="reader_display_font_mono">Mono</string>
+    <string name="reader_display_text_size">Text size</string>
+    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_smaller">Smaller text</string>
+    <string name="reader_display_text_larger">Larger text</string>
 </resources>

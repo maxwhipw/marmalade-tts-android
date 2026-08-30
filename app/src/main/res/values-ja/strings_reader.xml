@@ -21,4 +21,22 @@
     <string name="reader_previous_block">前の段落</string>
     <string name="reader_next_block">次の段落</string>
     <string name="reader_progress">%2$d 件中 %1$d 件目</string>
+
+    <!-- 表示設定：背景・フォント・文字サイズ -->
+    <string name="reader_display_sample">Aa</string>
+    <string name="reader_display_step_glyph">A</string>
+    <string name="reader_display_open">表示オプション</string>
+    <string name="reader_display_title">表示</string>
+    <string name="reader_display_background">背景</string>
+    <string name="reader_display_background_white">白</string>
+    <string name="reader_display_background_black">黒</string>
+    <string name="reader_display_background_paper">紙</string>
+    <string name="reader_display_font">フォント</string>
+    <string name="reader_display_font_sans">ゴシック</string>
+    <string name="reader_display_font_serif">明朝</string>
+    <string name="reader_display_font_mono">等幅</string>
+    <string name="reader_display_text_size">文字サイズ</string>
+    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_smaller">文字を小さく</string>
+    <string name="reader_display_text_larger">文字を大きく</string>
 </resources>

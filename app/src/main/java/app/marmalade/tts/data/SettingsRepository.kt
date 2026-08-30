@@ -522,6 +522,60 @@ open class SettingsRepository @Inject constructor(
         }
     }
 
+    /**
+     * Reader-mode background preset, stored as a
+     * [app.marmalade.tts.ui.reader.ReaderBackground] name.
+     *
+     * Emits `null` until the user picks one — the reader then follows the
+     * app's own light/dark instead (see `ReaderDisplayPrefs.resolveBackground`).
+     * Deliberately not defaulted here: baking a value in at first read would
+     * pin a user who later switches the app to dark onto a white page.
+     *
+     * These are display settings, not article content — the reader's
+     * "nothing about a fetched page is persisted" rule covers the article.
+     */
+    open val readerBackground: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_READER_BACKGROUND]
+    }
+
+    /** Persist the reader background preset (a `ReaderBackground.name`). */
+    open suspend fun setReaderBackground(value: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_READER_BACKGROUND] = value
+        }
+    }
+
+    /**
+     * Reader-mode font family, stored as a
+     * [app.marmalade.tts.ui.reader.ReaderFont] name. `null` ⇒ Sans, the app's
+     * own face; the caller applies that default.
+     */
+    open val readerFont: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_READER_FONT]
+    }
+
+    /** Persist the reader font family (a `ReaderFont.name`). */
+    open suspend fun setReaderFont(value: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_READER_FONT] = value
+        }
+    }
+
+    /**
+     * Reader-mode body text size in sp. `null` ⇒ the theme's body size; the
+     * caller applies that default and clamps to the supported range.
+     */
+    open val readerFontSizeSp: Flow<Int?> = dataStore.data.map { prefs ->
+        prefs[KEY_READER_FONT_SIZE]
+    }
+
+    /** Persist the reader body text size, in sp. */
+    open suspend fun setReaderFontSizeSp(value: Int) {
+        dataStore.edit { prefs ->
+            prefs[KEY_READER_FONT_SIZE] = value
+        }
+    }
+
     /** Persist the show-developer-engines toggle. */
     open suspend fun setShowDeveloperEngines(value: Boolean) {
         dataStore.edit { prefs ->
@@ -607,6 +661,12 @@ open class SettingsRepository @Inject constructor(
         // reason.
         private val KEY_KITTEN_RTF = doublePreferencesKey("device_kitten_rtf")
         private val KEY_KITTEN_RTF_AT = longPreferencesKey("device_kitten_rtf_at")
+
+        // Reader display settings (step G). All three are absent until the
+        // user changes them; the reader applies its own defaults on read.
+        private val KEY_READER_BACKGROUND = stringPreferencesKey("reader_background")
+        private val KEY_READER_FONT = stringPreferencesKey("reader_font")
+        private val KEY_READER_FONT_SIZE = intPreferencesKey("reader_font_size_sp")
 
         // P-K — keepalive mode, stored as KeepaliveMode.name string.
         // Absent ⇒ Smart (default). Stable key; semver-protected.

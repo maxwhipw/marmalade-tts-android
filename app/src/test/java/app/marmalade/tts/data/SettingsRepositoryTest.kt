@@ -104,6 +104,30 @@ class SettingsRepositoryTest {
         )
     }
 
+    // -- reader display settings ---------------------------------------------
+
+    @Test
+    fun readerDisplaySettings_areAbsentUntilTheUserChangesThem() = runTest {
+        val repo = newRepo()
+        // All three defaults are applied by the reader, not seeded here — an
+        // unset background is what lets the reader follow the app's theme.
+        assertNull(repo.readerBackground.first())
+        assertNull(repo.readerFont.first())
+        assertNull(repo.readerFontSizeSp.first())
+    }
+
+    @Test
+    fun readerDisplaySettings_roundTripThroughDataStore() = runTest {
+        val repo = newRepo()
+        repo.setReaderBackground("Paper")
+        repo.setReaderFont("Serif")
+        repo.setReaderFontSizeSp(22)
+
+        assertEquals("Paper", repo.readerBackground.first())
+        assertEquals("Serif", repo.readerFont.first())
+        assertEquals(22, repo.readerFontSizeSp.first())
+    }
+
     private fun newRepo(): SettingsRepository {
         val ds = PreferenceDataStoreFactory.create(
             scope = scope,

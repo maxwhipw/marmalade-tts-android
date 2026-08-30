@@ -40,26 +40,33 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -88,9 +95,13 @@ import app.marmalade.tts.service.SpeakDispatcher
 //   and no remote resource load. Both failure actions are user-triggered, on
 //   purpose — the reader never opens a browser.
 //
-//   Ready also carries the transport bar (previous / play-pause / next and a
-//   "N of M" readout) and follows the spoken block with a smooth scroll. The
-//   scroll defers to the user: a recent drag suppresses it (ReaderAutoScroll).
+//   Ready also carries the transport bar ("Aa" | transport | "N of M") and
+//   follows the spoken block with a smooth scroll. The scroll defers to the
+//   user: a recent drag suppresses it (ReaderAutoScroll).
+//
+//   The reading surface is painted from ReaderDisplayPrefs, NOT the app theme:
+//   someone running the app in light mode still gets to read on black. Loading
+//   and failure stay app-themed — there is no article to style there.
 // -----------------------------------------------------------------------------
 
 /** Horizontal margin for the reading column — a comfortable measure, not edge-to-edge. */
@@ -98,6 +109,22 @@ private val READING_MARGIN = 24.dp
 
 /** Extra line spacing for sustained reading, applied to body-sized blocks. */
 private const val BODY_LINE_HEIGHT_SP = 28
+
+/**
+ * How the reading surface is painted right now: the resolved preset colors
+ * plus the user's font and size. Threaded through the article composables as
+ * one value so each of them doesn't grow two parameters.
+ */
+private data class ReaderSurface(
+    val palette: ReaderPalette,
+    val prefs: ReaderDisplayPrefs,
+)
+
+/** Re-style a theme text style for the reading surface: user font, user size. */
+private fun TextStyle.forReader(prefs: ReaderDisplayPrefs): TextStyle = copy(
+    fontFamily = prefs.font.fontFamily() ?: fontFamily,
+    fontSize = fontSize * prefs.textScale,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,12 +135,27 @@ fun ReaderScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val currentBlockIndex by viewModel.currentBlockIndex.collectAsStateWithLifecycle()
     val playback by viewModel.playback.collectAsStateWithLifecycle()
+    val prefs by viewModel.display.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Which preset an untouched preference resolves to. Read off the theme's
+    // own background rather than isSystemInDarkTheme() so the app's in-app
+    // light/dark override counts too.
+    val appIsDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val ready = state as? ReaderUiState.Ready
+    val surface = ReaderSurface(prefs.resolveBackground(appIsDark).palette(), prefs)
+    // Only an actual article gets the preset paint; loading and failure have
+    // no page to style and stay on the app theme.
+    val articlePalette = if (ready != null) surface.palette else null
+
+    var showDisplaySheet by remember { mutableStateOf(false) }
 
     Scaffold(
         // Nested-Scaffold inset handoff — AppRoot's outer Scaffold owns the
         // status-bar insets; opt out here so the bar doesn't double-pad.
         contentWindowInsets = WindowInsets(0),
+        containerColor = articlePalette?.background
+            ?: MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.reader_title)) },
@@ -126,14 +168,27 @@ fun ReaderScreen(
                         )
                     }
                 },
+                // The bar sits directly above the page, so it takes the
+                // preset too — an app-themed strip over a black page reads
+                // as a rendering bug.
+                colors = if (articlePalette == null) {
+                    TopAppBarDefaults.centerAlignedTopAppBarColors()
+                } else {
+                    TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = articlePalette.background,
+                        titleContentColor = articlePalette.text,
+                        navigationIconContentColor = articlePalette.text,
+                    )
+                },
             )
         },
         bottomBar = {
-            val ready = state as? ReaderUiState.Ready
             if (ready != null) {
                 TransportBar(
                     blockCount = ready.blocks.size,
                     playback = playback,
+                    palette = surface.palette,
+                    onOpenDisplaySettings = { showDisplaySheet = true },
                     onPlayPause = viewModel::onPlayPause,
                     onPrevious = viewModel::onPreviousBlock,
                     onNext = viewModel::onNextBlock,
@@ -155,10 +210,22 @@ fun ReaderScreen(
                 is ReaderUiState.Ready -> ArticleBody(
                     article = current,
                     currentBlockIndex = currentBlockIndex,
+                    surface = surface,
                     onBlockTapped = viewModel::onBlockTapped,
                 )
             }
         }
+    }
+
+    if (showDisplaySheet) {
+        ReaderTypographySheet(
+            prefs = prefs,
+            appIsDark = appIsDark,
+            onBackgroundChange = viewModel::onBackgroundChange,
+            onFontChange = viewModel::onFontChange,
+            onFontSizeStep = viewModel::onFontSizeStep,
+            onDismiss = { showDisplaySheet = false },
+        )
     }
 }
 
@@ -224,6 +291,7 @@ private fun FailedBody(
 private fun ArticleBody(
     article: ReaderUiState.Ready,
     currentBlockIndex: Int?,
+    surface: ReaderSurface,
     onBlockTapped: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -240,12 +308,17 @@ private fun ArticleBody(
         ),
     ) {
         item {
-            ArticleHeader(title = article.title, byline = article.byline)
+            ArticleHeader(
+                title = article.title,
+                byline = article.byline,
+                surface = surface,
+            )
         }
         itemsIndexed(article.blocks) { index, block ->
             BlockRow(
                 block = block,
                 isCurrent = index == currentBlockIndex,
+                surface = surface,
                 onClick = { onBlockTapped(index) },
             )
         }
@@ -289,14 +362,15 @@ private fun FollowSpokenBlock(listState: LazyListState, currentBlockIndex: Int?)
 }
 
 @Composable
-private fun ArticleHeader(title: String?, byline: String?) {
+private fun ArticleHeader(title: String?, byline: String?, surface: ReaderSurface) {
     if (title == null && byline == null) return
     Column(modifier = Modifier.padding(bottom = 12.dp)) {
         if (title != null) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.forReader(surface.prefs),
                 fontWeight = FontWeight.Bold,
+                color = surface.palette.text,
                 modifier = Modifier.semantics { heading() },
             )
         }
@@ -304,15 +378,20 @@ private fun ArticleHeader(title: String?, byline: String?) {
             Spacer(Modifier.height(6.dp))
             Text(
                 text = byline,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge.forReader(surface.prefs),
+                color = surface.palette.muted,
             )
         }
     }
 }
 
 /**
- * Previous / play-pause / next, plus "N of M".
+ * Three zones: "Aa" (display settings) | transport | "N of M".
+ *
+ * The transport is centred rather than parked on one end — it's the control
+ * the thumb goes for, and the two text zones are read, not pressed. Both
+ * flanks take equal weight so the centre stays centred whatever the readout
+ * grows to.
  *
  * Backward is not a seek — audio is synthesised one block at a time, so there
  * is nothing to scrub. It restarts the current block, or steps back a block if
@@ -322,37 +401,51 @@ private fun ArticleHeader(title: String?, byline: String?) {
 private fun TransportBar(
     blockCount: Int,
     playback: ReaderPlaybackState,
+    palette: ReaderPalette,
+    onOpenDisplaySettings: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
     val isPlaying = playback.status == ReaderPlaybackStatus.Playing
-    Surface(tonalElevation = 3.dp) {
+    // The highlight tint, not the page color: it separates the bar from the
+    // article without introducing a fourth color per preset.
+    Surface(color = palette.highlight, contentColor = palette.text) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = READING_MARGIN, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                text = stringResource(
-                    R.string.reader_progress,
-                    playback.currentIndex + 1,
-                    blockCount,
-                ),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val displayLabel = stringResource(R.string.reader_display_open)
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                TextButton(
+                    onClick = onOpenDisplaySettings,
+                    modifier = Modifier.semantics { contentDescription = displayLabel },
+                ) {
+                    Text(
+                        text = stringResource(R.string.reader_display_sample),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = palette.text,
+                    )
+                }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrevious) {
                     Icon(
                         painter = painterResource(R.drawable.ic_reader_skip_previous),
                         contentDescription = stringResource(R.string.reader_previous_block),
+                        tint = palette.text,
                     )
                 }
-                FilledIconButton(onClick = onPlayPause) {
+                FilledIconButton(
+                    onClick = onPlayPause,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = palette.text,
+                        contentColor = palette.background,
+                    ),
+                ) {
                     if (isPlaying) {
                         Icon(
                             painter = painterResource(R.drawable.ic_reader_pause),
@@ -369,9 +462,21 @@ private fun TransportBar(
                     Icon(
                         painter = painterResource(R.drawable.ic_reader_skip_next),
                         contentDescription = stringResource(R.string.reader_next_block),
+                        tint = palette.text,
                     )
                 }
             }
+            Text(
+                text = stringResource(
+                    R.string.reader_progress,
+                    playback.currentIndex + 1,
+                    blockCount,
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                color = palette.muted,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -382,16 +487,17 @@ private fun TransportBar(
  * has to read as "this is what you're hearing" without moving the text.
  */
 @Composable
-private fun BlockRow(block: ArticleBlock, isCurrent: Boolean, onClick: () -> Unit) {
+private fun BlockRow(
+    block: ArticleBlock,
+    isCurrent: Boolean,
+    surface: ReaderSurface,
+    onClick: () -> Unit,
+) {
     val shape = RoundedCornerShape(8.dp)
     // Cross-fade rather than snap: the highlight moves on every block
     // boundary, and a hard swap of a full-width background reads as a flicker.
     val background by animateColorAsState(
-        targetValue = if (isCurrent) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            Color.Transparent
-        },
+        targetValue = if (isCurrent) surface.palette.highlight else Color.Transparent,
         label = "blockHighlight",
     )
     Box(
@@ -403,10 +509,10 @@ private fun BlockRow(block: ArticleBlock, isCurrent: Boolean, onClick: () -> Uni
             .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         when (block) {
-            is ArticleBlock.Heading -> HeadingText(block)
-            is ArticleBlock.Paragraph -> BodyText(block.text)
-            is ArticleBlock.ListItem -> ListItemText(block.text)
-            is ArticleBlock.Quote -> QuoteText(block.text)
+            is ArticleBlock.Heading -> HeadingText(block, surface)
+            is ArticleBlock.Paragraph -> BodyText(block.text, surface)
+            is ArticleBlock.ListItem -> ListItemText(block.text, surface)
+            is ArticleBlock.Quote -> QuoteText(block.text, surface)
         }
     }
 }
@@ -417,7 +523,7 @@ private fun BlockRow(block: ArticleBlock, isCurrent: Boolean, onClick: () -> Uni
  * colliding with h2.
  */
 @Composable
-private fun HeadingText(heading: ArticleBlock.Heading) {
+private fun HeadingText(heading: ArticleBlock.Heading, surface: ReaderSurface) {
     val style = when (heading.level) {
         1 -> MaterialTheme.typography.headlineSmall
         2 -> MaterialTheme.typography.titleLarge
@@ -426,8 +532,9 @@ private fun HeadingText(heading: ArticleBlock.Heading) {
     }
     Text(
         text = heading.text,
-        style = style,
+        style = style.forReader(surface.prefs),
         fontWeight = FontWeight.SemiBold,
+        color = surface.palette.text,
         modifier = Modifier
             .padding(top = 12.dp, bottom = 2.dp)
             .semantics { heading() },
@@ -435,32 +542,38 @@ private fun HeadingText(heading: ArticleBlock.Heading) {
 }
 
 @Composable
-private fun BodyText(text: String, modifier: Modifier = Modifier) {
+private fun BodyText(
+    text: String,
+    surface: ReaderSurface,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyLarge,
-        lineHeight = BODY_LINE_HEIGHT_SP.sp,
+        style = MaterialTheme.typography.bodyLarge.forReader(surface.prefs),
+        lineHeight = BODY_LINE_HEIGHT_SP.sp * surface.prefs.textScale,
+        color = surface.palette.text,
         modifier = modifier.padding(vertical = 6.dp),
     )
 }
 
 @Composable
-private fun ListItemText(text: String) {
+private fun ListItemText(text: String, surface: ReaderSurface) {
     Row(modifier = Modifier.padding(vertical = 2.dp)) {
         Text(
             text = "•",
-            style = MaterialTheme.typography.bodyLarge,
-            lineHeight = BODY_LINE_HEIGHT_SP.sp,
+            style = MaterialTheme.typography.bodyLarge.forReader(surface.prefs),
+            lineHeight = BODY_LINE_HEIGHT_SP.sp * surface.prefs.textScale,
+            color = surface.palette.text,
             modifier = Modifier.padding(vertical = 6.dp),
         )
         Spacer(Modifier.width(12.dp))
-        BodyText(text)
+        BodyText(text, surface)
     }
 }
 
 /** Inset with a leading accent bar — the conventional "this is quoted" cue. */
 @Composable
-private fun QuoteText(text: String) {
+private fun QuoteText(text: String, surface: ReaderSurface) {
     // IntrinsicSize.Min lets the bar match the quote's own height without a
     // hardcoded guess at how many lines the quote runs to.
     Row(modifier = Modifier.height(IntrinsicSize.Min).padding(vertical = 6.dp)) {
@@ -468,15 +581,15 @@ private fun QuoteText(text: String) {
             modifier = Modifier
                 .width(3.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+                .background(surface.palette.muted, RoundedCornerShape(2.dp)),
         )
         Spacer(Modifier.width(12.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.forReader(surface.prefs),
             fontStyle = FontStyle.Italic,
-            lineHeight = BODY_LINE_HEIGHT_SP.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = BODY_LINE_HEIGHT_SP.sp * surface.prefs.textScale,
+            color = surface.palette.muted,
         )
     }
 }

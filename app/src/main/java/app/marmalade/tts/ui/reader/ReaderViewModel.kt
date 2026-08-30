@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.reader.ArticleBlock
 import app.marmalade.tts.reader.ArticleExtractor
 import app.marmalade.tts.reader.ArticleFetcher
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -35,7 +37,11 @@ import kotlinx.coroutines.launch
 //     │
 //     ├── state: ReaderUiState.Loading / Failed(reason) / Ready(blocks)
 //     │
-//     └── playback / currentBlockIndex: projections of the controller's state
+//     ├── playback / currentBlockIndex: projections of the controller's state
+//     │
+//     └── display: the reading surface's background / font / size, from
+//         SettingsRepository — app display settings, so these DO persist
+//
 //
 //   The article lives here and nowhere else — no disk cache, no database row
 //   (reader-mode design point 8: nothing about a fetched page is persisted).
@@ -88,6 +94,7 @@ class ReaderViewModel @Inject constructor(
     private val fetcher: ArticleFetcher,
     private val extractor: ArticleExtractor,
     private val playbackController: ReaderPlaybackController,
+    private val settings: SettingsRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -117,8 +124,40 @@ class ReaderViewModel @Inject constructor(
         .map { if (it.isActive) it.currentIndex else null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /**
+     * Reading-surface display settings. Persisted (they are app settings, not
+     * article content), so they survive the screen and the process.
+     */
+    val display: StateFlow<ReaderDisplayPrefs> = combine(
+        settings.readerBackground,
+        settings.readerFont,
+        settings.readerFontSizeSp,
+    ) { background, font, sizeSp ->
+        ReaderDisplayPrefs(
+            background = readerBackgroundOf(background),
+            font = readerFontOf(font),
+            fontSizeSp = clampReaderFontSize(
+                sizeSp ?: ReaderDisplayPrefs.DEFAULT_FONT_SIZE_SP,
+            ),
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderDisplayPrefs())
+
     init {
         viewModelScope.launch { load() }
+    }
+
+    fun onBackgroundChange(background: ReaderBackground) {
+        viewModelScope.launch { settings.setReaderBackground(background.name) }
+    }
+
+    fun onFontChange(font: ReaderFont) {
+        viewModelScope.launch { settings.setReaderFont(font.name) }
+    }
+
+    /** Step the body size by [deltaSp], clamped to the supported range. */
+    fun onFontSizeStep(deltaSp: Int) {
+        val next = clampReaderFontSize(display.value.fontSizeSp + deltaSp)
+        viewModelScope.launch { settings.setReaderFontSizeSp(next) }
     }
 
     /** Move playback to the tapped block (design point 9's tap-to-seek). */

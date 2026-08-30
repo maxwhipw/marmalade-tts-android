@@ -21,4 +21,22 @@
     <string name="reader_previous_block">Paragraphe précédent</string>
     <string name="reader_next_block">Paragraphe suivant</string>
     <string name="reader_progress">%1$d sur %2$d</string>
+
+    <!-- Panneau d'affichage : fond, police, taille du texte -->
+    <string name="reader_display_sample">Aa</string>
+    <string name="reader_display_step_glyph">A</string>
+    <string name="reader_display_open">Options d\'affichage</string>
+    <string name="reader_display_title">Affichage</string>
+    <string name="reader_display_background">Fond</string>
+    <string name="reader_display_background_white">Blanc</string>
+    <string name="reader_display_background_black">Noir</string>
+    <string name="reader_display_background_paper">Papier</string>
+    <string name="reader_display_font">Police</string>
+    <string name="reader_display_font_sans">Sans empattement</string>
+    <string name="reader_display_font_serif">Avec empattement</string>
+    <string name="reader_display_font_mono">Chasse fixe</string>
+    <string name="reader_display_text_size">Taille du texte</string>
+    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_smaller">Texte plus petit</string>
+    <string name="reader_display_text_larger">Texte plus grand</string>
 </resources>

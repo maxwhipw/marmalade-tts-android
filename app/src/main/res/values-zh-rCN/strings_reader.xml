@@ -21,4 +21,22 @@
     <string name="reader_previous_block">上一段</string>
     <string name="reader_next_block">下一段</string>
     <string name="reader_progress">第 %1$d 段，共 %2$d 段</string>
+
+    <!-- 显示设置：背景、字体、文字大小 -->
+    <string name="reader_display_sample">Aa</string>
+    <string name="reader_display_step_glyph">A</string>
+    <string name="reader_display_open">显示选项</string>
+    <string name="reader_display_title">显示</string>
+    <string name="reader_display_background">背景</string>
+    <string name="reader_display_background_white">白色</string>
+    <string name="reader_display_background_black">黑色</string>
+    <string name="reader_display_background_paper">纸色</string>
+    <string name="reader_display_font">字体</string>
+    <string name="reader_display_font_sans">黑体</string>
+    <string name="reader_display_font_serif">衬线</string>
+    <string name="reader_display_font_mono">等宽</string>
+    <string name="reader_display_text_size">文字大小</string>
+    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_smaller">缩小文字</string>
+    <string name="reader_display_text_larger">放大文字</string>
 </resources>
