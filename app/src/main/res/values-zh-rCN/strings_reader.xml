@@ -24,7 +24,6 @@
 
     <!-- 显示设置：背景、字体、文字大小 -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">显示选项</string>
     <string name="reader_display_title">显示</string>
     <string name="reader_display_background">背景</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">衬线</string>
     <string name="reader_display_font_mono">等宽</string>
     <string name="reader_display_text_size">文字大小</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">缩小文字</string>
     <string name="reader_display_text_larger">放大文字</string>
+
+    <!-- 朗读语速：仅本次有效，是音色自身语速的倍数 -->
+    <string name="reader_speed_open">朗读语速</string>
+    <string name="reader_speed_title">朗读语速</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">仅对本文有效。</string>
+
+    <!-- 目录：文章自身的标题 -->
+    <string name="reader_toc_open">目录</string>
+    <string name="reader_toc_title">目录</string>
 
     <!-- 提取不完整提示：仅作提醒，文章仍会显示 -->
     <string name="reader_short_extraction">此页面可能未完整提取。</string>

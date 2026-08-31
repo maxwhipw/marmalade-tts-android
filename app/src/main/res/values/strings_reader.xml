@@ -24,7 +24,6 @@
 
     <!-- Display settings sheet: background preset, font family, text size -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">Display options</string>
     <string name="reader_display_title">Display</string>
     <string name="reader_display_background">Background</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">Serif</string>
     <string name="reader_display_font_mono">Mono</string>
     <string name="reader_display_text_size">Text size</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">Smaller text</string>
     <string name="reader_display_text_larger">Larger text</string>
+
+    <!-- Reading speed: session-only, a factor on the voice's own speed -->
+    <string name="reader_speed_open">Reading speed</string>
+    <string name="reader_speed_title">Reading speed</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">Applies to this article only.</string>
+
+    <!-- Table of contents: the article\'s own headings -->
+    <string name="reader_toc_open">Contents</string>
+    <string name="reader_toc_title">Contents</string>
 
     <!-- Short-extraction notice: advisory, the article still renders -->
     <string name="reader_short_extraction">This page may not have extracted fully.</string>

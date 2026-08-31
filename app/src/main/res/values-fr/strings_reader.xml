@@ -24,7 +24,6 @@
 
     <!-- Panneau d'affichage : fond, police, taille du texte -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">Options d\'affichage</string>
     <string name="reader_display_title">Affichage</string>
     <string name="reader_display_background">Fond</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">Avec empattement</string>
     <string name="reader_display_font_mono">Chasse fixe</string>
     <string name="reader_display_text_size">Taille du texte</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">Texte plus petit</string>
     <string name="reader_display_text_larger">Texte plus grand</string>
+
+    <!-- Vitesse de lecture : uniquement pour cette session, un facteur appliqué à la vitesse de la voix -->
+    <string name="reader_speed_open">Vitesse de lecture</string>
+    <string name="reader_speed_title">Vitesse de lecture</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">S\'applique uniquement à cet article.</string>
+
+    <!-- Sommaire : les titres de l'article -->
+    <string name="reader_toc_open">Sommaire</string>
+    <string name="reader_toc_title">Sommaire</string>
 
     <!-- Avis d'extraction partielle : informatif, l'article s'affiche quand même -->
     <string name="reader_short_extraction">Cette page n\'a peut-être pas été extraite en entier.</string>

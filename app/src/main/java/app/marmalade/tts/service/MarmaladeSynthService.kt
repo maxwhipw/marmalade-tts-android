@@ -111,6 +111,7 @@ import kotlinx.coroutines.withContext
 //     │
 //     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
 //     │     voice/speed/effect/lang (share-sheet path only)
+//     ├── speed *= req.speedMultiplier (reader session speed; 1.0 elsewhere)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
 //     ├── requestAudioFocus(AUDIOFOCUS_GAIN)
 //     │     - LOSS_TRANSIENT → pause; GAIN → resume; LOSS → doStop
@@ -294,7 +295,7 @@ class MarmaladeSynthService : Service() {
 
     // -- request handling -----------------------------------------------------
 
-    private fun parseRequest(intent: Intent): SpeakRequest? {
+    internal fun parseRequest(intent: Intent): SpeakRequest? {
         // In-app callers hand very long text over as a cache file: intent
         // extras cross a binder transaction (~1 MB) even same-process, and
         // the Speak screen accepts pastes the old in-process path played
@@ -324,6 +325,14 @@ class MarmaladeSynthService : Service() {
         } else {
             1.0f
         }
+        // Multiplier, not an override: it is applied on top of whatever speed
+        // the request ends up with, alias-resolved or explicit (see runOne).
+        // Absent (every path but the reader) means 1.0, i.e. no change at all.
+        // A non-positive value would silence or reverse the engine, so garbage
+        // degrades to 1.0 rather than failing the request.
+        val speedMultiplier = intent.getFloatExtra(EXTRA_SPEED_MULTIPLIER, 1.0f)
+            .takeIf { it > 0f && it.isFinite() }
+            ?: 1.0f
         val effectPreset = intent.getStringExtra(EXTRA_EFFECT)
             ?.let { name ->
                 // Unknown values fall back to NONE — safer than throwing on a
@@ -348,6 +357,7 @@ class MarmaladeSynthService : Service() {
             engine = engineName,
             voice = voice,
             speed = speed,
+            speedMultiplier = speedMultiplier,
             effectBlocks = effectBlocks,
             voiceExplicit = explicitVoice != null,
             phonemizationLanguage = intent.getStringExtra(EXTRA_LANG)?.takeIf { it.isNotBlank() },
@@ -470,7 +480,14 @@ class MarmaladeSynthService : Service() {
         // locale to fall back on and the caller picked the voice, so
         // detection only ever moves the phonemizer. See
         // [UtteranceLanguage] for the per-engine rules.
+        //
+        // The session speed multiplier lands here, after routing, because the
+        // alias's own speed is the voice's tuned baseline: the reader asks for
+        // "1.25× of whatever this voice normally runs at", not for an absolute
+        // 1.25. Every other caller leaves the multiplier at 1.0, so this is an
+        // identity for them.
         val resolved: SpeakRequest = routed.copy(
+            speed = routed.speed * routed.speedMultiplier,
             phonemizationLanguage = UtteranceLanguage.resolve(
                 detector = langDetector,
                 engineName = routed.engine,
@@ -1196,11 +1213,18 @@ class MarmaladeSynthService : Service() {
 
     // -- request value type ---------------------------------------------------
 
-    private data class SpeakRequest(
+    internal data class SpeakRequest(
         val text: String,
         val engine: String,
         val voice: String,
         val speed: Float,
+        /**
+         * Applied on top of [speed] *after* alias resolution — see [runOne].
+         * 1.0 for every caller but the reader, whose per-article session speed
+         * has to compose with the primary alias's tuned speed rather than
+         * replace it.
+         */
+        val speedMultiplier: Float = 1.0f,
         val effectBlocks: List<EffectBlock>,
         /**
          * True iff the caller passed [EXTRA_VOICE] on the intent. When
@@ -1282,6 +1306,13 @@ class MarmaladeSynthService : Service() {
         const val EXTRA_LANG: String = "app.marmalade.tts.extra.LANG"
         /** [PreviewCompletions] request id (Long). */
         const val EXTRA_REQUEST_ID: String = "app.marmalade.tts.extra.REQUEST_ID"
+        /**
+         * Factor applied to the resolved speed (Float, default 1.0) — unlike
+         * [EXTRA_SPEED] this does NOT replace the primary alias's speed, it
+         * scales it. The reader's session speed is the only sender; leaving it
+         * off is exactly the behaviour every other caller had before it existed.
+         */
+        const val EXTRA_SPEED_MULTIPLIER: String = "app.marmalade.tts.extra.SPEED_MULTIPLIER"
         /**
          * Path (inside our own cacheDir) holding the text, used instead of
          * [EXTRA_TEXT] when the text is too large for a binder transaction.

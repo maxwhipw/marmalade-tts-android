@@ -6,7 +6,12 @@ package app.marmalade.tts.reader
  */
 class FakeReaderSpeechClient : ReaderSpeechClient {
 
-    data class Spoken(val requestId: Long, val text: String)
+    data class Spoken(
+        val requestId: Long,
+        val text: String,
+        /** The session speed the controller asked for — 1.0 unless it was set. */
+        val speedMultiplier: Float = 1.0f,
+    )
 
     val spoken = mutableListOf<Spoken>()
     val stopped = mutableListOf<Long>()
@@ -18,9 +23,9 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
     /** Set false to simulate the service refusing a background start. */
     var startAllowed = true
 
-    override fun speak(requestId: Long, text: String): Boolean {
+    override fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean {
         if (!startAllowed) return false
-        spoken += Spoken(requestId, text)
+        spoken += Spoken(requestId, text, speedMultiplier)
         return true
     }
 

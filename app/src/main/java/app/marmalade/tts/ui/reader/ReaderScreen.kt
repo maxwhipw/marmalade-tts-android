@@ -151,6 +151,12 @@ fun ReaderScreen(
     val articlePalette = if (ready != null) surface.palette else null
 
     var showDisplaySheet by remember { mutableStateOf(false) }
+    var showSpeedSheet by remember { mutableStateOf(false) }
+    var showTocSheet by remember { mutableStateOf(false) }
+
+    // Only articles with a real heading structure get a contents button (see
+    // tocEntriesOf); everything else would open a list of nothing.
+    val tocEntries = remember(ready) { tocEntriesOf(ready?.blocks.orEmpty()) }
 
     Scaffold(
         // Nested-Scaffold inset handoff — AppRoot's outer Scaffold owns the
@@ -170,6 +176,16 @@ fun ReaderScreen(
                         )
                     }
                 },
+                actions = {
+                    if (tocEntries.isNotEmpty()) {
+                        IconButton(onClick = { showTocSheet = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_reader_toc),
+                                contentDescription = stringResource(R.string.reader_toc_open),
+                            )
+                        }
+                    }
+                },
                 // The bar sits directly above the page, so it takes the
                 // preset too — an app-themed strip over a black page reads
                 // as a rendering bug.
@@ -180,6 +196,7 @@ fun ReaderScreen(
                         containerColor = articlePalette.background,
                         titleContentColor = articlePalette.text,
                         navigationIconContentColor = articlePalette.text,
+                        actionIconContentColor = articlePalette.text,
                     )
                 },
             )
@@ -191,6 +208,7 @@ fun ReaderScreen(
                     playback = playback,
                     palette = surface.palette,
                     onOpenDisplaySettings = { showDisplaySheet = true },
+                    onOpenSpeedSettings = { showSpeedSheet = true },
                     onPlayPause = viewModel::onPlayPause,
                     onPrevious = viewModel::onPreviousBlock,
                     onNext = viewModel::onNextBlock,
@@ -230,6 +248,31 @@ fun ReaderScreen(
             onFontChange = viewModel::onFontChange,
             onFontSizeStep = viewModel::onFontSizeStep,
             onDismiss = { showDisplaySheet = false },
+        )
+    }
+
+    if (showSpeedSheet) {
+        ReaderSpeedSheet(
+            speedMultiplier = playback.speedMultiplier,
+            onSpeedChange = viewModel::onSpeedMultiplierChange,
+            onDismiss = { showSpeedSheet = false },
+        )
+    }
+
+    if (showTocSheet) {
+        ReaderTocSheet(
+            entries = tocEntries,
+            // The heading whose section is being read — falling back to the
+            // transport's index so a paused or idle article still shows where
+            // it is rather than nothing.
+            currentBlockIndex = currentBlockIndex ?: playback.currentIndex,
+            onEntryTapped = { index ->
+                // Exactly the tap-a-block action, so seeking and auto-scroll
+                // have one implementation between them.
+                viewModel.onBlockTapped(index)
+                showTocSheet = false
+            },
+            onDismiss = { showTocSheet = false },
         )
     }
 }
@@ -451,12 +494,12 @@ private fun ArticleHeader(title: String?, byline: String?, surface: ReaderSurfac
 }
 
 /**
- * Three zones: "Aa" (display settings) | transport | "N of M".
+ * Three zones: "Aa" + speed (the two per-reading settings) | transport |
+ * "N of M".
  *
  * The transport is centred rather than parked on one end — it's the control
- * the thumb goes for, and the two text zones are read, not pressed. Both
- * flanks take equal weight so the centre stays centred whatever the readout
- * grows to.
+ * the thumb goes for, and the readout is read, not pressed. Both flanks take
+ * equal weight so the centre stays centred whatever the readout grows to.
  *
  * Backward is not a seek — audio is synthesised one block at a time, so there
  * is nothing to scrub. It restarts the current block, or steps back a block if
@@ -468,6 +511,7 @@ private fun TransportBar(
     playback: ReaderPlaybackState,
     palette: ReaderPalette,
     onOpenDisplaySettings: () -> Unit,
+    onOpenSpeedSettings: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -484,7 +528,10 @@ private fun TransportBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val displayLabel = stringResource(R.string.reader_display_open)
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 TextButton(
                     onClick = onOpenDisplaySettings,
                     modifier = Modifier.semantics { contentDescription = displayLabel },
@@ -493,6 +540,13 @@ private fun TransportBar(
                         text = stringResource(R.string.reader_display_sample),
                         style = MaterialTheme.typography.titleMedium,
                         color = palette.text,
+                    )
+                }
+                IconButton(onClick = onOpenSpeedSettings) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_reader_speed),
+                        contentDescription = stringResource(R.string.reader_speed_open),
+                        tint = palette.text,
                     )
                 }
             }
@@ -540,7 +594,10 @@ private fun TransportBar(
                 style = MaterialTheme.typography.labelLarge,
                 color = palette.muted,
                 textAlign = TextAlign.End,
-                modifier = Modifier.weight(1f),
+                // The left cluster's inset is the row's 12dp plus the button's
+                // own content padding; the readout is bare text, so it needs
+                // the difference added back or it sits on the screen edge.
+                modifier = Modifier.weight(1f).padding(end = 4.dp),
             )
         }
     }

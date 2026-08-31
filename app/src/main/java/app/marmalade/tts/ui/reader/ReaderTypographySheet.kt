@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedIconButton
@@ -23,13 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.marmalade.tts.R
 import app.marmalade.tts.ui.MarmaladeFilterChip
 
@@ -166,10 +166,13 @@ private fun BackgroundSwatches(
 }
 
 /**
- * Small-A / big-A rather than −/+ : the buttons show the thing they change.
- * (The app bundles material-icons-core only, which has no "remove" glyph, so
- * a −/+ pair would mean shipping two drawables for a control that reads
- * better as type anyway.)
+ * −/+ around the current size, as a bare number: "18 sp" told the user about
+ * an Android unit they never asked about, and the small-A/big-A circles this
+ * replaces read as two different letters rather than as one control.
+ *
+ * Both glyphs are hand-drawn (ic_reader_minus / ic_reader_plus) — the bundled
+ * material-icons-core has Add but no Remove, and a stock plus next to a
+ * hand-drawn minus doesn't match.
  */
 @Composable
 private fun TextSizeStepper(sizeSp: Int, onStep: (Int) -> Unit) {
@@ -178,8 +181,8 @@ private fun TextSizeStepper(sizeSp: Int, onStep: (Int) -> Unit) {
             onClick = { onStep(-ReaderDisplayPrefs.FONT_SIZE_STEP_SP) },
             enabled = sizeSp > ReaderDisplayPrefs.MIN_FONT_SIZE_SP,
         ) {
-            StepperGlyph(
-                sizeSp = 13,
+            Icon(
+                painter = painterResource(R.drawable.ic_reader_minus),
                 contentDescription = stringResource(R.string.reader_display_text_smaller),
             )
         }
@@ -192,22 +195,12 @@ private fun TextSizeStepper(sizeSp: Int, onStep: (Int) -> Unit) {
             onClick = { onStep(ReaderDisplayPrefs.FONT_SIZE_STEP_SP) },
             enabled = sizeSp < ReaderDisplayPrefs.MAX_FONT_SIZE_SP,
         ) {
-            StepperGlyph(
-                sizeSp = 21,
+            Icon(
+                painter = painterResource(R.drawable.ic_reader_plus),
                 contentDescription = stringResource(R.string.reader_display_text_larger),
             )
         }
     }
-}
-
-/** A single "A" at [sizeSp], labelled for TalkBack by [contentDescription]. */
-@Composable
-private fun StepperGlyph(sizeSp: Int, contentDescription: String) {
-    Text(
-        text = stringResource(R.string.reader_display_step_glyph),
-        fontSize = sizeSp.sp,
-        modifier = Modifier.semantics { this.contentDescription = contentDescription },
-    )
 }
 
 private fun ReaderBackground.labelRes(): Int = when (this) {

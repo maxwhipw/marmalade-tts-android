@@ -24,7 +24,6 @@
 
     <!-- प्रदर्शन सेटिंग्स: पृष्ठभूमि, फ़ॉन्ट, टेक्स्ट का आकार -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">प्रदर्शन विकल्प</string>
     <string name="reader_display_title">प्रदर्शन</string>
     <string name="reader_display_background">पृष्ठभूमि</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">सेरिफ़</string>
     <string name="reader_display_font_mono">मोनो</string>
     <string name="reader_display_text_size">टेक्स्ट का आकार</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">छोटा टेक्स्ट</string>
     <string name="reader_display_text_larger">बड़ा टेक्स्ट</string>
+
+    <!-- पढ़ने की स्पीड: सिर्फ़ इसी सत्र के लिए, आवाज़ की अपनी स्पीड पर एक गुणक -->
+    <string name="reader_speed_open">पढ़ने की स्पीड</string>
+    <string name="reader_speed_title">पढ़ने की स्पीड</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">यह सिर्फ़ इसी लेख पर लागू होता है।</string>
+
+    <!-- विषय-सूची: लेख के अपने शीर्षक -->
+    <string name="reader_toc_open">विषय-सूची</string>
+    <string name="reader_toc_title">विषय-सूची</string>
 
     <!-- अधूरी निकासी की सूचना: केवल सलाह, लेख फिर भी दिखता है -->
     <string name="reader_short_extraction">हो सकता है यह पेज पूरी तरह न निकाला गया हो।</string>

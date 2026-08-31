@@ -24,7 +24,6 @@
 
     <!-- Pannello di visualizzazione: sfondo, carattere, dimensione del testo -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">Opzioni di visualizzazione</string>
     <string name="reader_display_title">Visualizzazione</string>
     <string name="reader_display_background">Sfondo</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">Graziato</string>
     <string name="reader_display_font_mono">Monospazio</string>
     <string name="reader_display_text_size">Dimensione del testo</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">Testo più piccolo</string>
     <string name="reader_display_text_larger">Testo più grande</string>
+
+    <!-- Velocità di lettura: solo per questa sessione, un fattore sulla velocità della voce -->
+    <string name="reader_speed_open">Velocità di lettura</string>
+    <string name="reader_speed_title">Velocità di lettura</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">Si applica solo a questo articolo.</string>
+
+    <!-- Indice: i titoli dell'articolo -->
+    <string name="reader_toc_open">Indice</string>
+    <string name="reader_toc_title">Indice</string>
 
     <!-- Avviso di estrazione parziale: solo informativo, l'articolo viene mostrato -->
     <string name="reader_short_extraction">Questa pagina potrebbe non essere stata estratta per intero.</string>

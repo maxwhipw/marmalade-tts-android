@@ -188,6 +188,16 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { settings.setReaderFontSizeSp(next) }
     }
 
+    /**
+     * Set how fast this article is read — session-only, and a factor on the
+     * alias's own speed rather than an absolute rate. It goes straight to the
+     * controller and nowhere near [settings]: unlike the display prefs above,
+     * this one is deliberately not persisted (see
+     * [ReaderPlaybackState.speedMultiplier]).
+     */
+    fun onSpeedMultiplierChange(multiplier: Float) =
+        playbackController.setSpeedMultiplier(multiplier)
+
     /** Move playback to the tapped block (design point 9's tap-to-seek). */
     fun onBlockTapped(index: Int) = playbackController.seekTo(index)
 

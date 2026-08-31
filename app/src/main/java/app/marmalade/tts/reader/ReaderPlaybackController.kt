@@ -79,6 +79,16 @@ data class ReaderPlaybackState(
     val blockCount: Int = 0,
     val currentIndex: Int = 0,
     val status: ReaderPlaybackStatus = ReaderPlaybackStatus.Idle,
+    /**
+     * The reading session's speed, as a factor on the speed the user's alias
+     * resolves to (see [ReaderPlaybackController.setSpeedMultiplier]).
+     *
+     * Lives in this in-memory state and nowhere else — not in DataStore, not
+     * in settings. It is a property of *this reading* of *this article*: a new
+     * article (or a new process) starts back at 1.0, because a speed picked to
+     * skim one long post is not a preference about how the app speaks.
+     */
+    val speedMultiplier: Float = 1.0f,
 ) {
     /** True while a block is the one being read — i.e. worth highlighting. */
     val isActive: Boolean
@@ -166,6 +176,9 @@ class ReaderPlaybackController internal constructor(
         this.article = article
         this.blocks = article.blocks.map { it.text }
         nextIndex = 0
+        // A whole new state value, so the session speed resets to 1.0 with it
+        // — deliberate: the multiplier belongs to the article being read, and
+        // the same-key rebind above returns before ever getting here.
         _state.value = ReaderPlaybackState(
             articleKey = article.url,
             blockCount = blocks.size,
@@ -269,6 +282,27 @@ class ReaderPlaybackController internal constructor(
         }
     }
 
+    /**
+     * Set the session's speed — a factor on the alias's own speed, not an
+     * absolute rate (see [ReaderPlaybackState.speedMultiplier]).
+     *
+     * Blocks already handed to the service are already synthesised (or being
+     * synthesised) at the old speed and cannot be re-speeded, so a change that
+     * lands mid-article re-enqueues from the current block. That is exactly
+     * what tapping the current block does, so it goes through [seekTo]:
+     * playing restarts the block at the new speed, paused stays paused and
+     * drops the queue for the resume to re-enqueue. Idle/Finished only store
+     * it — the next play picks it up.
+     */
+    fun setSpeedMultiplier(multiplier: Float) {
+        synchronized(lock) {
+            val clamped = multiplier.coerceIn(MIN_SPEED_MULTIPLIER, MAX_SPEED_MULTIPLIER)
+            if (clamped == _state.value.speedMultiplier) return
+            _state.value = _state.value.copy(speedMultiplier = clamped)
+            if (_state.value.isActive) seekTo(_state.value.currentIndex)
+        }
+    }
+
     /** Stop this article's playback entirely, leaving the article loaded. */
     fun stop() {
         synchronized(lock) {
@@ -369,7 +403,7 @@ class ReaderPlaybackController internal constructor(
             val index = nextIndex
             nextIndex++
             pending.addLast(Pending(requestId, index))
-            if (!speech.speak(requestId, blocks[index])) {
+            if (!speech.speak(requestId, blocks[index], _state.value.speedMultiplier)) {
                 // The service wouldn't start, so this request will never
                 // complete and the pipeline would stall silently. Nothing is
                 // playable in that state — unwind to Idle.
@@ -447,5 +481,13 @@ class ReaderPlaybackController internal constructor(
          * block instead of restarting the current one.
          */
         internal const val RESTART_WINDOW_MS = 2_000L
+
+        /**
+         * Bounds on the session speed. Wider than the sheet offers on purpose
+         * — the sheet's chips are the curated set, these are the limits past
+         * which the engines stop producing anything worth listening to.
+         */
+        internal const val MIN_SPEED_MULTIPLIER = 0.5f
+        internal const val MAX_SPEED_MULTIPLIER = 3.0f
     }
 }

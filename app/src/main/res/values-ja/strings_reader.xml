@@ -24,7 +24,6 @@
 
     <!-- 表示設定：背景・フォント・文字サイズ -->
     <string name="reader_display_sample">Aa</string>
-    <string name="reader_display_step_glyph">A</string>
     <string name="reader_display_open">表示オプション</string>
     <string name="reader_display_title">表示</string>
     <string name="reader_display_background">背景</string>
@@ -36,9 +35,19 @@
     <string name="reader_display_font_serif">明朝</string>
     <string name="reader_display_font_mono">等幅</string>
     <string name="reader_display_text_size">文字サイズ</string>
-    <string name="reader_display_text_size_value">%1$d sp</string>
+    <string name="reader_display_text_size_value">%1$d</string>
     <string name="reader_display_text_smaller">文字を小さく</string>
     <string name="reader_display_text_larger">文字を大きく</string>
+
+    <!-- 読み上げ速度: このセッションのみ。音声自身の速度に対する倍率 -->
+    <string name="reader_speed_open">読み上げ速度</string>
+    <string name="reader_speed_title">読み上げ速度</string>
+    <string name="reader_speed_value">%1$s×</string>
+    <string name="reader_speed_hint">この記事にのみ適用されます。</string>
+
+    <!-- 目次: 記事内の見出し -->
+    <string name="reader_toc_open">目次</string>
+    <string name="reader_toc_title">目次</string>
 
     <!-- 抽出不足の注意書き: 参考情報で、記事はそのまま表示される -->
     <string name="reader_short_extraction">このページは一部しか取得できていない可能性があります。</string>

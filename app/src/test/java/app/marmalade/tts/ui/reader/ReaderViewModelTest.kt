@@ -202,6 +202,23 @@ class ReaderViewModelTest {
         assertEquals(0, vm.currentBlockIndex.first())
     }
 
+    /**
+     * The session speed is playback state, not a setting: the ViewModel hands
+     * it to the controller, and the re-enqueued blocks carry it. Nothing here
+     * touches SettingsRepository — that is what would make it outlive the
+     * article, which is exactly what Max asked it not to do.
+     */
+    @Test
+    fun `the session speed reaches playback`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+        vm.state.first()
+
+        vm.onSpeedMultiplierChange(1.5f)
+
+        assertEquals(1.5f, vm.playback.first().speedMultiplier, 0f)
+        assertEquals(1.5f, speech.spoken.last().speedMultiplier, 0f)
+    }
+
     // -- Rebinding to an article already being read ---------------------------
 
     /**

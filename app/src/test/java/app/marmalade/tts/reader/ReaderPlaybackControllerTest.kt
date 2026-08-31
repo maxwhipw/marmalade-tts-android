@@ -314,6 +314,110 @@ class ReaderPlaybackControllerTest {
         assertEquals(0, controller.state.value.currentIndex)
     }
 
+    // -- Session speed --------------------------------------------------------
+
+    @Test
+    fun `a fresh article speaks at the voice's own speed`() = runTest {
+        playing()
+
+        assertEquals(1.0f, speech.spoken.first().speedMultiplier, 0f)
+    }
+
+    @Test
+    fun `the session speed rides every request the reader sends`() = runTest {
+        val controller = playing()
+
+        controller.setSpeedMultiplier(1.25f)
+
+        assertEquals(1.25f, controller.state.value.speedMultiplier, 0f)
+        assertTrue(outstanding.isNotEmpty())
+        assertTrue(outstanding.all { it.speedMultiplier == 1.25f })
+    }
+
+    /** Audio already synthesised can't be re-speeded, so the change re-enqueues. */
+    @Test
+    fun `changing speed while playing restarts the current block at the new speed`() = runTest {
+        val controller = playing()
+        finish()
+        advanceUntilIdle()
+        val queued = outstanding.map { it.requestId }
+
+        controller.setSpeedMultiplier(1.5f)
+
+        assertEquals(queued, speech.stopped)
+        assertEquals(1, controller.state.value.currentIndex)
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(
+            listOf("Block 1.", "Block 2.", "Block 3."),
+            outstanding.map { it.text },
+        )
+        assertTrue(outstanding.all { it.speedMultiplier == 1.5f })
+    }
+
+    @Test
+    fun `changing speed while paused enqueues nothing until resume`() = runTest {
+        val controller = playing()
+        controller.seekTo(3)
+        controller.pause()
+        speech.spoken.clear()
+
+        controller.setSpeedMultiplier(0.75f)
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        assertTrue(speech.spoken.isEmpty())
+
+        controller.play()
+
+        assertEquals(3, controller.state.value.currentIndex)
+        assertEquals(listOf("Block 3.", "Block 4.", "Block 5."), speech.spokenTexts)
+        assertTrue(speech.spoken.all { it.speedMultiplier == 0.75f })
+    }
+
+    @Test
+    fun `speed set before playing applies to the first block`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks))
+
+        controller.setSpeedMultiplier(2.0f)
+        controller.play()
+
+        assertTrue(speech.spoken.isNotEmpty())
+        assertTrue(speech.spoken.all { it.speedMultiplier == 2.0f })
+    }
+
+    @Test
+    fun `setting the speed it already has changes nothing`() = runTest {
+        val controller = playing()
+
+        controller.setSpeedMultiplier(1.0f)
+
+        assertTrue(speech.stopped.isEmpty())
+        assertEquals(3, speech.spoken.size)
+    }
+
+    @Test
+    fun `a new article goes back to the voice's own speed`() = runTest {
+        val controller = playing()
+        controller.setSpeedMultiplier(2.0f)
+
+        controller.open(article("https://example.com/other", listOf("New.")))
+        controller.play()
+
+        assertEquals(1.0f, controller.state.value.speedMultiplier, 0f)
+        assertEquals(1.0f, speech.spoken.last().speedMultiplier, 0f)
+    }
+
+    /** Coming back to the article being read is a rebind, not a new session. */
+    @Test
+    fun `reopening the same article keeps the session speed`() = runTest {
+        val controller = playing()
+        controller.setSpeedMultiplier(1.5f)
+
+        controller.open(article(KEY, blocks))
+
+        assertEquals(1.5f, controller.state.value.speedMultiplier, 0f)
+    }
+
     // -- Reconciling with the service's own pause -----------------------------
 
     /**

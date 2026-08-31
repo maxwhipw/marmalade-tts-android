@@ -27,11 +27,12 @@ import javax.inject.Singleton
 interface ReaderSpeechClient {
 
     /**
-     * Enqueue [text] under [requestId]. Returns false if the service refused
+     * Enqueue [text] under [requestId], spoken at [speedMultiplier] times the
+     * speed the user's alias resolves to. Returns false if the service refused
      * to start (a background start with no foreground-service exemption), in
      * which case no completion will ever arrive for [requestId].
      */
-    fun speak(requestId: Long, text: String): Boolean
+    fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean
 
     /** Cancel one request — queued or playing — leaving the rest alone. */
     fun stopRequest(requestId: Long)
@@ -48,11 +49,16 @@ class SynthServiceReaderSpeechClient @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ReaderSpeechClient {
 
-    override fun speak(requestId: Long, text: String): Boolean {
+    override fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean {
         // No EXTRA_VOICE on purpose: leaving it off is what makes the service
         // resolve the user's primary alias (voice, speed, effect, language),
         // which is exactly the voice the share-sheet path already reads in.
         // The reader has no voice picker of its own by design.
+        //
+        // EXTRA_SPEED would fight that resolution (it is an override, and the
+        // alias's speed wins over it on this route anyway), so the session
+        // speed rides EXTRA_SPEED_MULTIPLIER, which the service applies on top
+        // of whatever the alias resolved to.
         val intent = Intent(context, MarmaladeSynthService::class.java).apply {
             action = MarmaladeSynthService.ACTION_SPEAK
             putExtra(
@@ -60,6 +66,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
                 text.take(SpeakDispatcher.MAX_TEXT_LENGTH),
             )
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
+            putExtra(MarmaladeSynthService.EXTRA_SPEED_MULTIPLIER, speedMultiplier)
             setPackage(context.packageName)
         }
         return runCatching { ContextCompat.startForegroundService(context, intent) }
