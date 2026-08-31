@@ -39,4 +39,8 @@
     <string name="reader_display_text_size_value">%1$d sp</string>
     <string name="reader_display_text_smaller">छोटा टेक्स्ट</string>
     <string name="reader_display_text_larger">बड़ा टेक्स्ट</string>
+
+    <!-- अधूरी निकासी की सूचना: केवल सलाह, लेख फिर भी दिखता है -->
+    <string name="reader_short_extraction">हो सकता है यह पेज पूरी तरह न निकाला गया हो।</string>
+    <string name="reader_short_extraction_dismiss">खारिज करें</string>
 </resources>

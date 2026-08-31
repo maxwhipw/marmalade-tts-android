@@ -39,4 +39,8 @@
     <string name="reader_display_text_size_value">%1$d sp</string>
     <string name="reader_display_text_smaller">文字を小さく</string>
     <string name="reader_display_text_larger">文字を大きく</string>
+
+    <!-- 抽出不足の注意書き: 参考情報で、記事はそのまま表示される -->
+    <string name="reader_short_extraction">このページは一部しか取得できていない可能性があります。</string>
+    <string name="reader_short_extraction_dismiss">閉じる</string>
 </resources>

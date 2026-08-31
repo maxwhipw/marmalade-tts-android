@@ -86,6 +86,8 @@ sealed interface ReaderUiState {
         val title: String?,
         val byline: String?,
         val blocks: List<ArticleBlock>,
+        /** Characters that will actually be spoken — the extraction-quality signal. */
+        val totalTextChars: Int,
     ) : ReaderUiState
 }
 
@@ -142,8 +144,33 @@ class ReaderViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderDisplayPrefs())
 
+    private val shortExtractionNoticeDismissed = MutableStateFlow(false)
+
+    /**
+     * Whether to warn that the page probably didn't extract fully.
+     *
+     * Advisory only — the article still renders and still plays. Some pages
+     * (MDN, Substack) hand Readability a fraction of their text, and paywall
+     * chrome is deliberately not pattern-matched, so this banner is the single
+     * mitigation for "what you're hearing isn't the whole page": it offers the
+     * browser and gets out of the way.
+     *
+     * Dismissal is in-memory and per-article, which the ViewModel's own
+     * lifetime already gives us — a new share means a new ViewModel.
+     */
+    val showShortExtractionNotice: StateFlow<Boolean> =
+        combine(state, shortExtractionNoticeDismissed) { current, dismissed ->
+            !dismissed &&
+                current is ReaderUiState.Ready &&
+                current.totalTextChars < SHORT_EXTRACTION_CHARS
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch { load() }
+    }
+
+    fun onDismissShortExtractionNotice() {
+        shortExtractionNoticeDismissed.value = true
     }
 
     fun onBackgroundChange(background: ReaderBackground) {
@@ -201,6 +228,7 @@ class ReaderViewModel @Inject constructor(
                     title = extracted.title,
                     byline = extracted.byline,
                     blocks = extracted.blocks,
+                    totalTextChars = extracted.totalTextChars,
                 )
             }
             ExtractionResult.ExtractionFailed ->
@@ -208,6 +236,18 @@ class ReaderViewModel @Inject constructor(
         }
 
     companion object {
+        /**
+         * Below this many extracted characters, the reader warns the page may
+         * not have come across whole.
+         *
+         * Calibrated on Spike A's 15-URL corpus, where the worst genuine
+         * under-extraction was MDN at 2022 chars. 1000 deliberately sits below
+         * even that: a short-but-complete page — a link post, a release note —
+         * must never be told it failed, and the cost of the conservative
+         * setting is only that a borderline miss like MDN goes unflagged.
+         */
+        const val SHORT_EXTRACTION_CHARS = 1000
+
         /** Nav argument names — see `Routes.reader`. */
         const val ARG_URL = "url"
         const val ARG_TEXT = "text"

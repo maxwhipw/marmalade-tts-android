@@ -136,6 +136,8 @@ fun ReaderScreen(
     val currentBlockIndex by viewModel.currentBlockIndex.collectAsStateWithLifecycle()
     val playback by viewModel.playback.collectAsStateWithLifecycle()
     val prefs by viewModel.display.collectAsStateWithLifecycle()
+    val showShortExtractionNotice by
+        viewModel.showShortExtractionNotice.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Which preset an untouched preference resolves to. Read off the theme's
@@ -211,6 +213,9 @@ fun ReaderScreen(
                     article = current,
                     currentBlockIndex = currentBlockIndex,
                     surface = surface,
+                    showShortExtractionNotice = showShortExtractionNotice,
+                    onOpenInBrowser = { openUrl(context, viewModel.url) },
+                    onDismissNotice = viewModel::onDismissShortExtractionNotice,
                     onBlockTapped = viewModel::onBlockTapped,
                 )
             }
@@ -292,6 +297,9 @@ private fun ArticleBody(
     article: ReaderUiState.Ready,
     currentBlockIndex: Int?,
     surface: ReaderSurface,
+    showShortExtractionNotice: Boolean,
+    onOpenInBrowser: () -> Unit,
+    onDismissNotice: () -> Unit,
     onBlockTapped: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -307,12 +315,24 @@ private fun ArticleBody(
             bottom = 48.dp,
         ),
     ) {
+        // Banner and header share one list item so the article's blocks keep
+        // starting at list index 1 — FollowSpokenBlock's offset depends on it,
+        // and the banner can appear or vanish mid-playback.
         item {
-            ArticleHeader(
-                title = article.title,
-                byline = article.byline,
-                surface = surface,
-            )
+            Column {
+                if (showShortExtractionNotice) {
+                    ShortExtractionNotice(
+                        surface = surface,
+                        onOpenInBrowser = onOpenInBrowser,
+                        onDismiss = onDismissNotice,
+                    )
+                }
+                ArticleHeader(
+                    title = article.title,
+                    byline = article.byline,
+                    surface = surface,
+                )
+            }
         }
         itemsIndexed(article.blocks) { index, block ->
             BlockRow(
@@ -358,6 +378,51 @@ private fun FollowSpokenBlock(listState: LazyListState, currentBlockIndex: Int?)
             userIsScrolling = listState.isScrollInProgress,
         )
         if (allowed) listState.animateScrollToItem(index + 1)
+    }
+}
+
+/**
+ * Advisory strip above the article when very little text came out of the page
+ * (see `ReaderViewModel.SHORT_EXTRACTION_CHARS`).
+ *
+ * Not a gate: whatever was extracted is rendered below it and is already being
+ * read. It exists because the alternative — silently reading three paragraphs
+ * of a long page — leaves the user with no way to tell that anything is
+ * missing. Dismissing it is meant to be cheap, so it dismisses for good.
+ */
+@Composable
+private fun ShortExtractionNotice(
+    surface: ReaderSurface,
+    onOpenInBrowser: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        color = surface.palette.highlight,
+        contentColor = surface.palette.text,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                text = stringResource(R.string.reader_short_extraction),
+                style = MaterialTheme.typography.bodyMedium.forReader(surface.prefs),
+                color = surface.palette.text,
+            )
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = stringResource(R.string.reader_short_extraction_dismiss),
+                        color = surface.palette.muted,
+                    )
+                }
+                TextButton(onClick = onOpenInBrowser) {
+                    Text(
+                        text = stringResource(R.string.reader_open_in_browser),
+                        color = surface.palette.text,
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -166,6 +166,42 @@ class ArticleExtractorTest {
         )
     }
 
+    @Test
+    fun `a title echo with a publisher suffix on the title is dropped`() {
+        val html = page(
+            title = "Why Kotlin Won | Ars Technica",
+            body = """
+                <p>Why Kotlin Won</p>
+                <p>${filler(3)}</p>
+                <p>${filler(3)}</p>
+            """.trimIndent(),
+        )
+
+        val result = extract(html) as ExtractionResult.Success
+        assertFalse(
+            "echo behind a site suffix should not survive: ${result.blocks}",
+            result.blocks.any { it.text == "Why Kotlin Won" },
+        )
+        assertEquals(2, result.blocks.size)
+    }
+
+    @Test
+    fun `junk filtering happens before the character count`() {
+        val html = page(
+            title = "Counting",
+            body = """
+                <p>marmalade</p>
+                <p>${filler(3)}</p>
+                <p>Credit: Sony Pictures</p>
+                <p>${filler(3)}</p>
+            """.trimIndent(),
+        )
+
+        val result = extract(html) as ExtractionResult.Success
+        assertEquals(2, result.blocks.size)
+        assertEquals(result.blocks.sumOf { it.text.length }, result.totalTextChars)
+    }
+
     // -- charset -----------------------------------------------------------
 
     @Test

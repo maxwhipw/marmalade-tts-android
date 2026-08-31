@@ -14,7 +14,9 @@ import org.jsoup.nodes.Element
 //   1. Parse the fetched bytes (Readability4J needs a Document, and jsoup's
 //      stream parser is the only thing that gets the charset right — see
 //      below), run Readability4J over it to strip nav/ads/comments.
-//   2. Re-parse Readability's cleaned HTML and walk it into typed blocks.
+//   2. Re-parse Readability's cleaned HTML and walk it into typed blocks,
+//      then run ArticleCleanup over the list to drop the page furniture
+//      Readability leaves behind (site headers, credits, references lists).
 //
 // The app NEVER renders the extracted HTML. The reader UI composes native
 // Compose text from these blocks, which means no WebView, no page JS, no
@@ -52,11 +54,11 @@ sealed class ExtractionResult {
     /**
      * Article extracted.
      *
-     * [totalTextChars] is the sum of every block's length — a raw quality
-     * signal, nothing more. Deciding "this is too short, offer open-in-
-     * browser" is the caller's job (step E of the reader plan); the
-     * extractor deliberately doesn't editorialise, because the sensible
-     * threshold depends on what the UI wants to do about it.
+     * [totalTextChars] is the sum of every surviving block's length — counted
+     * after [ArticleCleanup], so it measures what will be read aloud. It is a
+     * raw quality signal, nothing more: the "this is too short, offer
+     * open-in-browser" threshold lives in ReaderViewModel, because how short is
+     * too short depends on what the UI wants to do about it.
      */
     data class Success(
         val title: String?,
@@ -104,9 +106,12 @@ open class ArticleExtractor @Inject constructor() {
         val title = article.title?.let(::normalise)?.takeIf { it.isNotEmpty() }
         val byline = article.byline?.let(::normalise)?.takeIf { it.isNotEmpty() }
 
-        val blocks = mutableListOf<ArticleBlock>()
-        collectBlocks(Jsoup.parse(cleanedHtml, finalUrl).body(), blocks)
-        dropTitleEcho(blocks, title)
+        val walked = mutableListOf<ArticleBlock>()
+        collectBlocks(Jsoup.parse(cleanedHtml, finalUrl).body(), walked)
+        // extract → title echo → junk filters → count. The count comes last on
+        // purpose: it is the short-extraction signal, so it has to describe
+        // what will be spoken, not what Readability handed over.
+        val blocks = ArticleCleanup.clean(walked, title)
 
         if (blocks.isEmpty()) return ExtractionResult.ExtractionFailed
         return ExtractionResult.Success(
@@ -162,41 +167,6 @@ open class ArticleExtractor @Inject constructor() {
     }
 
     /**
-     * Publishers routinely repeat the headline as the first element of the
-     * article body (Ars Technica does; Spike A caught it), and the reader UI
-     * already shows the title in its header — so speaking it twice is a
-     * consistent, avoidable annoyance. Only the *first* block is considered,
-     * and only when it near-duplicates the title.
-     */
-    private fun dropTitleEcho(blocks: MutableList<ArticleBlock>, title: String?) {
-        if (title.isNullOrEmpty() || blocks.isEmpty()) return
-        if (nearDuplicate(blocks.first().text, title)) blocks.removeAt(0)
-    }
-
-    /**
-     * True when two strings are the same modulo punctuation, case, and a
-     * short trailing addition — "Why Kotlin won" vs "Why Kotlin won | Ars
-     * Technica" is the shape publishers actually produce.
-     */
-    private fun nearDuplicate(a: String, b: String): Boolean {
-        val na = comparisonKey(a)
-        val nb = comparisonKey(b)
-        if (na.isEmpty() || nb.isEmpty()) return false
-        if (na == nb) return true
-        val (shorter, longer) = if (na.length <= nb.length) na to nb else nb to na
-        return longer.startsWith(shorter) &&
-            shorter.length >= longer.length * TITLE_ECHO_MIN_OVERLAP
-    }
-
-    /** Collapse to lowercase alphanumerics + single spaces for comparison only. */
-    private fun comparisonKey(s: String): String =
-        s.lowercase()
-            .map { if (it.isLetterOrDigit()) it else ' ' }
-            .joinToString("")
-            .replace(WHITESPACE, " ")
-            .trim()
-
-    /**
      * Collapse every run of whitespace — including the non-breaking spaces
      * jsoup's `text()` preserves — to a single space, and trim.
      */
@@ -205,8 +175,5 @@ open class ArticleExtractor @Inject constructor() {
 
     companion object {
         private val WHITESPACE = Regex("\\s+")
-
-        /** A leading block must be ≥90% of the title to count as its echo. */
-        private const val TITLE_ECHO_MIN_OVERLAP = 0.9
     }
 }

@@ -39,4 +39,8 @@
     <string name="reader_display_text_size_value">%1$d sp</string>
     <string name="reader_display_text_smaller">缩小文字</string>
     <string name="reader_display_text_larger">放大文字</string>
+
+    <!-- 提取不完整提示：仅作提醒，文章仍会显示 -->
+    <string name="reader_short_extraction">此页面可能未完整提取。</string>
+    <string name="reader_short_extraction_dismiss">关闭</string>
 </resources>

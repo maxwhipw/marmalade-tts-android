@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -197,6 +198,50 @@ class ReaderViewModelTest {
         // Block 1 only just started, so backward is "previous", not "restart".
         vm.onPreviousBlock()
         assertEquals(0, vm.currentBlockIndex.first())
+    }
+
+    // -- Short-extraction notice ----------------------------------------------
+
+    @Test
+    fun `a thin extraction raises the short-extraction notice`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+
+        vm.state.first()
+
+        assertTrue(vm.showShortExtractionNotice.first())
+    }
+
+    @Test
+    fun `a full-length article raises no notice`() = runTest {
+        val vm = newViewModel(
+            extraction = threeBlocks().copy(
+                totalTextChars = ReaderViewModel.SHORT_EXTRACTION_CHARS,
+            ),
+        )
+
+        vm.state.first()
+
+        assertFalse(vm.showShortExtractionNotice.first())
+    }
+
+    @Test
+    fun `dismissing the notice keeps it gone`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+        vm.state.first()
+
+        vm.onDismissShortExtractionNotice()
+
+        assertFalse(vm.showShortExtractionNotice.first())
+    }
+
+    /** No article, nothing to warn about — the failure card already covers it. */
+    @Test
+    fun `a failed load raises no notice`() = runTest {
+        val vm = newViewModel(fetch = FetchResult.HttpError(403))
+
+        vm.state.first()
+
+        assertFalse(vm.showShortExtractionNotice.first())
     }
 
     // -- Helpers --------------------------------------------------------------

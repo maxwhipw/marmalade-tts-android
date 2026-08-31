@@ -39,4 +39,8 @@
     <string name="reader_display_text_size_value">%1$d sp</string>
     <string name="reader_display_text_smaller">Testo più piccolo</string>
     <string name="reader_display_text_larger">Testo più grande</string>
+
+    <!-- Avviso di estrazione parziale: solo informativo, l'articolo viene mostrato -->
+    <string name="reader_short_extraction">Questa pagina potrebbe non essere stata estratta per intero.</string>
+    <string name="reader_short_extraction_dismiss">Ignora</string>
 </resources>
