@@ -12,6 +12,8 @@
     <string name="service_synth_action_pause">रोकें</string>
     <string name="service_synth_action_resume">फिर से चलाएँ</string>
     <string name="service_synth_action_stop">बंद करें</string>
+    <string name="service_synth_action_previous_block">पिछला</string>
+    <string name="service_synth_action_next_block">अगला</string>
     <string name="service_synth_error_engine_not_installed">%1$s इंजन इंस्टॉल नहीं है</string>
     <string name="service_synth_error_failed">सिंथेसिस नहीं हो सका</string>
 

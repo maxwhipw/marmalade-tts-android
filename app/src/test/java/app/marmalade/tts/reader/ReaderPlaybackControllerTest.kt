@@ -1,5 +1,6 @@
 package app.marmalade.tts.reader
 
+import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -9,6 +10,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,6 +31,7 @@ class ReaderPlaybackControllerTest {
 
     private val blocks = (0 until 6).map { "Block $it." }
     private val completions = PreviewCompletions()
+    private val transport = PlaybackTransport()
     private val speech = FakeReaderSpeechClient()
     private var now = 1_000L
 
@@ -37,7 +40,7 @@ class ReaderPlaybackControllerTest {
     @Test
     fun `playing a new article enqueues the block plus two ahead`() = runTest {
         val controller = newController()
-        controller.open(KEY, blocks)
+        controller.open(article(KEY, blocks))
         controller.play()
 
         assertEquals(listOf("Block 0.", "Block 1.", "Block 2."), speech.spokenTexts)
@@ -63,7 +66,7 @@ class ReaderPlaybackControllerTest {
     @Test
     fun `an article shorter than the look-ahead enqueues only what it has`() = runTest {
         val controller = newController()
-        controller.open(KEY, listOf("Only one."))
+        controller.open(article(KEY, listOf("Only one.")))
         controller.play()
 
         assertEquals(listOf("Only one."), speech.spokenTexts)
@@ -77,7 +80,7 @@ class ReaderPlaybackControllerTest {
     @Test
     fun `the last block completing ends the article`() = runTest {
         val controller = newController()
-        controller.open(KEY, blocks)
+        controller.open(article(KEY, blocks))
         controller.play()
 
         repeat(blocks.size) {
@@ -143,7 +146,7 @@ class ReaderPlaybackControllerTest {
     fun `a service that refuses to start unwinds to idle`() = runTest {
         val controller = newController()
         speech.startAllowed = false
-        controller.open(KEY, blocks)
+        controller.open(article(KEY, blocks))
         controller.play()
 
         assertEquals(ReaderPlaybackStatus.Idle, controller.state.value.status)
@@ -300,7 +303,7 @@ class ReaderPlaybackControllerTest {
     @Test
     fun `play after the end starts the article again`() = runTest {
         val controller = newController()
-        controller.open(KEY, listOf("Only one."))
+        controller.open(article(KEY, listOf("Only one.")))
         controller.play()
         finish()
         advanceUntilIdle()
@@ -311,6 +314,169 @@ class ReaderPlaybackControllerTest {
         assertEquals(0, controller.state.value.currentIndex)
     }
 
+    // -- Reconciling with the service's own pause -----------------------------
+
+    /**
+     * The notification's Pause (or a media key, or an audio-focus duck) flips
+     * the service's global `paused` flag with nothing sent back to us. Before
+     * the reader collected that flag the audio stopped while the screen's
+     * button still said "playing".
+     */
+    @Test
+    fun `a pause we did not ask for moves the reader to paused`() = runTest {
+        val controller = playing()
+
+        transport.setPaused(true)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        // Adopted, not echoed: sending ACTION_PAUSE back would be the loop.
+        assertEquals(0, speech.pauses)
+    }
+
+    @Test
+    fun `a resume we did not ask for moves the reader back to playing`() = runTest {
+        val controller = playing()
+        controller.pause()
+        // The service's echo of our own pause, then someone else's resume.
+        transport.setPaused(true)
+        advanceUntilIdle()
+        val enqueued = speech.spoken.size
+
+        transport.setPaused(false)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(0, speech.resumes)
+        assertEquals(enqueued, speech.spoken.size)
+    }
+
+    @Test
+    fun `our own pause and resume come back as no-ops`() = runTest {
+        val controller = playing()
+
+        controller.pause()
+        // The service's echo of what we just asked for, twice over.
+        transport.setPaused(true)
+        transport.setPaused(true)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        assertEquals(1, speech.pauses)
+
+        controller.play()
+        transport.setPaused(false)
+        transport.setPaused(false)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(1, speech.resumes)
+        assertTrue(speech.stopped.isEmpty())
+    }
+
+    /**
+     * The service clears its `paused` flag every time it starts a request, so
+     * an unrelated share-sheet read starting up must not be mistaken for
+     * "resume the article" by a reader that has nothing in flight.
+     */
+    @Test
+    fun `a service resume with nothing of ours in flight is ignored`() = runTest {
+        val controller = playing()
+        controller.pause()
+        controller.seekTo(4)
+        speech.spoken.clear()
+        transport.setPaused(true)
+        advanceUntilIdle()
+
+        transport.setPaused(false)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        assertTrue(speech.spoken.isEmpty())
+    }
+
+    @Test
+    fun `a paused article does not age while the service holds the pause`() = runTest {
+        val controller = playing()
+        controller.seekTo(3)
+        now += 1_000
+        transport.setPaused(true)
+        advanceUntilIdle()
+        now += 60_000
+        transport.setPaused(false)
+        advanceUntilIdle()
+        now += 500
+
+        controller.previous()
+
+        // 1 500 ms of real playback — still inside the backward window.
+        assertEquals(2, controller.state.value.currentIndex)
+    }
+
+    // -- What the notification is told ----------------------------------------
+
+    @Test
+    fun `an idle article publishes no reader transport`() = runTest {
+        newController().open(article(KEY, blocks))
+        advanceUntilIdle()
+
+        assertFalse(transport.reader.value.isReading)
+    }
+
+    @Test
+    fun `playing publishes the article and both step directions`() = runTest {
+        playing()
+        advanceUntilIdle()
+
+        val published = transport.reader.value
+        assertTrue(published.isReading)
+        assertEquals(KEY, published.articleUrl)
+        assertTrue(published.canNext)
+        assertTrue(published.canPrevious)
+    }
+
+    /** Forward from the last block only ends the article — nothing to skip to. */
+    @Test
+    fun `the last block publishes no forward step`() = runTest {
+        val controller = playing()
+        controller.seekTo(blocks.lastIndex)
+        advanceUntilIdle()
+
+        assertFalse(transport.reader.value.canNext)
+        assertTrue(transport.reader.value.canPrevious)
+    }
+
+    @Test
+    fun `finishing the article withdraws the reader transport`() = runTest {
+        val controller = playing()
+        controller.seekTo(blocks.lastIndex)
+        finish()
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Finished, controller.state.value.status)
+        assertFalse(transport.reader.value.isReading)
+    }
+
+    // -- Article retention ----------------------------------------------------
+
+    @Test
+    fun `the loaded article is handed back for a rebind`() = runTest {
+        val controller = playing()
+
+        val held = controller.article(KEY)
+
+        assertEquals(KEY, held?.url)
+        assertEquals(blocks, held?.blocks?.map { it.text })
+        assertEquals("An article", held?.title)
+    }
+
+    @Test
+    fun `a different article is not handed back`() = runTest {
+        val controller = playing()
+
+        assertNull(controller.article("https://example.com/other"))
+    }
+
     // -- Article identity -----------------------------------------------------
 
     @Test
@@ -319,7 +485,7 @@ class ReaderPlaybackControllerTest {
         finish()
         advanceUntilIdle()
 
-        val reopened = controller.open(KEY, blocks)
+        val reopened = controller.open(article(KEY, blocks))
 
         assertFalse(reopened)
         assertEquals(1, controller.state.value.currentIndex)
@@ -332,7 +498,7 @@ class ReaderPlaybackControllerTest {
         val controller = playing()
         val original = speech.spoken.map { it.requestId }
 
-        val reopened = controller.open("https://example.com/other", listOf("New."))
+        val reopened = controller.open(article("https://example.com/other", listOf("New.")))
 
         assertTrue(reopened)
         assertEquals(original, speech.stopped)
@@ -350,15 +516,25 @@ class ReaderPlaybackControllerTest {
     private fun TestScope.newController() = ReaderPlaybackController(
         speech = speech,
         completions = completions,
+        transport = transport,
         clock = { now },
         scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
     )
 
     /** A controller mid-article: [blocks] loaded, playing from block 0. */
     private fun TestScope.playing() = newController().apply {
-        open(KEY, blocks)
+        open(article(KEY, blocks))
         play()
     }
+
+    /** An article whose typed blocks are plain paragraphs of [texts]. */
+    private fun article(key: String, texts: List<String>) = ReaderArticle(
+        url = key,
+        title = "An article",
+        byline = "By Max",
+        blocks = texts.map { ArticleBlock.Paragraph(it) },
+        totalTextChars = texts.sumOf { it.length },
+    )
 
     /** Requests handed to the service and neither cancelled nor completed. */
     private val outstanding: List<FakeReaderSpeechClient.Spoken>

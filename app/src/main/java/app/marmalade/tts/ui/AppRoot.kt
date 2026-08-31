@@ -266,7 +266,13 @@ fun AppRoot(
 
     LaunchedEffect(readerRequest) {
         val request = readerRequest ?: return@LaunchedEffect
-        navController.navigate(Routes.reader(request.url, request.sharedText))
+        // launchSingleTop: tapping the playback notification reopens the
+        // article that is already on screen more often than not, and without
+        // this that would stack a second identical reader destination behind
+        // the first for the back button to walk through.
+        navController.navigate(Routes.reader(request.url, request.sharedText)) {
+            launchSingleTop = true
+        }
         onReaderRequestConsumed()
     }
 

@@ -7,8 +7,10 @@ import app.marmalade.tts.reader.ArticleFetcher
 import app.marmalade.tts.reader.ExtractionResult
 import app.marmalade.tts.reader.FakeReaderSpeechClient
 import app.marmalade.tts.reader.FetchResult
+import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackStatus
+import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
 import app.marmalade.tts.ui.screen.FakeSettings
 import app.marmalade.tts.util.MainDispatcherRule
@@ -200,6 +202,74 @@ class ReaderViewModelTest {
         assertEquals(0, vm.currentBlockIndex.first())
     }
 
+    // -- Rebinding to an article already being read ---------------------------
+
+    /**
+     * Tapping the playback notification (and re-sharing a link mid-read) comes
+     * back through the same route as the original share. The article is still
+     * in the controller, so the screen must rebuild from that copy — fetching
+     * the page again would be a second, unasked-for request to the site.
+     */
+    @Test
+    fun `an article the controller still holds rebinds without fetching`() = runTest {
+        val controller = newController()
+        controller.open(heldArticle())
+        val fetcher = FakeFetcher(success())
+
+        val vm = newViewModel(fetcher = fetcher, controller = controller)
+
+        val state = vm.state.first()
+        assertTrue("expected Ready, got $state", state is ReaderUiState.Ready)
+        state as ReaderUiState.Ready
+        assertEquals("Marmalade Ships", state.title)
+        assertEquals("By Max", state.byline)
+        assertEquals(heldArticle().blocks, state.blocks)
+        assertNull("a held article must not be fetched again", fetcher.seenUrl)
+    }
+
+    /** Rebinding is not a fresh open, so it must not restart the article. */
+    @Test
+    fun `rebinding leaves playback exactly where it was`() = runTest {
+        val controller = newController()
+        controller.open(heldArticle())
+        controller.play()
+        controller.next()
+        val spokenBefore = speech.spoken.size
+
+        val vm = newViewModel(controller = controller)
+        vm.state.first()
+
+        assertEquals(1, vm.currentBlockIndex.first())
+        assertEquals(ReaderPlaybackStatus.Playing, vm.playback.first().status)
+        assertEquals(spokenBefore, speech.spoken.size)
+    }
+
+    /** A different article in the controller is no reason to skip the fetch. */
+    @Test
+    fun `an unrelated article in the controller does not block the fetch`() = runTest {
+        val controller = newController()
+        controller.open(heldArticle().copy(url = "https://example.com/other"))
+        val fetcher = FakeFetcher(success())
+
+        newViewModel(
+            extraction = threeBlocks(),
+            fetcher = fetcher,
+            controller = controller,
+        ).state.first()
+
+        assertEquals(url, fetcher.seenUrl)
+    }
+
+    private fun heldArticle() = threeBlocks().let {
+        ReaderArticle(
+            url = url,
+            title = it.title,
+            byline = it.byline,
+            blocks = it.blocks,
+            totalTextChars = it.totalTextChars,
+        )
+    }
+
     // -- Short-extraction notice ----------------------------------------------
 
     @Test
@@ -320,6 +390,7 @@ class ReaderViewModelTest {
     private fun newController() = ReaderPlaybackController(
         speech = speech,
         completions = PreviewCompletions(),
+        transport = PlaybackTransport(),
         clock = { 0L },
         scope = CoroutineScope(Dispatchers.Main),
     )
@@ -330,10 +401,12 @@ class ReaderViewModelTest {
         extractor: FakeExtractor = FakeExtractor(extraction),
         sharedText: String = "Marmalade Ships $url",
         settings: FakeSettings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
+        fetcher: FakeFetcher = FakeFetcher(fetch),
+        controller: ReaderPlaybackController = newController(),
     ) = ReaderViewModel(
-        fetcher = FakeFetcher(fetch),
+        fetcher = fetcher,
         extractor = extractor,
-        playbackController = newController(),
+        playbackController = controller,
         settings = settings,
         savedStateHandle = SavedStateHandle(
             mapOf(

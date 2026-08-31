@@ -12,6 +12,8 @@
     <string name="service_synth_action_pause">暂停</string>
     <string name="service_synth_action_resume">继续</string>
     <string name="service_synth_action_stop">停止</string>
+    <string name="service_synth_action_previous_block">上一段</string>
+    <string name="service_synth_action_next_block">下一段</string>
     <string name="service_synth_error_engine_not_installed">未安装 %1$s 引擎</string>
     <string name="service_synth_error_failed">合成失败</string>
 

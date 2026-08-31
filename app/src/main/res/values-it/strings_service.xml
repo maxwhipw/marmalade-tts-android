@@ -12,6 +12,8 @@
     <string name="service_synth_action_pause">Pausa</string>
     <string name="service_synth_action_resume">Riprendi</string>
     <string name="service_synth_action_stop">Interrompi</string>
+    <string name="service_synth_action_previous_block">Precedente</string>
+    <string name="service_synth_action_next_block">Successivo</string>
     <string name="service_synth_error_engine_not_installed">Motore %1$s non installato</string>
     <string name="service_synth_error_failed">Sintesi non riuscita</string>
 

@@ -48,6 +48,8 @@ import app.marmalade.tts.lang.UtteranceLanguage
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
+import app.marmalade.tts.MainActivity
+import app.marmalade.tts.reader.ReaderPlaybackController
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.ArrayDeque
 import javax.inject.Inject
@@ -171,6 +173,17 @@ class MarmaladeSynthService : Service() {
 
     @Inject lateinit var latency: VoiceLatencyTracker
 
+    /** Two-way transport seam with the reader — see [PlaybackTransport]. */
+    @Inject lateinit var transport: PlaybackTransport
+
+    /**
+     * Target of the reader's notification actions. App-scoped singleton, so
+     * injecting it here is just a reference to the object that is already
+     * driving the article; nothing about it depends on this service's
+     * lifetime.
+     */
+    @Inject lateinit var readerPlayback: ReaderPlaybackController
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Synchronized by `lock`. Accessed from main (onStartCommand), the
@@ -252,6 +265,13 @@ class MarmaladeSynthService : Service() {
             ACTION_STOP -> doStop()
             ACTION_STOP_REQUEST ->
                 doStopRequest(intent.getLongExtra(EXTRA_REQUEST_ID, 0L))
+            // Reader transport, from the notification's own buttons. Only
+            // shown while the reader is mid-article (see buildNotification),
+            // but a stale PendingIntent can still land after it stopped —
+            // hence the guard rather than a bare call.
+            ACTION_READER_NEXT -> if (transport.reader.value.isReading) readerPlayback.next()
+            ACTION_READER_PREVIOUS ->
+                if (transport.reader.value.isReading) readerPlayback.previous()
             else -> {
                 // Unknown action — ignore but don't crash.
                 Log.w(TAG, "Unknown action: ${intent.action}")
@@ -386,7 +406,7 @@ class MarmaladeSynthService : Service() {
             return
         }
         cancelled = false
-        paused = false
+        setPaused(false)
         // P-K — share-sheet / Tasker / clipboard tile path. This service
         // is already foregrounded, so starting the keepalive service from
         // here is FGS-from-FGS, which is always allowed.
@@ -708,8 +728,19 @@ class MarmaladeSynthService : Service() {
 
     // -- transport ------------------------------------------------------------
 
+    /**
+     * The one writer of [paused]. Mirroring it onto [PlaybackTransport] here
+     * (rather than at each call site) is what lets the reader notice a pause
+     * it didn't ask for — the notification's button, a media key, an
+     * audio-focus duck — instead of leaving its play/pause button lying.
+     */
+    private fun setPaused(value: Boolean) {
+        paused = value
+        transport.setPaused(value)
+    }
+
     private fun doPause() {
-        paused = true
+        setPaused(true)
         val track = currentTrack ?: return
         try {
             if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.pause()
@@ -719,7 +750,7 @@ class MarmaladeSynthService : Service() {
     }
 
     private fun doResume() {
-        paused = false
+        setPaused(false)
         val track = currentTrack ?: return
         try {
             if (track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
@@ -976,6 +1007,17 @@ class MarmaladeSynthService : Service() {
             override fun onPlay() = doResume()
             override fun onPause() = doPause()
             override fun onStop() = doStop()
+
+            // Headset / Bluetooth track-skip buttons step the article while
+            // the reader owns playback. For every other kind of speech there
+            // is no "next track", so they stay the no-ops they always were.
+            override fun onSkipToNext() {
+                if (transport.reader.value.isReading) readerPlayback.next()
+            }
+
+            override fun onSkipToPrevious() {
+                if (transport.reader.value.isReading) readerPlayback.previous()
+            }
         })
         session.isActive = true
         mediaSession = session
@@ -983,10 +1025,17 @@ class MarmaladeSynthService : Service() {
 
     private fun updateMediaState(state: Int) {
         val session = mediaSession ?: return
-        val actions = PlaybackStateCompat.ACTION_PLAY or
+        val reader = transport.reader.value
+        var actions = PlaybackStateCompat.ACTION_PLAY or
             PlaybackStateCompat.ACTION_PAUSE or
             PlaybackStateCompat.ACTION_STOP or
             PlaybackStateCompat.ACTION_PLAY_PAUSE
+        if (reader.isReading) {
+            if (reader.canNext) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+            if (reader.canPrevious) {
+                actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+            }
+        }
         val pb = PlaybackStateCompat.Builder()
             .setActions(actions)
             .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
@@ -1034,9 +1083,19 @@ class MarmaladeSynthService : Service() {
         notificationManager?.notify(ERROR_NOTIFICATION_ID, n)
     }
 
+    /**
+     * The foreground notification.
+     *
+     * Two shapes. For ordinary speech — share sheet, clipboard tile, Speak
+     * screen — it is what it has always been: pause/resume and stop, both in
+     * the compact view, and no tap target. While the reader is mid-article it
+     * additionally grows previous/next-block buttons around the pause, and
+     * tapping it reopens the article (reader-mode design point 7).
+     */
     private fun buildNotification(stateText: String): Notification {
         val session = mediaSession
         val token = session?.sessionToken
+        val reader = transport.reader.value
 
         val pauseAction = NotificationCompat.Action(
             android.R.drawable.ic_media_pause,
@@ -1053,6 +1112,26 @@ class MarmaladeSynthService : Service() {
             getString(R.string.service_synth_action_stop),
             servicePendingIntent(ACTION_STOP),
         )
+        val previousAction = NotificationCompat.Action(
+            android.R.drawable.ic_media_previous,
+            getString(R.string.service_synth_action_previous_block),
+            servicePendingIntent(ACTION_READER_PREVIOUS),
+        )
+        val nextAction = NotificationCompat.Action(
+            android.R.drawable.ic_media_next,
+            getString(R.string.service_synth_action_next_block),
+            servicePendingIntent(ACTION_READER_NEXT),
+        )
+
+        // Transport order, so the compact view (which takes the first three)
+        // reads previous / play-pause / next like every other media
+        // notification. Stop trails behind in the expanded view.
+        val actions = buildList {
+            if (reader.isReading && reader.canPrevious) add(previousAction)
+            add(if (paused) resumeAction else pauseAction)
+            if (reader.isReading && reader.canNext) add(nextAction)
+            add(stopAction)
+        }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.service_synth_notification_title))
@@ -1061,13 +1140,16 @@ class MarmaladeSynthService : Service() {
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(if (paused) resumeAction else pauseAction)
-            .addAction(stopAction)
+        actions.forEach(builder::addAction)
+        reader.articleUrl?.takeIf { reader.isReading }?.let { url ->
+            builder.setContentIntent(readerPendingIntent(url))
+        }
 
         if (token != null) {
+            val compact = IntArray(minOf(COMPACT_ACTIONS, actions.size)) { it }
             val style = androidx.media.app.NotificationCompat.MediaStyle()
                 .setMediaSession(token)
-                .setShowActionsInCompactView(0, 1)
+                .setShowActionsInCompactView(*compact)
             builder.setStyle(style)
         }
 
@@ -1079,6 +1161,34 @@ class MarmaladeSynthService : Service() {
         return PendingIntent.getService(
             this,
             action.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /**
+     * Reopen the article being read. The reader screen asks
+     * [ReaderPlaybackController] for the article before it fetches, so this
+     * rebinds to the block in progress off the copy already in memory — no
+     * second trip to the network, and the highlight is where the audio is.
+     *
+     * The shared-text extra is deliberately empty: that extra exists for the
+     * failure card's "read what you shared as-is" escape, and an article we
+     * are part-way through reading did not fail. FLAG_UPDATE_CURRENT keeps
+     * the URL current when the user moves on to a different article.
+     */
+    private fun readerPendingIntent(url: String): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_READER_URL, url)
+            .putExtra(MainActivity.EXTRA_READER_SHARED_TEXT, "")
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
+        return PendingIntent.getActivity(
+            this,
+            READER_CONTENT_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -1124,6 +1234,12 @@ class MarmaladeSynthService : Service() {
         /** Separate id so stopForeground's removal can't take errors with it. */
         private const val ERROR_NOTIFICATION_ID = 2
 
+        /** How many actions MediaStyle's collapsed view can show. */
+        private const val COMPACT_ACTIONS = 3
+
+        /** Any constant will do — the extras are what change, per article. */
+        private const val READER_CONTENT_REQUEST_CODE = 100
+
         /**
          * Default engine when [EXTRA_ENGINE] is not provided AND [EXTRA_VOICE]
          * doesn't disambiguate. Kokoro Direct is the recommended-default engine
@@ -1144,6 +1260,14 @@ class MarmaladeSynthService : Service() {
          * ViewModel teardown must NOT do.
          */
         const val ACTION_STOP_REQUEST: String = "app.marmalade.tts.action.STOP_REQUEST"
+
+        /**
+         * Step the reader's article from the notification. In-app only — the
+         * buttons exist solely while [PlaybackTransport.reader] says an
+         * article is being read, and both are ignored otherwise.
+         */
+        const val ACTION_READER_NEXT: String = "app.marmalade.tts.action.READER_NEXT"
+        const val ACTION_READER_PREVIOUS: String = "app.marmalade.tts.action.READER_PREVIOUS"
 
         const val EXTRA_TEXT: String = "app.marmalade.tts.extra.TEXT"
         const val EXTRA_ENGINE: String = "app.marmalade.tts.extra.ENGINE"

@@ -12,6 +12,8 @@
     <string name="service_synth_action_pause">Pause</string>
     <string name="service_synth_action_resume">Resume</string>
     <string name="service_synth_action_stop">Stop</string>
+    <string name="service_synth_action_previous_block">Previous</string>
+    <string name="service_synth_action_next_block">Next</string>
     <string name="service_synth_error_engine_not_installed">%1$s engine not installed</string>
     <string name="service_synth_error_failed">Synthesis failed</string>
 

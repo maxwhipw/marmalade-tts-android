@@ -1,7 +1,9 @@
 package app.marmalade.tts.reader
 
 import android.os.SystemClock
+import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
+import app.marmalade.tts.service.ReaderTransportState
 import java.util.ArrayDeque
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,6 +42,12 @@ import kotlinx.coroutines.launch
 //                  completing IS the "block finished" signal: drop it,
 //                  make the new head current (that's the highlight), and
 //                  top the queue back up.
+//
+//   PlaybackTransport is the two-way seam with the service: we publish what
+//   the notification needs (is an article being read, can it step forward)
+//   and we collect the service's `paused` flag, because a pause from the
+//   notification — or from an audio-focus duck — is not something we asked
+//   for and the screen would otherwise keep claiming to be playing.
 //
 //   Seeking (tap a block / forward / backward) can't be a seek in any real
 //   sense — audio is synthesised per block, so there is nothing to scrub
@@ -81,6 +89,7 @@ data class ReaderPlaybackState(
 class ReaderPlaybackController internal constructor(
     private val speech: ReaderSpeechClient,
     private val completions: PreviewCompletions,
+    private val transport: PlaybackTransport,
     /** Monotonic milliseconds; injected so the backward-window test can lie. */
     private val clock: () -> Long,
     scope: CoroutineScope,
@@ -90,9 +99,11 @@ class ReaderPlaybackController internal constructor(
     constructor(
         speech: ReaderSpeechClient,
         completions: PreviewCompletions,
+        transport: PlaybackTransport,
     ) : this(
         speech = speech,
         completions = completions,
+        transport = transport,
         clock = SystemClock::elapsedRealtime,
         // Application-lifetime on purpose: this scope is what keeps the queue
         // being topped up after the reader screen is gone.
@@ -106,6 +117,10 @@ class ReaderPlaybackController internal constructor(
      */
     private val lock = Any()
 
+    /** The article being read, kept so the screen can rebind without a refetch. */
+    private var article: ReaderArticle? = null
+
+    /** [article]'s block texts, in document order — what actually gets spoken. */
     private var blocks: List<String> = emptyList()
 
     /** Requests in flight, oldest first. `pending[0]` is the one being spoken. */
@@ -127,29 +142,47 @@ class ReaderPlaybackController internal constructor(
         scope.launch {
             completions.events.collect(::onCompletion)
         }
+        // Publishing off the state flow rather than at every mutation site
+        // means a new transition can't forget to tell the notification.
+        scope.launch {
+            _state.collect { transport.setReader(transportStateOf(it)) }
+        }
+        scope.launch {
+            transport.paused.collect(::onServicePauseChanged)
+        }
     }
 
     /**
-     * Bind [blocks] (article text in document order) under [key], which should
-     * be the article URL.
+     * Bind [article], keyed on its URL.
      *
      * Returns true when this is a new article — the caller's cue to start
-     * playing. Returns false when [key] is already loaded, meaning playback is
-     * still going (or paused) from a previous visit to the screen and must be
-     * left exactly as it is.
+     * playing. Returns false when that URL is already loaded, meaning playback
+     * is still going (or paused) from a previous visit to the screen and must
+     * be left exactly as it is.
      */
-    fun open(key: String, blocks: List<String>): Boolean = synchronized(lock) {
-        if (key == _state.value.articleKey && this.blocks.isNotEmpty()) return false
+    fun open(article: ReaderArticle): Boolean = synchronized(lock) {
+        if (article.url == _state.value.articleKey && this.blocks.isNotEmpty()) return false
         cancelPendingLocked()
-        this.blocks = blocks
+        this.article = article
+        this.blocks = article.blocks.map { it.text }
         nextIndex = 0
         _state.value = ReaderPlaybackState(
-            articleKey = key,
+            articleKey = article.url,
             blockCount = blocks.size,
             currentIndex = 0,
             status = ReaderPlaybackStatus.Idle,
         )
         return true
+    }
+
+    /**
+     * The article held under [key], or null if we're holding a different one
+     * (or none). The reader screen asks this before fetching: reopening from
+     * the notification, or re-sharing a link that is already being read, must
+     * not hit the network again.
+     */
+    fun article(key: String): ReaderArticle? = synchronized(lock) {
+        article?.takeIf { it.url == key }
     }
 
     /** Play, resume, or (after the end) start the article again. */
@@ -252,16 +285,67 @@ class ReaderPlaybackController internal constructor(
     }
 
     private fun resumeLocked() {
+        if (pending.isNotEmpty()) speech.resume()
+        adoptResumeLocked()
+    }
+
+    /**
+     * Come back to Playing without touching the service's transport — the
+     * caller has either just driven it ([resumeLocked]) or is reacting to it
+     * having resumed on its own ([onServicePauseChanged]).
+     */
+    private fun adoptResumeLocked() {
         if (pending.isEmpty()) {
             // Paused across a seek — nothing was ever enqueued for this block.
             startAtLocked(_state.value.currentIndex)
             return
         }
-        speech.resume()
         // The pause didn't age the block, so the backward window doesn't move.
         blockStartedAt += clock() - pausedAt
         setStatusLocked(ReaderPlaybackStatus.Playing)
     }
+
+    /**
+     * Reconcile with a pause/resume we didn't ask for: the notification's own
+     * pause button, a media-button press, or an audio-focus duck. The service
+     * owns one global `paused` flag and gives us no callback, so this flag is
+     * the only way the reader learns its audio stopped.
+     *
+     * Deliberately does NOT send ACTION_PAUSE / ACTION_RESUME back: the
+     * service is already in the state we're adopting, and echoing it would be
+     * a loop. Our own [pause] / [play] set our status before the service ever
+     * reports back, so their echo lands here as a no-op — which makes this
+     * idempotent for any number of repeats of the same flag value.
+     *
+     * Gated on having requests in flight, because the flag is global: the
+     * service clears it whenever it starts a request, and a reader that is
+     * paused with nothing enqueued (paused, then seeked) must not read an
+     * unrelated share-sheet playback starting up as its own cue to speak.
+     */
+    private fun onServicePauseChanged(servicePaused: Boolean) {
+        synchronized(lock) {
+            if (pending.isEmpty()) return
+            when (_state.value.status) {
+                ReaderPlaybackStatus.Playing ->
+                    if (servicePaused) {
+                        pausedAt = clock()
+                        setStatusLocked(ReaderPlaybackStatus.Paused)
+                    }
+                ReaderPlaybackStatus.Paused -> if (!servicePaused) adoptResumeLocked()
+                // Idle / Finished: nothing of ours is playing, so a pause of
+                // whatever else the service is doing is none of our business.
+                else -> Unit
+            }
+        }
+    }
+
+    /** Projection of [state] onto what the service's notification needs. */
+    private fun transportStateOf(state: ReaderPlaybackState) = ReaderTransportState(
+        articleUrl = state.articleKey,
+        active = state.isActive,
+        canNext = state.currentIndex < state.blockCount - 1,
+        canPrevious = state.blockCount > 0,
+    )
 
     private fun startAtLocked(index: Int) {
         cancelPendingLocked()

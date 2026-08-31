@@ -12,6 +12,8 @@
     <string name="service_synth_action_pause">一時停止</string>
     <string name="service_synth_action_resume">再開</string>
     <string name="service_synth_action_stop">停止</string>
+    <string name="service_synth_action_previous_block">前へ</string>
+    <string name="service_synth_action_next_block">次へ</string>
     <string name="service_synth_error_engine_not_installed">%1$s エンジンがインストールされていません</string>
     <string name="service_synth_error_failed">音声合成に失敗しました</string>
 

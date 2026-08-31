@@ -9,6 +9,7 @@ import app.marmalade.tts.reader.ArticleExtractor
 import app.marmalade.tts.reader.ArticleFetcher
 import app.marmalade.tts.reader.ExtractionResult
 import app.marmalade.tts.reader.FetchResult
+import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -201,6 +202,21 @@ class ReaderViewModel @Inject constructor(
             _state.value = ReaderUiState.Failed(ReaderFailure.Network)
             return
         }
+        // The controller first. It holds this article whenever playback is
+        // still bound to it, so coming back — tapping the notification,
+        // re-sharing the same link — rebinds off the copy in memory instead
+        // of fetching the page a second time. No autoplay here: whatever the
+        // article was doing, it carries on doing.
+        val held = playbackController.article(url)
+        if (held != null) {
+            _state.value = ReaderUiState.Ready(
+                title = held.title,
+                byline = held.byline,
+                blocks = held.blocks,
+                totalTextChars = held.totalTextChars,
+            )
+            return
+        }
         _state.value = when (val fetched = fetcher.fetch(url)) {
             is FetchResult.Success -> extractFrom(fetched)
             is FetchResult.HttpError -> ReaderUiState.Failed(ReaderFailure.Http)
@@ -221,7 +237,14 @@ class ReaderViewModel @Inject constructor(
                 // back to an article that is already loaded does NOT restart
                 // it — open() reports that, and playback carries on wherever
                 // it had got to.
-                if (playbackController.open(url, extracted.blocks.map { it.text })) {
+                val article = ReaderArticle(
+                    url = url,
+                    title = extracted.title,
+                    byline = extracted.byline,
+                    blocks = extracted.blocks,
+                    totalTextChars = extracted.totalTextChars,
+                )
+                if (playbackController.open(article)) {
                     playbackController.play()
                 }
                 ReaderUiState.Ready(
