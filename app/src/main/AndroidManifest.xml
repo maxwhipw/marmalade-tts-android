@@ -106,12 +106,23 @@
           The DEFAULT category on TTS_SERVICE is required: Android enumerates
           engines via an implicit intent and won't see a service that lacks
           DEFAULT. (We learned this the hard way — see v0.1.15 release notes.)
+
+          No android:permission here, deliberately. The framework defines no
+          bind permission for TTS engines (android.permission.BIND_TEXT_SERVICE
+          is the spell-checker one). Naming an undefined permission, as the
+          Maise-derived scaffold did, breaks Android 11 and earlier: there the
+          client app binds the engine itself, the permission check denies it,
+          and TextToSpeech() throws SecurityException "Not allowed to bind to
+          service" (GitHub issue #5). Android 12+ binds engines from
+          system_server, which skips the check, which is why it never showed
+          on our own devices. AOSP's CTS stub engines, eSpeak-ng and
+          sherpa-onnx all ship without a permission. Lint's ExportedService
+          warning is expected and correct here: a TTS engine is public API.
         -->
         <service
             android:name="app.marmalade.tts.service.MarmaladeTtsService"
             android:exported="true"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_TEXT_TO_SPEECH_SERVICE">
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.TTS_SERVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
