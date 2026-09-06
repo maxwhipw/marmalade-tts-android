@@ -16,7 +16,7 @@
 <p>Marmalade implements Android's standard text-to-speech interface, so it is a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.</p>
 
 <p><b>READY OUT OF THE BOX</b></p>
-<p>A fast English voice is built in, so Marmalade speaks offline from the first launch. Bigger and better engines download only when you choose them, and text read by on-device voices never leaves your phone.</p>
+<p>Marmalade comes with a fast English voice built in, so text to speech works offline from your very first launch. Bigger and better engines download only when you choose them, and text read by on-device voices never leaves your phone.</p>
 
 <p><b>A VOICE FOR EVERY APP</b></p>
 <p>Marmalade is built around aliases. Build your favorite voice with speed and effect settings. Route apps to aliases and your e-reader can speak in one voice while your chat app uses another. Anything unrouted follows your primary alias.</p>
