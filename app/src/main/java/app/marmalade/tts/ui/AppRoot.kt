@@ -7,6 +7,9 @@ import androidx.compose.animation.fadeOut
 import android.net.Uri
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -18,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -301,7 +305,21 @@ fun AppRoot(
         // Same reason: the reader's route template carries ?url=&text=.
         currentRoute?.startsWith(Routes.Reader) != true
 
+    // The reader owns its bottom edge: its transport bar draws into the
+    // navigation-bar area with its own navigationBarsPadding(). Keeping the
+    // default insets here would stack a second nav-inset strip under that
+    // bar (the "dead space below the player" bug). Every other route keeps
+    // the default so scrollable detail pages don't slide under the gesture
+    // area — they rely on this Scaffold's bottom padding.
+    val readerOwnsBottomInset = currentRoute?.startsWith(Routes.Reader) == true
+
     Scaffold(
+        contentWindowInsets = if (readerOwnsBottomInset) {
+            ScaffoldDefaults.contentWindowInsets
+                .exclude(WindowInsets.navigationBars)
+        } else {
+            ScaffoldDefaults.contentWindowInsets
+        },
         bottomBar = {
             AnimatedVisibility(
                 visible = showBottomBar,
