@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.onboarding
 
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
@@ -298,7 +299,7 @@ class OnboardingViewModelTest {
         val vm = newViewModel()
 
         assertEquals(
-            listOf(KITTEN, KOKORO, POCKET),
+            CATALOG_CARDS,
             vm.engines.value.map { it.descriptor.name },
         )
         assertTrue("no measured fit before the probe answers",
@@ -317,7 +318,7 @@ class OnboardingViewModelTest {
         val cards = vm.engines.first { cards -> cards.any { it.fit != null } }
 
         // The verdict moves the pill, never the cards: catalog order holds.
-        assertEquals(listOf(KITTEN, KOKORO, POCKET), cards.map { it.descriptor.name })
+        assertEquals(CATALOG_CARDS, cards.map { it.descriptor.name })
         assertEquals(EngineFit.RECOMMENDED, cards.first { it.descriptor.name == KOKORO }.fit)
         assertEquals(EngineFit.FINE, cards.first { it.descriptor.name == KITTEN }.fit)
     }
@@ -332,10 +333,12 @@ class OnboardingViewModelTest {
 
         val cards = vm.engines.first { cards -> cards.any { it.fit != null } }
 
-        assertEquals(listOf(KITTEN, KOKORO, POCKET), cards.map { it.descriptor.name })
+        assertEquals(CATALOG_CARDS, cards.map { it.descriptor.name })
         assertEquals(EngineFit.RECOMMENDED, cards.first { it.descriptor.name == KITTEN }.fit)
         assertEquals(EngineFit.MAY_BE_SLOW, cards.first { it.descriptor.name == KOKORO }.fit)
-        assertEquals(EngineFit.MAY_BE_SLOW, cards.first { it.descriptor.name == POCKET }.fit)
+        cards.firstOrNull { it.descriptor.name == POCKET }?.let {
+            assertEquals(EngineFit.MAY_BE_SLOW, it.fit)
+        }
     }
 
     @Test
@@ -366,6 +369,15 @@ class OnboardingViewModelTest {
         const val KITTEN = KittenDirectVoiceCatalog.ENGINE
         const val KOKORO = KokoroDirectVoiceCatalog.ENGINE
         const val POCKET = PocketVoiceCatalog.ENGINE
+
+        /**
+         * The cards onboarding shows, in catalog order. Pocket is
+         * [app.marmalade.tts.install.EngineDescriptor.fdroidOnly], so the
+         * Play flavor's run of this same test file expects it absent.
+         */
+        val CATALOG_CARDS: List<String> =
+            if (BuildConfig.FLAVOR == "play") listOf(KITTEN, KOKORO)
+            else listOf(KITTEN, KOKORO, POCKET)
     }
 }
 

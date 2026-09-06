@@ -1,6 +1,7 @@
 package app.marmalade.tts.install
 
 import androidx.annotation.StringRes
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.R
 
 // -----------------------------------------------------------------------------
@@ -160,6 +161,13 @@ data class EngineDescriptor(
     val qualityTier: QualityTier,
     val languageCodes: List<String>,
     val developerOnly: Boolean = false,
+    /**
+     * F-Droid-flavor exclusive: hidden from every user-facing list in the
+     * Play build (Max, 2026-09-06 — the Play catalog is held to a tighter
+     * quality bar). Routing via [EngineCatalog.byName] still resolves it,
+     * so nothing breaks if such an engine is ever present on disk.
+     */
+    val fdroidOnly: Boolean = false,
 ) {
     init {
         require(name.isNotBlank()) { "engine name must not be blank" }
@@ -333,6 +341,7 @@ object EngineCatalog {
         speedTier = SpeedTier.HEAVY,
         qualityTier = QualityTier.MOST_EXPRESSIVE,
         languageCodes = listOf("en"),
+        fdroidOnly = true,
     )
 
     /**
@@ -366,6 +375,7 @@ object EngineCatalog {
         speedTier = SpeedTier.HEAVY,
         qualityTier = QualityTier.MOST_EXPRESSIVE,
         languageCodes = listOf("en"),
+        fdroidOnly = true,
     )
 
     /**
@@ -393,11 +403,18 @@ object EngineCatalog {
      * The catalog filtered + ordered for user-facing lists. When
      * [showDeveloper] is false, [developerOnly] engines are dropped; when
      * true they're included but sorted *after* the production engines (a
-     * stable sort, so each group keeps its [all] order). Routing must keep
-     * using [byName] — never this — so aliases on a hidden engine still
+     * stable sort, so each group keeps its [all] order). In the Play
+     * [flavor], [EngineDescriptor.fdroidOnly] engines are dropped
+     * unconditionally — even in developer mode — so the Play build's
+     * catalog matches its store listing. Routing must keep using
+     * [byName] — never this — so aliases on a hidden engine still
      * resolve.
      */
-    fun visibleTo(showDeveloper: Boolean): List<EngineDescriptor> =
+    fun visibleTo(
+        showDeveloper: Boolean,
+        flavor: String = BuildConfig.FLAVOR,
+    ): List<EngineDescriptor> =
         (if (showDeveloper) all else all.filter { !it.developerOnly })
+            .filter { flavor != "play" || !it.fdroidOnly }
             .sortedBy { it.developerOnly }
 }

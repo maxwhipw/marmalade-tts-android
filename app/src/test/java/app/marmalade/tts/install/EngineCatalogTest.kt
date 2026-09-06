@@ -86,11 +86,11 @@ class EngineCatalogTest {
         assertEquals(
             "visibleTo(false) drops the one developer-only engine",
             EngineCatalog.all.size - 1,
-            EngineCatalog.visibleTo(showDeveloper = false).size,
+            EngineCatalog.visibleTo(showDeveloper = false, flavor = "fdroid").size,
         )
         // visibleTo(true) keeps every engine but sorts the developer-only
         // ones to the end — so it's the same set, ordered production-first.
-        val visibleAll = EngineCatalog.visibleTo(showDeveloper = true)
+        val visibleAll = EngineCatalog.visibleTo(showDeveloper = true, flavor = "fdroid")
         assertEquals(
             "visibleTo(true) contains the whole catalog",
             EngineCatalog.all.toSet(),
@@ -100,6 +100,28 @@ class EngineCatalogTest {
         assertTrue(
             "developer engines must sort after all production engines",
             firstDeveloperIdx == -1 || visibleAll.drop(firstDeveloperIdx).all { it.developerOnly },
+        )
+    }
+
+    @Test
+    fun pocketIsFdroidOnly_hiddenFromEveryPlayList() {
+        // Max, 2026-09-06: the Play catalog is quality-controlled — Pocket
+        // (and its diagnostic twin) ship on F-Droid only. Both engines stay
+        // resolvable via byName so nothing on disk ever orphans.
+        assertEquals(
+            setOf("pocket-tts-en-v2026_04", "pocket-tts-en-v2026_04-dev"),
+            EngineCatalog.all.filter { it.fdroidOnly }.map { it.name }.toSet(),
+        )
+        for (showDeveloper in listOf(false, true)) {
+            assertTrue(
+                "play flavor must never list an fdroidOnly engine (showDeveloper=$showDeveloper)",
+                EngineCatalog.visibleTo(showDeveloper, flavor = "play").none { it.fdroidOnly },
+            )
+        }
+        assertTrue(
+            "fdroid flavor keeps Pocket visible without developer mode",
+            EngineCatalog.visibleTo(showDeveloper = false, flavor = "fdroid")
+                .any { it.name == "pocket-tts-en-v2026_04" },
         )
     }
 
