@@ -28,3 +28,7 @@
     public static *** d(...);
     public static *** v(...);
 }
+
+# Readability4J (reader mode) pulls in slf4j-api; no binder ships in the APK,
+# so slf4j falls back to its no-op logger. Suppress the R8 missing-class error.
+-dontwarn org.slf4j.impl.StaticLoggerBinder
