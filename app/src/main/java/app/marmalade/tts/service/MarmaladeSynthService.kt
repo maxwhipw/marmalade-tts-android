@@ -53,6 +53,7 @@ import app.marmalade.tts.reader.ReaderPlaybackController
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.ArrayDeque
 import javax.inject.Inject
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,12 +61,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
@@ -107,23 +110,34 @@ import kotlinx.coroutines.withContext
 //     │                 (foreground notification + MediaSession ensured;
 //     │                  a busy service queues the request)
 //     ▼
-//   runOne(req):
-//     │
+//   Synthesis and playback are two halves that overlap ACROSS requests —
+//   the queue handover is otherwise a full time-to-first-audio of silence,
+//   which in the reader is a gap at every paragraph boundary:
+//
+//   prepareLocked(req) — producer, under synthMutex (engines are not safe
+//     │                  to drive concurrently; the lock is FIFO so queue
+//     │                  order holds). Started for the head of the queue
+//     │                  while the request in front of it still plays.
 //     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
 //     │     voice/speed/effect/lang (share-sheet path only)
 //     ├── speed *= req.speedMultiplier (reader session speed; 1.0 elsewhere)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
+//     ├── settings.enabledRules → Preprocessor.apply → stripEmojis
+//     └── neutral emotion → produceAudio (engine synthesizeStream →
+//           StreamingEffectChain → channel; TTFA sampled into
+//           VoiceLatencyTracker) ; else produceBatched (ProsodyApplier +
+//           EffectChain need the whole PCM, sent as one chunk)
+//
+//   runOne(prepared) — consumer:
 //     ├── requestAudioFocus(AUDIOFOCUS_GAIN)
 //     │     - LOSS_TRANSIENT → pause; GAIN → resume; LOSS → doStop
-//     ├── settings.enabledRules → Preprocessor.apply → stripEmojis
-//     ├── neutral emotion → streamAndPlay (engine synthesizeStream →
-//     │     StreamingEffectChain → AudioTrack; TTFA sampled into
-//     │     VoiceLatencyTracker) ; else synthesizeBatchedAndPlay
-//     │     (ProsodyApplier + EffectChain need the whole PCM)
-//     └── finally: residency/focus released, and the request's terminal
-//           state posts to PreviewCompletions (resolves the awaiting
-//           in-app speak(); external requests post nothing) — then
-//           startNextLocked continues the queue or the service stops.
+//     ├── playFromChannel → AudioTrack (a synthesis failure reaches here as
+//     │     the channel's close cause, and maps to the same outcome it did
+//     │     when the two halves were one function)
+//     └── finally: producer cancelled, residency/focus released, and the
+//           request's terminal state posts to PreviewCompletions (resolves
+//           the awaiting in-app speak(); external requests post nothing) —
+//           then startNextLocked continues the queue or the service stops.
 //
 //   ACTION_STOP stops everything; ACTION_STOP_REQUEST stops only the
 //   named in-app request (ViewModel teardown must not kill an external
@@ -192,6 +206,26 @@ class MarmaladeSynthService : Service() {
     private val lock = Any()
     private val queue: ArrayDeque<SpeakRequest> = ArrayDeque()
     private var activeJob: Job? = null
+
+    /**
+     * Synthesis already running (or finished) for `queue.first()`, so its
+     * audio is ready the moment the request that precedes it stops playing.
+     * Invariant: non-null implies it belongs to the current head of [queue];
+     * every path that removes a queued request repairs that (see
+     * [dropPreparedHeadLocked]). Guarded by `lock`.
+     */
+    private var preparedHead: Prepared? = null
+
+    /**
+     * One synthesis at a time, service-wide. The engines hold per-instance
+     * session state and are not safe to drive from two coroutines at once, so
+     * the pre-synthesis of the next request waits behind the current one's
+     * producer — it starts the moment that producer stops, which on a
+     * paragraph-sized block is well before its audio finishes playing.
+     *
+     * Fair (FIFO) by contract, so queue order is preserved.
+     */
+    private val synthMutex = Mutex()
 
     /** The in-app request id currently playing (0 = none / external). */
     @Volatile private var activeRequestId: Long = 0L
@@ -404,6 +438,10 @@ class MarmaladeSynthService : Service() {
                 updateNotification(
                     getString(R.string.service_synth_state_queued, req.text.take(40)),
                 )
+                // Something is already playing, so the engine is idle as soon
+                // as that request's own synthesis is done — spend it on this
+                // one rather than waiting for the handover.
+                prefetchLocked()
             }
         }
     }
@@ -422,8 +460,12 @@ class MarmaladeSynthService : Service() {
         // here is FGS-from-FGS, which is always allowed.
         keepaliveCoordinator.onSynthCompleted()
         activeRequestId = next.requestId
+        // Prepared by the request before this one, in the common case: its
+        // audio is already synthesised (or well underway) and playback starts
+        // without waiting for the engine.
+        val prepared = preparedHead?.also { preparedHead = null } ?: prepareLocked(next)
         val job = scope.launch {
-            runOne(next)
+            runOne(prepared)
             synchronized(lock) {
                 activeJob = null
                 activeRequestId = 0L
@@ -444,12 +486,103 @@ class MarmaladeSynthService : Service() {
             }
         }
         activeJob = job
+        // THE point of the pipeline: while this request plays, synthesise the
+        // one behind it. Without this every queue handover costs a full
+        // time-to-first-audio, which in the reader is a silence at every
+        // paragraph boundary.
+        prefetchLocked()
     }
 
-    private suspend fun runOne(req: SpeakRequest) {
-        var outcome: PreviewCompletions.ErrorKind? = null
-        var outcomeMessage: String? = null
-        try {
+    /**
+     * Start synthesising `queue.first()` if nothing is being pre-synthesised
+     * already. One deep on purpose: that is all playback can hide, and each
+     * prepared request holds its buffered PCM until it plays.
+     *
+     * Caller must hold `lock`.
+     */
+    private fun prefetchLocked() {
+        if (preparedHead != null) return
+        val head = queue.firstOrNull() ?: return
+        preparedHead = prepareLocked(head)
+    }
+
+    /**
+     * Drop the pre-synthesis for the current head of [queue] — the repair
+     * every path that removes a queued request owes the [preparedHead]
+     * invariant. Cancelling the producer also frees whatever PCM it buffered.
+     *
+     * Caller must hold `lock`.
+     */
+    private fun dropPreparedHeadLocked() {
+        preparedHead?.cancel()
+        preparedHead = null
+    }
+
+    /**
+     * Kick off synthesis for [req] into its own buffered channel, and hand
+     * back the handle playback will consume.
+     *
+     * Everything that needs the engine happens here, under [synthMutex]:
+     * alias routing, language resolution, preprocessing, inference and the
+     * effect chain. Playback ([runOne]) then only moves PCM to the AudioTrack,
+     * which is what lets the two overlap across requests.
+     *
+     * Caller must hold `lock`.
+     */
+    private fun prepareLocked(req: SpeakRequest): Prepared {
+        val channel = Channel<SynthAudio>(capacity = SYNTH_BUFFER_CHUNKS)
+        val engineName = CompletableDeferred<String>()
+        val job = scope.launch {
+            try {
+                val resolved = resolveRequest(req)
+                // Route to the engine named by resolved.engine. Unknown
+                // engines warn and fall through to Kokoro (the recommended
+                // default) rather than failing loudly — keeps the foreground
+                // service robust to third-party callers sending garbage in
+                // EXTRA_ENGINE.
+                val engine = knownEngineOrDefault(resolved.engine)
+                if (engine != resolved.engine) {
+                    Log.w(TAG, "Engine '${resolved.engine}' not supported — using $engine")
+                }
+                engineName.complete(engine)
+                Log.d(TAG, "Synthesising request ${req.requestId} (${req.text.take(24)}…)")
+                synthMutex.withLock {
+                    // Marks this engine resident while it is actually being
+                    // driven, and keeps a sweep from releasing it mid-
+                    // utterance (Pocket's release() cancels an in-flight
+                    // synthesis). runOne holds a second, overlapping claim
+                    // for the playback window.
+                    residency.beginSynth(engine)
+                    try {
+                        produceAudio(resolved, engine, channel)
+                    } finally {
+                        residency.endSynth(engine)
+                    }
+                }
+                channel.close()
+            } catch (t: Throwable) {
+                // Closing with the cause is how the failure reaches playback:
+                // the consumer's iteration rethrows it, and runOne maps it to
+                // the same outcome it always did. It must NOT be rethrown —
+                // this coroutine has no parent handler (the service scope is
+                // a SupervisorJob), so an escaping engine error would reach
+                // the default uncaught handler and take the app down.
+                channel.close(t)
+                if (t is kotlinx.coroutines.CancellationException) throw t
+            } finally {
+                // Never leave a consumer awaiting an engine name that a
+                // cancelled producer will never publish.
+                if (!engineName.isCompleted) engineName.complete(DEFAULT_ENGINE)
+            }
+        }
+        return Prepared(req, channel, job, engineName)
+    }
+
+    /**
+     * Alias routing + session speed + language auto-detect: everything that
+     * turns the caller's request into the one the engine is actually given.
+     */
+    private suspend fun resolveRequest(req: SpeakRequest): SpeakRequest {
         // Per-app routing: when the caller didn't specify a voice, ask
         // TtsRouter for the user's primary alias and inject voice + speed
         // + effect from it. Share-sheet and clipboard-tile callers never
@@ -486,7 +619,7 @@ class MarmaladeSynthService : Service() {
         // "1.25× of whatever this voice normally runs at", not for an absolute
         // 1.25. Every other caller leaves the multiplier at 1.0, so this is an
         // identity for them.
-        val resolved: SpeakRequest = routed.copy(
+        return routed.copy(
             speed = routed.speed * routed.speedMultiplier,
             phonemizationLanguage = UtteranceLanguage.resolve(
                 detector = langDetector,
@@ -496,15 +629,17 @@ class MarmaladeSynthService : Service() {
                 text = routed.text,
             ),
         )
+    }
 
-        // Route to the engine named by resolved.engine. Unknown engines
-        // warn and fall through to Kokoro (the recommended default)
-        // rather than failing loudly — keeps the foreground service
-        // robust to third-party callers sending garbage in EXTRA_ENGINE.
-        val engineName = knownEngineOrDefault(resolved.engine)
-        if (engineName != resolved.engine) {
-            Log.w(TAG, "Engine '${resolved.engine}' not supported — using $engineName")
-        }
+    private suspend fun runOne(prepared: Prepared) {
+        val req = prepared.req
+        var outcome: PreviewCompletions.ErrorKind? = null
+        var outcomeMessage: String? = null
+        try {
+        // Published by the producer as soon as routing resolves; it always
+        // arrives, even if synthesis then fails or is cancelled.
+        val engineName = prepared.engineName.await()
+        Log.d(TAG, "Playing request ${req.requestId}")
 
         if (!requestFocus()) {
             Log.w(TAG, "Audio focus denied — skipping request")
@@ -512,9 +647,9 @@ class MarmaladeSynthService : Service() {
             outcomeMessage = "audio focus denied"
             return
         }
-        // Marks this engine resident for the residency window, and keeps a
-        // sweep from releasing it mid-utterance (Pocket's release() cancels
-        // an in-flight synthesis). Paired in the finally below.
+        // Second, overlapping residency claim: the producer holds one while
+        // the engine runs, this one covers the playback window so a sweep
+        // can't evict an engine we are still mid-utterance on.
         residency.beginSynth(engineName)
         // From this point on we MUST releaseFocus() before returning, on
         // every branch — otherwise the next queued request calls
@@ -529,25 +664,12 @@ class MarmaladeSynthService : Service() {
                 getString(R.string.service_synth_state_speaking_text, req.text.take(40)),
             )
 
-            // Per-engine preprocessing (currency, numbers, abbreviations,
-            // …) feeds the engine the same normalised text the user gets
-            // on the CLI. Streaming eligibility mirrors Synthesizer.speak
-            // and the system TTS service: effects stream through
-            // StreamingEffectChain; only non-neutral emotion still needs
-            // the batched pipeline (ProsodyApplier shapes the whole PCM).
-            // This is the long-form path (shared articles, clipboard), so
-            // streaming matters most here: playback starts after the first
-            // chunk's inference instead of after the whole article, and
-            // the article's PCM never sits on the heap in full.
-            val enabled = settings.enabledRules(engineName).first()
-            val emotion = EmojiProsody.detect(req.text).emotion
-
+            // Everything upstream of the AudioTrack already happened (or is
+            // still happening) in the producer — see [prepareLocked]. All
+            // that is left here is to move PCM as it arrives, which is what
+            // frees the engine to work on the next request meanwhile.
             try {
-                if (emotion == Emotion.Neutral) {
-                    streamAndPlay(req.text, engineName, resolved, enabled)
-                } else {
-                    synthesizeBatchedAndPlay(req.text, engineName, resolved, enabled)
-                }
+                playFromChannel(prepared.channel)
             } catch (e: EngineNotInstalledException) {
                 Log.w(TAG, "Engine not installed", e)
                 outcome = PreviewCompletions.ErrorKind.MODEL_MISSING
@@ -591,6 +713,9 @@ class MarmaladeSynthService : Service() {
             releaseFocus()
         }
         } finally {
+            // Playback ended, however it ended — stop burning CPU on chunks
+            // nobody will hear and free whatever the producer buffered.
+            prepared.cancel()
             // The post site covering every exit that entered runOne's body
             // — played through, user cancel (a terminal success), error,
             // focus denied, or cancellation anywhere including the
@@ -602,83 +727,82 @@ class MarmaladeSynthService : Service() {
     }
 
     /**
-     * Streaming synthesis + playback (the common, emotion-neutral case).
-     * Producer (engine chunks → effect chain) and consumer (AudioTrack)
-     * run in parallel through a 2-slot channel — same shape as
-     * Synthesizer.speakStreaming. Transport composes via backpressure:
-     * pause blocks the consumer, the channel fills, and the producer
-     * suspends on send until playback resumes.
+     * Synthesis, start to finish, into [channel] — the producer half of the
+     * pipeline. Runs under [synthMutex], with no reference to playback: what
+     * makes the reader gapless is that this can be running for block N+1
+     * while block N is still being written to the AudioTrack.
+     *
+     * Backpressure still applies within a request: [SYNTH_BUFFER_CHUNKS] is
+     * generous enough to swallow a whole paragraph (so the producer finishes
+     * early and frees the engine) but bounded, so a 50k-character share-sheet
+     * read never puts a whole article's PCM on the heap.
      */
-    private suspend fun streamAndPlay(
-        rawText: String,
-        engineName: String,
+    private suspend fun produceAudio(
         resolved: SpeakRequest,
-        enabledRules: Set<String>,
+        engineName: String,
+        channel: SendChannel<SynthAudio>,
     ) {
-        val preprocessed = preprocessor.apply(rawText, enabledRules)
+        // Per-engine preprocessing (currency, numbers, abbreviations, …)
+        // feeds the engine the same normalised text the user gets on the
+        // CLI. Streaming eligibility mirrors Synthesizer.speak and the
+        // system TTS service: effects stream through StreamingEffectChain;
+        // only non-neutral emotion still needs the batched pipeline
+        // (ProsodyApplier shapes the whole PCM).
+        val enabled = settings.enabledRules(engineName).first()
+        if (EmojiProsody.detect(resolved.text).emotion != Emotion.Neutral) {
+            produceBatched(resolved, engineName, enabled, channel)
+            return
+        }
+
+        val preprocessed = preprocessor.apply(resolved.text, enabled)
         val stripped = EmojiProsody.stripEmojis(preprocessed)
+        // Input collapsed to nothing speakable (blank text, or emoji-only
+        // that stripped to "") — close with no audio; playback is a no-op
+        // and the request still completes successfully.
         if (stripped.isBlank()) return
 
-        coroutineScope {
-            val audioChannel = Channel<SynthAudio>(capacity = 2)
-            val producer = launch(Dispatchers.Default) {
-                try {
-                    var chain: StreamingEffectChain? = null
-                    var sr = 0
-                    streamForEngine(engineName, stripped, resolved.voice, resolved.speed, resolved.phonemizationLanguage)
-                        .collect { audio ->
-                            val c = chain ?: StreamingEffectChain(resolved.effectBlocks, audio.sampleRate)
-                                .also { chain = it; sr = audio.sampleRate }
-                            audioChannel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
-                        }
-                    chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
-                        audioChannel.send(SynthAudio(tail, sr))
-                    }
-                } finally {
-                    audioChannel.close()
-                }
-            }
-            try {
-                playFromChannel(audioChannel)
-            } finally {
-                // Playback ended early (Stop / focus loss) — stop burning
-                // CPU on chunks nobody will hear. A producer failure
-                // (EngineNotInstalled etc.) propagates out of this scope
-                // to runOne's catch.
-                producer.cancel()
-            }
+        var chain: StreamingEffectChain? = null
+        var sampleRate = 0
+        streamForEngine(
+            engineName,
+            stripped,
+            resolved.voice,
+            resolved.speed,
+            resolved.phonemizationLanguage,
+        ).collect { audio ->
+            val c = chain ?: StreamingEffectChain(resolved.effectBlocks, audio.sampleRate)
+                .also { chain = it; sampleRate = audio.sampleRate }
+            channel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
+        }
+        chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
+            channel.send(SynthAudio(tail, sampleRate))
         }
     }
 
     /**
-     * Batched pipeline — only for non-neutral emotion, where
-     * ProsodyApplier needs the complete PCM before shaping.
+     * Batched producer — only for non-neutral emotion, where ProsodyApplier
+     * needs the complete PCM before shaping. Emits it as a single chunk.
      */
-    private suspend fun synthesizeBatchedAndPlay(
-        rawText: String,
-        engineName: String,
+    private suspend fun produceBatched(
         resolved: SpeakRequest,
+        engineName: String,
         enabledRules: Set<String>,
+        channel: SendChannel<SynthAudio>,
     ) {
         val result = runSynthesisPipeline(
-            rawText = rawText,
+            rawText = resolved.text,
             voiceId = resolved.voice,
             speed = resolved.speed,
             enabledRules = enabledRules,
             effectBlocks = resolved.effectBlocks,
             preprocessor = preprocessor,
-            synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage) },
+            synthesize = { t, v, s ->
+                synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage)
+            },
         )
-        val shaped = when (result) {
-            // Input collapsed to nothing speakable (blank text or
-            // emoji-only that stripped to "") — nothing to play.
+        when (result) {
             is PipelineResult.Empty -> return
-            is PipelineResult.Audio -> result
-        }
-        try {
-            playPcm(shaped.pcm, shaped.sampleRate)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Playback failed", t)
+            is PipelineResult.Audio -> channel.send(SynthAudio(result.pcm, result.sampleRate))
         }
     }
 
@@ -788,8 +912,12 @@ class MarmaladeSynthService : Service() {
         synchronized(lock) {
             val queued = queue.firstOrNull { it.requestId == requestId }
             if (queued != null) {
+                // Its pre-synthesis (if it is the head) dies with it, and the
+                // new head gets one instead.
+                if (queued === queue.firstOrNull()) dropPreparedHeadLocked()
                 queue.remove(queued)
                 completions.post(requestId, null)
+                prefetchLocked()
                 return
             }
             if (activeRequestId != requestId) return
@@ -814,6 +942,7 @@ class MarmaladeSynthService : Service() {
             // them now (as cancels) or their awaiting speak() calls hang.
             queue.forEach { completions.post(it.requestId, null) }
             queue.clear()
+            dropPreparedHeadLocked()
         }
         val track = currentTrack
         if (track != null) {
@@ -970,26 +1099,7 @@ class MarmaladeSynthService : Service() {
     }
 
     /**
-     * Allocate an AudioTrack at [sampleRate], stream [pcm] into it, and
-     * return when the playback head has drained. Honours `paused` and
-     * `cancelled` flags so the transport actions feel immediate.
-     */
-    private suspend fun playPcm(pcm: ShortArray, sampleRate: Int) =
-        withContext(Dispatchers.IO) {
-            val track = buildTrack(sampleRate)
-            currentTrack = track
-            updateMediaState(PlaybackStateCompat.STATE_PLAYING)
-            try {
-                track.play()
-                val written = writePcm(track, pcm)
-                drainTrack(track, written)
-            } finally {
-                releaseTrack(track)
-            }
-        }
-
-    /**
-     * Consumer half of [streamAndPlay]: open the AudioTrack lazily on the
+     * Consumer half of the pipeline: open the AudioTrack lazily on the
      * first chunk (its sample rate sets the format), write chunks as they
      * arrive, then drain. Pause blocks this consumer, which backpressures
      * the producer through the channel.
@@ -1213,6 +1323,26 @@ class MarmaladeSynthService : Service() {
 
     // -- request value type ---------------------------------------------------
 
+    /**
+     * A request whose synthesis has been started, and the channel its audio
+     * arrives on. Held for the head of the queue while the request in front
+     * of it is still playing — see [prepareLocked].
+     */
+    private class Prepared(
+        val req: SpeakRequest,
+        val channel: Channel<SynthAudio>,
+        private val job: Job,
+        /** Resolved engine, published as soon as routing is done. */
+        val engineName: CompletableDeferred<String>,
+    ) {
+        /** Abandon the synthesis and drop whatever it buffered. */
+        fun cancel() {
+            job.cancel()
+            channel.cancel()
+        }
+    }
+
+
     internal data class SpeakRequest(
         val text: String,
         val engine: String,
@@ -1254,6 +1384,14 @@ class MarmaladeSynthService : Service() {
          * frames remaining) means the track is dead — see [drainTrack].
          */
         private const val DRAIN_STALL_MS = 2_500L
+
+        /**
+         * Chunks a producer may run ahead of playback within one request.
+         * Deep enough that a paragraph-sized request is fully synthesised
+         * before its audio ends (so the engine is free for the next one),
+         * shallow enough that a book-length share-sheet read stays bounded.
+         */
+        private const val SYNTH_BUFFER_CHUNKS = 8
 
         /** Separate id so stopForeground's removal can't take errors with it. */
         private const val ERROR_NOTIFICATION_ID = 2
