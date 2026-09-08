@@ -39,6 +39,8 @@
     <string name="settings_report_bug_desc">不具合や読み間違いがありましたか？ 詳細を入力済みの GitHub Issue を開きます。</string>
     <string name="settings_more_marmalade">Marmalade の他のアプリ</string>
     <string name="settings_more_marmalade_desc">GitHub にある Marmalade の他のアプリです。</string>
+    <string name="settings_support_dev">開発を支援する</string>
+    <string name="settings_support_dev_desc">GitHub Sponsors から寄付できます。任意であり、税控除の対象ではありません。</string>
 
     <!-- AdvancedSettingsScreen -->
     <string name="settings_performance">パフォーマンス</string>

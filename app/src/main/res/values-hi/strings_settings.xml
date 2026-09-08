@@ -39,6 +39,8 @@
     <string name="settings_report_bug_desc">कुछ काम नहीं कर रहा या उच्चारण गलत है? पूरी जानकारी के साथ GitHub पर एक issue खोलता है।</string>
     <string name="settings_more_marmalade">और Marmalade</string>
     <string name="settings_more_marmalade_desc">GitHub पर Marmalade के दूसरे ऐप्स।</string>
+    <string name="settings_support_dev">विकास में सहयोग करें</string>
+    <string name="settings_support_dev_desc">GitHub Sponsors के ज़रिए दान करें। यह स्वैच्छिक है और कर-कटौती योग्य नहीं है।</string>
 
     <!-- AdvancedSettingsScreen -->
     <string name="settings_performance">परफ़ॉर्मेंस</string>

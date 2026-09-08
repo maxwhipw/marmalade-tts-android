@@ -39,6 +39,8 @@
     <string name="settings_report_bug_desc">遇到故障或读音错误？将打开一个已填好详情的 GitHub issue。</string>
     <string name="settings_more_marmalade">更多 Marmalade</string>
     <string name="settings_more_marmalade_desc">GitHub 上的其他 Marmalade 应用。</string>
+    <string name="settings_support_dev">支持开发</string>
+    <string name="settings_support_dev_desc">通过 GitHub Sponsors 捐赠。完全自愿，且不可用于税务抵扣。</string>
 
     <!-- AdvancedSettingsScreen -->
     <string name="settings_performance">性能</string>

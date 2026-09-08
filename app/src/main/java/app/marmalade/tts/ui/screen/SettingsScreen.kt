@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -348,12 +349,23 @@ private fun AdvancedRow(onClick: () -> Unit) {
 private fun SupportSection() {
     SectionHeader(stringResource(R.string.settings_support))
 
-    // Flavor-specific entry — see src/{play,fdroid}/.../AboutExtras.kt.
-    // F-Droid renders a "Support development" link to GitHub Sponsors first;
-    // Play renders nothing (per the internal release notes the donate link
-    // is omitted from Play for first-listing policy safety), so on Play this
-    // section starts at "More Marmalade".
-    app.marmalade.tts.ui.screen.AboutExtras()
+    // Both flavors (Max, 2026-09-07 — it used to be F-Droid-only for Play
+    // first-listing policy safety; he asked for it everywhere). Disclosure
+    // for donors also lives in NOTICE.md and the README FAQ: donations are
+    // not tax-deductible, because Marmalade is not a registered charity.
+    AboutLinkRow(
+        label = stringResource(R.string.settings_support_dev),
+        supporting = stringResource(R.string.settings_support_dev_desc),
+        url = "https://github.com/sponsors/maxwhipw",
+        leading = {
+            // A vector heart (not an emoji), tinted primary so the row pops.
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+    )
 
     AboutLinkRow(
         label = stringResource(R.string.settings_more_marmalade),

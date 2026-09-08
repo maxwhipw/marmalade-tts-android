@@ -39,6 +39,8 @@
     <string name="settings_report_bug_desc">Qualcosa non funziona o viene pronunciato male? Apre una segnalazione su GitHub con i dettagli già compilati.</string>
     <string name="settings_more_marmalade">Altro da Marmalade</string>
     <string name="settings_more_marmalade_desc">Le altre app Marmalade su GitHub.</string>
+    <string name="settings_support_dev">Sostieni lo sviluppo</string>
+    <string name="settings_support_dev_desc">Fai una donazione tramite GitHub Sponsors. Volontaria e non detraibile fiscalmente.</string>
 
     <!-- AdvancedSettingsScreen -->
     <string name="settings_performance">Prestazioni</string>
