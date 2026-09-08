@@ -56,3 +56,5 @@ docs/release/*-GAMEPLAN.md
 docs/release/*-PLAN.md
 docs/release/PLAY-CONSOLE-RESPONSES.md
 docs/release/*-lab.html
+docs/design/*-lab.html
+docs/design/labs.json

@@ -1,6 +1,6 @@
 /*
  * Generates the shipping launcher icon from the same geometry the design labs
- * use, so the art can never drift from what was signed off in icon-v2-lab.html.
+ * use, so the art can never drift from what was signed off in the icon lab.
  *
  *   node docs/design/build-launcher-icon.mjs
  *

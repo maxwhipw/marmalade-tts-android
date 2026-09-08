@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.dp
  * three glyphs would pull the whole Material catalogue into the build
  * just to have R8 throw ~99% of it away again.
  *
- * The path data is lifted verbatim from `docs/design/speak-screen-lab.html`,
- * so what shipped and what was signed off are the same drawing. If the lab
- * changes, change these with it.
+ * The path data is lifted verbatim from the internal speak-screen design
+ * lab, so what shipped and what was signed off are the same drawing. If the
+ * lab changes, change these with it.
  */
 object MarmaladeIcons {
 

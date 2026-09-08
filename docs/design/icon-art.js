@@ -1,5 +1,5 @@
-/* Shared Marmalade icon geometry — used by icon-lab.html and
-   icon-position-lab.html. All paths live in the mascot_happy.xml 108x108
+/* Shared Marmalade icon geometry — used by the internal icon design labs.
+   All paths live in the mascot_happy.xml 108x108
    coordinate space. Edit here; both labs follow. */
 // All geometry lives in the mascot_happy.xml 108x108 coordinate space.
 // Layers are [d, fill, stroke, strokeWidth, opacity, linecap] tuples.
