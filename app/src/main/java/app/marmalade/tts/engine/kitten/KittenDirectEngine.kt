@@ -6,6 +6,7 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import app.marmalade.tts.audio.TailTrim
 import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -23,6 +24,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -77,15 +79,6 @@ private const val PERF_TAG = "StreamPerf"
 
 /** KittenML model's style-vector dimension; fixed by the trained model. */
 private const val STYLE_DIM = 256
-
-/**
- * Legacy blind tail trim, FALLBACK ONLY: used when the model's duration
- * output is missing or doesn't match the waveform, where [KittenTrim]
- * would otherwise cut speech. Upstream KittenML and Maise hardcode 5000;
- * the normal path trims lead and tail duration-exactly instead (the
- * blind trim clips ~200 ms of real speech on punctuation-less chunks).
- */
-private const val TRIM_SAMPLES = 5000
 
 /**
  * Silence inserted between chunks, sized by boundary type (F rules,
@@ -531,10 +524,15 @@ open class KittenDirectEngine @Inject constructor(
                 // model's second output is per-token frame counts; when it
                 // matches the waveform, trim the BOS lead pad and the
                 // trailing pause group. Contract broken / output missing →
-                // legacy blind tail trim rather than risk cutting speech.
+                // amplitude-aware tail trim (see TailTrim), which is the same
+                // recipe the CLI kokoro daemon uses when it has no usable
+                // alignment. The blind 5000-sample chop that used to live here
+                // silently cut ~200 ms off the end (issue #8).
                 val dur = if (results.size() > 1) extractDurations(results[1].value) else null
-                val trimmed = dur?.let { KittenTrim.trim(inputIds, raw, it) }
-                    ?: if (raw.size > TRIM_SAMPLES) raw.copyOf(raw.size - TRIM_SAMPLES) else raw
+                val trimmed = dur?.let { KittenTrim.trim(inputIds, raw, it) } ?: run {
+                    warnTrimFallback(inputIds, raw, dur)
+                    TailTrim.trimTail(raw)
+                }
                 return floatToPcm16(trimmed)
             } finally {
                 results.close()
@@ -601,19 +599,24 @@ open class KittenDirectEngine @Inject constructor(
     }
 
     /**
-     * Per-token durations from the model's second output, as frame
-     * counts. The export's dtype has been seen as both int64 and float32
-     * across kitten bundles, so accept either; null (→ blind-trim
-     * fallback) on anything else.
+     * Name the reason the duration-exact trim was skipped. Without this the
+     * fallback was silent, so nobody could tell from a device log whether a
+     * reported cutoff came from a broken duration contract or from the trim
+     * itself (issue #8).
      */
-    private fun extractDurations(value: Any?): LongArray? {
-        val flat: Any? = if (value is Array<*>) value.firstOrNull() else value
-        return when (flat) {
-            is LongArray -> flat
-            is FloatArray -> LongArray(flat.size) { flat[it].toLong() }
-            is IntArray -> LongArray(flat.size) { flat[it].toLong() }
-            else -> null
+    private fun warnTrimFallback(ids: IntArray, raw: FloatArray, dur: LongArray?) {
+        if (dur == null) {
+            Log.w(TAG, "no usable duration output — amplitude tail trim instead of duration-exact trim")
+            return
         }
+        var total = 0L
+        for (d in dur) total += d
+        Log.w(
+            TAG,
+            "duration contract broken: wav.size=${raw.size} vs " +
+                "${KittenTrim.FRAME_SAMPLES}×Σdur=${total * KittenTrim.FRAME_SAMPLES} " +
+                "(ids=${ids.size} durs=${dur.size}) — amplitude tail trim instead",
+        )
     }
 
     private fun floatToPcm16(samples: FloatArray): ShortArray {
@@ -698,6 +701,30 @@ open class KittenDirectEngine @Inject constructor(
         const val ENGINE_NAME = "kitten-direct-v0_8"
         private const val MODEL_FILE = "kitten.onnx"
         private const val VOICES_DIR = "voices"
+
+        /**
+         * Per-token durations from the model's second output, as frame
+         * counts. The export's dtype has been seen as both int64 and
+         * float32 across kitten bundles, so accept either; null
+         * (→ amplitude-trim fallback) on anything else.
+         *
+         * Float durations are ROUNDED, not truncated. The vocoder renders
+         * `600 × round(dur)` samples per token, so truncation broke the
+         * `wav.size == 600 × Σdur` contract [KittenTrim.trim] checks and
+         * dropped the whole render onto the fallback trim (issue #8).
+         *
+         * In the companion (and `internal`) so the dtype handling is
+         * testable without standing up an ORT session.
+         */
+        internal fun extractDurations(value: Any?): LongArray? {
+            val flat: Any? = if (value is Array<*>) value.firstOrNull() else value
+            return when (flat) {
+                is LongArray -> flat
+                is FloatArray -> LongArray(flat.size) { flat[it].roundToLong() }
+                is IntArray -> LongArray(flat.size) { flat[it].toLong() }
+                else -> null
+            }
+        }
 
         /**
          * The espeak voice this engine phonemizes with when the caller
