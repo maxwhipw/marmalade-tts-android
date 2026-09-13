@@ -408,20 +408,30 @@ class MarmaladeTtsServiceTest {
         assertEquals(0, fakeKokoroDirectEngine.calls.size)
         val (_, voiceId, speed) = fakeEngine.calls.single()
         assertEquals("kitten-direct-v0_8:Bella", voiceId)
-        assertEquals(1.5f, speed)
+        // The alias's 1.5x reaches the listener as a time-stretch, so the
+        // engine itself renders at 1.0x — asserted end-to-end in
+        // onSynthesizeText_requestedVoiceMatchingPrimary_appliesAliasBundle.
+        assertEquals(1.0f, speed)
     }
 
     @Test
     fun onSynthesizeText_requestedVoiceMatchingPrimary_appliesAliasBundle() {
         installKittenPrimary()
-        fakeEngine.nextPcm = ShortArray(1024) { 0 }
+        // One second of tone: the alias's 1.5x has to come back as ~2/3 of
+        // it. (Since 2026-09-12 the rate is a time-stretch on the output
+        // rather than a speed handed to the engine, so delivered length is
+        // the only place the alias's speed is observable.)
+        fakeEngine.nextPcm = ShortArray(24_000) { (8_000 * sin(it * 0.05)).toInt().toShort() }
 
         // Requesting exactly the primary's voice is treated as the alias:
         // its speed (and effects) ride along instead of the bare 1.0×.
         val request = newRequestWithVoice("hello", "kitten-direct-v0_8:Bella")
-        service.onSynthesizeText(request, FakeSynthesisCallback())
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(request, callback)
 
-        assertEquals(1.5f, fakeEngine.calls.single().third)
+        assertEquals(1.0f, fakeEngine.calls.single().third)
+        val ratio = audioBytes(callback).toDouble() / (24_000 * 2)
+        assertTrue("1.5x delivered ratio=$ratio, expected ~0.67", ratio in 0.60..0.72)
     }
 
     @Test
@@ -817,8 +827,9 @@ class MarmaladeTtsServiceTest {
         assertEquals(0, fakeKokoroDirectEngine.calls.size)
         assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
         assertEquals("es", fakeEngine.languages.single())
-        // The alias's speed is untouched by any of this.
-        assertEquals(1.5f, fakeEngine.calls.single().third)
+        // The engine renders at 1.0x — the alias's 1.5x is a time-stretch
+        // on the output now, and the language fallback doesn't disturb it.
+        assertEquals(1.0f, fakeEngine.calls.single().third)
     }
 
     @Test

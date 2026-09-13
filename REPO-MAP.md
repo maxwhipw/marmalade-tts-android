@@ -314,13 +314,17 @@ write Marmalade code.
 ## Known quirks / recent gotchas
 
 - **User `speed` is a time-stretch, not a model parameter**: Pocket's
-  ONNX graphs are autoregressive with no speed input, and Kokoro's
-  `speed` tensor saturates (~2.2x for a requested 3.0x) while slurring
-  articulation — so both set `TtsEngine.supportsNativeSpeed = false`.
+  ONNX graphs are autoregressive with no speed input, and Kokoro's and
+  Kitten's `speed` tensors saturate (Kokoro ~2.2x for a requested 3.0x;
+  Kitten byte-identical ~1.85x for both 2.5x and 3.0x) while slurring
+  articulation — so all three set
+  `TtsEngine.supportsNativeSpeed = false`. Kitten's per-voice priors are
+  NOT user speed and stay in its tensor.
   Both services route the request through `service/SpeedFallback.kt`
   first, which hands the engine 1.0 and prepends an
   `EffectBlock.Tempo(speed)` time-stretch to the effect chain (issue #7;
-  Kokoro joined 2026-09-12, mirroring the CLI's move to `sox tempo`).
+  Kokoro and Kitten joined 2026-09-12, mirroring the CLI's move to
+  `sox tempo`).
   A new engine that can't (or shouldn't) honour `speed` only has to
   override the flag.
 - **TTS engine registration requires `DEFAULT` category** on the

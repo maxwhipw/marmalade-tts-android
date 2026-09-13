@@ -150,10 +150,24 @@ open class KittenDirectEngine @Inject constructor(
         KittenDirectVoiceCatalog.voices
 
     /**
-     * Per-voice speed prior — see [SPEED_PRIORS] for provenance.
+     * The user's rate change is a time-stretch on the rendered audio, not
+     * a model parameter — Kitten's `speed` tensor saturates hard
+     * (measured 2026-09-12: requests of 2.5x and 3.0x render
+     * BYTE-IDENTICAL audio at about 1.85x) and mangles articulation on
+     * the way there. The services hand this engine speed = 1.0 and
+     * prepend `EffectBlock.Tempo(userSpeed)` instead
+     * (`applySpeedFallback`), which hits the requested factor exactly —
+     * same policy the CLI adopted for every engine.
+     *
+     * This does NOT retire the per-voice priors in [SPEED_PRIORS]. Those
+     * are not user speed: they are part of each voice's blessed sound,
+     * Max's picks from the 2026-08-07 ear-lab, and the raw model runs
+     * ~25% too fast without them. So [runInference] keeps applying
+     * `prior × incoming speed` to the tensor natively — with the
+     * incoming speed now pinned at 1.0, that is just the prior. Only the
+     * user-requested rate moved to the effect chain.
      */
-    private fun speedPriorFor(voiceName: String): Float =
-        SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
+    override val supportsNativeSpeed: Boolean = false
 
     /**
      * Soft cap for per-chunk char count. Under the F rules chunks are
@@ -487,13 +501,15 @@ open class KittenDirectEngine @Inject constructor(
         // fragment must keep its sentence's register (F rules).
         val style = lookupVoiceStyle(voiceName, rowText.length)
 
-        // Apply sherpa's per-voice speed prior. The raw model runs ~25%
-        // too fast at speed=1.0; sherpa compensates by silently
-        // multiplying the caller's speed by 0.8 (or 0.9 for Hugo).
-        // Without this we sound rushed and words mash together because
-        // the inter-word space tokens get squeezed.
+        // The per-voice prior stays native. The raw model runs ~25% too
+        // fast at speed=1.0 — without the prior we sound rushed and words
+        // mash together because the inter-word space tokens get squeezed —
+        // and the prior is part of the voice's blessed sound, not a rate
+        // the user chose. [speed] is 1.0 on every service-driven call now
+        // (see [supportsNativeSpeed]); the user's rate is a Tempo block on
+        // the output. Direct callers keep the multiply.
         val voicePrior = speedPriorFor(voiceName)
-        val effectiveSpeed = speed * voicePrior
+        val effectiveSpeed = effectiveModelSpeed(voiceName, speed)
 
         Log.d(TAG, "input='$text'")
         Log.d(TAG, "ipa='$ipa' (textLen=${text.length} ipaLen=${ipa.length})")
@@ -716,6 +732,30 @@ open class KittenDirectEngine @Inject constructor(
          * In the companion (and `internal`) so the dtype handling is
          * testable without standing up an ORT session.
          */
+        /**
+         * Per-voice speed prior — see [SPEED_PRIORS] for provenance.
+         * Unknown voices fall back to upstream's uniform 0.8.
+         */
+        internal fun speedPriorFor(voiceName: String): Float =
+            SPEED_PRIORS[voiceName.lowercase()] ?: 0.8f
+
+        /**
+         * What actually goes into the model's `speed` tensor: the voice's
+         * prior times whatever the caller asked for.
+         *
+         * Since 2026-09-12 the services always ask for 1.0 (the user's
+         * rate is a time-stretch — see [supportsNativeSpeed]), so in
+         * practice this returns the bare prior. It stays a multiply so a
+         * direct caller can still nudge the model, and so the two
+         * concepts stay visibly separate: prior = the voice's blessed
+         * pace, argument = a deliberate model-level adjustment.
+         *
+         * In the companion (and `internal`) so it's testable without an
+         * ORT session — same reason as [extractDurations].
+         */
+        internal fun effectiveModelSpeed(voiceName: String, speed: Float): Float =
+            speed * speedPriorFor(voiceName)
+
         internal fun extractDurations(value: Any?): LongArray? {
             val flat: Any? = if (value is Array<*>) value.firstOrNull() else value
             return when (flat) {

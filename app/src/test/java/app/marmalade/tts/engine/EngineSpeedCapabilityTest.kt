@@ -9,18 +9,19 @@ import app.marmalade.tts.phonemizer.SharedEspeakData
 import app.marmalade.tts.ui.screen.NoOpPreferencesDataStore
 import java.io.File
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
  * Pins which engines honour `speed` themselves. Pocket can't — its graphs
- * take no speed input (issue #7) — and Kokoro shouldn't, because its speed
- * tensor saturates and slurs (2026-09-12). Both let the services
- * time-stretch instead (`applySpeedFallback`). Each value here is a
- * decision, not an accident: flipping one silently re-routes that engine's
- * audio through (or around) the OLA stage.
+ * take no speed input (issue #7) — and Kokoro and Kitten shouldn't,
+ * because their speed tensors saturate and slur (2026-09-12). All three
+ * let the services time-stretch instead (`applySpeedFallback`); the
+ * default in [TtsEngine] stays true for engines that do their own rate,
+ * e.g. the cloud providers. Each value here is a decision, not an
+ * accident: flipping one silently re-routes that engine's audio through
+ * (or around) the OLA stage.
  *
  * Robolectric only for a Context: constructing an engine touches nothing
  * but its own field initialisers, and no model is loaded here.
@@ -53,8 +54,15 @@ class EngineSpeedCapabilityTest {
         assertFalse(KokoroDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
     }
 
+    /**
+     * Kitten saturates worse than Kokoro — 2.5x and 3.0x render
+     * byte-identical audio at about 1.85x — so the user's rate is a
+     * time-stretch too. Its per-voice priors are unaffected: they're the
+     * voice's blessed pace, not a user rate, and stay in the tensor
+     * (pinned by [KittenSpeedPriorTest]).
+     */
     @Test
-    fun `kitten does speed natively`() {
-        assertTrue(KittenDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
+    fun `kitten defers user speed to the time-stretch`() {
+        assertFalse(KittenDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
     }
 }

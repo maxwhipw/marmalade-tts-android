@@ -51,12 +51,17 @@ interface TtsEngine {
      * True if the engine should honour the `speed` argument of
      * [synthesize] / [synthesizeStream] itself. Engines override this to
      * false when they either *can't* (Pocket TTS — autoregressive ONNX
-     * graphs with no speed input) or *shouldn't*: Kokoro takes a `speed`
-     * tensor, but it degrades articulation and saturates well below the
-     * requested factor (measured 2026-09-12 — Kokoro tops out around 2.2x
-     * when asked for 3.0x). Time-stretching hits the requested rate
-     * exactly with pronunciation intact, which is why the CLI switched to
-     * `sox tempo` for every engine.
+     * graphs with no speed input) or *shouldn't*: Kokoro and Kitten take
+     * a `speed` tensor, but it degrades articulation and saturates well
+     * below the requested factor (measured 2026-09-12 — Kokoro tops out
+     * around 2.2x when asked for 3.0x; Kitten renders byte-identical
+     * ~1.85x audio for both 2.5x and 3.0x). Time-stretching hits the
+     * requested rate exactly with pronunciation intact, which is why the
+     * CLI switched to `sox tempo` for every engine.
+     *
+     * False means the *user's* rate is applied downstream. An engine may
+     * still use its own speed tensor for voice-intrinsic reasons —
+     * KittenDirect keeps feeding its per-voice priors in natively.
      *
      * When false, the TTS services apply the rate change downstream
      * instead: they hand the engine speed = 1.0 and prepend an
