@@ -67,7 +67,10 @@ import kotlinx.coroutines.withContext
 //
 //   1. NO speed priors. Sherpa's `OfflineTtsKokoroModelMetaData` does not
 //      read a `speaker_speed_priors` field, and the v1.0 add_meta_data.py
-//      script doesn't write one. User [speed] feeds the model directly.
+//      script doesn't write one — so nothing scales the speed tensor here
+//      the way KittenDirect's per-voice prior does. Since 2026-09-12 the
+//      tensor is always fed 1.0 anyway: user speed is a time-stretch on
+//      the output, not a model parameter (see [supportsNativeSpeed]).
 //
 //   2. Wrapping is `[0, ...ids..., 0]` — no Kitten-style end token (10).
 //
@@ -146,6 +149,23 @@ open class KokoroDirectEngine @Inject constructor(
      * the per-chunk phoneme cap inside [runInference] truncate.
      */
     override val maxInputChars: Int = 255
+
+    /**
+     * The model's `speed` tensor works, but not well enough to use: it
+     * degrades articulation and saturates — desktop measurement
+     * 2026-09-12 got only ~2.2x real speed-up for a requested 3.0x. The
+     * services time-stretch the rendered audio instead
+     * (`applySpeedFallback` → [app.marmalade.tts.audio.EffectBlock.Tempo]),
+     * which hits the requested factor exactly and leaves pronunciation
+     * alone. Mirrors the CLI, which moved every engine to `sox tempo`
+     * (marmalade-tts-cli `6934ca6`). See [TtsEngine.supportsNativeSpeed].
+     *
+     * Consequence: [runInference] now receives speed = 1.0 on every
+     * service-driven call and feeds that straight into the tensor. The
+     * argument stays plumbed so a direct caller (benchmarks, capability
+     * probe — both pass 1.0 today) keeps a working knob.
+     */
+    override val supportsNativeSpeed: Boolean = false
 
     /**
      * Soft floor used by the chunker's `minChars` merge pass. Sentences

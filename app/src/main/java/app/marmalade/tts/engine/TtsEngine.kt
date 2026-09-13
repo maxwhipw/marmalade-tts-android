@@ -48,10 +48,15 @@ interface TtsEngine {
     val maxInputChars: Int get() = Int.MAX_VALUE
 
     /**
-     * True if the engine honours the `speed` argument of [synthesize] /
-     * [synthesizeStream] itself. Engines that can't — Pocket TTS, whose
-     * ONNX graphs are autoregressive and take no speed input — override
-     * this to false.
+     * True if the engine should honour the `speed` argument of
+     * [synthesize] / [synthesizeStream] itself. Engines override this to
+     * false when they either *can't* (Pocket TTS — autoregressive ONNX
+     * graphs with no speed input) or *shouldn't*: Kokoro takes a `speed`
+     * tensor, but it degrades articulation and saturates well below the
+     * requested factor (measured 2026-09-12 — Kokoro tops out around 2.2x
+     * when asked for 3.0x). Time-stretching hits the requested rate
+     * exactly with pronunciation intact, which is why the CLI switched to
+     * `sox tempo` for every engine.
      *
      * When false, the TTS services apply the rate change downstream
      * instead: they hand the engine speed = 1.0 and prepend an

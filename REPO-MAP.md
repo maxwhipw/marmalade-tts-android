@@ -313,13 +313,16 @@ write Marmalade code.
 
 ## Known quirks / recent gotchas
 
-- **Not every engine can do `speed`**: Pocket's ONNX graphs are
-  autoregressive with no speed input, so it sets
-  `TtsEngine.supportsNativeSpeed = false`. Both services route the
-  request through `service/SpeedFallback.kt` first, which hands the
-  engine 1.0 and prepends an `EffectBlock.Tempo(speed)` time-stretch
-  to the effect chain (issue #7). A new engine that can't honour
-  `speed` only has to override the flag.
+- **User `speed` is a time-stretch, not a model parameter**: Pocket's
+  ONNX graphs are autoregressive with no speed input, and Kokoro's
+  `speed` tensor saturates (~2.2x for a requested 3.0x) while slurring
+  articulation — so both set `TtsEngine.supportsNativeSpeed = false`.
+  Both services route the request through `service/SpeedFallback.kt`
+  first, which hands the engine 1.0 and prepends an
+  `EffectBlock.Tempo(speed)` time-stretch to the effect chain (issue #7;
+  Kokoro joined 2026-09-12, mirroring the CLI's move to `sox tempo`).
+  A new engine that can't (or shouldn't) honour `speed` only has to
+  override the flag.
 - **TTS engine registration requires `DEFAULT` category** on the
   `TTS_SERVICE` intent-filter AND `CHECK_TTS_DATA` activity AND a
   populated `tts_engine.xml` with `settingsActivity`. All three are

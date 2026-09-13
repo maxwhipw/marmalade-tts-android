@@ -15,10 +15,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Pins which engines honour `speed` themselves (issue #7). Pocket can't —
- * its graphs take no speed input — so the services time-stretch instead
- * (`applySpeedFallback`); everyone else must keep saying yes, or their
- * audio would silently start going through an extra OLA stage.
+ * Pins which engines honour `speed` themselves. Pocket can't — its graphs
+ * take no speed input (issue #7) — and Kokoro shouldn't, because its speed
+ * tensor saturates and slurs (2026-09-12). Both let the services
+ * time-stretch instead (`applySpeedFallback`). Each value here is a
+ * decision, not an accident: flipping one silently re-routes that engine's
+ * audio through (or around) the OLA stage.
  *
  * Robolectric only for a Context: constructing an engine touches nothing
  * but its own field initialisers, and no model is loaded here.
@@ -40,9 +42,19 @@ class EngineSpeedCapabilityTest {
         assertFalse(PocketDevEngine(ctx).supportsNativeSpeed)
     }
 
+    /**
+     * Kokoro's `speed` tensor works but saturates (~2.2x for a requested
+     * 3.0x) and smears articulation, so user speed became a time-stretch
+     * on 2026-09-12 — matching the CLI. Flipping this back to true would
+     * silently reinstate the saturating path.
+     */
     @Test
-    fun `kokoro and kitten do speed natively`() {
-        assertTrue(KokoroDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
+    fun `kokoro defers speed to the time-stretch`() {
+        assertFalse(KokoroDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
+    }
+
+    @Test
+    fun `kitten does speed natively`() {
         assertTrue(KittenDirectEngine(ctx, settings, espeak).supportsNativeSpeed)
     }
 }

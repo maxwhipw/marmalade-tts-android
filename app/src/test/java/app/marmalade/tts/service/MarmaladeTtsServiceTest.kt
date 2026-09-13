@@ -24,6 +24,7 @@ import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
 import app.marmalade.tts.preprocessing.PreprocessingRules
 import java.util.Locale
+import kotlin.math.sin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -464,20 +465,51 @@ class MarmaladeTtsServiceTest {
 
     // -- client speech rate ---------------------------------------------------
 
+    /**
+     * The client speech rate is accessibility-load-bearing: TalkBack users
+     * set it and expect it honoured. Since Kokoro's rate change moved to
+     * the time-stretch (2026-09-12) the engine must be asked for 1.0x —
+     * the rate now has to show up as SHORTER DELIVERED AUDIO instead,
+     * which is what the byte-count assertion below pins. Asserting only
+     * "engine got 1.0" would pass just as happily if the rate were
+     * dropped on the floor.
+     */
     @Test
-    fun onSynthesizeText_clientSpeechRateMultipliesResolvedSpeed() {
-        fakeKokoroDirectEngine.nextPcm = ShortArray(1024)
-        val request = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
+    fun onSynthesizeText_clientSpeechRateBecomesATimeStretch() {
+        val oneSecond = ShortArray(24_000) { (8_000 * sin(it * 0.05)).toInt().toShort() }
+
+        fakeKokoroDirectEngine.nextPcm = oneSecond
+        val baseline = FakeSynthesisCallback()
+        service.onSynthesizeText(
+            newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella"),
+            baseline,
+        )
+        assertEquals(1.0f, fakeKokoroDirectEngine.calls.single().third)
+        val baselineBytes = audioBytes(baseline)
+        assertTrue("baseline produced no audio", baselineBytes > 0)
+
+        fakeKokoroDirectEngine.calls.clear()
+        val fast = newRequestWithVoice("hello world", "kokoro-direct-v1_0:af_bella")
         // 200 = 2.0x per the framework contract (100 = normal).
         val rateField = SynthesisRequest::class.java.getDeclaredField("mSpeechRate")
         rateField.isAccessible = true
-        rateField.set(request, 200)
+        rateField.set(fast, 200)
+        val fastCallback = FakeSynthesisCallback()
+        service.onSynthesizeText(fast, fastCallback)
 
-        service.onSynthesizeText(request, FakeSynthesisCallback())
-
-        val (_, _, speed) = fakeKokoroDirectEngine.calls.single()
-        assertEquals(2.0f, speed)
+        // The engine renders at 1.0x either way — no native speed tensor.
+        assertEquals(1.0f, fakeKokoroDirectEngine.calls.single().third)
+        // ...and 2.0x arrives as roughly half the audio. The OLA stage's
+        // window latency costs a frame or so at the seams, hence the band
+        // rather than an exact half.
+        val ratio = audioBytes(fastCallback).toDouble() / baselineBytes
+        assertTrue("2.0x delivered ratio=$ratio, expected ~0.5", ratio in 0.45..0.58)
     }
+
+    /** Total PCM bytes the service handed the framework. */
+    private fun audioBytes(callback: FakeSynthesisCallback): Int =
+        callback.events.filterIsInstance<FakeSynthesisCallback.Event.AudioAvailable>()
+            .sumOf { it.byteCount }
 
     // -- onStop cancellation ------------------------------------------------
 
@@ -682,8 +714,10 @@ class MarmaladeTtsServiceTest {
         // accented French, which is the point.
         assertEquals("kokoro-direct-v1_0:af_bella", fakeKokoroDirectEngine.calls.single().second)
         assertEquals("fr-fr", fakeKokoroDirectEngine.languages.single())
-        // The alias's speed still rides along.
-        assertEquals(1.5f, fakeKokoroDirectEngine.calls.single().third)
+        // The alias's 1.5x still rides along — but as a time-stretch on the
+        // output now, so the engine itself is asked for 1.0x
+        // (see onSynthesizeText_clientSpeechRateBecomesATimeStretch).
+        assertEquals(1.0f, fakeKokoroDirectEngine.calls.single().third)
     }
 
     @Test
