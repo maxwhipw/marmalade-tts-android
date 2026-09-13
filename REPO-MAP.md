@@ -313,6 +313,13 @@ write Marmalade code.
 
 ## Known quirks / recent gotchas
 
+- **Not every engine can do `speed`**: Pocket's ONNX graphs are
+  autoregressive with no speed input, so it sets
+  `TtsEngine.supportsNativeSpeed = false`. Both services route the
+  request through `service/SpeedFallback.kt` first, which hands the
+  engine 1.0 and prepends an `EffectBlock.Tempo(speed)` time-stretch
+  to the effect chain (issue #7). A new engine that can't honour
+  `speed` only has to override the flag.
 - **TTS engine registration requires `DEFAULT` category** on the
   `TTS_SERVICE` intent-filter AND `CHECK_TTS_DATA` activity AND a
   populated `tts_engine.xml` with `settingsActivity`. All three are

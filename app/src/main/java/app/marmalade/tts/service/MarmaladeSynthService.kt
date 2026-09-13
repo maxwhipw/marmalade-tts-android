@@ -42,6 +42,7 @@ import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
+import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.lang.UtteranceLanguage
@@ -763,14 +764,15 @@ class MarmaladeSynthService : Service() {
 
         var chain: StreamingEffectChain? = null
         var sampleRate = 0
+        val plan = applySpeedFallback(engineHandleFor(engineName), resolved.speed, resolved.effectBlocks)
         streamForEngine(
             engineName,
             stripped,
             resolved.voice,
-            resolved.speed,
+            plan.speed,
             resolved.phonemizationLanguage,
         ).collect { audio ->
-            val c = chain ?: StreamingEffectChain(resolved.effectBlocks, audio.sampleRate)
+            val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                 .also { chain = it; sampleRate = audio.sampleRate }
             channel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
         }
@@ -789,12 +791,13 @@ class MarmaladeSynthService : Service() {
         enabledRules: Set<String>,
         channel: SendChannel<SynthAudio>,
     ) {
+        val plan = applySpeedFallback(engineHandleFor(engineName), resolved.speed, resolved.effectBlocks)
         val result = runSynthesisPipeline(
             rawText = resolved.text,
             voiceId = resolved.voice,
-            speed = resolved.speed,
+            speed = plan.speed,
             enabledRules = enabledRules,
-            effectBlocks = resolved.effectBlocks,
+            effectBlocks = plan.blocks,
             preprocessor = preprocessor,
             synthesize = { t, v, s ->
                 synthesizeForEngine(engineName, t, v, s, resolved.phonemizationLanguage)
@@ -804,6 +807,16 @@ class MarmaladeSynthService : Service() {
             is PipelineResult.Empty -> return
             is PipelineResult.Audio -> channel.send(SynthAudio(result.pcm, result.sampleRate))
         }
+    }
+
+    /** Engine handle for a catalog engine name — the capability side of the dispatch below. */
+    private fun engineHandleFor(engineName: String): TtsEngine = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect
+        PocketVoiceCatalog.ENGINE -> pocket
+        PocketDevVoiceCatalog.ENGINE -> pocketDev
+        CloudApiVoiceCatalog.ENGINE -> cloudApi
+        else -> kokoroDirect
     }
 
     /** Per-engine synthesis dispatch. All engines emit at 24 kHz today. */

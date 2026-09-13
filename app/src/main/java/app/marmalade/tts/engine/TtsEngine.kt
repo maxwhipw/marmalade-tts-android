@@ -48,6 +48,20 @@ interface TtsEngine {
     val maxInputChars: Int get() = Int.MAX_VALUE
 
     /**
+     * True if the engine honours the `speed` argument of [synthesize] /
+     * [synthesizeStream] itself. Engines that can't — Pocket TTS, whose
+     * ONNX graphs are autoregressive and take no speed input — override
+     * this to false.
+     *
+     * When false, the TTS services apply the rate change downstream
+     * instead: they hand the engine speed = 1.0 and prepend an
+     * [app.marmalade.tts.audio.EffectBlock.Tempo] block (sox-tempo-style
+     * overlap-add time-stretch, pitch preserved) to the effect chain.
+     * See `app.marmalade.tts.service.applySpeedFallback`.
+     */
+    val supportsNativeSpeed: Boolean get() = true
+
+    /**
      * True if the engine's bundle is present on disk and structurally
      * valid. Cheap — does not load the model into memory.
      */

@@ -104,6 +104,13 @@ open class PocketEngine @Inject constructor(
      */
     override val maxInputChars: Int = Int.MAX_VALUE
 
+    /**
+     * Pocket's five ONNX graphs are autoregressive and expose no speed
+     * input — nothing in the pipeline can change the rate. The services
+     * time-stretch the output instead; see [TtsEngine.supportsNativeSpeed].
+     */
+    override val supportsNativeSpeed: Boolean = false
+
     private val engineDir: File get() = File(ctx.filesDir, "engines/$ENGINE_NAME")
     private val voicesDir: File get() = File(engineDir, "voices")
     private val voiceCacheDir: File get() = File(engineDir, "voice_cache")
@@ -608,9 +615,8 @@ open class PocketEngine @Inject constructor(
         val bundle = bundle ?: error("bundle missing after load")
         val tokenizer = tokenizer ?: error("tokenizer missing after load")
 
-        if (speed != 1.0f) {
-            Log.d(TAG, "Pocket TTS ignores speed=$speed in streaming path")
-        }
+        // `speed` is deliberately unused: the AR graphs have no speed input.
+        // The services time-stretch instead — see [supportsNativeSpeed].
 
         val voiceName = voiceId.substringAfter(':', voiceId)
         val voiceEmb = embeddingForVoice(voiceName)

@@ -671,9 +671,10 @@ class MarmaladeTtsService : TextToSpeechService() {
         // coefficients need the sample rate). Empty chain = pass-through.
         var chain: StreamingEffectChain? = null
         var sr = 0
-        streamForEngine(engineName, stripped, params.voiceId, params.speed, params.phonemizationLanguage)
+        val plan = applySpeedFallback(engineHandleFor(engineName), params.speed, params.effectBlocks)
+        streamForEngine(engineName, stripped, params.voiceId, plan.speed, params.phonemizationLanguage)
             .collect { audio ->
-                val c = chain ?: StreamingEffectChain(params.effectBlocks, audio.sampleRate)
+                val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                     .also { chain = it; sr = audio.sampleRate }
                 val shaped = c.process(audio.pcm)
                 if (shaped.isNotEmpty()) streamPcm(callback, shaped)
@@ -696,12 +697,13 @@ class MarmaladeTtsService : TextToSpeechService() {
         params: SynthParams,
         enabledRules: Set<String>,
     ) {
+        val plan = applySpeedFallback(engineHandleFor(engineName), params.speed, params.effectBlocks)
         val result = runSynthesisPipeline(
             rawText = rawText,
             voiceId = params.voiceId,
-            speed = params.speed,
+            speed = plan.speed,
             enabledRules = enabledRules,
-            effectBlocks = params.effectBlocks,
+            effectBlocks = plan.blocks,
             preprocessor = preprocessor,
             synthesize = { t, v, s -> synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage) },
         )

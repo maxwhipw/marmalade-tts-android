@@ -83,6 +83,9 @@ class PocketDevEngine @Inject constructor(
     /** Same as production Pocket — handle our own chunking via [splitIntoBestSentences]. */
     override val maxInputChars: Int = Int.MAX_VALUE
 
+    /** Same limitation as production Pocket — no speed input on the graphs. */
+    override val supportsNativeSpeed: Boolean = false
+
     /** Own install dir — parallel to production Pocket. */
     private val engineDir: File get() = File(ctx.filesDir, "engines/$engineName")
     private val voicesDir: File get() = File(engineDir, "voices")
