@@ -1,6 +1,8 @@
 # German voice review — marmalade-tts
 
 We're working on adding **German** to [marmalade-tts](https://github.com/maxwhipw/marmalade-tts-android)
+
+> **▶ [Listen to the samples with embedded players](https://maxwhipw.github.io/marmalade-tts-android/german/)** — the file links below go to GitHub's viewer, which downloads WAVs instead of playing them.
 (see [issue #1](https://github.com/maxwhipw/marmalade-tts-android/issues/1)). None of the
 maintainers speak German, so before we build the engine we'd like German speakers to
 listen to the candidates and tell us what's good enough.

@@ -1,0 +1,93 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>German voice review — marmalade-tts</title>
+<style>
+body{font:16px/1.55 system-ui,sans-serif;max-width:880px;margin:2rem auto;padding:0 1rem;color:#222}
+h1{font-size:1.5rem} h2{font-size:1.2rem;margin-top:2rem}
+table{border-collapse:collapse;width:100%} td,th{padding:.5rem .6rem;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
+td.id{color:#777;white-space:nowrap} audio{width:250px}
+.note{background:#f6f3ee;border-left:4px solid #d90;padding:.7rem 1rem;border-radius:4px}
+a{color:#0757a5}
+</style></head><body>
+<h1>German voice review — marmalade-tts</h1>
+<p>We're working on adding <b>German</b> to
+<a href="https://github.com/maxwhipw/marmalade-tts-android">marmalade-tts</a>
+(<a href="https://github.com/maxwhipw/marmalade-tts-android/issues/1">issue #1</a>).
+None of the maintainers speak German, so before we build the engine we'd like German
+speakers to listen and tell us what's good enough.</p>
+<p class="note"><b>How to give feedback:</b> comment on
+<a href="https://github.com/maxwhipw/marmalade-tts-android/issues/1">issue #1</a>.
+Most useful: which sample ids sound wrong and <i>what</i> is wrong (mispronounced
+word, weird rhythm, wrong stress), and an overall 1–5 naturalness rating for each
+candidate.</p>
+
+<h2>Candidate A — native German voice ("Thorsten")</h2>
+<p><a href="https://huggingface.co/Thorsten-Voice/Kokoro">Thorsten-Voice/Kokoro</a>:
+a German fine-tune of Kokoro-82M speaking with
+<a href="https://www.thorsten-voice.de/">Thorsten Müller</a>'s own voice, which he
+recorded and published himself (CC0 dataset, Apache-2.0 model). This is the quality bar.</p>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr>
+<tr><td class="id">01</td><td>Die Bundesregierung hat heute ein neues Gesetz zum Klimaschutz verabschiedet.</td>
+<td><audio controls preload="none" src="samples/native/de_01_thorsten.wav"></audio></td></tr><tr><td class="id">02</td><td>Nach Angaben der Polizei wurden bei dem Unfall auf der Autobahn drei Personen leicht verletzt.</td>
+<td><audio controls preload="none" src="samples/native/de_02_thorsten.wav"></audio></td></tr><tr><td class="id">03</td><td>Der Deutsche Wetterdienst warnt vor schweren Gewittern im Süden des Landes.</td>
+<td><audio controls preload="none" src="samples/native/de_03_thorsten.wav"></audio></td></tr><tr><td class="id">04</td><td>Das neue Modell kostet 2499 Euro und wiegt nur 1,3 Kilogramm.</td>
+<td><audio controls preload="none" src="samples/native/de_04_thorsten.wav"></audio></td></tr><tr><td class="id">05</td><td>Im Stadion waren gestern genau 74213 Zuschauer, das sind 8 Prozent mehr als sonst.</td>
+<td><audio controls preload="none" src="samples/native/de_05_thorsten.wav"></audio></td></tr><tr><td class="id">06</td><td>Die Strecke ist 42 Kilometer lang und wir starten bei Kilometer 17.</td>
+<td><audio controls preload="none" src="samples/native/de_06_thorsten.wav"></audio></td></tr><tr><td class="id">07</td><td>Am 14. Mai 2026 beginnt die Konferenz pünktlich um 9 Uhr.</td>
+<td><audio controls preload="none" src="samples/native/de_07_thorsten.wav"></audio></td></tr><tr><td class="id">08</td><td>Der Vertrag läuft vom 1. Januar 2025 bis zum 31. Dezember 2027.</td>
+<td><audio controls preload="none" src="samples/native/de_08_thorsten.wav"></audio></td></tr><tr><td class="id">09</td><td>Die Donaudampfschifffahrtsgesellschaft sucht dringend neue Mitarbeiter.</td>
+<td><audio controls preload="none" src="samples/native/de_09_thorsten.wav"></audio></td></tr><tr><td class="id">10</td><td>Die Geschwindigkeitsbegrenzung auf der Kraftfahrzeugstraße wurde gestern aufgehoben.</td>
+<td><audio controls preload="none" src="samples/native/de_10_thorsten.wav"></audio></td></tr><tr><td class="id">11</td><td>Für die Krankenversicherung benötigen wir Ihre Sozialversicherungsnummer.</td>
+<td><audio controls preload="none" src="samples/native/de_11_thorsten.wav"></audio></td></tr><tr><td class="id">12</td><td>Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?</td>
+<td><audio controls preload="none" src="samples/native/de_12_thorsten.wav"></audio></td></tr><tr><td class="id">13</td><td>Warum ist der Himmel am Tag eigentlich blau und abends manchmal rot?</td>
+<td><audio controls preload="none" src="samples/native/de_13_thorsten.wav"></audio></td></tr><tr><td class="id">14</td><td>Hast du schon gehört, dass die Ausstellung bis Sonntag verlängert wurde?</td>
+<td><audio controls preload="none" src="samples/native/de_14_thorsten.wav"></audio></td></tr><tr><td class="id">15</td><td>Am Ende des langen Tages war er einfach nur müde und ziemlich ärgerlich.</td>
+<td><audio controls preload="none" src="samples/native/de_15_thorsten.wav"></audio></td></tr><tr><td class="id">16</td><td>Der kleine See im Wald war an diesem Morgen spiegelglatt und frisch.</td>
+<td><audio controls preload="none" src="samples/native/de_16_thorsten.wav"></audio></td></tr><tr><td class="id">17</td><td>Ich habe das Meeting mit dem Team auf morgen Nachmittag verschoben.</td>
+<td><audio controls preload="none" src="samples/native/de_17_thorsten.wav"></audio></td></tr><tr><td class="id">18</td><td>Bitte lade die neueste Software herunter und starte danach den Computer neu.</td>
+<td><audio controls preload="none" src="samples/native/de_18_thorsten.wav"></audio></td></tr><tr><td class="id">19</td><td>Nach dem Workshop gehen wir noch zum Brainstorming und danach zum Lunch.</td>
+<td><audio controls preload="none" src="samples/native/de_19_thorsten.wav"></audio></td></tr><tr><td class="id">20</td><td>Der Professor sagte: Bitte reichen Sie Ihre Hausarbeit bis Freitag um 18 Uhr ein.</td>
+<td><audio controls preload="none" src="samples/native/de_20_thorsten.wav"></audio></td></tr></table>
+<p><i>Objective floor-check: faster-whisper large-v3 transcribes these back at
+0.9% word error rate (intelligibility only — naturalness
+is what we're asking you about).</i></p>
+
+<h2>Candidate B (experimental) — existing voices speaking German with an accent</h2>
+<p>The unmodified multilingual Kokoro model speaking German through phonemization only —
+no German training. This would let <i>every</i> existing voice speak German (and other
+languages), at the cost of a foreign accent. We'd like to know: <b>is this intelligible,
+and would the accent be tolerable as a fallback</b> for voices that have no native
+German version?</p>
+<table><tr><th>#</th><th>Voice</th><th>Sentence</th><th>Sample</th></tr>
+<tr><td class="id">01</td><td class="id">ef_dora</td><td>Die Bundesregierung hat heute ein neues Gesetz zum Klimaschutz verabschiedet.</td>
+<td><audio controls preload="none" src="samples/experimental/de_01_ef_dora.wav"></audio></td></tr><tr><td class="id">12</td><td class="id">af_heart</td><td>Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?</td>
+<td><audio controls preload="none" src="samples/experimental/de_12_af_heart.wav"></audio></td></tr><tr><td class="id">12</td><td class="id">am_michael</td><td>Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?</td>
+<td><audio controls preload="none" src="samples/experimental/de_12_am_michael.wav"></audio></td></tr><tr><td class="id">12</td><td class="id">ef_dora</td><td>Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?</td>
+<td><audio controls preload="none" src="samples/experimental/de_12_ef_dora.wav"></audio></td></tr><tr><td class="id">17</td><td class="id">af_heart</td><td>Ich habe das Meeting mit dem Team auf morgen Nachmittag verschoben.</td>
+<td><audio controls preload="none" src="samples/experimental/de_17_af_heart.wav"></audio></td></tr><tr><td class="id">17</td><td class="id">am_michael</td><td>Ich habe das Meeting mit dem Team auf morgen Nachmittag verschoben.</td>
+<td><audio controls preload="none" src="samples/experimental/de_17_am_michael.wav"></audio></td></tr><tr><td class="id">17</td><td class="id">ef_dora</td><td>Ich habe das Meeting mit dem Team auf morgen Nachmittag verschoben.</td>
+<td><audio controls preload="none" src="samples/experimental/de_17_ef_dora.wav"></audio></td></tr><tr><td class="id">20</td><td class="id">ef_dora</td><td>Der Professor sagte: Bitte reichen Sie Ihre Hausarbeit bis Freitag um 18 Uhr ein.</td>
+<td><audio controls preload="none" src="samples/experimental/de_20_ef_dora.wav"></audio></td></tr></table>
+<p><i>Floor-check word error rates: 4.5–9% depending on voice.</i></p>
+
+<h2>Questions for reviewers</h2>
+<ol>
+<li>Candidate A: naturalness 1–5? Any mispronounced words (give the sample #)?</li>
+<li>Candidate A: would you use this as a daily screen-reader / read-aloud voice?</li>
+<li>Candidate B: intelligible? How bad is the accent (charming / tolerable / unusable)?</li>
+<li>Anything German-specific we should test that these sentences miss?</li>
+</ol>
+
+<h2>Credits &amp; licenses</h2>
+<p>All audio here is synthesized output, provided for evaluation.</p>
+<ul>
+<li><b>Thorsten-Voice/Kokoro</b> — Apache-2.0, by Thorsten Müller
+(<a href="https://www.thorsten-voice.de/">thorsten-voice.de</a>), fine-tuned on his own CC0 dataset.</li>
+<li><b>Kokoro-82M</b> — Apache-2.0, by hexgrad
+(<a href="https://huggingface.co/hexgrad/Kokoro-82M">hexgrad/Kokoro-82M</a>).</li>
+<li>German fine-tuning recipe — <a href="https://github.com/semidark/kikiri-tts">kikiri-tts</a> by semidark, Apache-2.0.</li>
+<li>Phonemization — <a href="https://github.com/espeak-ng/espeak-ng">espeak-ng</a> (GPL-3.0, invoked as a tool).</li>
+</ul>
+<p><a href="https://github.com/maxwhipw/marmalade-tts-android/blob/language-review/LANGUAGES.md">Language
+support status page</a> · <a href="https://github.com/maxwhipw/marmalade-tts-android/tree/language-review">branch on GitHub</a></p>
+</body></html>
