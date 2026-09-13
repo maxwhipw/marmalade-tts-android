@@ -13,8 +13,9 @@ data class SpeedPlan(val speed: Float, val blocks: List<EffectBlock>)
 /**
  * Rate change for engines that can't do it themselves.
  *
- * Engines with `supportsNativeSpeed = false` (Pocket TTS — autoregressive
- * graphs with no speed input) get speed = 1.0 and an
+ * Engines with `supportsNativeSpeed = false` — Pocket (no speed input at
+ * all), Kokoro and Kitten (native speed tensors degrade articulation and
+ * saturate; see [TtsEngine.supportsNativeSpeed]) — get speed = 1.0 and an
  * [EffectBlock.Tempo] block prepended to the chain: sox-tempo-style
  * overlap-add time-stretch, pitch preserved. `Tempo.factor` uses the same
  * convention as `speed` — >1 faster and shorter, <1 slower and longer — so
@@ -24,8 +25,8 @@ data class SpeedPlan(val speed: Float, val blocks: List<EffectBlock>)
  * signal; a reverb tail stretched after the fact would smear (the Dragon
  * preset puts its 0.85× Tempo last on purpose, for exactly that reason).
  *
- * Everything else — Kokoro, Kitten, cloud — takes the default true branch
- * and comes out byte-identical.
+ * Engines on the default true branch (cloud API today) come out
+ * byte-identical.
  */
 fun applySpeedFallback(
     engine: TtsEngine,
