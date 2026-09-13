@@ -7,6 +7,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import app.marmalade.tts.audio.SilenceCompressor
+import app.marmalade.tts.audio.TailTrim
 import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
@@ -115,14 +116,6 @@ private const val MAX_TOKEN_LEN = 510
  * splits at `max_len - 1`, matching this number.
  */
 private const val MAX_PHONEMES_PER_CHUNK = 500
-
-/**
- * Last N samples of every Kokoro synth are decoder ring-out — drop them.
- * Matches sherpa-onnx's silence trim and Kitten's 5000-sample default;
- * absence of a trim leaves an audible "buzz" tail at the end of each
- * chunk during streaming playback.
- */
-private const val TRIM_SAMPLES = 5000
 
 /** Default espeak phonemization voice — see file comment. */
 private const val ESPEAK_VOICE = "en-us"
@@ -530,11 +523,17 @@ open class KokoroDirectEngine @Inject constructor(
             )
             try {
                 val raw = extractWaveform(results[0].value)
-                val trimmed = if (raw.size > TRIM_SAMPLES) raw.copyOf(raw.size - TRIM_SAMPLES) else raw
-                // Sherpa-style silence compression: scales runs of inter-sentence
-                // silence to 20% of their natural length. Without this, the
-                // decoder's residual tail past TRIM_SAMPLES accumulates ~0.3s
-                // per chunk and the playback runs ~20% long across many chunks.
+                // Amplitude-aware tail trim (CLI kokoro-daemon `_last_loud_end`
+                // + TAIL_KEEP port, see TailTrim): walk back across the
+                // decoder's ring-out and keep ~75 ms of it as the natural gap.
+                // The blind 5000-sample chop this replaces cut real speech at
+                // speeds ≥2.5x, where the rendered tail is shorter than the
+                // chop (issue #8, measured 2026-09-12).
+                val trimmed = TailTrim.trimTail(raw)
+                // Safety net only: with a 75 ms kept tail the compressor's
+                // 2400-sample gate makes it a no-op on normal chunks. It still
+                // catches an unusually long model-chosen tail, which would
+                // otherwise accumulate into draggy playback across many chunks.
                 val pcm16 = floatToPcm16(trimmed)
                 return SilenceCompressor.compress(pcm16)
             } finally {
