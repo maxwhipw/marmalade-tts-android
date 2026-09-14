@@ -16,10 +16,11 @@ import app.marmalade.tts.install.VoicePackCatalog
  *
  * Caveat this inherits from the seeding design: the row exists as soon as the
  * *engine* verifies as installed, which is true once ANY pack is present — so
- * with two packs installed and one not, the missing one's row would still be
- * listed. That is the same granularity every engine has today (per-engine, not
- * per-file); per-pack filtering in the picker is tracked for the pack-UI slice.
- * Slice A ships exactly one pack, where the two are equivalent.
+ * every catalog pack's voice is listed even when only one pack is on disk, and
+ * picking an absent one fails with `EngineNotInstalledException`. That is the
+ * same granularity every engine has today (per-engine, not per-file), and it
+ * is why the engine stays developer-only: per-pack filtering in the picker is
+ * a prerequisite for promotion and is tracked in STUBS.md.
  */
 object VitsVoiceCatalog {
 
@@ -41,17 +42,15 @@ object VitsVoiceCatalog {
                 languageCode = pack.languageCode,
                 // The pack config is the authority at synthesis time (and the
                 // returned SynthAudio always carries the real rate); this is
-                // the catalog's copy for the UI + the system-TTS negotiation,
-                // and every pack shipped so far renders at 16 kHz.
-                sampleRate = SAMPLE_RATE,
-                // Upstream single-speaker corpora don't all publish a gender,
-                // and we don't infer one.
-                gender = null,
+                // the catalog's copy for the UI + the system-TTS negotiation.
+                // Per-pack because the tiers differ: 16 kHz for x_low/low,
+                // 22.05 kHz for medium/high.
+                sampleRate = pack.sampleRate,
+                // Only where the corpus documents it; never inferred from the
+                // speaker's name or from the audio.
+                gender = pack.gender,
                 isInstalled = false,
                 sortOrder = index,
             )
         }
-
-    /** Sample rate of the `x_low`/`low` tier checkpoints the catalog ships. */
-    const val SAMPLE_RATE = 16_000
 }

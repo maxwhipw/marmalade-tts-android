@@ -92,34 +92,38 @@ how to finish it.
   look up the right handle by `descriptor.name` and drop the
   `if (descriptor.name == "kitten")` special-case.
 
-## VITS Marmalade (slice A — engine + uk-lada pack)
+## VITS Marmalade (engine + voice packs)
 
-### Release asset `v24/uk-lada-x_low.tar.gz` is not uploaded yet
+### No `v24` release asset is uploaded yet (every pack 404s)
 - **Files:** `app/src/main/java/app/marmalade/tts/install/VoicePackCatalog.kt`
-  (the pack's URL / sha256 / sizes).
-- **What's missing:** the catalog URL 404s until the pack tarball is
+  (each pack's URL / sha256 / sizes).
+- **What's missing:** every catalog URL 404s until the pack tarballs are
   published to the `marmalade-tts-android-engines` release `v24`. The
-  sha256 (`818722f3…`), wire size (18,717,432) and installed size
-  (20,634,512) were computed from the built tarball at
-  `~/coding/scratch/vits-marmalade-lab/packs/uk-lada-x_low.tar.gz`, so
-  they are final — only the upload is pending.
+  hashes and both sizes per pack were computed from the built tarballs
+  under `~/coding/scratch/vits-marmalade-lab/packs/` (staged trees in
+  `packs/stage/<packId>/`), so the numbers are final — only the upload is
+  pending.
+- **Pending upload:** `uk-lada-x_low`, `is-bui-medium`,
+  `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`,
+  `sv-nst-medium`.
 - **Why deferred:** publishing a GitHub release asset is Max's call (it
   is a public surface), and the unit tests drive synthetic archives
   through fake fetchers, so nothing here depends on the upload.
-- **How to finish:** upload the tarball as release `v24`, then install
-  the engine on device (developer engines ON) and speak a Ukrainian
-  sentence.
+- **How to finish:** upload the tarballs as release `v24`, then install
+  each pack on device (developer engines ON) and speak a sentence in its
+  language.
 
 ### Voice-picker filtering is per engine, not per pack
 - **Files:** `app/src/main/java/app/marmalade/tts/data/VitsVoiceCatalog.kt`,
   `app/src/main/java/app/marmalade/tts/ui/screen/VoicePickerViewModel.kt`.
 - **What's missing:** the picker hides voices whose *engine* isn't
-  installed. With two or more packs in the catalog and only one
-  installed, the uninstalled pack's voice would still be listed (and
-  fail at synth with `EngineNotInstalledException`).
-- **Why deferred:** slice A ships exactly one pack, where per-engine and
-  per-pack are the same thing; the fix belongs with the pack-management
-  UI slice (which needs a per-pack install/uninstall surface anyway).
+  installed. The catalog now carries several packs, so once ANY pack is
+  installed every pack's voice is listed — picking one whose tarball was
+  never downloaded fails at synth with `EngineNotInstalledException`.
+- **Why deferred:** the fix belongs with the pack-management UI slice
+  (which needs a per-pack install/uninstall surface anyway). **This is a
+  promotion blocker:** the engine must stay `developerOnly` until the
+  picker filters per pack.
 - **How to finish:** expose `VitsDirectEngine.installedPackIds()` (already
   public) to the picker ViewModel and filter VITS rows by it — or, more
   generally, add an optional per-voice "asset present" probe to the

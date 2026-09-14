@@ -156,6 +156,8 @@
     <string name="language_ja">Japonés</string>
     <string name="language_zh">Chino mandarín</string>
     <string name="language_uk">Ucraniano</string>
+    <string name="language_is">Islandés</string>
+    <string name="language_sv">Sueco</string>
 
     <!-- Prosa del catálogo de motores (EngineCatalog) -->
     <string name="engine_kitten_tagline">El motor más rápido y con mejor respuesta, y funciona en cualquier dispositivo.</string>

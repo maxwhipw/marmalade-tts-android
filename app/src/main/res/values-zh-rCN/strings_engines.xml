@@ -155,6 +155,8 @@
     <string name="language_ja">日语</string>
     <string name="language_zh">普通话</string>
     <string name="language_uk">乌克兰语</string>
+    <string name="language_is">冰岛语</string>
+    <string name="language_sv">瑞典语</string>
 
     <!-- 引擎目录文案（EngineCatalog） -->
     <string name="engine_kitten_tagline">最快、响应最灵敏的引擎，任何设备都能运行。</string>

@@ -465,6 +465,8 @@ class EngineInstallerTest {
         languageCode = "uk-UA",
         displayName = "Test (Ukrainian)",
         qualityTier = "x_low",
+        sampleRate = 16_000,
+        gender = null,
         archive = EngineArchive(
             url = "https://test/vits/pack.tar.bz2",
             sha256 = shaOverride ?: sha256Hex(archiveBytes),

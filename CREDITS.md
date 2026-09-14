@@ -26,12 +26,40 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 **CC-BY-NC-4.0 (non-commercial)** and are **not shipped**. Full mapping:
 [`LICENSES/pocket-tts.md`](LICENSES/pocket-tts.md).
 
+### VITS Marmalade voice packs
+
+The VITS Marmalade engine downloads one voice pack per language. The
+model weights are MIT throughout; the corpora they were trained on carry
+their own licences, and one of them requires attribution:
+
+- **Talrómur** — the four Icelandic voices (`is-bui-medium`,
+  `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`) are trained
+  on the **Talrómur** corpus — Reykjavík University & RÚV, Icelandic
+  Language Technology Programme (Sigurgeirsson et al., NoDaLiDa 2021),
+  **CC BY 4.0**. http://hdl.handle.net/20.500.12537/104
+- **egorsmkv/ukrainian-tts-datasets** — the Ukrainian voice
+  (`uk-lada-x_low`) is trained on Yehor Smoliakov's studio-recorded
+  Ukrainian corpora, **Apache-2.0** (no attribution required;
+  acknowledged with thanks).
+- **NST Swedish Speech Synthesis** — the Swedish voice
+  (`sv-nst-medium`), Språkbanken resource sbr-18, rights holder
+  **Nasjonalbiblioteket** (National Library of Norway), **CC0** — no
+  attribution required, credited with thanks.
+
+Full detail, including the MIT notice for the weights:
+[`LICENSES/vits-marmalade.md`](LICENSES/vits-marmalade.md).
+
 ## Neural voice models
 
 - **Kokoro-82M** — Kokoro TTS model. Apache-2.0.
 - **KittenTTS** (nano / mini) — KittenML. Apache-2.0.
 - **Pocket TTS** — Kyutai. Model/inference code MIT; voices per-license
   (above). https://github.com/kyutai-labs/pocket-tts
+- **rhasspy/piper-voices** — the VITS checkpoints the VITS Marmalade
+  engine's voice packs are built from (Michael Hansen / Rhasspy, MIT).
+  Only the *voice data* is used: the app's inference is its own, and no
+  Piper runtime code is used or shipped.
+  https://huggingface.co/rhasspy/piper-voices
 
 ## Phonemization
 

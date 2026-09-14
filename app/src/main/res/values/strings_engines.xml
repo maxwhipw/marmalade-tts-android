@@ -40,6 +40,8 @@
     <string name="language_ja">Japanese</string>
     <string name="language_zh">Mandarin Chinese</string>
     <string name="language_uk">Ukrainian</string>
+    <string name="language_is">Icelandic</string>
+    <string name="language_sv">Swedish</string>
 
     <!-- Engine catalog prose (EngineCatalog): tagline on the engine cards,
          description + license line on the install-consent card and engine

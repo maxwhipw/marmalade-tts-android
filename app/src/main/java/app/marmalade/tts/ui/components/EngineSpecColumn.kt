@@ -321,6 +321,8 @@ private fun languageNameRes(code: String): Int = when (code) {
     "ja-JP", "ja" -> R.string.language_ja
     "zh-CN", "zh" -> R.string.language_zh
     "uk-UA", "uk" -> R.string.language_uk
+    "is-IS", "is" -> R.string.language_is
+    "sv-SE", "sv" -> R.string.language_sv
     else -> R.string.language_english
 }
 

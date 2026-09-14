@@ -348,7 +348,13 @@ class MarmaladeTtsApplication : Application() {
          *    raw key). Reseed refreshes both columns on existing installs.
          *  - v33: Pocket display names capitalized (`marius` → `Marius`;
          *    ids and `voices/<name>.wav` filenames keep the lowercase key).
+         *  - v34: VITS Marmalade arrives with its first voice pack
+         *    (`uk-lada-x_low`), seeded from [VitsVoiceCatalog].
+         *  - v35: four Icelandic Talrómur packs + the Swedish NST pack. The
+         *    reseed also backfills the per-pack `sampleRate` (22.05 kHz for
+         *    the `medium` tier, not the 16 kHz v34 hardcoded for every row)
+         *    and the documented speaker genders.
          */
-        const val CATALOG_VERSION: Int = 34
+        const val CATALOG_VERSION: Int = 35
     }
 }
