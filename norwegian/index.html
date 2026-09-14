@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norwegian (bokmål) voice review — marmalade-tts</title>
+<style>
+body{font:16px/1.55 system-ui,sans-serif;max-width:880px;margin:2rem auto;padding:0 1rem;color:#222}
+h1{font-size:1.5rem} h2{font-size:1.2rem;margin-top:2rem}
+table{border-collapse:collapse;width:100%} td,th{padding:.5rem .6rem;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
+td.id{color:#777;white-space:nowrap} audio{width:250px}
+.note{background:#f6f3ee;border-left:4px solid #d90;padding:.7rem 1rem;border-radius:4px}
+a{color:#0757a5}
+</style></head><body>
+<h1>Norwegian (bokmål) voice review — marmalade-tts</h1>
+<p>We're adding <b>Norwegian</b> voices from the National Library of Norway's open Voice Control Corpus (CC0). Honest caveat up front: this corpus was recorded in ordinary meeting rooms, not a studio, so these voices are rougher than our other languages — they will be labeled accordingly in the app. We'd like to know whether they're useful despite that ("something is better than nothing"), or not. None of the maintainers speak Norwegian, so before these ship we'd like
+native speakers to listen and tell us what's good enough. All audio below is
+synthesized on-device-equivalent output from
+<a href="https://github.com/maxwhipw/marmalade-tts-android">marmalade-tts</a>'s
+VITS engine.</p>
+<p class="note"><b>How to give feedback:</b> comment on
+<a href="ISSUE_URL_NO">the Norwegian (bokmål) issue</a>. Most useful: which sample ids sound wrong
+and <i>what</i> is wrong (mispronounced word, weird rhythm, wrong stress), an
+overall 1–5 naturalness rating per voice — and better test sentences than these
+(this is a small starter set written by non-speakers; corrections welcome).</p>
+<h2>KON (female, East Norway)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Hei! Dette er en stemme for appen Marmalade.</td><td><audio controls preload="none" src="samples/no_01_kon.wav"></audio></td></tr><tr><td class="id">02</td><td>I kveld blir det regn, så ikke glem paraplyen.</td><td><audio controls preload="none" src="samples/no_02_kon.wav"></audio></td></tr><tr><td class="id">03</td><td>Hva er klokka? Den er halv åtte, og toget går klokka ni.</td><td><audio controls preload="none" src="samples/no_03_kon.wav"></audio></td></tr></table>
+<h2>MON (male, East Norway)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Hei! Dette er en stemme for appen Marmalade.</td><td><audio controls preload="none" src="samples/no_01_mon.wav"></audio></td></tr><tr><td class="id">02</td><td>I kveld blir det regn, så ikke glem paraplyen.</td><td><audio controls preload="none" src="samples/no_02_mon.wav"></audio></td></tr><tr><td class="id">03</td><td>Hva er klokka? Den er halv åtte, og toget går klokka ni.</td><td><audio controls preload="none" src="samples/no_03_mon.wav"></audio></td></tr></table>
+<h2>KNN (female, North Norway)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Hei! Dette er en stemme for appen Marmalade.</td><td><audio controls preload="none" src="samples/no_01_knn.wav"></audio></td></tr><tr><td class="id">02</td><td>I kveld blir det regn, så ikke glem paraplyen.</td><td><audio controls preload="none" src="samples/no_02_knn.wav"></audio></td></tr><tr><td class="id">03</td><td>Hva er klokka? Den er halv åtte, og toget går klokka ni.</td><td><audio controls preload="none" src="samples/no_03_knn.wav"></audio></td></tr></table>
+<h2>MMN (male, Central Norway)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Hei! Dette er en stemme for appen Marmalade.</td><td><audio controls preload="none" src="samples/no_01_mmn.wav"></audio></td></tr><tr><td class="id">02</td><td>I kveld blir det regn, så ikke glem paraplyen.</td><td><audio controls preload="none" src="samples/no_02_mmn.wav"></audio></td></tr><tr><td class="id">03</td><td>Hva er klokka? Den er halv åtte, og toget går klokka ni.</td><td><audio controls preload="none" src="samples/no_03_mmn.wav"></audio></td></tr></table>
+<h2>Questions for reviewers</h2>
+<ol>
+<li>Naturalness 1–5 per voice? Any mispronounced words (sample # + word)?</li>
+<li>Would you use your favourite of these as a daily read-aloud voice?</li>
+<li>Are the test sentences themselves wrong anywhere? Suggest better ones.</li>
+<li>Anything Norwegian-specific we should test (numbers, dates, names, dialect)?</li>
+</ol>
+<h2>Credits &amp; licenses</h2>
+<p>All audio here is synthesized output, provided for evaluation.</p>
+<ul><li><b>Voice checkpoint</b> — MIT, from <a href='https://huggingface.co/rhasspy/piper-voices'>rhasspy/piper-voices</a> (Michael Hansen).</li><li><b>Training data</b> — Norwegian Voice Control Corpus (NVCC), CC0, Språkbanken / National Library of Norway.</li></ul>
+<p><a href="https://github.com/maxwhipw/marmalade-tts-android/blob/language-review/LANGUAGES.md">Language
+support status page</a> · <a href="https://github.com/maxwhipw/marmalade-tts-android/tree/language-review">branch on GitHub</a></p>
+</body></html>
