@@ -110,22 +110,6 @@ how to finish it.
   the engine on device (developer engines ON) and speak a Ukrainian
   sentence.
 
-### Upstream MIT copyright line for `rhasspy/piper-voices` not verbatim-confirmed
-- **File:** `LICENSES/vits-marmalade.md` (section 1).
-- **What's missing:** the notice carries `Copyright (c) Michael Hansen
-  (Rhasspy)` — the correct holder per the repository, in the same
-  no-year style the repo already uses for ONNX Runtime — but the exact
-  copyright line from upstream's own `LICENSE` file has not been read
-  (this session had no network access, and Piper source must not be
-  fetched into the tree).
-- **Why deferred:** needs a fetch of
-  `https://huggingface.co/rhasspy/piper-voices` `LICENSE`, which is a
-  network read Max should sanction; the legal substance (MIT, this
-  holder) is already correct.
-- **How to finish:** read upstream's LICENSE, paste its copyright line
-  verbatim, then re-check before any store submission that mentions the
-  engine.
-
 ### Voice-picker filtering is per engine, not per pack
 - **Files:** `app/src/main/java/app/marmalade/tts/data/VitsVoiceCatalog.kt`,
   `app/src/main/java/app/marmalade/tts/ui/screen/VoicePickerViewModel.kt`.

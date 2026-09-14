@@ -33,14 +33,16 @@ their own permissive licences and listed below.
 - **Files:** `model.onnx`, `model.onnx.json`
 - **Upstream:** https://huggingface.co/rhasspy/piper-voices — path
   `uk/uk_UA/lada/x_low/`
-- **License:** MIT (repository licence of `rhasspy/piper-voices`)
-- **Notice:** Copyright (c) Michael Hansen (Rhasspy).
+- **License:** MIT (repository licence of `rhasspy/piper-voices`; that repo
+  ships only the `license: mit` tag, so the holder line below is taken
+  verbatim from the sibling `rhasspy/piper` LICENSE.md by the same author)
+- **Notice:** Copyright (c) 2022 Michael Hansen.
 - **Training:** trained from scratch per the upstream `MODEL_CARD`
   shipped inside the pack — no inherited base checkpoint.
 
 MIT License
 
-Copyright (c) Michael Hansen (Rhasspy)
+Copyright (c) 2022 Michael Hansen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
