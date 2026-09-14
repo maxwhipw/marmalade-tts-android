@@ -39,6 +39,7 @@
     <string name="language_pt_br">Portuguese (Brazil)</string>
     <string name="language_ja">Japanese</string>
     <string name="language_zh">Mandarin Chinese</string>
+    <string name="language_uk">Ukrainian</string>
 
     <!-- Engine catalog prose (EngineCatalog): tagline on the engine cards,
          description + license line on the install-consent card and engine
@@ -59,6 +60,13 @@
     <string name="engine_pocket_dev_tagline" translatable="false">Diagnostic clean-room build of the Pocket TTS pipeline.</string>
     <string name="engine_pocket_dev_desc" translatable="false">Diagnostic clean-room build of the Pocket TTS pipeline — same model + voices as the regular Pocket engine, but running through a deliberately perf-optimization-free Kotlin port of the upstream Python inference loop. Used to isolate which production optimization causes audio artefacts. Slower than the regular Pocket engine; install both side-by-side to A/B them.</string>
     <string name="engine_pocket_dev_license" translatable="false">MIT model code + MIT runtime; voices CC0 / CC-BY-4.0. Diagnostic build — same bundle as Pocket TTS.</string>
+
+    <!-- Developer-only pack-based VITS engine: prose stays untranslated while
+         the engine + its pack UI are still being built out, exactly as for the
+         Pocket clean-reference engine above. -->
+    <string name="engine_vits_tagline" translatable="false">Per-language voice packs on Marmalade\'s own VITS runtime.</string>
+    <string name="engine_vits_desc" translatable="false">Marmalade\'s own runtime for Piper-class VITS voices, with one small download per language instead of one big multi-language model. Ships Ukrainian (Lada) first; each pack is a self-contained ~20 MB voice with permissive weights and training data. Runs fully on your device, phonemized by the app\'s built-in espeak-ng.</string>
+    <string name="engine_vits_license" translatable="false">MIT weights + Apache-2.0 training data; phonemized by the app\'s built-in espeak-ng (GPL-3.0-or-later). No Piper runtime code.</string>
 
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>

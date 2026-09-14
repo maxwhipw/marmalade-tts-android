@@ -84,6 +84,7 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.db.VoiceMeta
@@ -1060,6 +1061,7 @@ private val PHONEMIZATION_ENGINES: Set<String> = setOf(
     KittenDirectVoiceCatalog.ENGINE,
     PocketVoiceCatalog.ENGINE,
     PocketDevVoiceCatalog.ENGINE,
+    VitsVoiceCatalog.ENGINE,
 )
 
 /**

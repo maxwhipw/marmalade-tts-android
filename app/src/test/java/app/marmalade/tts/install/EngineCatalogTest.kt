@@ -46,6 +46,9 @@ class EngineCatalogTest {
                 // Developer-only clean-room Pocket (diagnostic; shares the
                 // production Pocket bundle payload).
                 "pocket-tts-en-v2026_04-dev",
+                // Developer-only while the pack UI is built out; pack-based,
+                // so its archive/sizes mirror its default voice pack.
+                "vits-marmalade-v1",
             ),
             EngineCatalog.all.map { it.name },
         )
@@ -74,18 +77,19 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun developerOnlyFlagsThePocketDevEngine() {
-        // Developer-only = just the clean-room Pocket diagnostic engine now
-        // that sherpa-onnx (and its four engines) is gone. The production
-        // direct-ORT engines + Pocket stay visible. visibleTo(false) must
-        // drop exactly this one.
+    fun developerOnlyFlagsTheDiagnosticEngines() {
+        // Developer-only = the clean-room Pocket diagnostic engine plus the
+        // pack-based VITS engine, which stays hidden from normal users while
+        // its voice-pack UI is built out (Max, 2026-09-13). The production
+        // direct-ORT engines + Pocket stay visible; visibleTo(false) must
+        // drop exactly those two.
         assertEquals(
-            setOf("pocket-tts-en-v2026_04-dev"),
+            setOf("pocket-tts-en-v2026_04-dev", "vits-marmalade-v1"),
             EngineCatalog.developerOnlyNames,
         )
         assertEquals(
-            "visibleTo(false) drops the one developer-only engine",
-            EngineCatalog.all.size - 1,
+            "visibleTo(false) drops the developer-only engines",
+            EngineCatalog.all.size - 2,
             EngineCatalog.visibleTo(showDeveloper = false, flavor = "fdroid").size,
         )
         // visibleTo(true) keeps every engine but sorts the developer-only
@@ -344,6 +348,45 @@ class EngineCatalogTest {
     }
 
     @Test
+    fun theVitsEngineIsPackBasedAndMirrorsItsDefaultPack() {
+        val vits = EngineCatalog.byName("vits-marmalade-v1")!!
+        val defaultPack = VoicePackCatalog.byId(vits.defaultPackId!!)!!
+
+        assertTrue("the VITS engine must be pack-based", vits.isPackBased)
+        assertEquals("vits-marmalade-v1", defaultPack.engine)
+        // The card's download/install sizes and the bytes the installer
+        // actually fetches must be the default pack's, or the progress bar
+        // lies and the sha check fails mid-install.
+        assertEquals(defaultPack.archive, vits.archive)
+        assertEquals(defaultPack.archive.sizeBytes, vits.downloadSizeBytes)
+        assertEquals(defaultPack.installedSizeBytes, vits.installedSizeBytes)
+        assertEquals(defaultPack.licenseNotice, vits.licenseNotice)
+        // Every other engine is monolithic — a stray defaultPackId on one of
+        // them would silently redirect its install to a packs/ subdirectory.
+        assertEquals(
+            listOf("vits-marmalade-v1"),
+            EngineCatalog.all.filter { it.isPackBased }.map { it.name },
+        )
+    }
+
+    @Test
+    fun vitsLanguageCodesMatchItsPackCatalog() {
+        // Same invariant as Kokoro's: the languages the card advertises must be
+        // exactly what the engine can actually speak — which for a pack-based
+        // engine is its pack list.
+        val fromPacks = VoicePackCatalog.forEngine("vits-marmalade-v1")
+            .map { it.languageCode }
+            .toSet()
+        val fromDescriptor = EngineCatalog.byName("vits-marmalade-v1")!!.languageCodes
+        assertEquals(fromPacks, fromDescriptor.toSet())
+        assertEquals(
+            "no duplicate language codes on the VITS descriptor",
+            fromDescriptor.size,
+            fromDescriptor.toSet().size,
+        )
+    }
+
+    @Test
     fun singleLanguageEnginesHaveExactlyOneCode() {
         // Kitten + Pocket are English-only; their card shows the language name,
         // not a count, so they must carry exactly one code.
@@ -356,3 +399,4 @@ class EngineCatalogTest {
         }
     }
 }
+

@@ -155,6 +155,7 @@
     <string name="language_pt_br">पुर्तगाली (ब्राज़ील)</string>
     <string name="language_ja">जापानी</string>
     <string name="language_zh">मैंडरिन चीनी</string>
+    <string name="language_uk">यूक्रेनी</string>
 
     <!-- इंजन कैटलॉग का विवरण (EngineCatalog) -->
     <string name="engine_kitten_tagline">सबसे तेज़ और सबसे फुर्तीला इंजन, और यह हर डिवाइस पर चलता है।</string>

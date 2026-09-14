@@ -168,7 +168,27 @@ data class EngineDescriptor(
      * so nothing breaks if such an engine is ever present on disk.
      */
     val fdroidOnly: Boolean = false,
+    /**
+     * Non-null for **pack-based** engines: the engine has no monolithic
+     * bundle of its own, only per-language voice packs from
+     * [VoicePackCatalog], and this is the [VoicePack.id] installed when the
+     * user taps Install on the engine card.
+     *
+     * Consequences for such a descriptor:
+     *  - [archive], [downloadSizeBytes] and [installedSizeBytes] mirror that
+     *    default pack (so the install card shows a real download size);
+     *  - [EngineInstaller.install] routes to
+     *    [EngineInstaller.installPack] and the payload lands in
+     *    `engines/<name>/packs/<packId>/`, never directly in
+     *    `engines/<name>/`;
+     *  - the engine's own layout check is "at least one valid pack on disk",
+     *    and per-pack update detection lives on the pack, not here.
+     */
+    val defaultPackId: String? = null,
 ) {
+    /** True when this engine installs per-language voice packs — see [defaultPackId]. */
+    val isPackBased: Boolean get() = defaultPackId != null
+
     init {
         require(name.isNotBlank()) { "engine name must not be blank" }
         require(archive.url.isNotBlank()) { "engine $name has no archive url" }
@@ -180,8 +200,13 @@ data class EngineDescriptor(
  * Static catalog of installable engines.
  *
  * Ships Kitten Direct (recommended default, baked offline), Kokoro Direct,
- * and Pocket TTS — all running on `onnxruntime-android` directly. The list
- * order is also the display order in the onboarding wizard and Engines tab.
+ * Pocket TTS and VITS Marmalade — all running on `onnxruntime-android`
+ * directly. The list order is also the display order in the onboarding
+ * wizard and Engines tab.
+ *
+ * Most entries carry one monolithic archive. VITS Marmalade is **pack-based**
+ * ([EngineDescriptor.defaultPackId]): its payload is a per-language
+ * [VoicePack] from [VoicePackCatalog].
  */
 object EngineCatalog {
 
@@ -379,6 +404,57 @@ object EngineCatalog {
     )
 
     /**
+     * VITS Marmalade v1 (`vits-marmalade-v1`) — Marmalade's own direct-ORT
+     * runtime for Piper-class single-speaker VITS checkpoints, with one
+     * downloadable [VoicePack] per language (see [VoicePackCatalog]).
+     *
+     * Pack-based rather than monolithic: each checkpoint is a self-contained
+     * ~20 MB voice, so a user downloads only the language they speak. The
+     * descriptor's archive/sizes mirror the default pack; installing the
+     * engine installs that pack into `engines/vits-marmalade-v1/packs/`.
+     *
+     * **No Piper runtime code.** The maintained Piper fork
+     * (OHF-Voice/piper1-gpl) is GPL-3.0 and is neither used nor shipped;
+     * inference (phoneme→id mapping, the `input`/`input_lengths`/`scales`
+     * tensor contract, PCM conversion) is written fresh against the
+     * checkpoint's own config. Phonemization is the app's existing espeak-ng
+     * integration, which is why the licence summary still discloses GPL.
+     *
+     * Developer-only for now (Max, 2026-09-13): the engine and its pack UI
+     * are still being built out. `fdroidOnly = false` — Play is a target,
+     * because the weights (MIT) and training data (Apache-2.0) are
+     * permissive end to end.
+     */
+    private val VITS_MARMALADE: EngineDescriptor = run {
+        val defaultPack = VoicePackCatalog.defaultPackFor(VoicePackCatalog.VITS_MARMALADE_ENGINE)
+            ?: error("vits-marmalade-v1 has no voice packs in VoicePackCatalog")
+        EngineDescriptor(
+            name = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            displayName = "VITS Marmalade",
+            descriptionRes = R.string.engine_vits_desc,
+            downloadSizeBytes = defaultPack.archive.sizeBytes,
+            installedSizeBytes = defaultPack.installedSizeBytes,
+            isRecommended = false,
+            developerOnly = true,
+            archive = defaultPack.archive,
+            licenseNotice = defaultPack.licenseNotice,
+            licenseSummaryRes = R.string.engine_vits_license,
+            taglineRes = R.string.engine_vits_tagline,
+            // x_low VITS is in Kitten's speed class — a 20 MB single-speaker
+            // graph at 16 kHz, far lighter than Kokoro's multi-lang model.
+            speedTier = SpeedTier.FASTEST,
+            qualityTier = QualityTier.NATURAL,
+            // The distinct locales the installed-pack catalog can speak. Pinned
+            // to VoicePackCatalog by EngineCatalogTest, so adding a pack is the
+            // only edit needed to grow this list.
+            languageCodes = VoicePackCatalog.forEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE)
+                .map { it.languageCode }
+                .distinct(),
+            defaultPackId = defaultPack.id,
+        )
+    }
+
+    /**
      * Every engine the app knows how to install. Read-only.
      *
      * This is the canonical catalog order (grouped by family). User-facing
@@ -390,6 +466,7 @@ object EngineCatalog {
         KOKORO_DIRECT,
         POCKET_TTS_EN,
         POCKET_TTS_EN_DEV,
+        VITS_MARMALADE,
     )
 
     /** Lookup by [EngineDescriptor.name]. Returns null for unknown engines. */

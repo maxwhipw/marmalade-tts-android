@@ -155,6 +155,7 @@
     <string name="language_pt_br">Português (Brasil)</string>
     <string name="language_ja">Japonês</string>
     <string name="language_zh">Chinês mandarim</string>
+    <string name="language_uk">Ucraniano</string>
 
     <!-- Textos do catálogo de motores (EngineCatalog) -->
     <string name="engine_kitten_tagline">O motor mais rápido e responsivo, e roda em qualquer aparelho.</string>

@@ -79,6 +79,9 @@ object EngineProfiles {
         "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
         // Developer-only clean-room Pocket engine — same profile as production Pocket.
         "pocket-tts-en-v2026_04-dev" to KITTEN_DEFAULTS,
+        // VITS Marmalade: the checkpoints normalize nothing upstream — espeak
+        // gets the text as-is — so every rule applies, same as Kitten.
+        "vits-marmalade-v1" to KITTEN_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
             "markdown", "html",

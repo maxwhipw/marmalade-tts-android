@@ -6,6 +6,7 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +36,7 @@ class MarmaladeSynthServiceTest {
             KittenDirectVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE,
+            VitsVoiceCatalog.ENGINE,
             CloudApiVoiceCatalog.ENGINE,
         )
         for (engine in engines) {

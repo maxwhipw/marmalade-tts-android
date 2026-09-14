@@ -200,6 +200,23 @@ object UrlHttpFetcher : HttpFetcher {
 //     └── return Result.failure(IOException(reason))
 //
 //   UI: subscribes via .state("kitten")
+//
+//   Voice packs (pack-based engines — VITS Marmalade) reuse the SAME
+//   pipeline, only with different paths and a different layout check:
+//
+//   EngineInstaller.installPack("uk-lada-x_low")
+//     │
+//     ├── VoicePackCatalog.byId(packId) ──► VoicePack (carries EngineArchive)
+//     │
+//     ├── GET → sha256 → tar extract → atomic rename, all into
+//     │      engines/<engine>/packs/<packId>{.archive.tmp,.tmp,}
+//     │
+//     ├── verifyPackLayout() — model.onnx + model.onnx.json present
+//     │
+//     └── _state["pack:uk-lada-x_low"].value = Installed
+//
+//   install("vits-marmalade-v1") forwards to installPack(defaultPackId), so
+//   the engine card's Install button installs the default language pack.
 // -----------------------------------------------------------------------------
 
 /**
@@ -376,7 +393,143 @@ open class EngineInstaller @Inject constructor(
     ): Result<Unit> {
         val descriptor = EngineCatalog.byName(engineName)
             ?: return failed(engineName, "Unknown engine: $engineName")
+        // Pack-based engines have no monolithic bundle — installing the
+        // engine means installing its default language pack. The engine's
+        // own state flow mirrors the pack's outcome so the Engines-tab card
+        // still animates and settles.
+        val packId = descriptor.defaultPackId
+        if (packId != null) {
+            val result = installPack(packId, onProgress)
+            stateFlow(engineName).value = if (result.isSuccess) {
+                InstallState.Installed
+            } else {
+                InstallState.Failed(
+                    result.exceptionOrNull()?.message ?: "pack install failed: $packId",
+                )
+            }
+            return result
+        }
         return installViaDescriptor(descriptor, onProgress)
+    }
+
+    // -- voice packs ---------------------------------------------------------
+
+    /**
+     * Returns a hot [Flow] of [InstallState] for the voice pack [packId].
+     * Keyed separately from engine states (see [packStateKey]) so a pack and
+     * its engine can never clobber each other's flow.
+     */
+    fun packState(packId: String): Flow<InstallState> =
+        stateFlow(packStateKey(packId)).asStateFlow()
+
+    /**
+     * Install the voice pack [packId] from [VoicePackCatalog].
+     *
+     * Same pipeline as [install] — single HTTP GET, sha256 verification,
+     * tar extraction into a scratch dir, atomic rename — but the payload
+     * lands in `engines/<engine>/packs/<packId>/` so many packs of one
+     * engine live side by side and can be added/removed independently.
+     */
+    open suspend fun installPack(
+        packId: String,
+        onProgress: (InstallState.Downloading) -> Unit,
+    ): Result<Unit> {
+        val pack = VoicePackCatalog.byId(packId)
+            ?: return failed(packStateKey(packId), "Unknown voice pack: $packId")
+        return installPackInternal(pack, onProgress)
+    }
+
+    /** Inspect a voice pack's on-disk state. Cheap — presence checks only. */
+    open suspend fun verifyPack(packId: String): InstallState {
+        val pack = VoicePackCatalog.byId(packId) ?: return InstallState.NotInstalled
+        return verifyPackInternal(pack)
+    }
+
+    /**
+     * Remove the voice pack [packId] from disk, leaving the engine's other
+     * packs alone. Idempotent. Releases native handles first so we never
+     * delete a model file ORT still has mapped.
+     */
+    open suspend fun uninstallPack(packId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val pack = VoicePackCatalog.byId(packId)
+            ?: return@withContext Result.failure(IOException("Unknown voice pack: $packId"))
+        val key = packStateKey(packId)
+        installMutex(key).withLock {
+            try {
+                engineHandle.release()
+                val dir = packDirFor(pack)
+                if (dir.exists() && !dir.deleteRecursively()) {
+                    throw IOException("Could not delete ${dir.absolutePath}")
+                }
+                val scratch = packScratchDirFor(pack)
+                if (scratch.exists()) scratch.deleteRecursively()
+                val archiveTmp = packArchiveTmpFor(pack)
+                if (archiveTmp.exists()) archiveTmp.delete()
+                stateFlow(key).value = InstallState.NotInstalled
+                Result.success(Unit)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Uninstall of pack $packId failed", t)
+                Result.failure(if (t is IOException) t else IOException(t))
+            }
+        }
+    }
+
+    /**
+     * Test-friendly pack install that takes a caller-supplied [VoicePack]
+     * instead of looking it up in [VoicePackCatalog] — the pack-side twin of
+     * [installViaDescriptor], and for the same reason: `EngineInstallerTest`
+     * drives synthetic archives whose sha256 can't match a real catalog entry.
+     * Production paths must go through [installPack].
+     */
+    internal suspend fun installPackInternal(
+        pack: VoicePack,
+        onProgress: (InstallState.Downloading) -> Unit,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val key = packStateKey(pack.id)
+        installMutex(key).withLock {
+            // Packs live one level deeper than engines, so the shared parent
+            // (engines/<engine>/packs/) may not exist yet. The atomic rename
+            // still happens inside a single directory.
+            packsRootFor(pack).mkdirs()
+            runArchiveInstall(
+                stateKey = key,
+                label = "pack ${pack.id}",
+                archive = pack.archive,
+                installedSizeBytes = pack.installedSizeBytes,
+                finalDir = packDirFor(pack),
+                scratchDir = packScratchDirFor(pack),
+                archiveTmp = packArchiveTmpFor(pack),
+                onProgress = onProgress,
+            ) { dir -> verifyPackLayout(pack, dir) }
+        }
+    }
+
+    /** [verifyPack] against a caller-supplied pack; see [installPackInternal]. */
+    internal suspend fun verifyPackInternal(pack: VoicePack): InstallState =
+        withContext(Dispatchers.IO) {
+            val dir = packDirFor(pack)
+            val computed = if (!dir.isDirectory) {
+                InstallState.NotInstalled
+            } else {
+                verifyPackLayout(pack, dir)
+            }
+            stateFlow(packStateKey(pack.id)).value = computed
+            computed
+        }
+
+    /**
+     * Voice pack layout: a VITS `model.onnx` plus its `model.onnx.json`
+     * config. MODEL_CARD / PROVENANCE.md ride along for the licence trail
+     * but aren't load-bearing, so they're not required here.
+     */
+    private fun verifyPackLayout(pack: VoicePack, dir: File): InstallState {
+        val outdated = checkInstallMeta(pack.archive, dir)
+        if (outdated != null) return outdated
+        val model = File(dir, PACK_MODEL_FILE)
+        if (!model.isFile || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+        val config = File(dir, PACK_CONFIG_FILE)
+        if (!config.isFile || config.length() == 0L) return InstallState.Corrupt
+        return InstallState.Installed
     }
 
     /**
@@ -434,7 +587,7 @@ open class EngineInstaller @Inject constructor(
                     "Could not rename ${scratchDir.absolutePath} to ${finalDir.absolutePath}",
                 )
             }
-            writeInstallMeta(finalDir, descriptor)
+            writeInstallMeta(finalDir, descriptor.archive)
 
             val verified = verifyLayout(descriptor, finalDir)
             if (verified is InstallState.Corrupt) {
@@ -487,12 +640,49 @@ open class EngineInstaller @Inject constructor(
         descriptor: EngineDescriptor,
         onProgress: (InstallState.Downloading) -> Unit,
     ): Result<Unit> = withContext(Dispatchers.IO) {
-      installMutex(descriptor.name).withLock {
-        val engineName = descriptor.name
-        val sf = stateFlow(engineName)
-        val finalDir = engineDirFor(engineName)
-        val scratchDir = scratchDirFor(engineName)
-        val archiveTmp = archiveTmpFor(engineName)
+        installMutex(descriptor.name).withLock {
+            runArchiveInstall(
+                stateKey = descriptor.name,
+                label = descriptor.name,
+                archive = descriptor.archive,
+                installedSizeBytes = descriptor.installedSizeBytes,
+                finalDir = engineDirFor(descriptor.name),
+                scratchDir = scratchDirFor(descriptor.name),
+                archiveTmp = archiveTmpFor(descriptor.name),
+                onProgress = onProgress,
+            ) { dir -> verifyLayout(descriptor, dir) }
+        }
+    }
+
+    /**
+     * The one download → verify → extract → atomic-rename pipeline, shared
+     * by engine bundles ([installViaDescriptor]) and voice packs
+     * ([installPackInternal]).
+     *
+     * Callers own the paths and the post-extract structural check; everything
+     * else — resume, hashing, progress throttling, scratch teardown, install
+     * meta, state-flow transitions — happens here so the two install kinds
+     * can't drift.
+     *
+     * @param stateKey key into the per-target [InstallState] flows.
+     * @param label human-readable target name for log lines.
+     * @param verify post-extract layout check; [InstallState.Corrupt] tears
+     *        the install down and fails.
+     *
+     * The caller must already hold `installMutex(stateKey)`.
+     */
+    private fun runArchiveInstall(
+        stateKey: String,
+        label: String,
+        archive: EngineArchive,
+        installedSizeBytes: Long,
+        finalDir: File,
+        scratchDir: File,
+        archiveTmp: File,
+        onProgress: (InstallState.Downloading) -> Unit,
+        verify: (File) -> InstallState,
+    ): Result<Unit> {
+        val sf = stateFlow(stateKey)
 
         // Clean up any leftover scratch dir, but KEEP the partial archive —
         // [downloadArchive] knows how to resume from it via HTTP Range
@@ -511,8 +701,7 @@ open class EngineInstaller @Inject constructor(
         scratchDir.mkdirs()
         archiveTmp.parentFile?.mkdirs()
 
-        try {
-            val archive = descriptor.archive
+        return try {
             val totalBytes = archive.sizeBytes
 
             // 1. Download the archive while computing SHA-256 and emitting
@@ -537,15 +726,15 @@ open class EngineInstaller @Inject constructor(
             // 2. Verify archive hash.
             if (!fetchedSha.equals(archive.sha256, ignoreCase = true)) {
                 throw IOException(
-                    "SHA-256 mismatch for archive ${descriptor.name}: " +
+                    "SHA-256 mismatch for archive $label: " +
                         "expected ${archive.sha256}, got $fetchedSha",
                 )
             }
 
-            // 3. Extract. Emit byte-level progress against the descriptor's
+            // 3. Extract. Emit byte-level progress against the catalog's
             // declared installed size — the UI shows a determinate bar for
             // the unpack phase instead of a stuck indeterminate spinner.
-            val totalUnpackedBytes = descriptor.installedSizeBytes
+            val totalUnpackedBytes = installedSizeBytes
             sf.value = InstallState.Extracting(
                 bytesExtracted = 0L,
                 totalBytes = totalUnpackedBytes,
@@ -588,19 +777,19 @@ open class EngineInstaller @Inject constructor(
             // catalog has since changed (URL/sha256 swapped server-side)
             // and surface InstallState.Outdated. Written AFTER the atomic
             // rename so a partial install never leaves a stale meta behind.
-            writeInstallMeta(finalDir, descriptor)
+            writeInstallMeta(finalDir, archive)
 
             // 7. Post-install sanity check. The archive sha already proved
             // the bytes are correct, so this just confirms the extraction
             // produced the expected top-level layout — defensive against
             // a malformed bundle slipping through.
-            val verified = verifyLayout(descriptor, finalDir)
+            val verified = verify(finalDir)
             if (verified is InstallState.Corrupt) {
                 // Extracted shape doesn't match expectations. Tear down so a
                 // retry has a clean slate.
                 finalDir.deleteRecursively()
                 throw IOException(
-                    "Post-install verification failed for ${descriptor.name}: " +
+                    "Post-install verification failed for $label: " +
                         "extracted layout missing required files",
                 )
             }
@@ -608,7 +797,7 @@ open class EngineInstaller @Inject constructor(
             sf.value = InstallState.Installed
             Result.success(Unit)
         } catch (t: Throwable) {
-            Log.w(TAG, "Install of $engineName failed", t)
+            Log.w(TAG, "Install of $label failed", t)
             // Tear down the partial scratch dir (post-extract state is
             // unrecoverable), but KEEP the partial archive on disk so the
             // user's next attempt can resume the download instead of
@@ -618,8 +807,7 @@ open class EngineInstaller @Inject constructor(
             //
             // Exception: if the failure was a SHA-256 mismatch, the
             // partial bytes are known-bad — wipe them. We detect that by
-            // the IOException message produced in [installViaDescriptor]
-            // after the download completes.
+            // the IOException message produced in step 2 above.
             if (t is IOException && t.message?.contains("mismatch", ignoreCase = true) == true) {
                 if (archiveTmp.exists()) archiveTmp.delete()
             }
@@ -627,7 +815,6 @@ open class EngineInstaller @Inject constructor(
             sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
             Result.failure(if (t is IOException) t else IOException(t))
         }
-      } // installMutex.withLock
     }
 
     /**
@@ -726,6 +913,24 @@ open class EngineInstaller @Inject constructor(
 
     private fun archiveTmpFor(engineName: String): File =
         File(filesDir.get(), "engines/$engineName.archive.tmp")
+
+    /** `engines/<engine>/packs/` — the parent every pack of one engine shares. */
+    private fun packsRootFor(pack: VoicePack): File =
+        File(filesDir.get(), "engines/${pack.engine}/$PACKS_DIR_NAME")
+
+    private fun packDirFor(pack: VoicePack): File = File(packsRootFor(pack), pack.id)
+
+    private fun packScratchDirFor(pack: VoicePack): File =
+        File(packsRootFor(pack), "${pack.id}.tmp")
+
+    private fun packArchiveTmpFor(pack: VoicePack): File =
+        File(packsRootFor(pack), "${pack.id}.archive.tmp")
+
+    /**
+     * State-flow key for a voice pack. Prefixed so a pack id can never
+     * collide with an engine name in the shared [states] map.
+     */
+    private fun packStateKey(packId: String): String = "$PACK_STATE_PREFIX$packId"
 
     /**
      * Stream the archive at [url] to [target] via [httpFetcher], computing
@@ -939,12 +1144,19 @@ open class EngineInstaller @Inject constructor(
      * new engine family means adding a branch here.
      */
     private fun verifyLayout(descriptor: EngineDescriptor, dir: File): InstallState {
+        // Pack-based engines keep nothing at the engine root — their payload
+        // is one directory per installed voice pack, each with its own
+        // install meta. "Installed" means at least one pack is usable; update
+        // detection is per pack (see [verifyPackLayout]), so the engine-level
+        // meta check is deliberately skipped.
+        if (descriptor.isPackBased) return verifyPackBasedEngineLayout(descriptor, dir)
+
         // First check whether the on-disk bundle matches the current
         // catalog entry. If the catalog has been updated server-side
         // since the last install (new URL / new sha256), surface that
         // before running the layout check. The structural check would
         // otherwise return Installed and hide the available update.
-        val outdated = checkInstallMeta(descriptor, dir)
+        val outdated = checkInstallMeta(descriptor.archive, dir)
         if (outdated != null) return outdated
 
         return when (descriptor.name) {
@@ -957,6 +1169,40 @@ open class EngineInstaller @Inject constructor(
             // silently reporting a non-existent engine as Installed.
             else                       -> InstallState.Corrupt
         }
+    }
+
+    /**
+     * Pack-based engine layout: `packs/<packId>/` with a usable pack in it.
+     *
+     * Returns [InstallState.NotInstalled] — not Corrupt — when the packs dir
+     * is absent or holds no usable pack: an engine whose only pack was
+     * uninstalled hasn't broken, it just has nothing to speak with, and the
+     * UI's "install" affordance is the right next step. A pack directory that
+     * exists but fails its own layout check makes the engine Corrupt so the
+     * user is steered to reinstall that pack.
+     *
+     * Unknown pack directories (a pack removed from the catalog in a newer
+     * app version) are ignored rather than treated as corruption.
+     */
+    private fun verifyPackBasedEngineLayout(
+        descriptor: EngineDescriptor,
+        dir: File,
+    ): InstallState {
+        val packsDir = File(dir, PACKS_DIR_NAME)
+        if (!packsDir.isDirectory) return InstallState.NotInstalled
+        val known = VoicePackCatalog.forEngine(descriptor.name)
+        var sawCorrupt = false
+        for (pack in known) {
+            val packDir = File(packsDir, pack.id)
+            if (!packDir.isDirectory) continue
+            when (verifyPackLayout(pack, packDir)) {
+                is InstallState.Corrupt -> sawCorrupt = true
+                // Installed or Outdated both mean "this pack can synthesize
+                // right now" — Outdated is a soft update prompt on the pack.
+                else -> return InstallState.Installed
+            }
+        }
+        return if (sawCorrupt) InstallState.Corrupt else InstallState.NotInstalled
     }
 
     /**
@@ -1096,15 +1342,15 @@ open class EngineInstaller @Inject constructor(
      * missing meta and surface InstallState.Outdated until the user
      * re-installs.
      */
-    private fun writeInstallMeta(dir: File, descriptor: EngineDescriptor) {
+    private fun writeInstallMeta(dir: File, archive: EngineArchive) {
         val meta = org.json.JSONObject().apply {
-            put("archive_sha256", descriptor.archive.sha256)
-            put("archive_url", descriptor.archive.url)
+            put("archive_sha256", archive.sha256)
+            put("archive_url", archive.url)
         }
         try {
             File(dir, INSTALL_META_FILENAME).writeText(meta.toString())
         } catch (t: Throwable) {
-            Log.w(TAG, "Failed to write install meta for ${descriptor.name}", t)
+            Log.w(TAG, "Failed to write install meta into ${dir.absolutePath}", t)
         }
     }
 
@@ -1128,11 +1374,11 @@ open class EngineInstaller @Inject constructor(
      * once to migrate. From the next install forward, the meta is recorded
      * correctly and future catalog updates surface as Outdated normally.
      */
-    private fun checkInstallMeta(descriptor: EngineDescriptor, dir: File): InstallState? {
+    private fun checkInstallMeta(archive: EngineArchive, dir: File): InstallState? {
         val metaFile = File(dir, INSTALL_META_FILENAME)
-        val expected = descriptor.archive.sha256
+        val expected = archive.sha256
         if (!metaFile.isFile) {
-            writeInstallMeta(dir, descriptor)
+            writeInstallMeta(dir, archive)
             return null
         }
         val recorded = runCatching {
@@ -1177,6 +1423,19 @@ open class EngineInstaller @Inject constructor(
         // The leading dot keeps the file out of casual `ls`, signalling
         // "internal bookkeeping, not part of the model bundle."
         private const val INSTALL_META_FILENAME: String = ".install_meta.json"
+
+        /** Subdirectory of a pack-based engine holding one dir per voice pack. */
+        internal const val PACKS_DIR_NAME: String = "packs"
+
+        /** Required files inside an installed voice pack. */
+        private const val PACK_MODEL_FILE: String = "model.onnx"
+        private const val PACK_CONFIG_FILE: String = "model.onnx.json"
+
+        /**
+         * Prefix keeping voice-pack [InstallState] flows in their own
+         * namespace, so a pack id equal to an engine name can't alias it.
+         */
+        private const val PACK_STATE_PREFIX: String = "pack:"
     }
 }
 

@@ -356,7 +356,125 @@ class EngineInstallerTest {
         assertEquals(InstallState.Installed, installer.verifyAgainst(v1Descriptor))
     }
 
+    // -- voice packs -------------------------------------------------------
+
+    @Test
+    fun packInstallLandsUnderTheEnginesPacksDirAndVerifies() = runTest {
+        val pack = stagePack(VITS_PACK_LAYOUT)
+
+        val progressEvents = mutableListOf<InstallState.Downloading>()
+        val result = installer.installPack(pack) { progressEvents += it }
+
+        assertTrue("pack install should succeed, got $result", result.isSuccess)
+        // The whole point of the pack path: payload nests one level deeper so
+        // several languages coexist, instead of landing in the engine root.
+        val packDir = File(filesDir, "engines/${pack.engine}/packs/${pack.id}")
+        assertTrue("pack dir should exist after install", packDir.isDirectory)
+        assertTrue(File(packDir, "model.onnx").length() >= 1L * 1024L * 1024L)
+        assertEquals(PACK_CONFIG_JSON, File(packDir, "model.onnx.json").readText())
+        assertTrue(File(packDir, "MODEL_CARD").isFile)
+        assertFalse(File(filesDir, "engines/${pack.engine}/packs/${pack.id}.tmp").exists())
+        assertFalse(File(filesDir, "engines/${pack.engine}/packs/${pack.id}.archive.tmp").exists())
+        assertTrue(progressEvents.isNotEmpty())
+        assertEquals(InstallState.Installed, installer.verifyPackAgainst(pack))
+    }
+
+    @Test
+    fun packShaMismatchFailsAndLeavesNothingInstalled() = runTest {
+        val archive = buildArchive(VITS_PACK_LAYOUT, archiveRootName = VITS_PACK_ROOT)
+        val pack = voicePack(archive, shaOverride = "deadbeef".repeat(8))
+        fetcher.payloads[pack.archive.url] = archive
+
+        val result = installer.installPack(pack) {}
+
+        assertTrue("expected failure for sha mismatch", result.isFailure)
+        assertTrue(
+            "expected SHA mismatch reason in '${result.exceptionOrNull()?.message}'",
+            result.exceptionOrNull()?.message?.contains("SHA-256 mismatch") == true,
+        )
+        val packsDir = File(filesDir, "engines/${pack.engine}/packs")
+        assertFalse(File(packsDir, pack.id).exists())
+        assertFalse(File(packsDir, "${pack.id}.tmp").exists())
+        // Known-bad bytes are wiped so the retry doesn't resume onto them.
+        assertFalse(File(packsDir, "${pack.id}.archive.tmp").exists())
+    }
+
+    @Test
+    fun aPackMissingItsConfigVerifiesAsCorrupt() = runTest {
+        // model.onnx.json carries the sample rate, scales and phoneme map —
+        // without it the pack is unusable, so it must not read as Installed.
+        val pack = voicePack(ByteArray(0))
+        val packDir = File(filesDir, "engines/${pack.engine}/packs/${pack.id}")
+
+        assertEquals(InstallState.NotInstalled, installer.verifyPackAgainst(pack))
+
+        packDir.mkdirs()
+        File(packDir, "model.onnx").writeBytes(ByteArray(2 * 1024 * 1024) { 0x42 })
+        assertEquals(InstallState.Corrupt, installer.verifyPackAgainst(pack))
+
+        File(packDir, "model.onnx.json").writeText(PACK_CONFIG_JSON)
+        assertEquals(InstallState.Installed, installer.verifyPackAgainst(pack))
+
+        // A truncated model (headers landed, body didn't) is corrupt too.
+        File(packDir, "model.onnx").writeText("too small")
+        assertEquals(InstallState.Corrupt, installer.verifyPackAgainst(pack))
+    }
+
+    @Test
+    fun uninstallingOnePackKeepsTheOtherPacksOfTheEngine() = runTest {
+        val pack = stagePack(VITS_PACK_LAYOUT)
+        assertTrue(installer.installPack(pack) {}.isSuccess)
+        // A second, hand-staged pack standing in for another language.
+        val siblingDir = File(filesDir, "engines/${pack.engine}/packs/xx-sibling").apply { mkdirs() }
+        File(siblingDir, "model.onnx").writeBytes(ByteArray(2 * 1024 * 1024) { 0x7 })
+
+        val result = installer.uninstallPack(pack.id)
+
+        assertTrue("pack uninstall should succeed, got $result", result.isSuccess)
+        assertFalse(File(filesDir, "engines/${pack.engine}/packs/${pack.id}").exists())
+        assertTrue("sibling pack must survive", File(siblingDir, "model.onnx").isFile)
+        assertTrue("native handle should be released before deleting", fakeEngine.released)
+        assertEquals(InstallState.NotInstalled, installer.verifyPackAgainst(pack))
+    }
+
+    @Test
+    fun uninstallingAnUnknownPackFailsRatherThanDeletingSomething() = runTest {
+        val result = installer.uninstallPack("not-a-pack")
+        assertTrue("unknown pack uninstall should fail", result.isFailure)
+    }
+
     // -- fixture machinery -------------------------------------------------
+
+    /** Register a synthetic pack archive with the fake fetcher. */
+    private fun stagePack(files: Map<String, ByteArray>): VoicePack {
+        val archive = buildArchive(files, archiveRootName = VITS_PACK_ROOT)
+        val pack = voicePack(archive)
+        fetcher.payloads[pack.archive.url] = archive
+        return pack
+    }
+
+    private fun voicePack(
+        archiveBytes: ByteArray,
+        shaOverride: String? = null,
+    ): VoicePack = VoicePack(
+        // The real catalog id, so the catalog-driven uninstallPack path
+        // resolves to the same on-disk paths this synthetic archive installs
+        // to (same convention as stageBundle using the real Kitten name).
+        id = VoicePackCatalog.UK_LADA_X_LOW.id,
+        engine = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+        languageCode = "uk-UA",
+        displayName = "Test (Ukrainian)",
+        qualityTier = "x_low",
+        archive = EngineArchive(
+            url = "https://test/vits/pack.tar.bz2",
+            sha256 = shaOverride ?: sha256Hex(archiveBytes),
+            sizeBytes = archiveBytes.size.toLong().coerceAtLeast(1L),
+            archiveRoot = VITS_PACK_ROOT,
+        ),
+        installedSizeBytes = (archiveBytes.size.toLong() * 2L).coerceAtLeast(2L),
+        licenseNotice = "n/a",
+    )
+
 
     /**
      * Register a bundle's bytes with the fake fetcher and return a matching
@@ -402,6 +520,20 @@ class EngineInstallerTest {
     )
 
     companion object {
+        /** Wrapper dir of a VITS pack archive (`<packId>/…`). */
+        private val VITS_PACK_ROOT = "${VoicePackCatalog.UK_LADA_X_LOW.id}/"
+
+        /** Stand-in pack config — the installer only checks it's non-empty. */
+        private const val PACK_CONFIG_JSON = """{"audio":{"sample_rate":16000}}"""
+
+        /** Minimal-but-valid pack payload: oversize model + config + card. */
+        private val VITS_PACK_LAYOUT: Map<String, ByteArray> = buildMap {
+            put("model.onnx", ByteArray(1_500_000) { (it and 0xFF).toByte() })
+            put("model.onnx.json", PACK_CONFIG_JSON.toByteArray())
+            put("MODEL_CARD", "# card".toByteArray())
+            put("PROVENANCE.md", "# provenance".toByteArray())
+        }
+
         // Wrapper directory name used by the production Kitten Direct archive.
         // The installer strips this prefix during extraction; the test
         // archives mirror the same layout.
@@ -457,6 +589,13 @@ internal class TestInstaller(
 
     suspend fun verifyAgainst(descriptor: EngineDescriptor): InstallState =
         verifyDescriptor(descriptor)
+
+    suspend fun installPack(
+        pack: VoicePack,
+        onProgress: (InstallState.Downloading) -> Unit,
+    ): Result<Unit> = installPackInternal(pack, onProgress)
+
+    suspend fun verifyPackAgainst(pack: VoicePack): InstallState = verifyPackInternal(pack)
 }
 
 /** Native-handle double that just records whether `release()` was called. */

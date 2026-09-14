@@ -154,6 +154,7 @@
     <string name="language_pt_br">ポルトガル語（ブラジル）</string>
     <string name="language_ja">日本語</string>
     <string name="language_zh">中国語（標準語）</string>
+    <string name="language_uk">ウクライナ語</string>
 
     <!-- エンジンカタログの説明文（EngineCatalog） -->
     <string name="engine_kitten_tagline">最も高速で反応が速いエンジン。どの端末でも動作します。</string>

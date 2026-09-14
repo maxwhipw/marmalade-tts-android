@@ -154,6 +154,7 @@
     <string name="language_pt_br">葡萄牙语（巴西）</string>
     <string name="language_ja">日语</string>
     <string name="language_zh">普通话</string>
+    <string name="language_uk">乌克兰语</string>
 
     <!-- 引擎目录文案（EngineCatalog） -->
     <string name="engine_kitten_tagline">最快、响应最灵敏的引擎，任何设备都能运行。</string>

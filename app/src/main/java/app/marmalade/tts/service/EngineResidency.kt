@@ -6,11 +6,13 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -73,12 +75,14 @@ class EngineResidency internal constructor(
         kittenDirect: KittenDirectEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
+        vits: VitsDirectEngine,
     ) : this(
         releasers = linkedMapOf(
             KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::release,
             KittenDirectVoiceCatalog.ENGINE to kittenDirect::release,
             PocketVoiceCatalog.ENGINE to pocket::release,
             PocketDevVoiceCatalog.ENGINE to pocketDev::release,
+            VitsVoiceCatalog.ENGINE to vits::release,
         ),
         keepaliveMode = { settings.keepaliveMode.first() },
         clock = SystemClock::elapsedRealtime,

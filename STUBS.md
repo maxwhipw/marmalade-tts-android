@@ -91,3 +91,68 @@ how to finish it.
   + `@StringKey(engineName)`; update `EngineInstaller.uninstall` to
   look up the right handle by `descriptor.name` and drop the
   `if (descriptor.name == "kitten")` special-case.
+
+## VITS Marmalade (slice A — engine + uk-lada pack)
+
+### Release asset `v24/uk-lada-x_low.tar.gz` is not uploaded yet
+- **Files:** `app/src/main/java/app/marmalade/tts/install/VoicePackCatalog.kt`
+  (the pack's URL / sha256 / sizes).
+- **What's missing:** the catalog URL 404s until the pack tarball is
+  published to the `marmalade-tts-android-engines` release `v24`. The
+  sha256 (`818722f3…`), wire size (18,717,432) and installed size
+  (20,634,512) were computed from the built tarball at
+  `~/coding/scratch/vits-marmalade-lab/packs/uk-lada-x_low.tar.gz`, so
+  they are final — only the upload is pending.
+- **Why deferred:** publishing a GitHub release asset is Max's call (it
+  is a public surface), and the unit tests drive synthetic archives
+  through fake fetchers, so nothing here depends on the upload.
+- **How to finish:** upload the tarball as release `v24`, then install
+  the engine on device (developer engines ON) and speak a Ukrainian
+  sentence.
+
+### Upstream MIT copyright line for `rhasspy/piper-voices` not verbatim-confirmed
+- **File:** `LICENSES/vits-marmalade.md` (section 1).
+- **What's missing:** the notice carries `Copyright (c) Michael Hansen
+  (Rhasspy)` — the correct holder per the repository, in the same
+  no-year style the repo already uses for ONNX Runtime — but the exact
+  copyright line from upstream's own `LICENSE` file has not been read
+  (this session had no network access, and Piper source must not be
+  fetched into the tree).
+- **Why deferred:** needs a fetch of
+  `https://huggingface.co/rhasspy/piper-voices` `LICENSE`, which is a
+  network read Max should sanction; the legal substance (MIT, this
+  holder) is already correct.
+- **How to finish:** read upstream's LICENSE, paste its copyright line
+  verbatim, then re-check before any store submission that mentions the
+  engine.
+
+### Voice-picker filtering is per engine, not per pack
+- **Files:** `app/src/main/java/app/marmalade/tts/data/VitsVoiceCatalog.kt`,
+  `app/src/main/java/app/marmalade/tts/ui/screen/VoicePickerViewModel.kt`.
+- **What's missing:** the picker hides voices whose *engine* isn't
+  installed. With two or more packs in the catalog and only one
+  installed, the uninstalled pack's voice would still be listed (and
+  fail at synth with `EngineNotInstalledException`).
+- **Why deferred:** slice A ships exactly one pack, where per-engine and
+  per-pack are the same thing; the fix belongs with the pack-management
+  UI slice (which needs a per-pack install/uninstall surface anyway).
+- **How to finish:** expose `VitsDirectEngine.installedPackIds()` (already
+  public) to the picker ViewModel and filter VITS rows by it — or, more
+  generally, add an optional per-voice "asset present" probe to the
+  picker's installed-engine filter.
+
+### No end-to-end audio test for the VITS path
+- **Files:** `app/src/main/java/app/marmalade/tts/engine/vits/VitsDirectEngine.kt`.
+- **What's missing:** the phoneme→id mapper and the config parser are
+  unit-tested against the real pack config (golden id vector from a
+  verified desktop run), but the ORT run itself — tensor names, dtypes,
+  output squeeze, PCM conversion — has no automated coverage: it needs a
+  real 20 MB ONNX session, which a JVM unit test cannot create and
+  `connectedAndroidTest` must not run here (it wipes app data on the
+  daily phone).
+- **Why deferred:** a unit test would have to fake the session, at which
+  point it only asserts our own mock's behaviour.
+- **How to finish:** device check — install the pack, speak Ukrainian
+  text from the Speak screen and from the Benchmark screen, and compare
+  against `~/coding/scratch/vits-marmalade-lab/reference/lada-direct.wav`
+  (the desktop render of the same checkpoint through the same recipe).

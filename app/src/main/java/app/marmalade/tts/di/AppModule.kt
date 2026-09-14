@@ -23,6 +23,7 @@ import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketDevEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
@@ -194,11 +195,13 @@ object AppModule {
         kokoroDirect: KokoroDirectEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
+        vits: VitsDirectEngine,
     ): NativeEngineHandle = NativeEngineHandle {
         kittenDirect.release()
         kokoroDirect.release()
         pocket.release()
         pocketDev.release()
+        vits.release()
     }
 
     /**

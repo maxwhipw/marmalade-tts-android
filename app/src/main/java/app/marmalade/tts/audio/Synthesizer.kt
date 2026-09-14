@@ -7,8 +7,10 @@ import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.engine.PocketDevEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
@@ -154,6 +156,7 @@ class Synthesizer @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
+    private val vits: VitsDirectEngine,
     private val cloudApi: CloudApiEngine,
     private val residency: app.marmalade.tts.service.EngineResidency,
     private val completions: PreviewCompletions,
@@ -326,6 +329,7 @@ class Synthesizer @Inject constructor(
             KittenDirectVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE,
+            VitsVoiceCatalog.ENGINE,
             CloudApiVoiceCatalog.ENGINE -> name
             else -> KokoroDirectVoiceCatalog.ENGINE
         }
@@ -337,6 +341,7 @@ class Synthesizer @Inject constructor(
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev
+        VitsVoiceCatalog.ENGINE -> vits
         CloudApiVoiceCatalog.ENGINE -> cloudApi
         else -> kokoroDirect
     }

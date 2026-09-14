@@ -3,6 +3,7 @@ package app.marmalade.tts
 import android.app.Application
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.PocketDevVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
@@ -160,6 +161,7 @@ class MarmaladeTtsApplication : Application() {
                 dao.upsertAll(KittenDirectVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
+                dao.upsertAll(VitsVoiceCatalog.voices)
                 // Built-in effects. REPLACE-on-conflict refreshes them on each
                 // bump; user-created effects (other ids) are untouched, and
                 // built-ins are read-only in the UI so this can't clobber user
@@ -347,6 +349,6 @@ class MarmaladeTtsApplication : Application() {
          *  - v33: Pocket display names capitalized (`marius` → `Marius`;
          *    ids and `voices/<name>.wav` filenames keep the lowercase key).
          */
-        const val CATALOG_VERSION: Int = 33
+        const val CATALOG_VERSION: Int = 34
     }
 }
