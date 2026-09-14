@@ -30,13 +30,18 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 
 The VITS Marmalade engine downloads one voice pack per language. The
 model weights are MIT throughout; the corpora they were trained on carry
-their own licences, and one of them requires attribution:
+their own licences, and two of them require attribution:
 
 - **Talrómur** — the four Icelandic voices (`is-bui-medium`,
   `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`) are trained
   on the **Talrómur** corpus — Reykjavík University & RÚV, Icelandic
   Language Technology Programme (Sigurgeirsson et al., NoDaLiDa 2021),
   **CC BY 4.0**. http://hdl.handle.net/20.500.12537/104
+- **KazakhTTS / KazakhTTS2** — the six Kazakh voices (`kk-issai-high`)
+  are trained on the **KazakhTTS** and **KazakhTTS2** corpora — ISSAI
+  (Institute of Smart Systems and Artificial Intelligence), Nazarbayev
+  University; Mussakhojayeva et al., arXiv:2104.08459 and
+  arXiv:2201.05771. **CC BY 4.0**.
 - **egorsmkv/ukrainian-tts-datasets** — the Ukrainian voice
   (`uk-lada-x_low`) is trained on Yehor Smoliakov's studio-recorded
   Ukrainian corpora, **Apache-2.0** (no attribution required;
@@ -45,6 +50,10 @@ their own licences, and one of them requires attribution:
   (`sv-nst-medium`), Språkbanken resource sbr-18, rights holder
   **Nasjonalbiblioteket** (National Library of Norway), **CC0** — no
   attribution required, credited with thanks.
+- **Norwegian Voice Control Corpus (NVCC)** — the ten Norwegian voices
+  (`no-nvcc-medium`), Språkbanken resource sbr-75, rights holder
+  **Nasjonalbiblioteket**, **CC0** — no attribution required; thanks to
+  the eleven participants who read for an open dataset.
 
 Full detail, including the MIT notice for the weights:
 [`LICENSES/vits-marmalade.md`](LICENSES/vits-marmalade.md).

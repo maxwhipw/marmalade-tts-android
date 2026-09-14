@@ -323,6 +323,9 @@ private fun languageNameRes(code: String): Int = when (code) {
     "uk-UA", "uk" -> R.string.language_uk
     "is-IS", "is" -> R.string.language_is
     "sv-SE", "sv" -> R.string.language_sv
+    "kk-KZ", "kk" -> R.string.language_kk
+    // The NVCC corpus is Bokmål; upstream's config spells the language "no".
+    "nb-NO", "nb", "no" -> R.string.language_nb
     else -> R.string.language_english
 }
 

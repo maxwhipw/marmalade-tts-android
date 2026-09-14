@@ -157,6 +157,8 @@
     <string name="language_uk">ウクライナ語</string>
     <string name="language_is">アイスランド語</string>
     <string name="language_sv">スウェーデン語</string>
+    <string name="language_kk">カザフ語</string>
+    <string name="language_nb">ノルウェー語（ブークモール）</string>
 
     <!-- エンジンカタログの説明文（EngineCatalog） -->
     <string name="engine_kitten_tagline">最も高速で反応が速いエンジン。どの端末でも動作します。</string>

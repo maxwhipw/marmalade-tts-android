@@ -158,6 +158,8 @@
     <string name="language_uk">यूक्रेनी</string>
     <string name="language_is">आइसलैंडिक</string>
     <string name="language_sv">स्वीडिश</string>
+    <string name="language_kk">कज़ाख़</string>
+    <string name="language_nb">नॉर्वेजियन (बोकमाल)</string>
 
     <!-- इंजन कैटलॉग का विवरण (EngineCatalog) -->
     <string name="engine_kitten_tagline">सबसे तेज़ और सबसे फुर्तीला इंजन, और यह हर डिवाइस पर चलता है।</string>

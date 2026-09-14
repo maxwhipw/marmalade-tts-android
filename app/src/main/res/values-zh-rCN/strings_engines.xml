@@ -157,6 +157,8 @@
     <string name="language_uk">乌克兰语</string>
     <string name="language_is">冰岛语</string>
     <string name="language_sv">瑞典语</string>
+    <string name="language_kk">哈萨克语</string>
+    <string name="language_nb">挪威语（书面挪威语）</string>
 
     <!-- 引擎目录文案（EngineCatalog） -->
     <string name="engine_kitten_tagline">最快、响应最灵敏的引擎，任何设备都能运行。</string>

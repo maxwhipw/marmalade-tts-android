@@ -42,6 +42,8 @@
     <string name="language_uk">Ukrainian</string>
     <string name="language_is">Icelandic</string>
     <string name="language_sv">Swedish</string>
+    <string name="language_kk">Kazakh</string>
+    <string name="language_nb">Norwegian (Bokmål)</string>
 
     <!-- Engine catalog prose (EngineCatalog): tagline on the engine cards,
          description + license line on the install-consent card and engine

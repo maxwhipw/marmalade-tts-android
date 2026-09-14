@@ -158,6 +158,8 @@
     <string name="language_uk">Ukrainien</string>
     <string name="language_is">Islandais</string>
     <string name="language_sv">Suédois</string>
+    <string name="language_kk">Kazakh</string>
+    <string name="language_nb">Norvégien (bokmål)</string>
 
     <!-- Texte du catalogue de moteurs (EngineCatalog) -->
     <string name="engine_kitten_tagline">Le moteur le plus rapide et le plus réactif, et il tourne sur n\'importe quel appareil.</string>

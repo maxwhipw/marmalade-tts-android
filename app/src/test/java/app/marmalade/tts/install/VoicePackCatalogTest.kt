@@ -18,6 +18,8 @@ import org.junit.Test
  */
 class VoicePackCatalogTest {
 
+    private val ENGINE = VoicePackCatalog.VITS_MARMALADE_ENGINE
+
     @Test
     fun catalogContainsExactlyTheShippedPacks() {
         assertEquals(
@@ -28,9 +30,113 @@ class VoicePackCatalogTest {
                 "is-steinn-medium",
                 "is-ugla-medium",
                 "sv-nst-medium",
+                "kk-issai-high",
+                "no-nvcc-medium",
             ),
             VoicePackCatalog.all.map { it.id },
         )
+    }
+
+    @Test
+    fun aSingleSpeakerPackKeepsItsBarePackIdAsTheVoiceKey() {
+        // Non-negotiable: `uk-lada-x_low` already shipped, and user aliases
+        // store the voice id. A `#0` suffix would orphan every one of them.
+        val lada = VoicePackCatalog.UK_LADA_X_LOW
+        assertEquals(1, lada.voices.size)
+        assertEquals("uk-lada-x_low", lada.voices.single().voiceKey)
+        assertEquals(0, lada.voices.single().sid)
+        assertEquals(lada.displayName, lada.voices.single().displayName)
+        // …and the suffixed form is NOT a synonym for it.
+        assertNull(VoicePackCatalog.voiceByKey(ENGINE, "uk-lada-x_low#0"))
+    }
+
+    @Test
+    fun aMultiSpeakerPackKeysEachSpeakerByItsSid() {
+        val issai = VoicePackCatalog.KK_ISSAI_HIGH
+        assertEquals(6, issai.voices.size)
+        assertEquals(
+            listOf(
+                "kk-issai-high#0",
+                "kk-issai-high#1",
+                "kk-issai-high#2",
+                "kk-issai-high#3",
+                "kk-issai-high#4",
+                "kk-issai-high#5",
+            ),
+            issai.voices.map { it.voiceKey },
+        )
+        // Each voice must carry its pack's language + rate, not the default.
+        for (voice in issai.voices) {
+            assertEquals("kk-KZ", voice.languageCode)
+            assertEquals(22_050, voice.sampleRate)
+        }
+    }
+
+    @Test
+    fun voiceKeysRoundTripToTheirPackAndSpeaker() {
+        for (voice in VoicePackCatalog.voicesForEngine(ENGINE)) {
+            assertEquals(voice, VoicePackCatalog.voiceByKey(ENGINE, voice.voiceKey))
+        }
+        // The named Kazakh speakers, by the sids the checkpoint actually uses
+        // (VitsPackConfigTest pins these against the real config).
+        val iseke = VoicePackCatalog.voiceByKey(ENGINE, "kk-issai-high#1")!!
+        assertEquals("kk-issai-high", iseke.packId)
+        assertEquals(1, iseke.sid)
+        assertEquals("Iseke (Kazakh)", iseke.displayName)
+        assertEquals("male", iseke.gender)
+        assertEquals("Raya (Kazakh)", VoicePackCatalog.voiceByKey(ENGINE, "kk-issai-high#3")!!.displayName)
+    }
+
+    @Test
+    fun anOutOfRangeOrMalformedSpeakerSuffixResolvesToNothing() {
+        // The engine turns null into a hard failure. Silently falling back to
+        // speaker 0 would render a different person than the user picked.
+        for (bad in listOf(
+            "kk-issai-high#6",
+            "kk-issai-high#-1",
+            "kk-issai-high#",
+            "kk-issai-high#01",
+            "kk-issai-high",
+            "no-nvcc-medium#10",
+            "not-a-pack#0",
+        )) {
+            assertNull("'$bad' must not resolve to a voice", VoicePackCatalog.voiceByKey(ENGINE, bad))
+        }
+    }
+
+    @Test
+    fun everyVoiceKeyIsUniqueAcrossTheWholeCatalog() {
+        // Voice keys become Room primary keys (`<engine>:<voiceKey>`), so a
+        // collision silently drops one voice at seed time.
+        val keys = VoicePackCatalog.all.flatMap { pack -> pack.voices.map { it.voiceKey } }
+        assertEquals(keys.size, keys.distinct().size)
+    }
+
+    @Test
+    fun norwegianSpeakerLabelsDecodeTheirCorpusCode() {
+        // The labels are generated from the three-letter code, so this pins the
+        // decode table (K/M gender, last two letters dialect area) rather than
+        // ten hand-written strings.
+        val nvcc = VoicePackCatalog.NO_NVCC_MEDIUM
+        assertEquals(10, nvcc.voices.size)
+        assertEquals("Norwegian KNN (female, North Norway)", nvcc.voices[0].displayName)
+        assertEquals("Norwegian MON (male, East Norway)", nvcc.voices[6].displayName)
+        assertEquals("Norwegian KSV (female, Southwest Norway)", nvcc.voices[1].displayName)
+        assertEquals("Norwegian MNV (male, Northwest Norway)", nvcc.voices[7].displayName)
+        assertEquals("Norwegian KMN (female, Central Norway)", nvcc.voices[8].displayName)
+        for (voice in nvcc.voices) {
+            val code = voice.displayName.removePrefix("Norwegian ").take(3)
+            val expected = if (code.first() == 'K') "female" else "male"
+            assertEquals(
+                "${voice.voiceKey}: gender must follow the code's first letter",
+                expected,
+                voice.gender,
+            )
+            assertTrue(
+                "${voice.displayName}: label must spell the gender out",
+                voice.displayName.contains("($expected,"),
+            )
+        }
     }
 
     @Test
@@ -169,10 +275,11 @@ class VoicePackCatalogTest {
 
     @Test
     fun aPackIdWithAPathOrVoiceSeparatorIsRejected() {
-        // The id is both a directory name and the second half of a
-        // "<engine>:<packId>" voice id — a '/' would escape the packs dir and
-        // a ':' would split the voice id in the wrong place.
-        for (bad in listOf("../evil", "uk:lada")) {
+        // The id is both a directory name and the first part of a
+        // "<engine>:<packId>[#<sid>]" voice id — a '/' would escape the packs
+        // dir, a ':' would split the voice id in the wrong place, and a '#'
+        // would collide with the speaker suffix.
+        for (bad in listOf("../evil", "uk:lada", "uk#lada")) {
             val error = runCatching {
                 VoicePackCatalog.UK_LADA_X_LOW.copy(id = bad)
             }.exceptionOrNull()
@@ -184,29 +291,25 @@ class VoicePackCatalogTest {
     }
 
     @Test
-    fun voiceRowsMirrorThePackCatalog() {
-        // The voice list IS the pack list for this engine (one single-speaker
-        // checkpoint per pack), so any divergence means a voice the engine
-        // can't resolve or a pack the picker never shows.
+    fun voiceRowsMirrorThePackCatalogsFlattenedVoiceList() {
+        // The seeded rows are the catalog's PackVoice list, one per speaker —
+        // any divergence means a voice the engine can't resolve or a voice the
+        // picker never shows.
+        val voices = VoicePackCatalog.voicesForEngine(VitsVoiceCatalog.ENGINE)
         assertEquals(
-            VoicePackCatalog.forEngine(VitsVoiceCatalog.ENGINE).map { "${VitsVoiceCatalog.ENGINE}:${it.id}" },
+            voices.map { "${VitsVoiceCatalog.ENGINE}:${it.voiceKey}" },
             VitsVoiceCatalog.voices.map { it.id },
         )
-        assertEquals(
-            VoicePackCatalog.forEngine(VitsVoiceCatalog.ENGINE).map { it.languageCode },
-            VitsVoiceCatalog.voices.map { it.languageCode },
-        )
-        assertEquals(
-            VoicePackCatalog.forEngine(VitsVoiceCatalog.ENGINE).map { it.sampleRate },
-            VitsVoiceCatalog.voices.map { it.sampleRate },
-        )
-        assertEquals(
-            VoicePackCatalog.forEngine(VitsVoiceCatalog.ENGINE).map { it.gender },
-            VitsVoiceCatalog.voices.map { it.gender },
-        )
+        assertEquals(voices.map { it.languageCode }, VitsVoiceCatalog.voices.map { it.languageCode })
+        assertEquals(voices.map { it.sampleRate }, VitsVoiceCatalog.voices.map { it.sampleRate })
+        assertEquals(voices.map { it.gender }, VitsVoiceCatalog.voices.map { it.gender })
+        assertEquals(voices.map { it.displayName }, VitsVoiceCatalog.voices.map { it.displayName })
+        // 6 single-speaker packs + 6 Kazakh speakers + 10 Norwegian ones.
+        assertEquals(22, VitsVoiceCatalog.voices.size)
         assertTrue(
             "the default voice must be one of the catalog's voices",
             VitsVoiceCatalog.voices.any { it.id == VitsVoiceCatalog.DEFAULT_VOICE_ID },
         )
+        assertEquals("${VitsVoiceCatalog.ENGINE}:uk-lada-x_low", VitsVoiceCatalog.DEFAULT_VOICE_ID)
     }
 }

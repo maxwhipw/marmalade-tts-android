@@ -105,7 +105,7 @@ how to finish it.
   pending.
 - **Pending upload:** `uk-lada-x_low`, `is-bui-medium`,
   `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`,
-  `sv-nst-medium`.
+  `sv-nst-medium`, `kk-issai-high`, `no-nvcc-medium`.
 - **Why deferred:** publishing a GitHub release asset is Max's call (it
   is a public surface), and the unit tests drive synthetic archives
   through fake fetchers, so nothing here depends on the upload.
@@ -135,12 +135,18 @@ how to finish it.
   unit-tested against the real pack config (golden id vector from a
   verified desktop run), but the ORT run itself — tensor names, dtypes,
   output squeeze, PCM conversion — has no automated coverage: it needs a
-  real 20 MB ONNX session, which a JVM unit test cannot create and
+  real 20–120 MB ONNX session, which a JVM unit test cannot create and
   `connectedAndroidTest` must not run here (it wipes app data on the
-  daily phone).
+  daily phone). The `sid` input for multi-speaker packs is in the same
+  position: the catalog's sids are pinned against the real checkpoint
+  configs in `VitsPackConfigTest`, but that each sid actually renders the
+  labelled speaker can only be heard.
 - **Why deferred:** a unit test would have to fake the session, at which
   point it only asserts our own mock's behaviour.
 - **How to finish:** device check — install the pack, speak Ukrainian
   text from the Speak screen and from the Benchmark screen, and compare
   against `~/coding/scratch/vits-marmalade-lab/reference/lada-direct.wav`
   (the desktop render of the same checkpoint through the same recipe).
+  For `kk-issai-high` and `no-nvcc-medium`, step through the per-speaker
+  voices and confirm each sounds like a distinct person and that the two
+  named Kazakh voices (sid 1 "Iseke", sid 3 "Raya") match their genders.

@@ -17,8 +17,9 @@ package app.marmalade.tts.install
 //     │                             │   engines/<engine>/packs/<packId>/
 //     │                             │
 //     │                             └── VitsVoiceCatalog: one VoiceMeta row per
-//     │                                 pack, seeded into Room like every other
-//     │                                 engine's static voice list.
+//     │                                 PackVoice (a pack contributes one voice
+//     │                                 per speaker), seeded into Room like
+//     │                                 every other engine's static voice list.
 //     ▼
 //   engines/vits-marmalade-v1/packs/<packId>/{model.onnx, model.onnx.json, …}
 //     │
@@ -65,7 +66,13 @@ package app.marmalade.tts.install
  * @property gender        `"male"` / `"female"` when the corpus documents the
  *                         speaker's gender, else null. Never inferred from a
  *                         name or from the audio — see each pack's
- *                         `PROVENANCE.md`.
+ *                         `PROVENANCE.md`. Ignored when [speakers] is
+ *                         non-empty (each speaker carries its own).
+ * @property speakers      Empty for a single-speaker checkpoint, which
+ *                         contributes exactly one voice keyed by the bare
+ *                         pack id. For a multi-speaker checkpoint, one entry
+ *                         per speaker the catalog exposes — see [PackSpeaker]
+ *                         and [voices].
  * @property archive       Downloadable tar.gz, verified by sha256 exactly
  *                         like an engine archive.
  * @property installedSizeBytes Sum of the extracted file sizes; drives the
@@ -85,6 +92,7 @@ data class VoicePack(
     val archive: EngineArchive,
     val installedSizeBytes: Long,
     val licenseNotice: String,
+    val speakers: List<PackSpeaker> = emptyList(),
 ) {
     init {
         require(id.isNotBlank()) { "voice pack id must not be blank" }
@@ -94,11 +102,99 @@ data class VoicePack(
         require(!id.contains('/') && !id.contains(':')) {
             "voice pack id '$id' must not contain '/' or ':'"
         }
+        // '#' separates the pack id from the speaker index in a voice key.
+        require(!id.contains(SPEAKER_SEPARATOR)) {
+            "voice pack id '$id' must not contain '$SPEAKER_SEPARATOR'"
+        }
         require(archive.url.isNotBlank()) { "voice pack $id has no archive url" }
         require(archive.sizeBytes > 0L) { "voice pack $id has zero-size archive" }
         require(installedSizeBytes > 0L) { "voice pack $id has zero installed size" }
+        require(speakers.map { it.sid }.distinct().size == speakers.size) {
+            "voice pack $id declares a duplicate speaker sid"
+        }
+    }
+
+    /**
+     * Every selectable voice this pack contributes, in declaration order.
+     *
+     * A single-speaker pack yields one voice whose key is the bare pack id —
+     * which is what keeps the already-shipped `uk-lada-x_low` voice id (and
+     * any user alias pointing at it) working unchanged. A multi-speaker pack
+     * yields one voice per declared speaker, keyed `<packId>#<sid>`.
+     */
+    val voices: List<PackVoice> = if (speakers.isEmpty()) {
+        listOf(
+            PackVoice(
+                packId = id,
+                voiceKey = id,
+                sid = 0,
+                displayName = displayName,
+                languageCode = languageCode,
+                sampleRate = sampleRate,
+                gender = gender,
+            ),
+        )
+    } else {
+        speakers.map { speaker ->
+            PackVoice(
+                packId = id,
+                voiceKey = "$id$SPEAKER_SEPARATOR${speaker.sid}",
+                sid = speaker.sid,
+                displayName = speaker.displayName,
+                languageCode = languageCode,
+                sampleRate = sampleRate,
+                gender = speaker.gender,
+            )
+        }
+    }
+
+    companion object {
+        /** Separates a pack id from a speaker index in a voice key. */
+        const val SPEAKER_SEPARATOR: Char = '#'
     }
 }
+
+/**
+ * One speaker of a multi-speaker checkpoint, as the catalog declares it.
+ *
+ * @property sid         The model's own speaker index, taken from the
+ *                       checkpoint's `speaker_id_map` — never guessed from the
+ *                       order the names appear in. Fed to the graph's `sid`
+ *                       input verbatim.
+ * @property displayName Curated, user-facing. The upstream keys are corpus
+ *                       identifiers (`ISSAI_KazakhTTS2_F3`, `KSV`) and are not
+ *                       shown to anyone.
+ * @property gender      `"male"` / `"female"` where the corpus documents it
+ *                       (these keys encode it), else null.
+ */
+data class PackSpeaker(
+    val sid: Int,
+    val displayName: String,
+    val gender: String? = null,
+) {
+    init {
+        require(sid >= 0) { "speaker sid must not be negative ($sid)" }
+        require(displayName.isNotBlank()) { "speaker $sid has a blank displayName" }
+    }
+}
+
+/**
+ * One selectable voice: a (pack, speaker) pair flattened into the shape the
+ * voice catalog and the engine both want.
+ *
+ * @property voiceKey The second half of the app's `<engine>:<voiceKey>` voice
+ *                    id — the bare pack id for a single-speaker pack,
+ *                    `<packId>#<sid>` for one speaker of a multi-speaker pack.
+ */
+data class PackVoice(
+    val packId: String,
+    val voiceKey: String,
+    val sid: Int,
+    val displayName: String,
+    val languageCode: String,
+    val sampleRate: Int,
+    val gender: String?,
+)
 
 /**
  * Static catalog of downloadable voice packs.
@@ -169,6 +265,33 @@ object VoicePackCatalog {
         installedSizeBytes = installedSizeBytes,
         licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
     )
+
+    /**
+     * One NVCC speaker, labelled from its own three-letter corpus code so the
+     * ten labels cannot drift out of step with the codes they describe.
+     *
+     * @param code `K`/`M` for female/male, then the two-letter dialect area.
+     */
+    private fun norwegianSpeaker(sid: Int, code: String): PackSpeaker {
+        val gender = when (code.first()) {
+            'K' -> "female" // kvinne
+            'M' -> "male" // mann
+            else -> error("NVCC speaker code '$code' must start with K or M")
+        }
+        val area = when (code.drop(1)) {
+            "ON" -> "East Norway"
+            "SV" -> "Southwest Norway"
+            "NV" -> "Northwest Norway"
+            "MN" -> "Central Norway"
+            "NN" -> "North Norway"
+            else -> error("unknown NVCC dialect area in speaker code '$code'")
+        }
+        return PackSpeaker(
+            sid = sid,
+            displayName = "Norwegian $code ($gender, $area)",
+            gender = gender,
+        )
+    }
 
     /**
      * Ukrainian, single speaker "Lada", 16 kHz, `x_low` tier.
@@ -266,6 +389,101 @@ object VoicePackCatalog {
         licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
     )
 
+    /**
+     * Kazakh **ISSAI** pack, 22.05 kHz `high` tier, **6 speakers**.
+     *
+     * Two are named in the corpus (KazakhTTS v1's M1 "Iseke" and F1 "Raya");
+     * the other four are KazakhTTS2 speakers identified only by a key whose
+     * letter gives the gender and whose number is that speaker's index within
+     * their gender (`F3` = the third female). The display names follow that:
+     * "Kazakh voice 2 (male)" is `ISSAI_KazakhTTS2_M2`. A number therefore
+     * appears twice across genders (M2 and F2), which is why the gender is
+     * part of the label rather than only of [PackSpeaker.gender].
+     *
+     * Sids are the checkpoint's own `speaker_id_map` values, which are NOT in
+     * key order — `VitsPackConfigTest` pins these against the real config.
+     *
+     * **CC BY 4.0 data — attribution required** (KazakhTTS / KazakhTTS2,
+     * ISSAI, Nazarbayev University). See `LICENSES/vits-marmalade.md`.
+     */
+    val KK_ISSAI_HIGH: VoicePack = VoicePack(
+        id = "kk-issai-high",
+        engine = VITS_MARMALADE_ENGINE,
+        languageCode = "kk-KZ",
+        displayName = "Kazakh (ISSAI)",
+        qualityTier = "high",
+        sampleRate = 22_050,
+        gender = null,
+        archive = packArchive(
+            packId = "kk-issai-high",
+            sha256 = "be6063fadb2d0789cc27f009b257b89e1303935379fd9d24c69a504d247cf46e",
+            sizeBytes = 118_825_492L,
+        ),
+        installedSizeBytes = 127_870_459L,
+        licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
+        speakers = listOf(
+            // ISSAI_KazakhTTS2_M2
+            PackSpeaker(sid = 0, displayName = "Kazakh voice 2 (male)", gender = "male"),
+            // ISSAI_KazakhTTS_M1_Iseke
+            PackSpeaker(sid = 1, displayName = "Iseke (Kazakh)", gender = "male"),
+            // ISSAI_KazakhTTS2_F3
+            PackSpeaker(sid = 2, displayName = "Kazakh voice 3 (female)", gender = "female"),
+            // ISSAI_KazakhTTS_F1_Raya
+            PackSpeaker(sid = 3, displayName = "Raya (Kazakh)", gender = "female"),
+            // ISSAI_KazakhTTS2_F1
+            PackSpeaker(sid = 4, displayName = "Kazakh voice 1 (female)", gender = "female"),
+            // ISSAI_KazakhTTS2_F2
+            PackSpeaker(sid = 5, displayName = "Kazakh voice 2 (female)", gender = "female"),
+        ),
+    )
+
+    /**
+     * Norwegian Bokmål **NVCC** pack, 22.05 kHz `medium` tier, **10 speakers**.
+     *
+     * Upstream keys are three-letter pseudonyms: first letter is the gender
+     * (K = *kvinne*, female; M = *mann*, male) and the last two are the
+     * speaker's dialect area (ON = East, SV = Southwest, NV = Northwest,
+     * MN = Central, NN = North). The labels keep the code so a listener can
+     * map a voice back to the corpus, and spell out both facts in English.
+     *
+     * Language code is `nb-NO`: the config says `no_NO` and espeak's voice is
+     * `nb`, and Bokmål is what the corpus is. Data is CC0 (Språkbanken /
+     * National Library of Norway) — no attribution required.
+     *
+     * Recording caveat from the corpus documentation, carried in the pack's
+     * `PROVENANCE.md`: these were recorded in ordinary meeting rooms, not a
+     * studio, so some voices carry room noise. Developer-only until Max's ear
+     * lab picks the keepers.
+     */
+    val NO_NVCC_MEDIUM: VoicePack = VoicePack(
+        id = "no-nvcc-medium",
+        engine = VITS_MARMALADE_ENGINE,
+        languageCode = "nb-NO",
+        displayName = "Norwegian (NVCC)",
+        qualityTier = "medium",
+        sampleRate = 22_050,
+        gender = null,
+        archive = packArchive(
+            packId = "no-nvcc-medium",
+            sha256 = "77df9edbda0417e9178f63c7516a637f28e76a782cbde1bc4885a8dbae1408ed",
+            sizeBytes = 71_295_587L,
+        ),
+        installedSizeBytes = 76_777_139L,
+        licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
+        speakers = listOf(
+            norwegianSpeaker(sid = 0, code = "KNN"),
+            norwegianSpeaker(sid = 1, code = "KSV"),
+            norwegianSpeaker(sid = 2, code = "MMN"),
+            norwegianSpeaker(sid = 3, code = "KON"),
+            norwegianSpeaker(sid = 4, code = "MNN"),
+            norwegianSpeaker(sid = 5, code = "MSV"),
+            norwegianSpeaker(sid = 6, code = "MON"),
+            norwegianSpeaker(sid = 7, code = "MNV"),
+            norwegianSpeaker(sid = 8, code = "KMN"),
+            norwegianSpeaker(sid = 9, code = "KNV"),
+        ),
+    )
+
     /** Every voice pack the app knows how to install. Read-only. */
     val all: List<VoicePack> = listOf(
         UK_LADA_X_LOW,
@@ -274,6 +492,8 @@ object VoicePackCatalog {
         IS_STEINN_MEDIUM,
         IS_UGLA_MEDIUM,
         SV_NST_MEDIUM,
+        KK_ISSAI_HIGH,
+        NO_NVCC_MEDIUM,
     )
 
     /** Lookup by [VoicePack.id]. Null for unknown packs. */
@@ -281,6 +501,22 @@ object VoicePackCatalog {
 
     /** Packs belonging to [engineName], in catalog (display) order. */
     fun forEngine(engineName: String): List<VoicePack> = all.filter { it.engine == engineName }
+
+    /**
+     * Every selectable voice of [engineName]'s packs, pack order then declared
+     * speaker order. This — not [forEngine] — is the voice list: a
+     * multi-speaker pack contributes several voices.
+     */
+    fun voicesForEngine(engineName: String): List<PackVoice> =
+        forEngine(engineName).flatMap { it.voices }
+
+    /**
+     * Resolve a voice key (`<packId>` or `<packId>#<sid>`) to its voice.
+     * Null when no pack of [engineName] declares it — which the engine turns
+     * into a hard failure rather than substituting another speaker.
+     */
+    fun voiceByKey(engineName: String, voiceKey: String): PackVoice? =
+        voicesForEngine(engineName).firstOrNull { it.voiceKey == voiceKey }
 
     /**
      * The pack installed when the user taps Install on the engine card

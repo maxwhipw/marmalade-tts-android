@@ -354,7 +354,11 @@ class MarmaladeTtsApplication : Application() {
          *    reseed also backfills the per-pack `sampleRate` (22.05 kHz for
          *    the `medium` tier, not the 16 kHz v34 hardcoded for every row)
          *    and the documented speaker genders.
+         *  - v36: the first multi-speaker VITS packs (Kazakh ISSAI ×6,
+         *    Norwegian NVCC ×10). A multi-speaker pack seeds one row per
+         *    speaker, id `<engine>:<packId>#<sid>`; single-speaker voice ids
+         *    are unchanged.
          */
-        const val CATALOG_VERSION: Int = 35
+        const val CATALOG_VERSION: Int = 36
     }
 }

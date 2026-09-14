@@ -11,9 +11,9 @@ import org.json.JSONObject
  * a new language is a download, not a code change.
  *
  * Only the fields we actually use are modelled. Upstream configs carry more
- * (`phoneme_map`, `speaker_id_map`, `piper_version`, training metadata); they
- * are ignored rather than rejected so a config from a newer exporter still
- * loads.
+ * (`phoneme_map`, `piper_version`, `default_speaker_id`, training metadata);
+ * they are ignored rather than rejected so a config from a newer exporter
+ * still loads.
  *
  * Why a plain `org.json` parse: same reasoning as
  * [app.marmalade.tts.engine.pocket.PocketBundle] — read once per pack load,
@@ -41,10 +41,22 @@ data class VitsPackConfig(
     /** `inference.noise_w` — the `scales[2]` input. */
     val noiseW: Float,
     /**
-     * Speaker count from `num_speakers`. 1 for every pack shipped so far;
-     * when > 1 the graph also takes a `sid` input.
+     * Speaker count from `num_speakers`. When > 1 the graph also takes a `sid`
+     * input and the pack contributes one selectable voice per speaker.
      */
     val numSpeakers: Int,
+    /**
+     * `speaker_id_map`: upstream speaker name → `sid` index, e.g.
+     * `{"lada": 0, "mykyta": 1}`. Empty for single-speaker packs.
+     *
+     * The app does NOT address speakers by these names — the catalog pins
+     * curated display names against the numeric sids, because the upstream
+     * keys are corpus identifiers (`ISSAI_KazakhTTS2_F3`, `KSV`) and not
+     * something to show a user. This is parsed so a test can assert the
+     * catalog's sids against the real checkpoint, and so a mismatch shows up
+     * in the load log rather than as the wrong speaker's voice.
+     */
+    val speakerIdMap: Map<String, Int>,
     /**
      * `phoneme_id_map`: one entry per phoneme the model knows, keyed by a
      * single-codepoint string, valued as the id list to emit for it. Almost
@@ -93,6 +105,18 @@ data class VitsPackConfig(
         fun load(file: File): VitsPackConfig =
             parse(file.readText(Charsets.UTF_8), origin = file.path)
 
+        /**
+         * `speaker_id_map` → name→sid. Absent (single-speaker packs) or
+         * `{}` gives an empty map. Order is preserved as the JSON's, which is
+         * sid order in practice but is not relied on anywhere.
+         */
+        private fun parseSpeakerIdMap(json: JSONObject?): Map<String, Int> {
+            if (json == null || json.length() == 0) return emptyMap()
+            val out = LinkedHashMap<String, Int>(json.length() * 2)
+            for (key in json.keys()) out[key] = json.getInt(key)
+            return out
+        }
+
         /** [load]'s string form — the seam unit tests drive. */
         fun parse(text: String, origin: String = "<memory>"): VitsPackConfig {
             val json = try {
@@ -116,6 +140,7 @@ data class VitsPackConfig(
                     lengthScale = inference.getDouble("length_scale").toFloat(),
                     noiseW = inference.getDouble("noise_w").toFloat(),
                     numSpeakers = json.optInt("num_speakers", 1),
+                    speakerIdMap = parseSpeakerIdMap(json.optJSONObject("speaker_id_map")),
                     phonemeIdMap = idMap,
                     languageCode = json.optJSONObject("language")
                         ?.optString("code")

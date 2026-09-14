@@ -1,7 +1,7 @@
 # VITS Marmalade — third-party license notice
 
 Covers **VITS Marmalade** (`vits-marmalade-v1`), Marmalade's own direct
-ONNX Runtime path for Piper-class single-speaker VITS checkpoints, and
+ONNX Runtime path for Piper-class VITS checkpoints, and
 the per-language **voice packs** it downloads on opt-in into
 `${filesDir}/engines/vits-marmalade-v1/packs/<pack>/`. The default APK
 bundles no voice pack.
@@ -147,7 +147,79 @@ SOFTWARE.
   specifically for commercial TTS development by Nordisk
   Språkteknologi.
 
-## 7. Phonemizer — espeak-ng
+## 7. Voice pack — `kk-issai-high` (Kazakh, 6 speakers)
+
+- **Files:** `model.onnx`, `model.onnx.json`
+- **Upstream:** https://huggingface.co/rhasspy/piper-voices — path
+  `kk/kk_KZ/issai/high/`
+- **License:** MIT — same repository licence and holder as section 1.
+- **Notice:** Copyright (c) 2022 Michael Hansen.
+- **Training:** trained from scratch per the upstream `MODEL_CARD`.
+- **Speakers:** six, addressed by the checkpoint's own `speaker_id_map`
+  index (`ISSAI_KazakhTTS_M1_Iseke`, `ISSAI_KazakhTTS_F1_Raya` and four
+  KazakhTTS2 speakers).
+
+## 8. Training data — KazakhTTS / KazakhTTS2 (ISSAI) — **ATTRIBUTION REQUIRED**
+
+- **Role:** the corpora behind `kk-issai-high`. Not shipped in the app or
+  the pack.
+- **Upstream:** ISSAI (Institute of Smart Systems and Artificial
+  Intelligence), Nazarbayev University.
+- **License:** Creative Commons Attribution 4.0 International
+  (**CC BY 4.0**) — the rights holder states the data is "publicly
+  available, which permits both academic and commercial use".
+  **Attribution required.**
+- **Required attribution** (reproduced in `CREDITS.md`):
+
+  > KazakhTTS and KazakhTTS2 corpora — ISSAI, Nazarbayev University.
+  > Mussakhojayeva et al., "KazakhTTS: An Open-Source Kazakh
+  > Text-to-Speech Synthesis Dataset" (arXiv:2104.08459) and
+  > "KazakhTTS2: Extending the Open-Source Kazakh TTS Corpus"
+  > (arXiv:2201.05771). CC BY 4.0.
+
+- **Full text:** [`full-texts/CC-BY-4.0.txt`](full-texts/CC-BY-4.0.txt).
+- **Consent:** "The KazakhTTS project was conducted with the approval of
+  the Institutional Research Ethics Committee of Nazarbayev University.
+  Each speaker participated voluntarily and was informed of the data
+  collection and use protocols through a consent form." (arXiv:2104.08459;
+  the same holds for KazakhTTS2.) The narrators were hired professionals,
+  selected by audition.
+- **Note:** ISSAI's README carries a non-binding request that the data be
+  used for good causes. The read texts were news articles, Wikipedia and a
+  public-domain book — a text-copyright matter upstream, separate from the
+  speakers' consent.
+
+## 9. Voice pack — `no-nvcc-medium` (Norwegian Bokmål, 10 speakers)
+
+- **Files:** `model.onnx`, `model.onnx.json`
+- **Upstream:** https://huggingface.co/rhasspy/piper-voices — path
+  `no/no_NO/nvcc/medium/`
+- **License:** MIT — same repository licence and holder as section 1.
+- **Notice:** Copyright (c) 2022 Michael Hansen.
+- **Training:** trained from scratch per the upstream `MODEL_CARD`.
+- **Speakers:** ten, keyed by the corpus's gender+dialect pseudonyms
+  (`KNN`, `KSV`, `MMN`, …) and addressed by the checkpoint's own
+  `speaker_id_map` index.
+
+## 10. Training data — Norwegian Voice Control Corpus (NVCC)
+
+- **Role:** the corpus behind `no-nvcc-medium`. Not shipped in the app or
+  the pack.
+- **Upstream:** Språkbanken resource **sbr-75**, "Norwegian Voice Control
+  Corpus" (2022) — 9,834 queries read by 11 recruited participants from
+  five dialect areas.
+- **License:** **CC0 1.0** — "it is public domain and can be used for any
+  purpose and reshared without permission" (NVCC documentation). No
+  attribution required.
+- **Rights holder:** Språkbanken, Nasjonalbiblioteket (the National
+  Library of Norway).
+- **Full text:** [`full-texts/CC0-1.0.txt`](full-texts/CC0-1.0.txt).
+- **Collection:** participants were recruited into an explicitly
+  open-source dataset and pseudonymised by code. Recorded in ordinary
+  meeting rooms rather than a studio, so some speakers carry room
+  noise — a fidelity matter, not a licensing one.
+
+## Phonemizer — espeak-ng (all packs)
 
 VITS Marmalade phonemizes through the same app-level espeak-ng
 integration as the Kitten and Kokoro engines: `libespeak-ng.so` is

@@ -2,6 +2,7 @@ package app.marmalade.tts.data
 
 import app.marmalade.tts.data.cloud.CloudProviderDirectory
 import app.marmalade.tts.install.EngineCatalog
+import app.marmalade.tts.install.VoicePackCatalog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -84,6 +85,11 @@ class VoicePathResolver @Inject constructor(
         val voiceKey = voiceId.substringAfterLast(':', voiceId)
         val voiceLabel = when (engineName) {
             KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.bareName(voiceKey)
+            // A VITS voice key is a pack id, optionally `#<sid>` — capitalizing
+            // it would read "Kk-issai-high#1". Use the catalog's curated name,
+            // falling back to the raw key for a pack the build no longer ships.
+            VitsVoiceCatalog.ENGINE ->
+                VoicePackCatalog.voiceByKey(engineName, voiceKey)?.displayName ?: voiceKey
             else -> voiceKey.replaceFirstChar { it.uppercase() }
         }
         return VoicePath(

@@ -1,5 +1,6 @@
 package app.marmalade.tts.engine.vits
 
+import app.marmalade.tts.install.VoicePackCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -42,6 +43,91 @@ class VitsPackConfigTest {
         assertEquals(listOf(1), config.phonemeIdMap["^"])
         assertEquals(listOf(0), config.phonemeIdMap["_"])
         assertEquals(listOf(2), config.phonemeIdMap["$"])
+    }
+
+    @Test
+    fun aSingleSpeakerConfigHasNoSpeakerIdMap() {
+        assertEquals(emptyMap<String, Int>(), VitsTestFixtures.ukLadaConfig().speakerIdMap)
+    }
+
+    @Test
+    fun parsesTheRealKazakhMultiSpeakerConfig() {
+        val config = VitsTestFixtures.config("kk-issai-high")
+
+        assertEquals(22_050, config.sampleRate)
+        assertEquals("kk", config.espeakVoice)
+        assertEquals(6, config.numSpeakers)
+        assertTrue("a 6-speaker pack must request a sid input", config.isMultiSpeaker)
+        // The sids are NOT in key order — reading them off the map rather than
+        // assuming an ordering is the whole point of parsing this field.
+        assertEquals(
+            mapOf(
+                "ISSAI_KazakhTTS2_M2" to 0,
+                "ISSAI_KazakhTTS_M1_Iseke" to 1,
+                "ISSAI_KazakhTTS2_F3" to 2,
+                "ISSAI_KazakhTTS_F1_Raya" to 3,
+                "ISSAI_KazakhTTS2_F1" to 4,
+                "ISSAI_KazakhTTS2_F2" to 5,
+            ),
+            config.speakerIdMap,
+        )
+    }
+
+    @Test
+    fun parsesTheRealNorwegianMultiSpeakerConfig() {
+        val config = VitsTestFixtures.config("no-nvcc-medium")
+
+        assertEquals(22_050, config.sampleRate)
+        assertEquals("nb", config.espeakVoice)
+        assertEquals(10, config.numSpeakers)
+        assertEquals(
+            mapOf(
+                "KNN" to 0,
+                "KSV" to 1,
+                "MMN" to 2,
+                "KON" to 3,
+                "MNN" to 4,
+                "MSV" to 5,
+                "MON" to 6,
+                "MNV" to 7,
+                "KMN" to 8,
+                "KNV" to 9,
+            ),
+            config.speakerIdMap,
+        )
+    }
+
+    @Test
+    fun theCatalogsSpeakerSidsMatchTheRealCheckpoints() {
+        // The catalog's curated speaker list and the downloaded checkpoint are
+        // separate artefacts. A wrong sid here renders a different speaker than
+        // the label promises, with no error anywhere — this is the only check
+        // that can catch it without a device.
+        for (packId in listOf("kk-issai-high", "no-nvcc-medium")) {
+            val config = VitsTestFixtures.config(packId)
+            val pack = checkNotNull(VoicePackCatalog.byId(packId)) { "no catalog pack $packId" }
+            assertEquals(
+                "$packId: catalog declares ${pack.speakers.size} speakers, " +
+                    "checkpoint has ${config.numSpeakers}",
+                config.numSpeakers,
+                pack.speakers.size,
+            )
+            assertEquals(
+                "$packId: catalog sids must be exactly the checkpoint's speaker_id_map values",
+                config.speakerIdMap.values.sorted(),
+                pack.speakers.map { it.sid }.sorted(),
+            )
+        }
+    }
+
+    @Test
+    fun everyMultiSpeakerCatalogPackHasACheckedInConfigAndViceVersa() {
+        // Guards the test above from silently covering nothing: a new
+        // multi-speaker pack without a fixture would skip the sid check.
+        val declared = VoicePackCatalog.forEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE)
+            .filter { it.speakers.isNotEmpty() }
+            .map { it.id }
+        assertEquals(listOf("kk-issai-high", "no-nvcc-medium"), declared)
     }
 
     @Test

@@ -11,6 +11,7 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.install.PackVoice
 import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.perf.CpuClusterDetector
@@ -33,9 +34,11 @@ import kotlinx.coroutines.withContext
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
-//   synthesize(text, voiceId = "vits-marmalade-v1:<packId>", speed, lang?)
+//   synthesize(text, voiceId = "vits-marmalade-v1:<voiceKey>", speed, lang?)
+//     │      voiceKey = "<packId>"        single-speaker pack
+//     │               | "<packId>#<sid>"  one speaker of a multi-speaker pack
 //     │
-//     ├── packFor(voiceId) ────────► VoicePack  (unknown id → hard failure)
+//     ├── voiceFrom(voiceId) ──────► PackVoice (unknown key/sid → hard failure)
 //     │
 //     ├── ensurePackLoaded(pack) ──► LoadedPack
 //     │        ├── VitsPackConfig.load(packs/<id>/model.onnx.json)
@@ -52,7 +55,8 @@ import kotlinx.coroutines.withContext
 //     │        input         int64 [1, T]  ids
 //     │        input_lengths int64 [1]     T
 //     │        scales        f32   [3]     [noise_scale, length_scale, noise_w]
-//     │        sid           int64 [1]     only when num_speakers > 1
+//     │        sid           int64 [1]     only when num_speakers > 1, and
+//     │                                    then the voice's own speaker index
 //     │        → output[0]   f32   [...,N] audio, leading 1-dims squeezed
 //     │
 //     └── float → PCM16 (×32767, clipped) → SynthAudio(pcm, config.sampleRate)
@@ -65,8 +69,8 @@ import kotlinx.coroutines.withContext
 //
 // VitsDirectEngine — "VITS Marmalade"
 //
-// Marmalade's own inference path for Piper-class single-speaker VITS
-// checkpoints, on `com.microsoft.onnxruntime:onnxruntime-android`. NO Piper
+// Marmalade's own inference path for Piper-class VITS checkpoints, single- and
+// multi-speaker, on `com.microsoft.onnxruntime:onnxruntime-android`. NO Piper
 // runtime code is used or shipped: the maintained fork (OHF-Voice/piper1-gpl)
 // is GPL-3.0. The tensor contract was read off the checkpoint itself and the
 // id-mapping semantics reimplemented in [VitsPhonemeIds]; see that file.
@@ -225,8 +229,10 @@ class VitsDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
     ): kotlinx.coroutines.flow.Flow<SynthAudio> = kotlinx.coroutines.flow.channelFlow {
-        val packId = packIdFrom(voiceId)
+        val voice = voiceFrom(voiceId)
+        val packId = voice.packId
         val pack = ensureLoadedSuspending(packId)
+        val sid = sidFor(pack, voice)
         val lang = phonemizationLanguage?.takeIf { it != LangDetector.AUTO }
             ?: pack.config.espeakVoice
         // Warm-up only: phonemize(text, lang) re-asserts the voice atomically
@@ -249,13 +255,13 @@ class VitsDirectEngine @Inject constructor(
             // Phonemize + infer under the synth lock: the clause loop must not
             // interleave with another utterance on this engine, and an ORT
             // session is not reentrant.
-            val audio = synthLock.withLock { renderUtterance(pack, clauses, lang) }
+            val audio = synthLock.withLock { renderUtterance(pack, clauses, lang, sid) }
             if (audio.pcm.isEmpty()) continue
             val inferMs = (System.nanoTime() - startNs) / 1_000_000
             val audioMs = audio.pcm.size * 1000L / audio.sampleRate
             Log.d(
                 PERF_TAG,
-                "vits pack=$packId chunk=$idx/${chunks.size} infer=${inferMs}ms " +
+                "vits pack=$packId sid=${sid ?: "-"} chunk=$idx/${chunks.size} infer=${inferMs}ms " +
                     "audio=${audioMs}ms rtf=${if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN} " +
                     "textLen=${chunk.length}",
             )
@@ -412,11 +418,12 @@ class VitsDirectEngine @Inject constructor(
 
     // -- inference ------------------------------------------------------------
 
-    /** Caller holds [synthLock]. */
+    /** Caller holds [synthLock]. [sid] is null for single-speaker packs. */
     private fun renderUtterance(
         pack: LoadedPack,
         clauses: List<VitsClause>,
         lang: String,
+        sid: Int?,
     ): SynthAudio {
         val phon = phonemizer ?: error("phonemizer missing")
         val phonemized = clauses.map { clause ->
@@ -430,7 +437,7 @@ class VitsDirectEngine @Inject constructor(
                     "pack's map: ${VitsPhonemeIds.describeMissing(encoded.missing)}",
             )
         }
-        val pcm = runInference(pack, encoded.ids)
+        val pcm = runInference(pack, encoded.ids, sid)
         return SynthAudio(pcm = pcm, sampleRate = pack.config.sampleRate)
     }
 
@@ -440,7 +447,7 @@ class VitsDirectEngine @Inject constructor(
      * runs is invalid once the Result that saw it has been closed, and nothing
      * is pinned because pinning demands the full output set.
      */
-    private fun runInference(pack: LoadedPack, ids: IntArray): ShortArray {
+    private fun runInference(pack: LoadedPack, ids: IntArray, sid: Int?): ShortArray {
         val ort = env ?: error("engine not loaded")
         // Ids are only the two markers — nothing to say.
         if (ids.size <= 2) return ShortArray(0)
@@ -458,12 +465,10 @@ class VitsDirectEngine @Inject constructor(
             buf.put(config.noiseW)
         }
         // Single-speaker packs have no `sid` input at all — feeding one would
-        // fail the run. Multi-speaker packs take speaker 0 until the catalog
-        // models per-speaker voices.
-        val sidTensor = if (config.isMultiSpeaker) {
-            directLongTensor(ort, longArrayOf(1)) { buf -> buf.put(0L) }
-        } else {
-            null
+        // fail the run — so [sidFor] hands back null for them. Multi-speaker
+        // packs get the voice's own speaker index.
+        val sidTensor = sid?.let { value ->
+            directLongTensor(ort, longArrayOf(1)) { buf -> buf.put(value.toLong()) }
         }
 
         try {
@@ -542,22 +547,46 @@ class VitsDirectEngine @Inject constructor(
     // -- pack resolution ------------------------------------------------------
 
     /**
-     * Pack id from a `<engine>:<packId>` voice id (a bare pack id is accepted
-     * too — the benchmark screen and dev callers pass one).
+     * Resolve a `<engine>:<voiceKey>` voice id to its catalog voice — the pack
+     * to load plus the speaker index to feed the graph. A bare voice key is
+     * accepted too (the benchmark screen and dev callers pass one).
      *
-     * @throws IllegalArgumentException naming the known packs when the id
-     *   isn't one of them. Silently substituting another voice would mean a
-     *   user hears a language they didn't pick, with nothing in the logs.
+     * @throws IllegalArgumentException naming the known voices when the id
+     *   isn't one of them — including a `<packId>#<sid>` whose sid the catalog
+     *   doesn't declare. Silently substituting another voice would mean a user
+     *   hears a different speaker (or language) than they picked, with nothing
+     *   in the logs.
      */
-    private fun packIdFrom(voiceId: String): String {
-        val candidate = voiceId.substringAfter(':', voiceId)
-        val known = VoicePackCatalog.forEngine(ENGINE_NAME).map { it.id }
-        if (candidate !in known) {
-            throw IllegalArgumentException(
-                "Unknown $ENGINE_NAME voice '$voiceId'. Known packs: ${known.joinToString()}",
-            )
+    private fun voiceFrom(voiceId: String): PackVoice {
+        val key = voiceId.substringAfter(':', voiceId)
+        return VoicePackCatalog.voiceByKey(ENGINE_NAME, key) ?: throw IllegalArgumentException(
+            "Unknown $ENGINE_NAME voice '$voiceId'. Known voices: " +
+                VoicePackCatalog.voicesForEngine(ENGINE_NAME).joinToString { it.voiceKey },
+        )
+    }
+
+    /**
+     * The `sid` input value for [voice] against the pack that actually loaded,
+     * or null when the graph takes no `sid` at all.
+     *
+     * The catalog's speaker list and the downloaded checkpoint are separate
+     * artefacts, so this is a real boundary: a catalog entry that outran the
+     * pack it describes would otherwise index a speaker embedding out of range
+     * (ORT aborts) or, worse, silently render the wrong speaker.
+     */
+    private fun sidFor(pack: LoadedPack, voice: PackVoice): Int? {
+        if (!pack.config.isMultiSpeaker) {
+            check(voice.sid == 0) {
+                "voice '${voice.voiceKey}' selects speaker ${voice.sid} but pack " +
+                    "'${voice.packId}' is single-speaker"
+            }
+            return null
         }
-        return candidate
+        check(voice.sid in 0 until pack.config.numSpeakers) {
+            "voice '${voice.voiceKey}' selects speaker ${voice.sid} but pack " +
+                "'${voice.packId}' has ${pack.config.numSpeakers} speaker(s)"
+        }
+        return voice.sid
     }
 
     /**
