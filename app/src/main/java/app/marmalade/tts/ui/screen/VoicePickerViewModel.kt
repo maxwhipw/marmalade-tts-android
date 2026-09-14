@@ -7,17 +7,18 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.audio.SynthesizerException
-import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.InstalledVoiceAssets
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
+import app.marmalade.tts.data.isVoiceAvailable
+import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
-import app.marmalade.tts.install.InstallState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,10 +38,12 @@ import kotlinx.coroutines.launch
 //     │
 //     ├── voices ◄────────── VoicePickerViewModel.voices
 //     │                          ▲
-//     │                          │ combine(allVoices, installedEngines) { ... }
+//     │                          │ combine(allVoices, installedAssets) { ... }
+//     │                          │   filtered by data/VoiceAvailability.kt
 //     │                          │
 //     │                  VoiceMetaDao.getAll() (Flow)
-//     │                  + per-engine EngineInstaller.verify() (probed via refresh)
+//     │                  + probeInstalledVoiceAssets(): per-engine verify()
+//     │                    AND per-pack verifyPack() (probed via refresh)
 //     │
 //     ├── selectedId ◄────── VoicePickerViewModel.selectedId
 //     │                          ▲
@@ -56,6 +59,11 @@ import kotlinx.coroutines.launch
 //          ├── selectVoice(id) ──► SettingsRepository.setDefaultVoiceId
 //          ├── preview(voice)  ──► Synthesizer.speak(...)
 //          └── refresh()       ──► installer.verify() for each catalog engine
+//
+//   Per-pack filtering: a pack-based engine (VITS Marmalade) verifies as
+//   installed as soon as ONE of its per-language packs is on disk, so the
+//   engine-level check below is not enough on its own — the filter also
+//   requires the voice's own pack. See data/VoiceAvailability.kt.
 //
 //   Engine-install filtering (v0.1.18):
 //     The DB is seeded with metadata for every catalog voice at app startup
@@ -127,21 +135,29 @@ class VoicePickerViewModel @Inject constructor(
     val engineFilter: String? = savedStateHandle["engine"]
 
     /**
-     * Engines whose on-disk layout currently passes [EngineInstaller.verify].
-     * Seeded from `refresh()` (called on init + when the screen becomes
-     * active). Used to filter the voice list — voices whose engine isn't
-     * installed are hidden so the user can't pick a voice they can't hear.
+     * What is on disk right now: engines that pass [EngineInstaller.verify] and
+     * the individual voice packs that pass `verifyPack`. Seeded from `refresh()`
+     * (called on init + when the screen becomes active). Used to filter the
+     * voice list — a voice the user can't actually hear is never offered.
      */
-    private val _installedEngines = MutableStateFlow<Set<String>>(emptySet())
-    val installedEngines: StateFlow<Set<String>> = _installedEngines.asStateFlow()
+    private val _installedAssets = MutableStateFlow(InstalledVoiceAssets())
+
+    /** Installed engine names, for the screen's "nothing installed" empty state. */
+    val installedEngines: StateFlow<Set<String>> =
+        _installedAssets.map { it.engines }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptySet(),
+            )
 
     val voices: StateFlow<List<VoiceMeta>> = combine(
         voiceDao.getAll(),
-        _installedEngines,
+        _installedAssets,
         settings.showDeveloperEngines,
-    ) { allVoices, installed, showDeveloper ->
+    ) { allVoices, assets, showDeveloper ->
         allVoices.filter { voice ->
-            voice.engine in installed &&
+            isVoiceAvailable(voice, assets) &&
                 (engineFilter == null || voice.engine == engineFilter) &&
                 (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames)
         }
@@ -309,18 +325,12 @@ class VoicePickerViewModel @Inject constructor(
      */
     fun refresh() {
         viewModelScope.launch {
-            val installed = mutableSetOf<String>()
-            for (engine in EngineCatalog.all) {
-                if (installer.verify(engine.name) is InstallState.Installed) {
-                    installed += engine.name
-                }
-            }
             // The Cloud API engine has no bundle — "installed" means an
             // API key is configured (Engines tab → Cloud voices → Configure).
-            if (settings.anyCloudApiKeySet.firstOrNull() == true) {
-                installed += CloudApiVoiceCatalog.ENGINE
-            }
-            _installedEngines.value = installed
+            _installedAssets.value = probeInstalledVoiceAssets(
+                installer = installer,
+                anyCloudKeySet = settings.anyCloudApiKeySet.firstOrNull() == true,
+            )
             _installProbeDone.value = true
         }
     }

@@ -330,4 +330,52 @@ class VoicePackCatalogTest {
         )
         assertEquals("${VitsVoiceCatalog.ENGINE}:uk-lada-x_low", VitsVoiceCatalog.DEFAULT_VOICE_ID)
     }
+
+    @Test
+    fun seededSortOrderGroupsTheVoicesByLanguage() {
+        // The picker sorts a model's voices by sortOrder, so this is what keeps
+        // the 25 VITS voices from interleaving languages — the two Ukrainian
+        // packs sit at opposite ends of the catalog list and would otherwise
+        // bracket every other language.
+        val byOrder = VitsVoiceCatalog.voices.sortedBy { it.sortOrder }
+        val languageRuns = byOrder.map { it.languageCode }
+            .fold(mutableListOf<String>()) { runs, code ->
+                if (runs.lastOrNull() != code) runs += code
+                runs
+            }
+        assertEquals(
+            "each language must appear as ONE contiguous run: $languageRuns",
+            listOf("uk-UA", "is-IS", "sv-SE", "kk-KZ", "nb-NO"),
+            languageRuns,
+        )
+        // Ranks are a dense 0..n-1 permutation — a duplicate would make two
+        // rows' relative order depend on the name tiebreak instead.
+        assertEquals(
+            VitsVoiceCatalog.voices.indices.toList(),
+            VitsVoiceCatalog.voices.map { it.sortOrder }.sorted(),
+        )
+        // Inside a language, catalog order is preserved (x_low Lada before the
+        // medium pack's three speakers).
+        assertEquals(
+            listOf(
+                "Lada (Ukrainian, small)",
+                "Lada (Ukrainian)",
+                "Mykyta (Ukrainian)",
+                "Tetiana (Ukrainian)",
+            ),
+            byOrder.filter { it.languageCode == "uk-UA" }.map { it.displayName },
+        )
+    }
+
+    @Test
+    fun everyPackDeclaresAQualityGrade() {
+        // Enforced by the type, but this also pins that no pack silently
+        // inherits a default: the grade is a per-pack listening judgement.
+        for (pack in VoicePackCatalog.all) {
+            assertTrue(
+                "${pack.id}: meterFill must be 1..4",
+                pack.quality.meterFill in 1..4,
+            )
+        }
+    }
 }

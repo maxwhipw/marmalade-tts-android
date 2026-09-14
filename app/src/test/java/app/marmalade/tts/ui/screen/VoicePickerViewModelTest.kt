@@ -4,8 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.util.MainDispatcherRule
@@ -69,16 +71,82 @@ class VoicePickerViewModelTest {
         assertTrue("expected name in '$text'", text.contains("Bella"))
     }
 
+    @Test
+    fun `a vits voice is listed only when its own pack is installed`() = runTest {
+        // The promotion blocker this closes: the engine verifies as installed
+        // from ONE pack, so an engine-level filter offered all 25 voices and
+        // picking an absent one failed at synthesis.
+        val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        // VITS Marmalade is developerOnly, so the picker hides it otherwise.
+        settings.setShowDeveloperEngines(true)
+        val vm = newViewModel(
+            settings = settings,
+            voices = VitsVoiceCatalog.voices,
+            installer = PickerFakeInstaller(
+                installedEngines = setOf(VitsVoiceCatalog.ENGINE),
+                installedPacks = setOf("is-salka-medium"),
+            ),
+        )
+
+        val listed = vm.voices.first { it.isNotEmpty() }
+
+        assertEquals(
+            listOf(VitsVoiceCatalog.voiceId("is-salka-medium")),
+            listed.map { it.id },
+        )
+    }
+
+    @Test
+    fun `installing a multi-speaker pack lists every one of its speakers`() = runTest {
+        val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        settings.setShowDeveloperEngines(true)
+        val vm = newViewModel(
+            settings = settings,
+            voices = VitsVoiceCatalog.voices,
+            installer = PickerFakeInstaller(
+                installedEngines = setOf(VitsVoiceCatalog.ENGINE),
+                installedPacks = setOf("kk-issai-high"),
+            ),
+        )
+
+        val listed = vm.voices.first { it.isNotEmpty() }
+
+        assertEquals(6, listed.size)
+        assertTrue(listed.all { VitsVoiceCatalog.packIdOf(it.id) == "kk-issai-high" })
+    }
+
+    @Test
+    fun `an installed engine with no packs lists no voices at all`() = runTest {
+        val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        settings.setShowDeveloperEngines(true)
+        val vm = newViewModel(
+            settings = settings,
+            voices = VitsVoiceCatalog.voices,
+            installer = PickerFakeInstaller(
+                installedEngines = setOf(VitsVoiceCatalog.ENGINE),
+                installedPacks = emptySet(),
+            ),
+        )
+
+        // The probe has run (installedEngines is non-empty) and still nothing
+        // is pickable — which is the honest answer, not an empty-because-
+        // unprobed list.
+        vm.installedEngines.first { it.isNotEmpty() }
+        assertTrue(vm.voices.value.isEmpty())
+    }
+
     private fun newViewModel(
         settings: SettingsRepository,
         player: SpeechPlayer = RecordingPlayer(),
+        voices: List<VoiceMeta> = KittenDirectVoiceCatalog.voices,
+        installer: EngineInstaller = PickerFakeInstaller(),
     ): VoicePickerViewModel {
-        val dao = FakeDao(voices = KittenDirectVoiceCatalog.voices)
+        val dao = FakeDao(voices = voices)
         return VoicePickerViewModel(
             voiceDao = dao,
             settings = settings,
             synthesizer = player,
-            installer = PickerFakeInstaller(),
+            installer = installer,
             // No cloud providers configured — on-device voices resolve
             // entirely from EngineCatalog, which is what these tests use.
             voicePaths = VoicePathResolver { null },
@@ -152,6 +220,13 @@ class VoicePickerViewModelTest {
  */
 private class PickerFakeInstaller(
     private val installedEngines: Set<String> = setOf("kitten-direct-v0_8", "kokoro-direct-v1_0"),
+    /**
+     * Voice packs that should report installed. A pack-based engine verifies as
+     * installed as soon as one pack is present, so the two sets are
+     * independent: `engines` says the runtime is there, `packs` says which
+     * languages are.
+     */
+    private val installedPacks: Set<String> = emptySet(),
 ) : EngineInstaller(
     filesDir = { java.io.File("/tmp/voicepicker-test-unused") },
     engineHandle = { /* no-op release */ },
@@ -159,4 +234,7 @@ private class PickerFakeInstaller(
 ) {
     override suspend fun verify(engineName: String): InstallState =
         if (engineName in installedEngines) InstallState.Installed else InstallState.NotInstalled
+
+    override suspend fun verifyPack(packId: String): InstallState =
+        if (packId in installedPacks) InstallState.Installed else InstallState.NotInstalled
 }

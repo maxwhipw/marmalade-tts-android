@@ -10,6 +10,9 @@ import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.install.VoicePackCatalog
+import app.marmalade.tts.install.VoicePackSummary
+import app.marmalade.tts.install.voicePackSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -30,6 +33,9 @@ import kotlinx.coroutines.launch
 //     │
 //     ├── engines       ◄────── EngineCatalog.all (static StateFlow)
 //     ├── installStates ◄────── EnginesViewModel.installStates (per engine)
+//     ├── packSummaries ◄────── EnginesViewModel.packSummaries
+//     │                         (pack-based engines: installer.verifyPack per
+//     │                          pack → voicePackSummary)
 //     │
 //     └── actions
 //          ├── install(name)   → installer.install(name, ::onProgress)
@@ -73,15 +79,42 @@ class EnginesViewModel @Inject constructor(
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()
 
     /**
+     * Per-engine voice-pack counts for the card's aggregate line, keyed by
+     * engine name. Only pack-based engines appear; the card renders nothing for
+     * the others.
+     *
+     * Seeded with every pack at NotInstalled so the "N packs · M languages"
+     * half of the line is right on first frame and only the installed count
+     * fills in after [refresh] probes the disk.
+     */
+    private val _packSummaries = MutableStateFlow(
+        EngineCatalog.all
+            .filter { it.isPackBased }
+            .associate { it.name to voicePackSummary(it.name, emptyMap()) },
+    )
+    val packSummaries: StateFlow<Map<String, VoicePackSummary>> = _packSummaries.asStateFlow()
+
+    /**
      * Probe each catalog engine to populate the install-state map. Called
      * once on screen composition (via `LaunchedEffect`) and again any
      * time the user returns to this screen.
+     *
+     * A pack-based engine is probed twice over: once as an engine (does it have
+     * any usable pack at all, which is what its Install/Configure button
+     * reflects) and once per pack, so the card can say how many of the
+     * available packs are actually on the phone.
      */
     fun refresh() {
         viewModelScope.launch {
             for (engine in EngineCatalog.all) {
                 val state = installer.verify(engine.name)
                 _installStates.update { current -> current + (engine.name to state) }
+                if (!engine.isPackBased) continue
+                val packStates = VoicePackCatalog.forEngine(engine.name)
+                    .associate { pack -> pack.id to installer.verifyPack(pack.id) }
+                _packSummaries.update { current ->
+                    current + (engine.name to voicePackSummary(engine.name, packStates))
+                }
             }
         }
     }

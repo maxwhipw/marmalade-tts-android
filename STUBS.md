@@ -114,21 +114,32 @@ how to finish it.
   each pack on device (developer engines ON) and speak a sentence in its
   language.
 
-### Voice-picker filtering is per engine, not per pack
-- **Files:** `app/src/main/java/app/marmalade/tts/data/VitsVoiceCatalog.kt`,
-  `app/src/main/java/app/marmalade/tts/ui/screen/VoicePickerViewModel.kt`.
-- **What's missing:** the picker hides voices whose *engine* isn't
-  installed. The catalog now carries several packs, so once ANY pack is
-  installed every pack's voice is listed — picking one whose tarball was
-  never downloaded fails at synth with `EngineNotInstalledException`.
-- **Why deferred:** the fix belongs with the pack-management UI slice
-  (which needs a per-pack install/uninstall surface anyway). **This is a
-  promotion blocker:** the engine must stay `developerOnly` until the
-  picker filters per pack.
-- **How to finish:** expose `VitsDirectEngine.installedPackIds()` (already
-  public) to the picker ViewModel and filter VITS rows by it — or, more
-  generally, add an optional per-voice "asset present" probe to the
-  picker's installed-engine filter.
+### ~~Voice-picker filtering is per engine, not per pack~~ — CLOSED (letter E)
+Fixed by `data/VoiceAvailability.kt`: `probeInstalledVoiceAssets` probes every
+engine AND every pack (`EngineInstaller.verifyPack`), and `isVoiceAvailable`
+requires a pack-based engine's voice to have its own pack on disk. Both picker
+surfaces (`VoicePickerViewModel`, `AliasViewModel`) share the filter, and
+`VoiceAvailabilityTest` + `VoicePickerViewModelTest` pin it. The per-pack
+install/uninstall surface it depended on is the "Voice packs" section on
+`EngineDetailScreen`.
+
+### The VITS pack UI has no on-device verification
+- **Files:** `app/src/main/java/app/marmalade/tts/ui/screen/EngineDetailScreen.kt`
+  (Voice packs section), `EngineDetailViewModel.installPack/uninstallPack`.
+- **What's missing:** the derivation (grouping, per-row action, progress
+  fractions, summary counts) and the ViewModel's state transitions are
+  unit-tested (`VoicePackRowsTest`, `EngineDetailViewModelTest`), but nobody
+  has yet watched a real pack download and install from that screen — the
+  release assets 404 until `v24` is published, so even a device run would stop
+  at the fetch.
+- **Why deferred:** blocked on the `v24` upload (Max's call, public surface),
+  and Compose UI assertions would need `connectedAndroidTest`, which must not
+  run against the daily phone.
+- **How to finish:** after the `v24` upload, install two packs of different
+  languages from Configure → Voice packs, confirm the progress strip is
+  determinate for both the download and the unpack, remove one and confirm the
+  other still speaks, and confirm the picker's voice list gains/loses exactly
+  that pack's voices.
 
 ### No end-to-end audio test for the VITS path
 - **Files:** `app/src/main/java/app/marmalade/tts/engine/vits/VitsDirectEngine.kt`.

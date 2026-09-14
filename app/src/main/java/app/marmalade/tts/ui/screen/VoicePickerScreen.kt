@@ -45,9 +45,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.latencyKeyFor
 import app.marmalade.tts.install.EngineCatalog
+import app.marmalade.tts.ui.components.languageDisplayName
+import app.marmalade.tts.ui.components.packQualityLabelRes
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -313,19 +316,30 @@ private fun VoiceList(
         VoicePickerEmpty(stringResource(R.string.voices_empty_model), ScreenGutter)
         return
     }
+    // Language sections for a multi-language model (Kokoro's 9 locales, VITS
+    // Marmalade's 6 languages); a single-language engine renders one unlabelled
+    // section, i.e. exactly the flat list it had before.
+    val sections = remember(voices) { groupVoicesByLanguage(voices) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(items = voices, key = { it.id }) { voice ->
-            VoiceRow(
-                voice = voice,
-                isSelected = voice.id == selectedId,
-                isPreviewing = playingId == voice.id,
-                previewEnabled = previewEnabled(voice),
-                subtitle = supportingText(voice),
-                badge = null,
-                onClick = { onPick(voice) },
-                onPreview = { onPreview(voice) },
-            )
-            HorizontalDivider()
+        for (section in sections) {
+            if (sections.size > 1) {
+                item(key = "lang-${section.languageCode}") {
+                    VoiceLanguageHeader(section.languageCode, ScreenGutter)
+                }
+            }
+            items(items = section.voices, key = { it.id }) { voice ->
+                VoiceRow(
+                    voice = voice,
+                    isSelected = voice.id == selectedId,
+                    isPreviewing = playingId == voice.id,
+                    previewEnabled = previewEnabled(voice),
+                    subtitle = supportingText(voice),
+                    badge = null,
+                    onClick = { onPick(voice) },
+                    onPreview = { onPreview(voice) },
+                )
+                HorizontalDivider()
+            }
         }
     }
 }
@@ -461,14 +475,23 @@ private fun genderGlyph(gender: String?): String = when (gender) {
 /**
  * Row subtitle inside a model's voice list. The source and model are already
  * in the breadcrumb above, so this carries only what the drill-down didn't
- * say: gender and language.
+ * say: gender, language, and — for a pack-based engine — the pack's audio
+ * quality grade, because on VITS Marmalade the grade varies voice to voice and
+ * it is the thing a listener most wants to know before picking one.
+ *
+ * The language is the localized name where we have one, falling back to the raw
+ * tag for a cloud voice whose language we don't have a string for.
  */
 @Composable
-private fun supportingText(voice: VoiceMeta): String = stringResource(
-    R.string.voices_row_subtitle,
-    voice.gender ?: stringResource(R.string.voices_gender_unknown),
-    voice.languageCode,
-)
+private fun supportingText(voice: VoiceMeta): String {
+    val base = stringResource(
+        R.string.voices_row_subtitle,
+        voice.gender ?: stringResource(R.string.voices_gender_unknown),
+        languageDisplayName(voice.languageCode),
+    )
+    val quality = VitsVoiceCatalog.packVoiceOf(voice.id)?.quality ?: return base
+    return "$base · ${stringResource(packQualityLabelRes(quality))}"
+}
 
 /**
  * Engine section-header label — the catalog's user-facing display name

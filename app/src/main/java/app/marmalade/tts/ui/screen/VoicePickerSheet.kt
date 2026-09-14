@@ -167,9 +167,19 @@ private fun VoiceList(
         Empty(stringResource(R.string.voices_empty_model))
         return
     }
+    // Same language sections as the full-screen picker — the two surfaces
+    // browse the same tree and must not diverge.
+    val sections = remember(voices) { groupVoicesByLanguage(voices) }
     LazyColumn {
-        items(items = voices, key = { it.id }) { voice ->
-            VoiceRow(voice, voice.id == selectedVoiceId, subtitle = null, onPick = onPick)
+        for (section in sections) {
+            if (sections.size > 1) {
+                item(key = "lang-${section.languageCode}") {
+                    VoiceLanguageHeader(section.languageCode, SheetGutter)
+                }
+            }
+            items(items = section.voices, key = { it.id }) { voice ->
+                VoiceRow(voice, voice.id == selectedVoiceId, subtitle = null, onPick = onPick)
+            }
         }
     }
 }

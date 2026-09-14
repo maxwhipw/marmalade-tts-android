@@ -1,6 +1,7 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
@@ -21,12 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.marmalade.tts.R
 import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.latencyKeyFor
+import app.marmalade.tts.ui.components.languageDisplayName
 
 // -----------------------------------------------------------------------------
 // The voice drill-down: shared level-1 and level-2 lists
@@ -193,6 +197,28 @@ fun VoiceLatencyChip(bucket: LatencyBucket?) {
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
         )
     }
+}
+
+/**
+ * Section heading inside a model's voice list, naming the language its rows
+ * speak. Shared by both picker surfaces, and only drawn when a model actually
+ * has more than one language — Kokoro's 53 voices across 9 locales and VITS
+ * Marmalade's 25 voices across 6 languages were both flat walls of names
+ * before this.
+ */
+@Composable
+fun VoiceLanguageHeader(languageCode: String, horizontalPadding: Dp) {
+    Text(
+        text = languageDisplayName(languageCode),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .semantics { heading() }
+            .padding(horizontal = horizontalPadding, vertical = 6.dp),
+    )
 }
 
 /** Shared empty/status line for both picker surfaces. */

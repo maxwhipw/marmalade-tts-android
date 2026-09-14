@@ -4,11 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.install.VoicePackAction
+import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -135,6 +138,112 @@ class EngineDetailViewModelTest {
         assertEquals(InstallState.Installed, seen)
     }
 
+    // -- Voice packs ----------------------------------------------------------
+
+    @Test
+    fun packGroups_listEveryCatalogPackBeforeAnyProbe() = runTest {
+        // The section must render its full list immediately; waiting for nine
+        // disk probes would flash an empty "Voice packs" heading.
+        val vm = newViewModel(engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE)
+
+        val groups = vm.packGroups.value
+
+        assertEquals(
+            VoicePackCatalog.forEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE).size,
+            groups.sumOf { it.rows.size },
+        )
+        assertTrue(groups.all { group -> group.rows.none { it.isUsable } })
+        assertEquals(0, vm.packSummary.value.installedCount)
+    }
+
+    @Test
+    fun refreshPacks_marksTheOnesOnDiskInstalled() = runTest {
+        val installer = FakeInstaller(installedPacks = setOf("sv-nst-medium"))
+        val vm = newViewModel(
+            engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            installer = installer,
+        )
+
+        vm.refreshPacks()
+
+        val summary = vm.packSummary.first { it.installedCount == 1 }
+        assertEquals(9, summary.packCount)
+        // Read through the flow, not `.value`: these StateFlows are
+        // WhileSubscribed, so an unsubscribed `.value` is still the initial
+        // (all-NotInstalled) snapshot.
+        val installed = vm.packGroups
+            .map { groups -> groups.flatMap { it.rows }.filter { it.isUsable } }
+            .first { it.isNotEmpty() }
+        assertEquals(listOf("sv-nst-medium"), installed.map { it.pack.id })
+    }
+
+    @Test
+    fun installPack_endsInstalledAndLeavesOtherPacksAlone() = runTest {
+        val installer = FakeInstaller()
+        val vm = newViewModel(
+            engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            installer = installer,
+        )
+
+        vm.installPack("is-ugla-medium")
+
+        val row = vm.packGroups
+            .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == "is-ugla-medium" } }
+            .first { it.state is InstallState.Installed }
+        assertEquals(VoicePackAction.UNINSTALL, row.action)
+        assertTrue(installer.installedPacks.contains("is-ugla-medium"))
+        // Exactly one pack moved — the whole point of per-pack installs.
+        assertEquals(1, vm.packSummary.first { it.installedCount > 0 }.installedCount)
+    }
+
+    @Test
+    fun installPack_failureSurfacesTheReasonOnTheRow() = runTest {
+        // A silent failure would leave the row on its spinner forever.
+        val installer = FakeInstaller()
+        installer.packInstallFailure = "sha256 mismatch"
+        val vm = newViewModel(
+            engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            installer = installer,
+        )
+
+        vm.installPack("is-ugla-medium")
+
+        val row = vm.packGroups
+            .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == "is-ugla-medium" } }
+            .first { it.state is InstallState.Failed }
+        assertEquals("sha256 mismatch", row.failureReason)
+        assertEquals(VoicePackAction.RETRY, row.action)
+        assertFalse(row.isUsable)
+    }
+
+    @Test
+    fun uninstallPack_returnsTheRowToInstallable() = runTest {
+        val installer = FakeInstaller(installedPacks = setOf("sv-nst-medium"))
+        val vm = newViewModel(
+            engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            installer = installer,
+        )
+        vm.refreshPacks()
+        vm.packSummary.first { it.installedCount == 1 }
+
+        vm.uninstallPack("sv-nst-medium")
+
+        val row = vm.packGroups
+            .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == "sv-nst-medium" } }
+            .first { it.state is InstallState.NotInstalled }
+        assertEquals(VoicePackAction.INSTALL, row.action)
+        assertFalse(installer.installedPacks.contains("sv-nst-medium"))
+    }
+
+    @Test
+    fun aNonPackEngineHasNoPackRows() = runTest {
+        // The screen keys its whole section off this being empty.
+        val vm = newViewModel(engineName = "kokoro-direct-v1_0")
+
+        assertTrue(vm.packGroups.value.isEmpty())
+        assertEquals(0, vm.packSummary.value.packCount)
+    }
+
     private fun createTempDirAndEngine(engineName: String): java.io.File {
         // Build the directory layout EngineInstaller.stateFlow() probes
         // ("$filesDir/engines/$engineName" being a directory triggers the
@@ -182,6 +291,7 @@ private class FakeInstaller(
         temp.mkdirs()
         temp
     },
+    installedPacks: Set<String> = emptySet(),
 ) : EngineInstaller(
     filesDir = { filesRoot },
     engineHandle = { /* no-op release */ },
@@ -194,4 +304,27 @@ private class FakeInstaller(
 
     override suspend fun uninstall(engineName: String): Result<Unit> =
         Result.success(Unit)
+
+    /** Pack ids this fake reports as present on disk. Mutated by installPack. */
+    val installedPacks: MutableSet<String> = installedPacks.toMutableSet()
+
+    /** When non-null, installPack fails with this message instead of succeeding. */
+    var packInstallFailure: String? = null
+
+    override suspend fun verifyPack(packId: String): InstallState =
+        if (packId in installedPacks) InstallState.Installed else InstallState.NotInstalled
+
+    override suspend fun installPack(
+        packId: String,
+        onProgress: (InstallState.Downloading) -> Unit,
+    ): Result<Unit> {
+        packInstallFailure?.let { return Result.failure(java.io.IOException(it)) }
+        installedPacks += packId
+        return Result.success(Unit)
+    }
+
+    override suspend fun uninstallPack(packId: String): Result<Unit> {
+        installedPacks -= packId
+        return Result.success(Unit)
+    }
 }

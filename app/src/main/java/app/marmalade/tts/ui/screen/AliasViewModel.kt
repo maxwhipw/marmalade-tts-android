@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.InstalledVoiceAssets
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.LatencyBucket
@@ -10,6 +11,8 @@ import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.filterAvailable
+import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.data.db.VoiceAlias
@@ -19,7 +22,6 @@ import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
-import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.lang.LangDetector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -227,7 +229,8 @@ class AliasViewModel @Inject constructor(
      * never flipped in production, so disk verification is the only honest
      * "can the user actually pick this" signal.
      */
-    private val _installedEngines = MutableStateFlow<Set<String>>(emptySet())
+    private val _installedAssets = MutableStateFlow(InstalledVoiceAssets())
+    private val _installedEngines = _installedAssets.map { it.engines }
 
     /**
      * Engines offered in the alias editor's engine picker: installed engines
@@ -268,12 +271,18 @@ class AliasViewModel @Inject constructor(
     // The tree, the level-skipping and the search live in VoiceTree.kt, shared
     // with the full-screen picker so the two surfaces browse identically.
 
-    /** Installed voices grouped into the drill-down tree. */
+    /**
+     * Installed voices grouped into the drill-down tree.
+     *
+     * Filtered through the shared [isVoiceAvailable] so a pack-based engine's
+     * voices need their own pack on disk, not just their engine — the same rule
+     * the full-screen picker applies.
+     */
     val voiceTree: StateFlow<List<VoiceSource>> = combine(
         voiceDao.getAll(),
-        _installedEngines,
-    ) { voices, installed ->
-        buildVoiceTree(voices.filter { it.engine in installed }, voicePaths)
+        _installedAssets,
+    ) { voices, assets ->
+        buildVoiceTree(voices.filterAvailable(assets), voicePaths)
     }
         .stateIn(
             scope = viewModelScope,
@@ -402,17 +411,11 @@ class AliasViewModel @Inject constructor(
      */
     fun refresh() {
         viewModelScope.launch {
-            val installed = mutableSetOf<String>()
-            for (engine in EngineCatalog.all) {
-                if (installer.verify(engine.name) is InstallState.Installed) {
-                    installed += engine.name
-                }
-            }
             // Cloud API engine: any configured provider key == installed (no bundle).
-            if (settings.anyCloudApiKeySet.firstOrNull() == true) {
-                installed += CloudApiVoiceCatalog.ENGINE
-            }
-            _installedEngines.value = installed
+            _installedAssets.value = probeInstalledVoiceAssets(
+                installer = installer,
+                anyCloudKeySet = settings.anyCloudApiKeySet.firstOrNull() == true,
+            )
         }
     }
 

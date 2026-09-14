@@ -362,7 +362,12 @@ class MarmaladeTtsApplication : Application() {
          *    `uk-ukrainian_tts-medium` ×3 speakers. `uk-lada-x_low`'s label
          *    becomes "Lada (Ukrainian, small)" so the two Ladas are tellable
          *    apart; its id — and any alias pointing at it — is unchanged.
+         *  - v38: VITS rows get a language-grouped `sortOrder` so the picker
+         *    lists the 25 voices language by language (the two Ukrainian packs
+         *    sit at opposite ends of the catalog and used to bracket every
+         *    other language). Ids, names and genders are unchanged — the
+         *    reseed exists only to rewrite the sort key.
          */
-        const val CATALOG_VERSION: Int = 37
+        const val CATALOG_VERSION: Int = 38
     }
 }

@@ -60,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.install.VoicePackSummary
 import app.marmalade.tts.ui.components.EngineSpecColumn
 import app.marmalade.tts.ui.onboarding.formatBytes
 
@@ -70,6 +71,11 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 //     │
 //     ├── reads EngineCatalog.all + per-engine InstallState from
 //     │   EnginesViewModel.
+//     │
+//     ├── pack-based engines also read EnginesViewModel.packSummaries for the
+//     │   card's "9 voice packs · 6 languages · 2 of 9 installed" line; the
+//     │   per-pack install surface itself lives on the Configure screen
+//     │   (EngineDetailScreen → Voice packs).
 //     │
 //     ├── per card:
 //     │     NotInstalled → "Install" button → confirm dialog → vm.install(name)
@@ -105,6 +111,7 @@ fun EnginesScreen(
 ) {
     val engines by viewModel.engines.collectAsStateWithLifecycle()
     val states by viewModel.installStates.collectAsStateWithLifecycle()
+    val packSummaries by viewModel.packSummaries.collectAsStateWithLifecycle()
 
     var pendingInstall by remember { mutableStateOf<EngineDescriptor?>(null) }
     var pendingUninstall by remember { mutableStateOf<EngineDescriptor?>(null) }
@@ -169,6 +176,7 @@ fun EnginesScreen(
                         EngineCard(
                             engine = engine,
                             state = states[engine.name] ?: InstallState.NotInstalled,
+                            packSummary = packSummaries[engine.name],
                             onInstallRequested = { pendingInstall = engine },
                             onUninstallRequested = { pendingUninstall = engine },
                             onRetry = { viewModel.install(engine.name) },
@@ -274,6 +282,8 @@ private fun SourceSegment(
 private fun EngineCard(
     engine: EngineDescriptor,
     state: InstallState,
+    /** Pack counts for a pack-based engine; null for every other engine. */
+    packSummary: VoicePackSummary?,
     onInstallRequested: () -> Unit,
     onUninstallRequested: () -> Unit,
     onRetry: () -> Unit,
@@ -341,6 +351,19 @@ private fun EngineCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // Pack-based engine: the size line above is the DEFAULT
+                    // pack's, which on its own implies the card's Install
+                    // button gets you every language. This line is the honest
+                    // version — how many packs exist, across how many
+                    // languages, and how many are actually on the phone. The
+                    // rest of them are installed from Configure → Voice packs.
+                    if (packSummary != null) {
+                        Text(
+                            text = packSummaryLine(packSummary),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     // Show more lives INSIDE the text column, directly under the
                     // size line. The row's height is set by the taller spec
                     // column, so a sibling below the row would be pushed down by

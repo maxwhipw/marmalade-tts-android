@@ -162,6 +162,12 @@ internal class FakeSettings(
     private val developerEngines = MutableStateFlow(false)
     override val showDeveloperEngines: Flow<Boolean> = developerEngines
 
+    // The real setter writes to the no-op DataStore, so the flow above would
+    // never see it — a test that turns developer engines on needs this.
+    override suspend fun setShowDeveloperEngines(value: Boolean) {
+        developerEngines.value = value
+    }
+
     private val cloudKeySet = MutableStateFlow(false)
     override val anyCloudApiKeySet: Flow<Boolean> = cloudKeySet
 

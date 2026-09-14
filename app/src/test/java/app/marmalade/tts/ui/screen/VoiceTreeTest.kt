@@ -228,4 +228,42 @@ class VoiceTreeTest {
 
         assertTrue(searchVoiceTree(tree, "   ").isEmpty())
     }
+
+    @Test
+    fun `language sections keep the list's order and never split a language`() {
+        // The leaf list is already sorted by each catalog's curated sortOrder,
+        // so sectioning must preserve that order rather than re-sort. Sections
+        // are also what the headers are drawn from: a language appearing twice
+        // would draw its header twice.
+        val voices = listOf(
+            multiLangVoice("Lada", "uk-UA"),
+            multiLangVoice("Salka", "is-IS"),
+            multiLangVoice("Bui", "is-IS"),
+            multiLangVoice("NST", "sv-SE"),
+        )
+
+        val sections = groupVoicesByLanguage(voices)
+
+        assertEquals(listOf("uk-UA", "is-IS", "sv-SE"), sections.map { it.languageCode })
+        assertEquals(listOf("Salka", "Bui"), sections[1].voices.map { it.displayName })
+        assertEquals(voices.size, sections.sumOf { it.voices.size })
+    }
+
+    @Test
+    fun `a single-language list is one section, which the UI draws unlabelled`() {
+        val sections = groupVoicesByLanguage(listOf(localVoice("Bella"), localVoice("Leo")))
+
+        assertEquals(1, sections.size)
+        assertEquals("en-US", sections.single().languageCode)
+        assertTrue(groupVoicesByLanguage(emptyList()).isEmpty())
+    }
+
+    private fun multiLangVoice(name: String, language: String) = VoiceMeta(
+        id = "vits-marmalade-v1:$name",
+        engine = "vits-marmalade-v1",
+        displayName = name,
+        languageCode = language,
+        sampleRate = 22_050,
+        gender = null,
+    )
 }

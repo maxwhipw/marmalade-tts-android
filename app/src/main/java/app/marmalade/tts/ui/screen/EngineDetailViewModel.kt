@@ -6,14 +6,22 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.install.VoicePackCatalog
+import app.marmalade.tts.install.VoicePackLanguageGroup
+import app.marmalade.tts.install.VoicePackSummary
+import app.marmalade.tts.install.voicePackGroups
+import app.marmalade.tts.install.voicePackSummary
 import app.marmalade.tts.preprocessing.EngineProfiles
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // -----------------------------------------------------------------------------
@@ -33,9 +41,19 @@ import kotlinx.coroutines.launch
 //     │                                │ stateIn(viewModelScope)
 //     │                          EngineInstaller.state(engineName)
 //     │
+//     ├── reads packGroups       ◄── EngineDetailViewModel.packGroups
+//     │   reads packSummary            ▲
+//     │                                │ map { voicePackGroups(engine, states) }
+//     │                          _packStates (Map<packId, InstallState>)
+//     │                                ▲
+//     │                          EngineInstaller.verifyPack / packState
+//     │
 //     └── actions
 //          ├── toggleRule(rule, enabled) → settings.setEnabledRules(...)
 //          ├── resetRules()              → settings.setEnabledRules(name, defaults)
+//          ├── refreshPacks()            → installer.verifyPack(each pack)
+//          ├── installPack(packId)       → installer.installPack(packId)
+//          ├── uninstallPack(packId)     → installer.uninstallPack(packId)
 //          └── install()                 → installer.install(engineName)
 //                                          (used by the in-page "Install"
 //                                          affordance when the user lands on
@@ -120,6 +138,110 @@ class EngineDetailViewModel @Inject constructor(
      */
     private val _isInstalling = MutableStateFlow(false)
     val isInstalling: StateFlow<Boolean> = _isInstalling
+
+    // -- Voice packs ----------------------------------------------------------
+    //
+    // Only a pack-based engine (EngineDescriptor.isPackBased — VITS Marmalade
+    // today) has any of this. For every other engine the map stays empty and
+    // the screen renders no pack section.
+
+    private val _packStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
+
+    /**
+     * This engine's catalog packs grouped by language, each row carrying its
+     * live install state. Derived by [voicePackGroups] so the grouping and the
+     * per-row action rules are unit-testable without a device.
+     *
+     * The initial value is the full list at [InstallState.NotInstalled] rather
+     * than an empty list: the packs are static catalog data, so the list can
+     * draw before [refreshPacks] has probed anything, and only the per-row
+     * state changes underneath.
+     */
+    val packGroups: StateFlow<List<VoicePackLanguageGroup>> = _packStates
+        .map { voicePackGroups(engineName, it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = voicePackGroups(engineName, emptyMap()),
+        )
+
+    /** Counts for the pack section's "N packs · M languages · K installed" line. */
+    val packSummary: StateFlow<VoicePackSummary> = _packStates
+        .map { voicePackSummary(engineName, it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+            initialValue = voicePackSummary(engineName, emptyMap()),
+        )
+
+    /**
+     * Probe every pack of this engine. Called when the screen composes and
+     * after each install/uninstall, so a pack downloaded here and one removed
+     * elsewhere both land without an app restart.
+     */
+    fun refreshPacks() {
+        viewModelScope.launch {
+            for (pack in VoicePackCatalog.forEngine(engineName)) {
+                val state = installer.verifyPack(pack.id)
+                _packStates.update { it + (pack.id to state) }
+            }
+        }
+    }
+
+    /**
+     * Download and install one voice pack.
+     *
+     * Mirrors [EnginesViewModel.install] deliberately, including its two
+     * lessons: the optimistic `Downloading(0, 0)` closes the gap before the
+     * first progress callback, and collecting the installer's own state flow
+     * (rather than relying on the `onProgress` lambda, which only fires for
+     * downloads) is what makes the Extracting phase visible instead of looking
+     * like a frozen row.
+     */
+    fun installPack(packId: String) {
+        _packStates.update { it + (packId to InstallState.Downloading(0L, 0L, "")) }
+        viewModelScope.launch {
+            val stateJob = launch {
+                installer.packState(packId).collect { s ->
+                    _packStates.update { it + (packId to s) }
+                }
+            }
+            val result = installer.installPack(packId) { /* state flow handles updates */ }
+            stateJob.cancel()
+            _packStates.update {
+                it + (packId to result.fold(
+                    onSuccess = { InstallState.Installed },
+                    onFailure = { err ->
+                        // toString(), not a resource: this VM is unit-tested on
+                        // a plain JVM, and the installer's failures always carry
+                        // a message — the fallback is for the impossible case,
+                        // where a class name beats an empty row.
+                        InstallState.Failed(err.message ?: err.toString())
+                    },
+                ))
+            }
+        }
+    }
+
+    /**
+     * Delete one pack's files, leaving the engine's other packs alone. The
+     * optimistic flip to NotInstalled keeps the row responsive; a failure puts
+     * the reason back on the row rather than silently pretending it worked.
+     */
+    fun uninstallPack(packId: String) {
+        _packStates.update { it + (packId to InstallState.NotInstalled) }
+        viewModelScope.launch {
+            val result = installer.uninstallPack(packId)
+            _packStates.update {
+                it + (packId to result.fold(
+                    onSuccess = { InstallState.NotInstalled },
+                    onFailure = { err ->
+                        InstallState.Failed(err.message ?: err.toString())
+                    },
+                ))
+            }
+        }
+    }
 
     /**
      * Toggle one preprocessing [rule] on or off.

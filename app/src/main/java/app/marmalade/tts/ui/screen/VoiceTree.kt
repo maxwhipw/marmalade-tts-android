@@ -125,6 +125,27 @@ fun VoicePickerState.back(tree: List<VoiceSource>): VoicePickerState {
 /** True when [back] would leave the picker rather than move up a level. */
 fun VoicePickerState.atTopLevel(): Boolean = source == null && !searching
 
+/** One language's voices inside a model's leaf list. */
+data class VoiceLanguageSection(val languageCode: String, val voices: List<VoiceMeta>)
+
+/**
+ * Split a model's voice list into language sections, in the order the languages
+ * appear in the list.
+ *
+ * Order comes from the list rather than being re-sorted here: each catalog sets
+ * [VoiceMeta.sortOrder] to a curated, language-grouped ranking (Kokoro leads
+ * US › GB; VITS Marmalade groups its nine packs by language), and
+ * [buildVoiceTree] has already sorted by it. Re-sorting alphabetically would
+ * throw that curation away.
+ *
+ * A single-language model yields one section, which the callers render without
+ * a header — a lone "English" heading above 8 English voices is noise.
+ */
+fun groupVoicesByLanguage(voices: List<VoiceMeta>): List<VoiceLanguageSection> =
+    voices
+        .groupBy { it.languageCode }
+        .map { (language, rows) -> VoiceLanguageSection(language, rows) }
+
 /** One flat search hit: the voice and the `source › model` path that owns it. */
 data class VoiceSearchHit(val voice: VoiceMeta, val path: String)
 
