@@ -161,6 +161,30 @@
     <string name="language_kk">Kazakh</string>
     <string name="language_nb">Norvégien (bokmål)</string>
 
+    <!-- Qualité audio des packs de voix (PackQuality) -->
+    <string name="pack_quality_excellent">Excellente</string>
+    <string name="pack_quality_good">Bonne</string>
+    <string name="pack_quality_basic">Correcte</string>
+    <string name="pack_quality_rough">Enregistrement médiocre</string>
+    <string name="pack_quality_cd">Qualité audio : %1$s</string>
+
+    <string name="engine_packs">Packs de voix</string>
+    <string name="engine_packs_summary">%1$s · %2$d langues</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d pack de voix</item>
+        <item quantity="other">%1$d packs de voix</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%1$d sur %2$d installés</string>
+    <string name="engine_packs_none_installed">aucun installé pour l\'instant</string>
+    <string name="engine_packs_intro">Chaque pack regroupe les voix d\'une langue et se télécharge séparément. N\'installez que les langues que vous parlez.</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d voix</item>
+        <item quantity="other">%1$d voix</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · %2$s à télécharger</string>
+    <string name="engine_pack_uninstall_confirm_body">Les voix de ce pack ne fonctionneront plus jusqu\'à ce que vous le retéléchargiez. Vos autres packs ne sont pas touchés.</string>
+
+
     <!-- Texte du catalogue de moteurs (EngineCatalog) -->
     <string name="engine_kitten_tagline">Le moteur le plus rapide et le plus réactif, et il tourne sur n\'importe quel appareil.</string>
     <string name="engine_kitten_desc">Petit et rapide — le téléchargement le plus léger et celui qui commence à parler le plus vite. Anglais uniquement, 8 voix. Un bon choix si vous préférez la vitesse et l\'encombrement réduit à la plus large couverture linguistique. Fonctionne entièrement sur votre appareil, avec un phonémiseur espeak-ng intégré.</string>

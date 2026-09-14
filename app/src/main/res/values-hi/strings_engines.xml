@@ -161,6 +161,30 @@
     <string name="language_kk">कज़ाख़</string>
     <string name="language_nb">नॉर्वेजियन (बोकमाल)</string>
 
+    <!-- आवाज़ पैक की ऑडियो गुणवत्ता (PackQuality) -->
+    <string name="pack_quality_excellent">उत्कृष्ट</string>
+    <string name="pack_quality_good">अच्छी</string>
+    <string name="pack_quality_basic">सामान्य</string>
+    <string name="pack_quality_rough">खराब रिकॉर्डिंग</string>
+    <string name="pack_quality_cd">ऑडियो गुणवत्ता: %1$s</string>
+
+    <string name="engine_packs">आवाज़ पैक</string>
+    <string name="engine_packs_summary">%1$s · %2$d भाषाएँ</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d आवाज़ पैक</item>
+        <item quantity="other">%1$d आवाज़ पैक</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%2$d में से %1$d इंस्टॉल</string>
+    <string name="engine_packs_none_installed">अभी कोई इंस्टॉल नहीं</string>
+    <string name="engine_packs_intro">हर पैक एक भाषा की आवाज़ें हैं और अलग से डाउनलोड होता है। सिर्फ़ वही भाषाएँ इंस्टॉल करें जो आप बोलते हैं।</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d आवाज़</item>
+        <item quantity="other">%1$d आवाज़ें</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · %2$s डाउनलोड</string>
+    <string name="engine_pack_uninstall_confirm_body">इस पैक की आवाज़ें दोबारा डाउनलोड करने तक काम नहीं करेंगी। आपके बाकी पैक वैसे ही रहेंगे।</string>
+
+
     <!-- इंजन कैटलॉग का विवरण (EngineCatalog) -->
     <string name="engine_kitten_tagline">सबसे तेज़ और सबसे फुर्तीला इंजन, और यह हर डिवाइस पर चलता है।</string>
     <string name="engine_kitten_desc">छोटा और तेज़ — सबसे हल्का डाउनलोड और सबसे जल्दी बोलना शुरू करने वाला। सिर्फ़ अंग्रेज़ी, 8 वॉइस। जब आपको ज़्यादा भाषाओं के बजाय रफ़्तार और कम जगह चाहिए, तो यह अच्छा विकल्प है। पूरी तरह आपके डिवाइस पर चलता है, साथ में espeak-ng फ़ोनमाइज़र शामिल है।</string>

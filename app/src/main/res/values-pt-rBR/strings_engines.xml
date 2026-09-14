@@ -161,6 +161,30 @@
     <string name="language_kk">Cazaque</string>
     <string name="language_nb">Norueguês (bokmål)</string>
 
+    <!-- Qualidade de áudio dos pacotes de vozes (PackQuality) -->
+    <string name="pack_quality_excellent">Excelente</string>
+    <string name="pack_quality_good">Boa</string>
+    <string name="pack_quality_basic">Básica</string>
+    <string name="pack_quality_rough">Gravação de baixa qualidade</string>
+    <string name="pack_quality_cd">Qualidade de áudio: %1$s</string>
+
+    <string name="engine_packs">Pacotes de vozes</string>
+    <string name="engine_packs_summary">%1$s · %2$d idiomas</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d pacote de vozes</item>
+        <item quantity="other">%1$d pacotes de vozes</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%1$d de %2$d instalados</string>
+    <string name="engine_packs_none_installed">nenhum instalado ainda</string>
+    <string name="engine_packs_intro">Cada pacote traz as vozes de um idioma e é baixado separadamente. Instale só os idiomas que você fala.</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d voz</item>
+        <item quantity="other">%1$d vozes</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · %2$s de download</string>
+    <string name="engine_pack_uninstall_confirm_body">As vozes deste pacote param de funcionar até você baixá-lo de novo. Seus outros pacotes não são afetados.</string>
+
+
     <!-- Textos do catálogo de motores (EngineCatalog) -->
     <string name="engine_kitten_tagline">O motor mais rápido e responsivo, e roda em qualquer aparelho.</string>
     <string name="engine_kitten_desc">Pequeno e rápido — o download mais leve e o que começa a falar mais depressa. Só em inglês, 8 vozes. Boa escolha quando você prefere velocidade e pouco espaço à maior cobertura de idiomas. Roda inteiramente no seu dispositivo, com um fonemizador espeak-ng incluído.</string>

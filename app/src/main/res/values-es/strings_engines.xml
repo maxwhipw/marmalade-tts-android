@@ -161,6 +161,30 @@
     <string name="language_kk">Kazajo</string>
     <string name="language_nb">Noruego (bokmål)</string>
 
+    <!-- Calidad de audio de los paquetes de voces (PackQuality) -->
+    <string name="pack_quality_excellent">Excelente</string>
+    <string name="pack_quality_good">Buena</string>
+    <string name="pack_quality_basic">Básica</string>
+    <string name="pack_quality_rough">Grabación de baja calidad</string>
+    <string name="pack_quality_cd">Calidad de audio: %1$s</string>
+
+    <string name="engine_packs">Paquetes de voces</string>
+    <string name="engine_packs_summary">%1$s · %2$d idiomas</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d paquete de voces</item>
+        <item quantity="other">%1$d paquetes de voces</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%1$d de %2$d instalados</string>
+    <string name="engine_packs_none_installed">ninguno instalado todavía</string>
+    <string name="engine_packs_intro">Cada paquete son las voces de un idioma y se descarga por separado. Instala solo los idiomas que hables.</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d voz</item>
+        <item quantity="other">%1$d voces</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · %2$s de descarga</string>
+    <string name="engine_pack_uninstall_confirm_body">Las voces de este paquete dejarán de funcionar hasta que lo descargues de nuevo. Tus otros paquetes no se tocan.</string>
+
+
     <!-- Prosa del catálogo de motores (EngineCatalog) -->
     <string name="engine_kitten_tagline">El motor más rápido y con mejor respuesta, y funciona en cualquier dispositivo.</string>
     <string name="engine_kitten_desc">Pequeño y rápido: la descarga más ligera y el que antes empieza a hablar. Solo en inglés, 8 voces. Buena opción si prefieres velocidad y poco espacio antes que la mayor cobertura de idiomas. Funciona por completo en tu dispositivo, con un fonemizador espeak-ng incluido.</string>

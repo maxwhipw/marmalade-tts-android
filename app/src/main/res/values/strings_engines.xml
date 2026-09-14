@@ -45,6 +45,42 @@
     <string name="language_kk">Kazakh</string>
     <string name="language_nb">Norwegian (Bokmål)</string>
 
+    <!-- Voice-pack audio-quality grades (PackQuality). Linear scale, shown
+         wherever a pack or one of its voices is offered. "Rough recording"
+         says plainly that the source audio is noisy — we ship the pack anyway
+         because a rough voice beats no voice, so the label must not soften. -->
+    <string name="pack_quality_excellent">Excellent</string>
+    <string name="pack_quality_good">Good</string>
+    <string name="pack_quality_basic">Basic</string>
+    <string name="pack_quality_rough">Rough recording</string>
+    <!-- %1$s = one of the grades above. Spoken label for the grade meter. -->
+    <string name="pack_quality_cd">Audio quality: %1$s</string>
+
+    <!-- Voice packs section on a pack-based engine's Configure screen -->
+    <string name="engine_packs">Voice packs</string>
+    <!-- %1$s = e.g. "9 voice packs", %2$d = number of languages -->
+    <string name="engine_packs_summary">%1$s · %2$d languages</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d voice pack</item>
+        <item quantity="other">%1$d voice packs</item>
+    </plurals>
+    <!-- %1$d = installed, %2$d = total. Appended to the summary so the card
+         never implies every pack is already on the phone. -->
+    <string name="engine_packs_installed_of">%1$d of %2$d installed</string>
+    <string name="engine_packs_none_installed">none installed yet</string>
+    <string name="engine_packs_intro">Each pack is one language\'s voices, downloaded on its own. Install only the languages you speak.</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d voice</item>
+        <item quantity="other">%1$d voices</item>
+    </plurals>
+    <!-- %1$s = voice count ("6 voices"), %2$s = download size -->
+    <string name="engine_pack_row_summary">%1$s · %2$s download</string>
+    <!-- The row's action verbs reuse the engine card's (engines_install /
+         engines_uninstall / engines_retry / engines_reinstall / engines_update)
+         so an install button reads the same wherever it appears. Only the
+         confirm-dialog body is pack-specific. -->
+    <string name="engine_pack_uninstall_confirm_body">The voices in this pack stop working until you download it again. Your other packs are untouched.</string>
+
     <!-- Engine catalog prose (EngineCatalog): tagline on the engine cards,
          description + license line on the install-consent card and engine
          detail screen. Product names and license identifiers stay as-is. -->

@@ -465,6 +465,7 @@ class EngineInstallerTest {
         languageCode = "uk-UA",
         displayName = "Test (Ukrainian)",
         qualityTier = "x_low",
+        quality = PackQuality.BASIC,
         sampleRate = 16_000,
         gender = null,
         archive = EngineArchive(

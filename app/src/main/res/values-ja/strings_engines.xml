@@ -160,6 +160,28 @@
     <string name="language_kk">カザフ語</string>
     <string name="language_nb">ノルウェー語（ブークモール）</string>
 
+    <!-- 音声パックの音質 (PackQuality) -->
+    <string name="pack_quality_excellent">非常に良い</string>
+    <string name="pack_quality_good">良い</string>
+    <string name="pack_quality_basic">標準</string>
+    <string name="pack_quality_rough">録音品質が粗い</string>
+    <string name="pack_quality_cd">音質: %1$s</string>
+
+    <string name="engine_packs">音声パック</string>
+    <string name="engine_packs_summary">%1$s · %2$d 言語</string>
+    <plurals name="engine_packs_count">
+        <item quantity="other">音声パック %1$d 個</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%2$d 個中 %1$d 個インストール済み</string>
+    <string name="engine_packs_none_installed">まだインストールされていません</string>
+    <string name="engine_packs_intro">各パックは 1 つの言語の音声で、個別にダウンロードします。話す言語だけをインストールしてください。</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="other">音声 %1$d 個</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · ダウンロード %2$s</string>
+    <string name="engine_pack_uninstall_confirm_body">このパックの音声は、もう一度ダウンロードするまで使えなくなります。他のパックはそのままです。</string>
+
+
     <!-- エンジンカタログの説明文（EngineCatalog） -->
     <string name="engine_kitten_tagline">最も高速で反応が速いエンジン。どの端末でも動作します。</string>
     <string name="engine_kitten_desc">小さくて高速 — ダウンロードが最も軽く、いちばん早く話し始めます。英語のみ、8 ボイス。対応言語の多さより、速さと容量の小ささを重視するときに向いています。espeak-ng フォナイザーを同梱し、すべて端末内で動作します。</string>

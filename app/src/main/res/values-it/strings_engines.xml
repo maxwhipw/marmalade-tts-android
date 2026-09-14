@@ -161,6 +161,30 @@
     <string name="language_kk">Kazako</string>
     <string name="language_nb">Norvegese (bokmål)</string>
 
+    <!-- Qualità audio dei pacchetti di voci (PackQuality) -->
+    <string name="pack_quality_excellent">Eccellente</string>
+    <string name="pack_quality_good">Buona</string>
+    <string name="pack_quality_basic">Di base</string>
+    <string name="pack_quality_rough">Registrazione di bassa qualità</string>
+    <string name="pack_quality_cd">Qualità audio: %1$s</string>
+
+    <string name="engine_packs">Pacchetti di voci</string>
+    <string name="engine_packs_summary">%1$s · %2$d lingue</string>
+    <plurals name="engine_packs_count">
+        <item quantity="one">%1$d pacchetto di voci</item>
+        <item quantity="other">%1$d pacchetti di voci</item>
+    </plurals>
+    <string name="engine_packs_installed_of">%1$d di %2$d installati</string>
+    <string name="engine_packs_none_installed">nessuno installato per ora</string>
+    <string name="engine_packs_intro">Ogni pacchetto contiene le voci di una lingua e si scarica separatamente. Installa solo le lingue che parli.</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="one">%1$d voce</item>
+        <item quantity="other">%1$d voci</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · %2$s da scaricare</string>
+    <string name="engine_pack_uninstall_confirm_body">Le voci di questo pacchetto non funzioneranno più finché non lo scarichi di nuovo. Gli altri pacchetti non vengono toccati.</string>
+
+
     <!-- Testi del catalogo dei motori (EngineCatalog) -->
     <string name="engine_kitten_tagline">Il motore più veloce e reattivo, e funziona su qualsiasi dispositivo.</string>
     <string name="engine_kitten_desc">Piccolo e veloce — il download più leggero e il più rapido a iniziare a parlare. Solo inglese, 8 voci. Una buona scelta se preferisci velocità e ingombro ridotto alla copertura linguistica più ampia. Funziona interamente sul dispositivo, con un fonemizzatore espeak-ng incluso.</string>

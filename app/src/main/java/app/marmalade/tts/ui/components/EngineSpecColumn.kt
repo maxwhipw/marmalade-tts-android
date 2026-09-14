@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineDescriptor
+import app.marmalade.tts.install.PackQuality
 import app.marmalade.tts.install.QualityTier
 import app.marmalade.tts.install.SpeedTier
 
@@ -58,7 +59,7 @@ import app.marmalade.tts.install.SpeedTier
 // green (4) → light green (3) → amber (2) → red (1) — so a fuller bar is both
 // longer and cooler, and the fastest engine reads as a win while the heaviest
 // reads as a cost at a glance (an all-amber meter made even "Fastest" look
-// slow). The shades are hand-picked per mode (see [speedMeterColor]) rather
+// slow). The shades are hand-picked per mode (see [meterFillColor]) rather
 // than pulled from the accent, so they stay legible under every theme preset
 // and never spend the brand orange, which the Install CTA keeps precious. The
 // tier word beside the meter still names the tier for anyone who can't lean
@@ -254,9 +255,42 @@ fun SpeedMeter(
     modifier: Modifier = Modifier,
     segments: Int = 4,
 ) {
+    SegmentMeter(fill = tier.meterFill, modifier = modifier, segments = segments)
+}
+
+/**
+ * The same four-segment meter for a voice pack's audio-quality grade.
+ *
+ * Deliberately the identical gauge (and the identical fill-count colouring) as
+ * [SpeedMeter]: the user has already learned that a short hot bar is a cost, so
+ * a rough-sounding pack reads as one at a glance without having to parse the
+ * word beside it. Unlike the engine's [QualityTier] — which is non-linear on
+ * purpose — [PackQuality] is a rank, which is what makes a meter honest here.
+ */
+@Composable
+fun PackQualityMeter(
+    quality: PackQuality,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(R.string.pack_quality_cd, stringResource(packQualityLabelRes(quality)))
+    SegmentMeter(
+        fill = quality.meterFill,
+        modifier = modifier.semantics { contentDescription = label },
+    )
+}
+
+/**
+ * Shared gauge body: [fill] of [segments] segments lit in the traffic-light
+ * colour keyed to the fill count, the rest in the neutral outline.
+ */
+@Composable
+private fun SegmentMeter(
+    fill: Int,
+    modifier: Modifier = Modifier,
+    segments: Int = 4,
+) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val fill = tier.meterFill
-    val on = speedMeterColor(fill, isDark)
+    val on = meterFillColor(fill, isDark)
     val off = MaterialTheme.colorScheme.outlineVariant
     Row(
         modifier = modifier,
@@ -274,7 +308,8 @@ fun SpeedMeter(
 }
 
 /**
- * Traffic-light fill colour keyed to how many meter segments are lit: a fuller,
+ * Traffic-light fill colour keyed to how many meter segments are lit — shared by
+ * the speed meter and the pack-quality meter: a fuller,
  * faster bar is cooler (green) and a shorter, heavier one is hotter (red). Both
  * greens and the amber shift a step between the two tiers so 4 vs 3 stays
  * readable. Shades are picked per mode so the meter is legible on both the cream
@@ -282,7 +317,7 @@ fun SpeedMeter(
  * (a semantic green/amber/red should not shift when the user picks Berry or
  * Forest). The red matches the scheme's error red.
  */
-private fun speedMeterColor(fill: Int, isDark: Boolean): Color = when (fill) {
+private fun meterFillColor(fill: Int, isDark: Boolean): Color = when (fill) {
     4 -> if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A)     // green      400 / 600
     3 -> if (isDark) Color(0xFFA3E635) else Color(0xFF65A30D)     // light green (lime) 400 / 600
     2 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)     // amber      400 / 600
@@ -303,14 +338,26 @@ fun qualityTierLabelRes(tier: QualityTier): Int = when (tier) {
     QualityTier.MOST_EXPRESSIVE -> R.string.engine_quality_expressive
 }
 
+/** Short user-facing word for a voice pack's audio-quality grade. */
+@StringRes
+fun packQualityLabelRes(quality: PackQuality): Int = when (quality) {
+    PackQuality.EXCELLENT -> R.string.pack_quality_excellent
+    PackQuality.GOOD -> R.string.pack_quality_good
+    PackQuality.BASIC -> R.string.pack_quality_basic
+    PackQuality.ROUGH -> R.string.pack_quality_rough
+}
+
 /**
- * Localized display name for a BCP-47 language code. American and British
- * English are region-qualified so Kokoro's "9 languages" reads honestly;
- * every other entry is the language's own name. The bare `"en"` used by the
- * single-English engines falls through to the unqualified "English".
+ * Localized display name for a BCP-47 language code, or null when the app has
+ * no name for it.
+ *
+ * Null rather than a guess: cloud providers hand us arbitrary language tags,
+ * and calling an unknown tag "English" would be a lie. Callers that own the
+ * code (the engine spec column, whose codes come from the catalog) can safely
+ * fall back; callers showing third-party data print the raw tag instead.
  */
 @StringRes
-private fun languageNameRes(code: String): Int = when (code) {
+fun languageNameResOrNull(code: String): Int? = when (code) {
     "en-US" -> R.string.language_en_us
     "en-GB" -> R.string.language_en_gb
     "es-ES", "es" -> R.string.language_es
@@ -326,8 +373,30 @@ private fun languageNameRes(code: String): Int = when (code) {
     "kk-KZ", "kk" -> R.string.language_kk
     // The NVCC corpus is Bokmål; upstream's config spells the language "no".
     "nb-NO", "nb", "no" -> R.string.language_nb
-    else -> R.string.language_english
+    "en" -> R.string.language_english
+    else -> null
 }
+
+/**
+ * Localized display name for a BCP-47 language code. American and British
+ * English are region-qualified so Kokoro's "9 languages" reads honestly;
+ * every other entry is the language's own name. The bare `"en"` used by the
+ * single-English engines falls through to the unqualified "English", and so
+ * does an unrecognized code — the spec column's codes all come from the engine
+ * catalog, where the only single-language engines are English ones.
+ */
+@StringRes
+private fun languageNameRes(code: String): Int =
+    languageNameResOrNull(code) ?: R.string.language_english
+
+/**
+ * Localized language name for [code], falling back to the raw tag when the app
+ * has no name for it. Used by the voice rows, whose codes include whatever a
+ * cloud provider reports.
+ */
+@Composable
+fun languageDisplayName(code: String): String =
+    languageNameResOrNull(code)?.let { stringResource(it) } ?: code
 
 /**
  * Vertical padding that grows the languages value's tap target, and equally the

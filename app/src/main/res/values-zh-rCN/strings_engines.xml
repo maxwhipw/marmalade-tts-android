@@ -160,6 +160,28 @@
     <string name="language_kk">哈萨克语</string>
     <string name="language_nb">挪威语（书面挪威语）</string>
 
+    <!-- 语音包的音质 (PackQuality) -->
+    <string name="pack_quality_excellent">优秀</string>
+    <string name="pack_quality_good">良好</string>
+    <string name="pack_quality_basic">一般</string>
+    <string name="pack_quality_rough">录音质量较差</string>
+    <string name="pack_quality_cd">音质：%1$s</string>
+
+    <string name="engine_packs">语音包</string>
+    <string name="engine_packs_summary">%1$s · %2$d 种语言</string>
+    <plurals name="engine_packs_count">
+        <item quantity="other">%1$d 个语音包</item>
+    </plurals>
+    <string name="engine_packs_installed_of">已安装 %1$d / %2$d</string>
+    <string name="engine_packs_none_installed">尚未安装任何语音包</string>
+    <string name="engine_packs_intro">每个语音包含一种语言的声音，需单独下载。只安装你会说的语言即可。</string>
+    <plurals name="engine_pack_voice_count">
+        <item quantity="other">%1$d 个声音</item>
+    </plurals>
+    <string name="engine_pack_row_summary">%1$s · 下载 %2$s</string>
+    <string name="engine_pack_uninstall_confirm_body">重新下载之前，此语音包中的声音将无法使用。其他语音包不受影响。</string>
+
+
     <!-- 引擎目录文案（EngineCatalog） -->
     <string name="engine_kitten_tagline">最快、响应最灵敏的引擎，任何设备都能运行。</string>
     <string name="engine_kitten_desc">小巧快速 — 下载体积最小，开口说话也最快。仅支持英语，8 个语音。如果你更看重速度和占用空间，而不是语言覆盖面，它是不错的选择。完全在本机运行，内置 espeak-ng 音素转换器。</string>

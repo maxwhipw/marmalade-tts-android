@@ -54,7 +54,13 @@ package app.marmalade.tts.install
  * @property qualityTier   Upstream checkpoint quality tier, verbatim from
  *                         the voice's config (`x_low`, `low`, `medium`,
  *                         `high`). Diagnostic/label only — it does not
- *                         change how the pack is run.
+ *                         change how the pack is run. NOT the user-facing
+ *                         grade: it describes the training recipe, not how
+ *                         the result sounds. See [quality].
+ * @property quality       User-facing audio-quality grade, shown wherever the
+ *                         pack or one of its voices is offered. A listening
+ *                         judgement owned by Max — see [PackQuality]; agents
+ *                         must not change a pack's grade.
  * @property sampleRate    The checkpoint's `audio.sample_rate`, copied here
  *                         for the catalog's `VoiceMeta` row (the picker and
  *                         the system-TTS negotiation read it before any pack
@@ -87,6 +93,7 @@ data class VoicePack(
     val languageCode: String,
     val displayName: String,
     val qualityTier: String,
+    val quality: PackQuality,
     val sampleRate: Int,
     val gender: String?,
     val archive: EngineArchive,
@@ -132,6 +139,7 @@ data class VoicePack(
                 languageCode = languageCode,
                 sampleRate = sampleRate,
                 gender = gender,
+                quality = quality,
             ),
         )
     } else {
@@ -144,6 +152,7 @@ data class VoicePack(
                 languageCode = languageCode,
                 sampleRate = sampleRate,
                 gender = speaker.gender,
+                quality = quality,
             )
         }
     }
@@ -185,6 +194,9 @@ data class PackSpeaker(
  * @property voiceKey The second half of the app's `<engine>:<voiceKey>` voice
  *                    id — the bare pack id for a single-speaker pack,
  *                    `<packId>#<sid>` for one speaker of a multi-speaker pack.
+ * @property quality  The owning pack's grade, copied down so a voice row can
+ *                    show it without a second lookup. Per-pack, not per
+ *                    speaker: one checkpoint, one corpus, one recording setup.
  */
 data class PackVoice(
     val packId: String,
@@ -194,6 +206,7 @@ data class PackVoice(
     val languageCode: String,
     val sampleRate: Int,
     val gender: String?,
+    val quality: PackQuality,
 )
 
 /**
@@ -205,6 +218,11 @@ data class PackVoice(
  * own direct-ORT VITS path, so no Piper runtime code is used or shipped.
  * Per-pack provenance is audited in the `PROVENANCE.md` shipped inside each
  * tarball and summarised in `LICENSES/vits-marmalade.md`.
+ *
+ * **The [PackQuality] grades in here are provisional** until Max's ear-lab
+ * pass recalibrates them, and they are his to set either way: they are a
+ * listening judgement about the source audio, not something derivable from the
+ * checkpoint metadata. Never "fix" a grade to match a pack's [qualityTier].
  *
  * **CC BY 4.0 packs require attribution** (the Icelandic Talrómur voices):
  * the notice lives in `LICENSES/vits-marmalade.md` and in `CREDITS.md`,
@@ -259,6 +277,9 @@ object VoicePackCatalog {
         languageCode = "is-IS",
         displayName = displayName,
         qualityTier = "medium",
+        // All four Talrómur speakers were recorded in the same studio session
+        // and grade the same, so the grade lives in the shared helper.
+        quality = PackQuality.GOOD,
         sampleRate = 22_050,
         gender = gender,
         archive = packArchive(packId, sha256, sizeBytes),
@@ -310,6 +331,9 @@ object VoicePackCatalog {
         languageCode = "uk-UA",
         displayName = "Lada (Ukrainian, small)",
         qualityTier = "x_low",
+        // The `x_low` checkpoint at 16 kHz: intelligible, plainly thinner than
+        // the medium Ukrainian pack that shipped alongside it.
+        quality = PackQuality.BASIC,
         sampleRate = 16_000,
         // The upstream corpus documents no gender for this speaker.
         gender = null,
@@ -383,6 +407,7 @@ object VoicePackCatalog {
         languageCode = "sv-SE",
         displayName = "NST (Swedish)",
         qualityTier = "medium",
+        quality = PackQuality.GOOD,
         sampleRate = 22_050,
         gender = null,
         archive = packArchive(
@@ -417,6 +442,7 @@ object VoicePackCatalog {
         languageCode = "kk-KZ",
         displayName = "Kazakh (ISSAI)",
         qualityTier = "high",
+        quality = PackQuality.GOOD,
         sampleRate = 22_050,
         gender = null,
         archive = packArchive(
@@ -466,6 +492,10 @@ object VoicePackCatalog {
         languageCode = "nb-NO",
         displayName = "Norwegian (NVCC)",
         qualityTier = "medium",
+        // Ships anyway: Max's call is that something beats nothing for a
+        // language with no cleanly-licensed alternative, as long as the label
+        // says plainly what it is.
+        quality = PackQuality.ROUGH,
         sampleRate = 22_050,
         gender = null,
         archive = packArchive(
@@ -512,6 +542,7 @@ object VoicePackCatalog {
         languageCode = "uk-UA",
         displayName = "Ukrainian (ukrainian_tts)",
         qualityTier = "medium",
+        quality = PackQuality.GOOD,
         sampleRate = 22_050,
         gender = null,
         archive = packArchive(
