@@ -5,254 +5,396 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>marmalade tts — fast, natural, private text-to-speech for Android</title>
 <meta name="description" content="Fast, natural, private text-to-speech for your whole phone. Works offline. Free and open source.">
+<meta property="og:title" content="marmalade tts">
+<meta property="og:description" content="Fast, natural, private text-to-speech for your whole phone. Works offline. Free and open source.">
+<meta property="og:image" content="https://maxwhipw.github.io/marmalade-tts-android/assets/icon.png">
 <link rel="icon" type="image/png" href="assets/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Momo+Trust+Display&family=Fredoka:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Momo+Trust+Display&family=Fredoka:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --surface: #FFF7ED;
     --ink: #1c1917;
-    --ink-dim: rgba(28, 25, 23, 0.7);
+    --ink-dim: rgba(28, 25, 23, 0.68);
     --wordmark: #F97316;
     --accent-bg: #F97316;
     --accent-ink: #FFFFFF;
-    --button-bg: #FED7AA;
-    --button-ink: #7C2D12;
+    --toast-bg: #FED7AA;
+    --toast-ink: #7C2D12;
     --card-bg: #FFEDD5;
     --card-ink: #1c1917;
+    --bubble-bot-bg: #FFEDD5;
+    --bubble-bot-ink: #1c1917;
+    --chip-bg: #FFEDD5;
     --outlined: #422006;
     --panel: #F5F5F4;
     --border: rgba(28, 25, 23, 0.12);
+    --glow: rgba(254, 215, 170, 0.9);
+    --wave: #FDBA74;
+    --bezel: #1c1917;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --surface: #1c1917;
       --ink: #f5f5f4;
-      --ink-dim: rgba(245, 245, 244, 0.7);
+      --ink-dim: rgba(245, 245, 244, 0.68);
       --wordmark: #FFEDD5;
       --accent-bg: #422006;
       --accent-ink: #FED7AA;
       --card-bg: #292524;
       --card-ink: #F5F5F4;
+      --bubble-bot-bg: #292524;
+      --bubble-bot-ink: #F5F5F4;
+      --chip-bg: #FEF3C7;
       --outlined: #FFEDD5;
       --panel: #292524;
-      --border: rgba(245, 245, 244, 0.16);
+      --border: rgba(245, 245, 244, 0.14);
+      --glow: rgba(66, 32, 6, 0.85);
+      --wave: #FED7AA;
+      --bezel: #0D0D0D;
     }
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
     background: var(--surface);
     color: var(--ink);
     font-family: "Manrope", "Inter", system-ui, sans-serif;
-    font-size: 16px;
-    font-weight: 400;
+    font-size: 16.5px;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- header ---------- */
   header.site {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 24px 0 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 20px 0;
   }
-  header.site img { width: 44px; height: 44px; border-radius: 12px; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .brand img { width: 40px; height: 40px; border-radius: 12px; }
   .wordmark {
     font-family: "Momo Trust Display", "Fredoka", sans-serif;
-    font-weight: 600;
-    font-size: 28px;
-    color: var(--wordmark);
-    text-transform: lowercase;
+    font-weight: 600; font-size: 26px; line-height: 1;
+    color: var(--wordmark); text-transform: lowercase;
   }
-  .wordmark small {
-    font-size: 0.7em;
-    color: var(--ink-dim);
-    font-family: "Manrope", sans-serif;
-    font-weight: 600;
-    margin-left: 4px;
+  .wordmark small { font-family: "Manrope", sans-serif; font-weight: 700; font-size: 15px; color: var(--ink-dim); margin-left: 6px; text-transform: none; }
+  nav.top { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.top a {
+    text-decoration: none; font-weight: 500; font-size: 15px;
+    padding: 8px 12px; border-radius: 12px; color: var(--ink-dim);
+  }
+  nav.top a:hover { background: var(--card-bg); color: var(--ink); }
+  @media (max-width: 640px) { nav.top { display: none; } }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 32px; align-items: center;
+    padding: 32px 0 48px;
+  }
+  @media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding-top: 16px; } }
+  .eyebrow {
+    display: inline-block; font-weight: 700; font-size: 13.5px; letter-spacing: 0.02em;
+    color: var(--toast-ink); background: var(--toast-bg);
+    padding: 6px 12px; border-radius: 20px; margin-bottom: 20px;
   }
   h1 {
-    font-weight: 600;
-    font-size: 32px;
-    letter-spacing: -0.3px;
-    line-height: 1.25;
-    margin: 32px 0 12px;
+    font-weight: 800; font-size: clamp(34px, 5.2vw, 54px); line-height: 1.08;
+    letter-spacing: -0.02em; margin: 0 0 20px;
   }
-  h2 {
-    font-weight: 600;
-    font-size: 20px;
-    letter-spacing: -0.3px;
-    margin: 48px 0 12px;
-  }
-  p.lede { font-size: 18px; color: var(--ink-dim); margin: 0 0 24px; max-width: 620px; }
-  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 8px; }
+  .lede { font-size: 19px; color: var(--ink-dim); margin: 0 0 28px; max-width: 520px; }
+  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  .cta-row .badge img { height: 64px; display: block; }
   .btn {
-    display: inline-block;
-    padding: 12px 24px;
-    border-radius: 16px;
-    font-weight: 500;
-    font-size: 16px;
-    text-decoration: none;
-    min-height: 48px;
-    line-height: 24px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 22px; border-radius: 16px; min-height: 48px;
+    font-weight: 600; font-size: 16px; text-decoration: none; line-height: 1.3;
   }
   .btn-accent { background: var(--accent-bg); color: var(--accent-ink); }
-  .btn-default { background: #FED7AA; color: #7C2D12; }
+  .btn-default { background: var(--toast-bg); color: var(--toast-ink); }
   .btn-outlined { background: transparent; color: var(--outlined); border: 2px solid var(--outlined); }
-  .note { font-size: 14px; color: var(--ink-dim); }
-  .features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 12px;
-    padding: 0;
-    margin: 16px 0 0;
-    list-style: none;
+  .btn svg { width: 20px; height: 20px; }
+  .fineprint { font-size: 14.5px; color: var(--ink-dim); margin: 16px 0 0; }
+
+  .stage {
+    position: relative; min-height: 380px;
+    display: grid; place-items: center;
   }
-  .features li {
-    background: var(--card-bg);
-    color: var(--card-ink);
-    border-radius: 16px;
-    padding: 16px;
+  .stage::before {
+    content: ""; position: absolute; inset: 10% 5%;
+    background: radial-gradient(closest-side, var(--glow), transparent 75%);
+    border-radius: 50%; z-index: 0;
   }
-  .features b { font-weight: 600; }
+  .mascot { position: relative; z-index: 1; width: 250px; height: 250px; animation: bob 4s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .waves {
+    position: absolute; z-index: 1; display: flex; align-items: center; gap: 6px; height: 64px;
+    top: 50%; transform: translateY(-50%);
+  }
+  .waves.l { left: 6%; } .waves.r { right: 6%; }
+  .waves i {
+    display: block; width: 8px; height: 20px; border-radius: 4px; background: var(--wave);
+    animation: wave 1.2s ease-in-out infinite;
+  }
+  .waves i:nth-child(1) { animation-delay: 0s; }
+  .waves i:nth-child(2) { animation-delay: .15s; }
+  .waves i:nth-child(3) { animation-delay: .3s; }
+  .waves i:nth-child(4) { animation-delay: .45s; }
+  .waves i:nth-child(5) { animation-delay: .6s; }
+  .waves.r i:nth-child(1) { animation-delay: .6s; }
+  .waves.r i:nth-child(2) { animation-delay: .45s; }
+  .waves.r i:nth-child(3) { animation-delay: .3s; }
+  .waves.r i:nth-child(4) { animation-delay: .15s; }
+  .waves.r i:nth-child(5) { animation-delay: 0s; }
+  @keyframes wave { 0%,100% { height: 14px; } 50% { height: 56px; } }
+  .speech {
+    position: absolute; z-index: 2; top: 6%; right: 8%;
+    background: var(--bubble-bot-bg); color: var(--bubble-bot-ink);
+    padding: 12px 16px; border-radius: 16px 16px 16px 6px;
+    font-weight: 600; font-size: 15.5px; max-width: 220px;
+    box-shadow: 0 8px 24px rgba(28, 25, 23, 0.08);
+    animation: pop 0.6s cubic-bezier(.2,.9,.3,1.3) both; animation-delay: .4s;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: none; } }
+  @media (max-width: 800px) { .stage { min-height: 320px; } .mascot { width: 200px; height: 200px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .mascot, .waves i, .speech { animation: none; }
+    .waves i { height: 28px; }
+    .waves i:nth-child(odd) { height: 44px; }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding: 40px 0; }
+  h2 {
+    font-weight: 700; font-size: 28px; letter-spacing: -0.02em; line-height: 1.2;
+    margin: 0 0 8px;
+  }
+  .sub { color: var(--ink-dim); font-size: 17px; margin: 0 0 28px; max-width: 640px; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+  .step { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; }
+  .step .n {
+    flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px;
+    background: var(--toast-bg); color: var(--toast-ink);
+    display: grid; place-items: center; font-weight: 800; font-size: 18px;
+  }
+  .step b { display: block; font-weight: 700; margin-bottom: 2px; }
+  .step span { color: var(--ink-dim); font-size: 15.5px; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; padding: 0; margin: 0; list-style: none; }
+  .features li { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; align-items: flex-start; }
+  .ico {
+    flex: 0 0 44px; width: 44px; height: 44px; border-radius: 14px;
+    background: var(--toast-bg); color: var(--toast-ink); display: grid; place-items: center;
+  }
+  .ico svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .features b { display: block; font-weight: 700; margin-bottom: 2px; }
+  .features p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
+
+  /* screenshots */
   .shots {
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    padding: 8px 0 16px;
+    display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory;
+    padding: 8px 4px 20px; margin: 0 -4px;
+    scrollbar-width: thin;
   }
-  .shots img {
-    height: 420px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    flex: 0 0 auto;
+  .shot { flex: 0 0 auto; scroll-snap-align: start; width: 232px; }
+  .phone {
+    background: var(--bezel); border-radius: 28px; padding: 10px;
+    box-shadow: 0 12px 32px rgba(28, 25, 23, 0.14);
   }
-  .card {
-    background: var(--card-bg);
-    color: var(--card-ink);
-    border-radius: 16px;
-    padding: 16px 20px;
-    margin: 12px 0;
+  .phone img { display: block; width: 100%; border-radius: 20px; }
+  .shot figcaption { font-size: 14.5px; color: var(--ink-dim); text-align: center; margin-top: 10px; }
+
+  /* languages chat */
+  .chat { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 0 0 24px; }
+  @media (max-width: 640px) { .chat { grid-template-columns: 1fr; } }
+  .msg {
+    display: flex; align-items: flex-end; gap: 10px;
+    animation: pop .5s ease-out both;
   }
+  .msg img { width: 32px; height: 32px; flex: 0 0 32px; }
+  .msg .b {
+    background: var(--bubble-bot-bg); color: var(--bubble-bot-ink);
+    padding: 10px 14px; border-radius: 16px 16px 16px 6px;
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .msg .b strong { font-weight: 700; font-size: 18px; }
+  .msg .b span { font-size: 13.5px; color: var(--ink-dim); }
+  .msg:nth-child(1) { animation-delay: .05s; } .msg:nth-child(2) { animation-delay: .1s; }
+  .msg:nth-child(3) { animation-delay: .15s; } .msg:nth-child(4) { animation-delay: .2s; }
+  .msg:nth-child(5) { animation-delay: .25s; } .msg:nth-child(6) { animation-delay: .3s; }
+  .msg:nth-child(7) { animation-delay: .35s; } .msg:nth-child(8) { animation-delay: .4s; }
+  .msg:nth-child(9) { animation-delay: .45s; }
+  @media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+
+  .card { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px 24px; }
   .card p { margin: 8px 0; }
-  a { color: inherit; }
-  section p a, .card a, footer a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+  .card p:first-child { margin-top: 0; } .card p:last-child { margin-bottom: 0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .chips li {
-    background: #FFEDD5;
-    color: #1c1917;
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 14px;
-    font-weight: 500;
+    background: var(--chip-bg); color: #1c1917;
+    border-radius: 20px; padding: 7px 14px; font-size: 15px; font-weight: 500;
   }
-  @media (prefers-color-scheme: dark) {
-    .chips li { background: #FEF3C7; }
+  .chips li.more { background: transparent; color: var(--ink-dim); border: 1.5px solid var(--border); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+
+  .support {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;
+    background: var(--card-bg); color: var(--card-ink); border-radius: 24px; padding: 28px;
   }
-  code {
-    font-family: "Space Mono", "Geist Mono", ui-monospace, monospace;
-    font-size: 18px;
-    background: var(--panel);
-    border-radius: 8px;
-    padding: 1px 6px;
-  }
+  @media (max-width: 720px) { .support { grid-template-columns: 1fr; } }
+  .heart { width: 56px; height: 56px; border-radius: 18px; background: var(--toast-bg); color: var(--toast-ink); display: grid; place-items: center; }
+  .heart svg { width: 28px; height: 28px; fill: currentColor; }
+  .support h2 { font-size: 22px; margin-bottom: 4px; }
+  .support p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
+
   footer {
-    margin: 64px 0 32px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    font-size: 14px;
-    color: var(--ink-dim);
+    margin: 48px 0 32px; padding-top: 24px; border-top: 1px solid var(--border);
+    font-size: 14px; color: var(--ink-dim); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
   }
+  footer p { margin: 0; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <header class="site">
-  <img src="assets/icon.png" alt="">
-  <span class="wordmark">marmalade <small>TTS</small></span>
+  <a class="brand" href="#"><img src="assets/icon.png" alt=""><span class="wordmark">marmalade<small>TTS</small></span></a>
+  <nav class="top">
+    <a href="#features">Features</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#languages">Languages</a>
+    <a href="#support">Support</a>
+    <a href="https://github.com/maxwhipw/marmalade-tts-android">Source</a>
+  </nav>
 </header>
 
-<h1>Give your phone a voice worth listening to.</h1>
-<p class="lede">Fast, natural, private text-to-speech for your whole phone.
-Works offline. Set Marmalade as your system text-to-speech engine and every
-app that reads aloud — screen readers, e-readers, chat apps — speaks through
-it.</p>
-
-<div class="cta-row">
-  <a class="btn btn-accent" href="https://f-droid.org/packages/app.marmalade.tts/">Get it on F-Droid</a>
-  <a class="btn btn-outlined" href="https://github.com/maxwhipw/marmalade-tts-android/releases">GitHub releases (APK)</a>
-</div>
-<p class="note">Free, open source, no ads, no accounts.</p>
-
-<h2>Features</h2>
-<ul class="features">
-  <li><b>Natural neural voices.</b> Ready to speak the moment you install.</li>
-  <li><b>Fast.</b> Speech responds quickly even on modest phones.</li>
-  <li><b>Private by default.</b> Everything runs on your device.</li>
-  <li><b>Works everywhere.</b> A drop-in replacement for Google or Samsung TTS — pick it once in Settings.</li>
-  <li><b>A voice for every app.</b> Route each app to its own voice, speed, and effects.</li>
-  <li><b>Speaks 8 languages.</b> Auto-detects the language being read on the Kokoro engine.</li>
-  <li><b>Reads the web.</b> Share a link and Marmalade reads the article aloud, highlighting as it goes.</li>
-  <li><b>Voice effects.</b> 22 presets like 8-bit, cyborg, megaphone, and vintage radio — plus an editor to make your own.</li>
-  <li><b>Accessible.</b> Rich TalkBack support, designed to meet WCAG 2.1 AA.</li>
-  <li><b>Optional cloud voices.</b> From private third parties with your own API key (Venice.ai).</li>
-</ul>
-
-<h2>Screenshots</h2>
-<div class="shots">
-  <img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode">
-  <img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode">
-  <img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing">
-  <img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list">
-  <img src="assets/screenshots/05-engines.png" alt="Engine picker">
-  <img src="assets/screenshots/06-effects.png" alt="Voice effect presets">
-  <img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines">
+<div class="hero">
+  <div>
+    <span class="eyebrow">Open-source text-to-speech for Android</span>
+    <h1>Give your phone a voice worth listening to.</h1>
+    <p class="lede">Fast, natural, private text-to-speech for your whole phone. Works offline. Set it once and every app that reads aloud speaks through it.</p>
+    <div class="cta-row">
+      <a class="badge" href="https://f-droid.org/packages/app.marmalade.tts/"><img src="https://f-droid.org/badge/get-it-on.svg" alt="Get it on F-Droid"></a>
+      <a class="btn btn-outlined" href="https://github.com/maxwhipw/marmalade-tts-android/releases">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download APK
+      </a>
+    </div>
+    <p class="fineprint">Free, open source, no ads, no accounts.</p>
+  </div>
+  <div class="stage" aria-hidden="true">
+    <div class="speech">Hi! Every app on your phone can sound like this.</div>
+    <div class="waves l"><i></i><i></i><i></i><i></i><i></i></div>
+    <img class="mascot" src="assets/mascot.svg" alt="">
+    <div class="waves r"><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
 </div>
 
-<h2>Languages</h2>
-<p>The multilingual Kokoro engine speaks English (US and UK), Spanish, French,
-Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It
-detects the language as it reads and switches pronunciation on the fly.</p>
-<ul class="chips">
-  <li>English (US)</li><li>English (UK)</li><li>Spanish</li><li>French</li>
-  <li>Italian</li><li>Portuguese (BR)</li><li>Hindi</li><li>Japanese</li>
-  <li>Mandarin</li>
-</ul>
-<div class="card">
-  <p><b>More languages are in the works</b>, with an emphasis on ethically
-  trained voices — clear licenses, consenting speakers, disclosed training
-  data.</p>
-  <p>See the <a href="https://github.com/maxwhipw/marmalade-tts-android/blob/website/LANGUAGES.md">language
-  support status page</a> for where each requested language stands, and if you
-  speak German, please <a href="german/">review our German voice samples</a> —
-  your feedback decides whether the German voice ships.</p>
-</div>
+<section id="how">
+  <h2>Works everywhere</h2>
+  <p class="sub">Marmalade implements Android's standard text-to-speech interface, so it is a drop-in replacement for Google or Samsung TTS.</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><b>Install</b><span>From F-Droid or the APK. A fast English voice is built in and works offline immediately.</span></div></div>
+    <div class="step"><div class="n">2</div><div><b>Pick it once</b><span>Settings › Accessibility › Text-to-speech output › choose Marmalade.</span></div></div>
+    <div class="step"><div class="n">3</div><div><b>Everything speaks</b><span>Screen readers, e-readers, chat apps, browsers. Anything that reads aloud now uses Marmalade.</span></div></div>
+  </div>
+</section>
 
-<h2>Private, with or without the cloud</h2>
-<p>No analytics, no telemetry, no accounts, and no backend of ours. On-device
-voices touch the network only to download the engines you pick. If you want
-voices beyond what your phone can run, add a cloud engine with your own API
-key. Until you set one up, nothing you read ever leaves your phone.</p>
+<section id="features">
+  <h2>What you get</h2>
+  <p class="sub">Everything runs on your device unless you decide otherwise.</p>
+  <ul class="features">
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg></div><div><b>Natural neural voices</b><p>Ready to speak the moment you install. Bigger and better engines download only when you choose them.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div><div><b>Fast</b><p>Speech responds quickly even on modest phones. Streaming synthesis starts talking before the sentence is done.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><div><b>Private by default</b><p>No analytics, no telemetry, no accounts, no backend of ours. Text read by on-device voices never leaves your phone.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 6h6l2 3h8v9H4z"/><path d="M4 6v12"/><path d="M14 13h4"/></svg></div><div><b>A voice for every app</b><p>Build aliases with a voice, speed, and effects. Route your e-reader to one and your chat app to another.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></div><div><b>Speaks 8 languages</b><p>The Kokoro engine detects the language as it reads and switches pronunciation on the fly.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div><div><b>Reads the web</b><p>Share a link and Marmalade opens a clean reader view, then reads it aloud with the current paragraph highlighted.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/></svg></div><div><b>Voice effects</b><p>22 built-in presets plus an editor to build your own effect chains.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M5 9h14"/><path d="M12 9v5"/><path d="m9 20 3-6 3 6"/></svg></div><div><b>Accessible</b><p>Rich TalkBack support, designed to meet WCAG 2.1 AA. Every control is labeled, progress and errors are announced.</p></div></li>
+        <li><div class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div><div><b>Reads the long stuff</b><p>Long text plays reliably with the screen off, with lock-screen and Bluetooth controls, a Quick Settings tile, and share-to-speak.</p></div></li>
+  </ul>
+</section>
 
-<h2>License</h2>
-<div class="card">
-  <p>Marmalade's own source code is MIT licensed and its repository contains
-  no GPL code. The published app also contains the espeak-ng phonemizer,
-  compiled from source at build time, so the app you install is distributed
-  under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the
-  project repository, and license details for every component are shown inside
-  the app.</p>
-</div>
+<section id="screenshots">
+  <h2>Screenshots</h2>
+  <p class="sub">Warm in the light, calm in the dark.</p>
+  <div class="shots">
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode" loading="lazy"></div><figcaption>Speak, light</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode" loading="lazy"></div><figcaption>Speak, dark</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing" loading="lazy"></div><figcaption>Aliases and per-app routing</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list" loading="lazy"></div><figcaption>Kokoro voices, 8 languages</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/05-engines.png" alt="Engine picker" loading="lazy"></div><figcaption>Engines</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/06-effects.png" alt="Voice effect presets" loading="lazy"></div><figcaption>Effect presets</figcaption></figure>
+    <figure class="shot"><div class="phone"><img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines" loading="lazy"></div><figcaption>Optional cloud engines</figcaption></figure>
+  </div>
+</section>
+
+<section id="languages">
+  <h2>Speaks 8 languages</h2>
+  <p class="sub">The multilingual Kokoro engine speaks all of these with native voices, and switches pronunciation mid-text when the language changes.</p>
+  <div class="chat" aria-label="Greetings in each supported language">
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong>Hello!</strong><span>English (US and UK)</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="es">¡Hola!</strong><span>Spanish</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="fr">Bonjour !</strong><span>French</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="it">Ciao!</strong><span>Italian</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="pt-BR">Olá!</strong><span>Portuguese (Brazil)</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="hi">नमस्ते!</strong><span>Hindi</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="ja">こんにちは！</strong><span>Japanese</span></div></div>
+    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="zh">你好！</strong><span>Mandarin Chinese</span></div></div>
+  </div>
+  <div class="card">
+    <p><b>More languages are in the works</b>, with an emphasis on ethically trained voices: clear licenses, consenting speakers, disclosed training data.</p>
+    <p>See the <a href="https://github.com/maxwhipw/marmalade-tts-android/blob/website/LANGUAGES.md">language support status page</a> for where each requested language stands. If you speak German, please <a href="german/">review our German voice samples</a>. Your feedback decides whether the German voice ships.</p>
+  </div>
+</section>
+
+<section id="effects">
+  <div class="two">
+    <div>
+      <h2>Make it yours</h2>
+      <p class="sub">22 built-in effect presets give spoken output character. Or build your own chains in the editor.</p>
+      <ul class="chips">
+        <li>8-bit</li><li>Cyborg</li><li>Megaphone</li><li>Vintage radio</li><li>Trailer</li><li>Audiobook</li><li>Podcast</li><li>Walkie-talkie</li><li>Underwater</li><li>Dragon</li><li>Ethereal</li><li>Glitch</li><li class="more">+10 more</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Private, with or without the cloud</h2>
+      <p class="sub">On-device voices touch the network only to download the engines you pick. If you add a cloud engine, it uses your own API key with a provider you choose. Until you set one up, nothing you read ever leaves your phone.</p>
+    </div>
+  </div>
+</section>
+
+<section id="support">
+  <div class="support">
+    <div class="heart"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9A5.5 5.5 0 0 1 12 6.2 5.5 5.5 0 0 1 21.5 12c-2 4.4-9.5 9-9.5 9Z"/></svg></div>
+    <div>
+      <h2>Support development</h2>
+      <p>Marmalade is free, with no ads, no accounts, and nothing an assistive-tech user needs behind a purchase. If it is useful to you, you can sponsor its development. Donations are voluntary and not tax-deductible.</p>
+    </div>
+    <a class="btn btn-default" href="https://github.com/sponsors/maxwhipw">Sponsor on GitHub</a>
+  </div>
+</section>
+
+<section id="license">
+  <h2>Open source</h2>
+  <div class="card">
+    <p>Marmalade's own source code is MIT licensed and its repository contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source at build time, so the app you install is distributed under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the project repository, and license details for every component are shown inside the app.</p>
+    <p><a href="https://github.com/maxwhipw/marmalade-tts-android">Source code on GitHub</a> · <a href="https://github.com/maxwhipw/marmalade-tts-android/issues">Issues</a></p>
+  </div>
+</section>
 
 <footer>
-  <p>
-    <a href="https://github.com/maxwhipw/marmalade-tts-android">Source code</a> ·
-    <a href="https://github.com/maxwhipw/marmalade-tts-android/issues">Issues</a> ·
-    <a href="https://f-droid.org/packages/app.marmalade.tts/">F-Droid</a> ·
-    <a href="german/">German voice review</a>
-  </p>
+  <p><a href="https://github.com/maxwhipw/marmalade-tts-android">Source</a> · <a href="https://github.com/maxwhipw/marmalade-tts-android/issues">Issues</a> · <a href="https://f-droid.org/packages/app.marmalade.tts/">F-Droid</a> · <a href="german/">German voice review</a></p>
+  <p>F-Droid badge © F-Droid, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>.</p>
 </footer>
 
 </div>
