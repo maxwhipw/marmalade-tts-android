@@ -1,4 +1,260 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=german/"><title>marmalade-tts language review</title>
-</head><body><p><a href="german/">German voice review</a> ·
-<a href="https://github.com/maxwhipw/marmalade-tts-android/blob/language-review/LANGUAGES.md">Language support status</a></p></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>marmalade tts — fast, natural, private text-to-speech for Android</title>
+<meta name="description" content="Fast, natural, private text-to-speech for your whole phone. Works offline. Free and open source.">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Momo+Trust+Display&family=Fredoka:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --surface: #FFF7ED;
+    --ink: #1c1917;
+    --ink-dim: rgba(28, 25, 23, 0.7);
+    --wordmark: #F97316;
+    --accent-bg: #F97316;
+    --accent-ink: #FFFFFF;
+    --button-bg: #FED7AA;
+    --button-ink: #7C2D12;
+    --card-bg: #FFEDD5;
+    --card-ink: #1c1917;
+    --outlined: #422006;
+    --panel: #F5F5F4;
+    --border: rgba(28, 25, 23, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #1c1917;
+      --ink: #f5f5f4;
+      --ink-dim: rgba(245, 245, 244, 0.7);
+      --wordmark: #FFEDD5;
+      --accent-bg: #422006;
+      --accent-ink: #FED7AA;
+      --card-bg: #292524;
+      --card-ink: #F5F5F4;
+      --outlined: #FFEDD5;
+      --panel: #292524;
+      --border: rgba(245, 245, 244, 0.16);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: "Manrope", "Inter", system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  header.site {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 0 8px;
+  }
+  header.site img { width: 44px; height: 44px; border-radius: 12px; }
+  .wordmark {
+    font-family: "Momo Trust Display", "Fredoka", sans-serif;
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--wordmark);
+    text-transform: lowercase;
+  }
+  .wordmark small {
+    font-size: 0.7em;
+    color: var(--ink-dim);
+    font-family: "Manrope", sans-serif;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  h1 {
+    font-weight: 600;
+    font-size: 32px;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+    margin: 32px 0 12px;
+  }
+  h2 {
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.3px;
+    margin: 48px 0 12px;
+  }
+  p.lede { font-size: 18px; color: var(--ink-dim); margin: 0 0 24px; max-width: 620px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 8px; }
+  .btn {
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 16px;
+    font-weight: 500;
+    font-size: 16px;
+    text-decoration: none;
+    min-height: 48px;
+    line-height: 24px;
+  }
+  .btn-accent { background: var(--accent-bg); color: var(--accent-ink); }
+  .btn-default { background: #FED7AA; color: #7C2D12; }
+  .btn-outlined { background: transparent; color: var(--outlined); border: 2px solid var(--outlined); }
+  .note { font-size: 14px; color: var(--ink-dim); }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    padding: 0;
+    margin: 16px 0 0;
+    list-style: none;
+  }
+  .features li {
+    background: var(--card-bg);
+    color: var(--card-ink);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .features b { font-weight: 600; }
+  .shots {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 8px 0 16px;
+  }
+  .shots img {
+    height: 420px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    flex: 0 0 auto;
+  }
+  .card {
+    background: var(--card-bg);
+    color: var(--card-ink);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .card p { margin: 8px 0; }
+  a { color: inherit; }
+  section p a, .card a, footer a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+  .chips li {
+    background: #FFEDD5;
+    color: #1c1917;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  @media (prefers-color-scheme: dark) {
+    .chips li { background: #FEF3C7; }
+  }
+  code {
+    font-family: "Space Mono", "Geist Mono", ui-monospace, monospace;
+    font-size: 18px;
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 1px 6px;
+  }
+  footer {
+    margin: 64px 0 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 14px;
+    color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="site">
+  <img src="assets/icon.png" alt="">
+  <span class="wordmark">marmalade <small>TTS</small></span>
+</header>
+
+<h1>Give your phone a voice worth listening to.</h1>
+<p class="lede">Fast, natural, private text-to-speech for your whole phone.
+Works offline. Set Marmalade as your system text-to-speech engine and every
+app that reads aloud — screen readers, e-readers, chat apps — speaks through
+it.</p>
+
+<div class="cta-row">
+  <a class="btn btn-accent" href="https://f-droid.org/packages/app.marmalade.tts/">Get it on F-Droid</a>
+  <a class="btn btn-outlined" href="https://github.com/maxwhipw/marmalade-tts-android/releases">GitHub releases (APK)</a>
+</div>
+<p class="note">Free, open source, no ads, no accounts.</p>
+
+<h2>Features</h2>
+<ul class="features">
+  <li><b>Natural neural voices.</b> Ready to speak the moment you install.</li>
+  <li><b>Fast.</b> Speech responds quickly even on modest phones.</li>
+  <li><b>Private by default.</b> Everything runs on your device.</li>
+  <li><b>Works everywhere.</b> A drop-in replacement for Google or Samsung TTS — pick it once in Settings.</li>
+  <li><b>A voice for every app.</b> Route each app to its own voice, speed, and effects.</li>
+  <li><b>Speaks 8 languages.</b> Auto-detects the language being read on the Kokoro engine.</li>
+  <li><b>Reads the web.</b> Share a link and Marmalade reads the article aloud, highlighting as it goes.</li>
+  <li><b>Voice effects.</b> 22 presets like 8-bit, cyborg, megaphone, and vintage radio — plus an editor to make your own.</li>
+  <li><b>Accessible.</b> Rich TalkBack support, designed to meet WCAG 2.1 AA.</li>
+  <li><b>Optional cloud voices.</b> From private third parties with your own API key (Venice.ai).</li>
+</ul>
+
+<h2>Screenshots</h2>
+<div class="shots">
+  <img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode">
+  <img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode">
+  <img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing">
+  <img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list">
+  <img src="assets/screenshots/05-engines.png" alt="Engine picker">
+  <img src="assets/screenshots/06-effects.png" alt="Voice effect presets">
+  <img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines">
+</div>
+
+<h2>Languages</h2>
+<p>The multilingual Kokoro engine speaks English (US and UK), Spanish, French,
+Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It
+detects the language as it reads and switches pronunciation on the fly.</p>
+<ul class="chips">
+  <li>English (US)</li><li>English (UK)</li><li>Spanish</li><li>French</li>
+  <li>Italian</li><li>Portuguese (BR)</li><li>Hindi</li><li>Japanese</li>
+  <li>Mandarin</li>
+</ul>
+<div class="card">
+  <p><b>More languages are in the works</b>, with an emphasis on ethically
+  trained voices — clear licenses, consenting speakers, disclosed training
+  data.</p>
+  <p>See the <a href="https://github.com/maxwhipw/marmalade-tts-android/blob/website/LANGUAGES.md">language
+  support status page</a> for where each requested language stands, and if you
+  speak German, please <a href="german/">review our German voice samples</a> —
+  your feedback decides whether the German voice ships.</p>
+</div>
+
+<h2>Private, with or without the cloud</h2>
+<p>No analytics, no telemetry, no accounts, and no backend of ours. On-device
+voices touch the network only to download the engines you pick. If you want
+voices beyond what your phone can run, add a cloud engine with your own API
+key. Until you set one up, nothing you read ever leaves your phone.</p>
+
+<h2>License</h2>
+<div class="card">
+  <p>Marmalade's own source code is MIT licensed and its repository contains
+  no GPL code. The published app also contains the espeak-ng phonemizer,
+  compiled from source at build time, so the app you install is distributed
+  under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the
+  project repository, and license details for every component are shown inside
+  the app.</p>
+</div>
+
+<footer>
+  <p>
+    <a href="https://github.com/maxwhipw/marmalade-tts-android">Source code</a> ·
+    <a href="https://github.com/maxwhipw/marmalade-tts-android/issues">Issues</a> ·
+    <a href="https://f-droid.org/packages/app.marmalade.tts/">F-Droid</a> ·
+    <a href="german/">German voice review</a>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>
