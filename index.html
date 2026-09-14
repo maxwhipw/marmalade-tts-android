@@ -12,7 +12,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Momo+Trust+Display&family=Fredoka:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script>
+  try { if (localStorage.getItem('mtts-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+  document.documentElement.classList.add('js');
+</script>
 <style>
+  /* Light is the default theme; dark is opt-in via the header toggle. */
   :root {
     --surface: #FFF7ED;
     --ink: #1c1917;
@@ -22,217 +27,180 @@
     --accent-ink: #FFFFFF;
     --toast-bg: #FED7AA;
     --toast-ink: #7C2D12;
+    --peach: #FDBA74;
     --card-bg: #FFEDD5;
     --card-ink: #1c1917;
-    --bubble-bot-bg: #FFEDD5;
-    --bubble-bot-ink: #1c1917;
     --chip-bg: #FFEDD5;
     --outlined: #422006;
-    --panel: #F5F5F4;
     --border: rgba(28, 25, 23, 0.12);
-    --glow: rgba(254, 215, 170, 0.9);
-    --wave: #FDBA74;
-    --bezel: #1c1917;
-    --shadow: 0 10px 30px rgba(124, 45, 18, 0.10), 0 1px 3px rgba(124, 45, 18, 0.06);
-    --shadow-lg: 0 24px 48px rgba(124, 45, 18, 0.16), 0 2px 6px rgba(124, 45, 18, 0.08);
-    --card-sheen: linear-gradient(160deg, rgba(255,255,255,0.55), rgba(255,255,255,0) 60%);
-    --tile: linear-gradient(145deg, #FED7AA, #FDBA74);
+    --glow: rgba(254, 215, 170, 0.85);
     --wave-grad: linear-gradient(180deg, #FDBA74, #D97706);
-    --blob-a: rgba(253, 186, 116, 0.55);
-    --blob-b: rgba(254, 215, 170, 0.8);
-    --blob-c: rgba(254, 243, 199, 0.9);
-    --page: linear-gradient(180deg, #FFF7ED 0%, #FFEDD5 100%);
-    --header-bg: rgba(255, 247, 237, 0.75);
+    --tile: linear-gradient(145deg, #FED7AA, #FDBA74);
+    --shadow: 0 8px 24px rgba(124, 45, 18, 0.10), 0 1px 3px rgba(124, 45, 18, 0.06);
+    --shadow-lg: 0 20px 44px rgba(124, 45, 18, 0.16), 0 2px 6px rgba(124, 45, 18, 0.08);
+    --wash-a: rgba(254, 215, 170, 0.55);
+    --wash-b: rgba(255, 237, 213, 0.9);
+    --header-bg: rgba(255, 247, 237, 0.82);
+    --bezel: #1c1917;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --surface: #1c1917;
-      --ink: #f5f5f4;
-      --ink-dim: rgba(245, 245, 244, 0.68);
-      --wordmark: #FFEDD5;
-      --accent-bg: #422006;
-      --accent-ink: #FED7AA;
-      --card-bg: #292524;
-      --card-ink: #F5F5F4;
-      --bubble-bot-bg: #292524;
-      --bubble-bot-ink: #F5F5F4;
-      --chip-bg: #FEF3C7;
-      --outlined: #FFEDD5;
-      --panel: #292524;
-      --border: rgba(245, 245, 244, 0.14);
-      --glow: rgba(66, 32, 6, 0.85);
-      --wave: #FED7AA;
-      --bezel: #0D0D0D;
-      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
-      --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
-      --card-sheen: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 60%);
-      --tile: linear-gradient(145deg, #FED7AA, #FDBA74);
-      --wave-grad: linear-gradient(180deg, #FFEDD5, #FDBA74);
-      --blob-a: rgba(66, 32, 6, 0.9);
-      --blob-b: rgba(124, 45, 18, 0.35);
-      --blob-c: rgba(66, 32, 6, 0.6);
-      --page: linear-gradient(180deg, #1c1917 0%, #292524 100%);
-      --header-bg: rgba(28, 25, 23, 0.7);
-    }
+  html[data-theme="dark"] {
+    --surface: #1c1917;
+    --ink: #f5f5f4;
+    --ink-dim: rgba(245, 245, 244, 0.68);
+    --wordmark: #FFEDD5;
+    --accent-bg: #422006;
+    --accent-ink: #FED7AA;
+    --card-bg: #292524;
+    --card-ink: #F5F5F4;
+    --chip-bg: #FEF3C7;
+    --outlined: #FFEDD5;
+    --border: rgba(245, 245, 244, 0.14);
+    --glow: rgba(66, 32, 6, 0.9);
+    --wave-grad: linear-gradient(180deg, #FFEDD5, #FDBA74);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 20px 44px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --wash-a: rgba(66, 32, 6, 0.45);
+    --wash-b: rgba(41, 37, 36, 0.9);
+    --header-bg: rgba(28, 25, 23, 0.82);
+    --bezel: #0D0D0D;
   }
+
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; overflow-x: clip; }
   body {
     margin: 0;
-    background: var(--page);
-    background-attachment: scroll;
-    min-height: 100vh;
-    position: relative;
-    overflow-x: hidden;
+    background:
+      radial-gradient(120% 46% at 50% -6%, var(--wash-a), transparent 70%),
+      radial-gradient(90% 30% at 85% 100%, var(--wash-b), transparent 70%),
+      var(--surface);
     color: var(--ink);
     font-family: "Manrope", "Inter", system-ui, sans-serif;
     font-size: 16.5px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
   }
   a { color: inherit; }
-  .bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-  .bg i {
-    position: absolute; border-radius: 50%; filter: blur(60px); display: block;
-    animation: drift 18s ease-in-out infinite alternate;
-  }
-  .bg i:nth-child(1) { width: 60vw; height: 60vw; left: -18vw; top: -22vw; background: var(--blob-b); }
-  .bg i:nth-child(2) { width: 46vw; height: 46vw; right: -16vw; top: 6vh; background: var(--blob-a); animation-delay: -6s; animation-duration: 22s; }
-  .bg i:nth-child(3) { width: 50vw; height: 50vw; left: 22vw; bottom: -28vw; background: var(--blob-c); animation-delay: -12s; animation-duration: 26s; }
-  @keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(6vw, 4vh) scale(1.12); } }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  img { max-width: 100%; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 
   /* ---------- header ---------- */
   header.site {
     position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; padding: 14px 0; margin-bottom: 8px;
-  }
-  header.site::before {
-    content: ""; position: absolute; inset: 0 -100vw; z-index: -1;
-    background: var(--header-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: var(--header-bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
   }
-  .brand img { box-shadow: var(--shadow); }
-  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-  .brand img { width: 40px; height: 40px; border-radius: 12px; }
+  header.site .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; min-width: 0; }
+  .brand img { width: 38px; height: 38px; border-radius: 12px; box-shadow: var(--shadow); }
   .wordmark {
     font-family: "Momo Trust Display", "Fredoka", sans-serif;
-    font-weight: 600; font-size: 26px; line-height: 1;
-    color: var(--wordmark); text-transform: lowercase;
+    font-weight: 600; font-size: 25px; line-height: 1;
+    color: var(--wordmark); text-transform: lowercase; white-space: nowrap;
   }
-  .wordmark small { font-family: "Manrope", sans-serif; font-weight: 700; font-size: 15px; color: var(--ink-dim); margin-left: 6px; text-transform: none; }
-  nav.top { display: flex; gap: 4px; flex-wrap: wrap; }
-  nav.top a {
-    text-decoration: none; font-weight: 500; font-size: 15px;
-    padding: 8px 12px; border-radius: 12px; color: var(--ink-dim);
-  }
+  .hright { display: flex; align-items: center; gap: 4px; }
+  nav.top { display: flex; gap: 2px; flex-wrap: wrap; }
+  nav.top a { text-decoration: none; font-weight: 500; font-size: 15px; padding: 8px 12px; border-radius: 12px; color: var(--ink-dim); }
   nav.top a:hover { background: var(--card-bg); color: var(--ink); }
-  @media (max-width: 640px) { nav.top { display: none; } }
+  @media (max-width: 760px) { nav.top { display: none; } }
+  .mode {
+    width: 44px; height: 44px; border-radius: 12px; border: none; cursor: pointer;
+    background: transparent; color: var(--ink-dim); display: grid; place-items: center;
+  }
+  .mode:hover { background: var(--card-bg); color: var(--ink); }
+  .mode svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .mode .sun { display: none; }
+  html[data-theme="dark"] .mode .sun { display: block; }
+  html[data-theme="dark"] .mode .moon { display: none; }
 
   /* ---------- hero ---------- */
   .hero {
-    display: grid; grid-template-columns: 1.15fr 1fr; gap: 32px; align-items: center;
-    padding: 32px 0 48px;
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; align-items: center;
+    padding: 48px 0 40px;
   }
-  @media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding-top: 16px; } }
+  @media (max-width: 820px) { .hero { grid-template-columns: 1fr; padding: 24px 0 8px; } }
   .eyebrow {
     display: inline-block; font-weight: 700; font-size: 13.5px; letter-spacing: 0.02em;
     color: var(--toast-ink); background: var(--toast-bg);
     padding: 6px 12px; border-radius: 20px; margin-bottom: 20px;
   }
   h1 {
-    font-weight: 800; font-size: clamp(34px, 5.2vw, 54px); line-height: 1.08;
+    font-weight: 800; font-size: clamp(33px, 5.2vw, 54px); line-height: 1.08;
     letter-spacing: -0.02em; margin: 0 0 20px;
+  }
+  .hl { position: relative; white-space: nowrap; }
+  .hl::after {
+    content: ""; position: absolute; left: -2px; right: -2px; bottom: 2px; height: 0.24em;
+    background: var(--peach); border-radius: 4px; z-index: -1; transform: rotate(-1.2deg);
   }
   .lede { font-size: 19px; color: var(--ink-dim); margin: 0 0 28px; max-width: 520px; }
   .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-  .cta-row .badge img { height: 64px; display: block; }
+  .cta-row .badge img { height: 60px; display: block; border-radius: 10px; box-shadow: var(--shadow); }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 22px; border-radius: 16px; min-height: 48px;
     font-weight: 600; font-size: 16px; text-decoration: none; line-height: 1.3;
+    box-shadow: var(--shadow);
   }
-  .btn-accent { background: var(--accent-bg); color: var(--accent-ink); }
-  .btn-default { background: var(--toast-bg); color: var(--toast-ink); }
-  .btn-outlined { background: transparent; color: var(--outlined); border: 2px solid var(--outlined); }
-  .btn svg { width: 20px; height: 20px; }
-  .btn, .cta-row .badge img, .phone, .step, .features li, .card, .support {
-    transition: transform .25s ease, box-shadow .25s ease;
-  }
-  .btn { box-shadow: var(--shadow); }
-  .btn-outlined { box-shadow: none; }
+  .btn, .cta-row .badge img, .phone, .step, .features li, .card, .support-card { transition: transform .25s ease, box-shadow .25s ease; }
   .btn:hover, .cta-row .badge:hover img { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-  .cta-row .badge img { border-radius: 10px; box-shadow: var(--shadow); }
+  .btn-default { background: var(--toast-bg); color: var(--toast-ink); }
+  .btn-outlined { background: transparent; color: var(--outlined); border: 2px solid var(--outlined); box-shadow: none; }
+  .btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .fineprint { font-size: 14.5px; color: var(--ink-dim); margin: 16px 0 0; }
 
-  .stage {
-    position: relative; min-height: 380px;
-    display: grid; place-items: center;
-  }
+  .stage { position: relative; min-height: 380px; display: grid; place-items: center; }
   .stage::before {
-    content: ""; position: absolute; inset: 4% 0;
+    content: ""; position: absolute; inset: 6% 2%;
     background: radial-gradient(closest-side, var(--glow), transparent 72%);
-    border-radius: 50%; z-index: 0;
+    border-radius: 50%;
   }
-  .orb { position: absolute; z-index: 0; border-radius: 50%; background: var(--tile); opacity: .7; animation: orbit 9s ease-in-out infinite; }
-  .orb.a { width: 26px; height: 26px; left: 14%; top: 18%; }
-  .orb.b { width: 16px; height: 16px; right: 12%; bottom: 20%; animation-delay: -3s; animation-duration: 11s; }
-  .orb.c { width: 38px; height: 38px; left: 20%; bottom: 10%; animation-delay: -6s; animation-duration: 13s; opacity: .45; }
-  @keyframes orbit { 0%,100% { transform: translate(0,0); } 33% { transform: translate(10px,-14px); } 66% { transform: translate(-8px,8px); } }
+  .orb { position: absolute; border-radius: 50%; background: var(--tile); opacity: .6; animation: orbit 9s ease-in-out infinite; }
+  .orb.a { width: 24px; height: 24px; left: 16%; top: 18%; }
+  .orb.b { width: 15px; height: 15px; right: 14%; bottom: 22%; animation-delay: -4s; animation-duration: 12s; }
+  @keyframes orbit { 0%,100% { transform: translate(0,0); } 33% { transform: translate(9px,-13px); } 66% { transform: translate(-7px,7px); } }
   .mascot {
-    position: relative; z-index: 1; width: 260px; height: 260px;
-    filter: drop-shadow(0 18px 22px rgba(124, 45, 18, 0.28));
+    position: relative; width: 255px; height: 255px;
+    filter: drop-shadow(0 16px 20px rgba(124, 45, 18, 0.26));
     animation: bob 4s ease-in-out infinite;
   }
   @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-  .waves {
-    position: absolute; z-index: 1; display: flex; align-items: center; gap: 6px; height: 64px;
-    top: 50%; transform: translateY(-50%);
-  }
-  .waves.l { left: 6%; } .waves.r { right: 6%; }
-  .waves i {
-    display: block; width: 8px; height: 20px; border-radius: 4px; background: var(--wave-grad);
-    animation: wave 1.2s ease-in-out infinite;
-  }
-  .waves i:nth-child(1) { animation-delay: 0s; }
-  .waves i:nth-child(2) { animation-delay: .15s; }
-  .waves i:nth-child(3) { animation-delay: .3s; }
-  .waves i:nth-child(4) { animation-delay: .45s; }
+  .waves { position: absolute; display: flex; align-items: center; gap: 6px; height: 64px; top: 50%; transform: translateY(-50%); }
+  .waves.l { left: 4%; } .waves.r { right: 4%; }
+  .waves i { display: block; width: 8px; height: 20px; border-radius: 4px; background: var(--wave-grad); animation: wave 1.2s ease-in-out infinite; }
+  .waves i:nth-child(1) { animation-delay: 0s; } .waves i:nth-child(2) { animation-delay: .15s; }
+  .waves i:nth-child(3) { animation-delay: .3s; } .waves i:nth-child(4) { animation-delay: .45s; }
   .waves i:nth-child(5) { animation-delay: .6s; }
-  .waves.r i:nth-child(1) { animation-delay: .6s; }
-  .waves.r i:nth-child(2) { animation-delay: .45s; }
-  .waves.r i:nth-child(3) { animation-delay: .3s; }
-  .waves.r i:nth-child(4) { animation-delay: .15s; }
+  .waves.r i:nth-child(1) { animation-delay: .6s; } .waves.r i:nth-child(2) { animation-delay: .45s; }
+  .waves.r i:nth-child(3) { animation-delay: .3s; } .waves.r i:nth-child(4) { animation-delay: .15s; }
   .waves.r i:nth-child(5) { animation-delay: 0s; }
   @keyframes wave { 0%,100% { height: 14px; } 50% { height: 56px; } }
   .speech {
-    position: absolute; z-index: 2; top: 6%; right: 8%;
-    background: var(--bubble-bot-bg); color: var(--bubble-bot-ink);
+    position: absolute; z-index: 2; top: 4%; right: 4%;
+    background: var(--card-bg); color: var(--card-ink);
     padding: 12px 16px; border-radius: 16px 16px 16px 6px;
     font-weight: 600; font-size: 15.5px; max-width: 220px;
     box-shadow: var(--shadow-lg);
     animation: pop 0.6s cubic-bezier(.2,.9,.3,1.3) both; animation-delay: .4s;
   }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: none; } }
-  @media (max-width: 800px) { .stage { min-height: 320px; } .mascot { width: 200px; height: 200px; } }
-  @media (prefers-reduced-motion: reduce) {
-    .mascot, .waves i, .speech, .orb, .bg i { animation: none; }
-    .waves i { height: 28px; }
-    .waves i:nth-child(odd) { height: 44px; }
+  @media (max-width: 820px) {
+    .stage { min-height: 320px; }
+    .mascot { width: 195px; height: 195px; }
+    .waves.l { left: 0; } .waves.r { right: 0; }
+    .speech { right: 0; top: 0; }
   }
 
   /* ---------- sections ---------- */
   section { padding: 40px 0; }
-  h2 {
-    font-weight: 700; font-size: 28px; letter-spacing: -0.02em; line-height: 1.2;
-    margin: 0 0 8px;
-  }
+  h2 { font-weight: 700; font-size: 28px; letter-spacing: -0.02em; line-height: 1.2; margin: 0 0 8px; }
+  h2::before { content: ""; display: block; width: 44px; height: 6px; border-radius: 3px; background: var(--tile); margin-bottom: 14px; }
   .sub { color: var(--ink-dim); font-size: 17px; margin: 0 0 28px; max-width: 640px; }
 
   .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
-  .step { background: var(--card-sheen), var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; box-shadow: var(--shadow); }
+  .step { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; box-shadow: var(--shadow); }
   .step:hover, .features li:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
   .step .n {
     flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px;
@@ -242,41 +210,44 @@
   .step b { display: block; font-weight: 700; margin-bottom: 2px; }
   .step span { color: var(--ink-dim); font-size: 15.5px; }
 
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; padding: 0; margin: 0; list-style: none; }
-  .features li { background: var(--card-sheen), var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow); }
-  .ico {
-    flex: 0 0 44px; width: 44px; height: 44px; border-radius: 14px;
-    background: var(--tile); color: var(--toast-ink); display: grid; place-items: center;
-  }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; padding: 0; margin: 0; list-style: none; }
+  .features li { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow); }
+  .ico { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 14px; background: var(--tile); color: var(--toast-ink); display: grid; place-items: center; }
   .ico svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .features b { display: block; font-weight: 700; margin-bottom: 2px; }
   .features p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
 
-  /* screenshots */
-  .shots {
-    display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory;
-    padding: 8px 4px 20px; margin: 0 -4px;
-    scrollbar-width: thin;
-  }
-  .shot { flex: 0 0 auto; scroll-snap-align: start; width: 232px; }
-  .phone {
-    background: var(--bezel); border-radius: 28px; padding: 10px;
+  /* support */
+  .support-card {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;
+    background: var(--card-bg); color: var(--card-ink); border-radius: 24px; padding: 28px;
     box-shadow: var(--shadow-lg);
   }
-  .phone:hover { transform: translateY(-6px) rotate(-1deg); }
-  .phone img { display: block; width: 100%; border-radius: 20px; }
-  .shot figcaption { font-size: 14.5px; color: var(--ink-dim); text-align: center; margin-top: 10px; }
+  @media (max-width: 720px) { .support-card { grid-template-columns: 1fr; justify-items: start; } }
+  .heart { width: 56px; height: 56px; border-radius: 16px; background: var(--tile); color: var(--toast-ink); display: grid; place-items: center; animation: beat 2.4s ease-in-out infinite; }
+  .heart svg { width: 28px; height: 28px; fill: currentColor; }
+  @keyframes beat { 0%,100% { transform: scale(1); } 12% { transform: scale(1.08); } 24% { transform: scale(1); } 36% { transform: scale(1.06); } 48% { transform: scale(1); } }
+  .support-card h2 { font-size: 22px; margin: 0 0 4px; }
+  .support-card h2::before { display: none; }
+  .support-card p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
 
-  /* languages chat */
+  /* screenshots */
+  .shots { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 12px 4px 20px; margin: 0 -4px; scrollbar-width: thin; }
+  .shot { flex: 0 0 auto; scroll-snap-align: start; width: 225px; margin: 0; }
+  .phone { background: var(--bezel); border-radius: 28px; padding: 9px; box-shadow: var(--shadow-lg); }
+  .shot:nth-child(odd) .phone { transform: rotate(-1.4deg); }
+  .shot:nth-child(even) .phone { transform: rotate(1.4deg); }
+  .shot .phone:hover { transform: rotate(0) translateY(-6px); }
+  .phone img { display: block; width: 100%; border-radius: 20px; }
+  .shot figcaption { font-size: 14.5px; color: var(--ink-dim); text-align: center; margin-top: 12px; }
+
+  /* languages */
   .chat { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 0 0 24px; }
   @media (max-width: 640px) { .chat { grid-template-columns: 1fr; } }
-  .msg {
-    display: flex; align-items: flex-end; gap: 10px;
-    animation: pop .5s ease-out both;
-  }
+  .msg { display: flex; align-items: flex-end; gap: 10px; animation: pop .5s ease-out both; }
   .msg img { width: 32px; height: 32px; flex: 0 0 32px; }
   .msg .b {
-    background: var(--card-sheen), var(--bubble-bot-bg); color: var(--bubble-bot-ink); box-shadow: var(--shadow);
+    background: var(--card-bg); color: var(--card-ink); box-shadow: var(--shadow);
     padding: 10px 14px; border-radius: 16px 16px 16px 6px;
     display: flex; flex-direction: column; gap: 1px;
   }
@@ -286,72 +257,64 @@
   .msg:nth-child(3) { animation-delay: .15s; } .msg:nth-child(4) { animation-delay: .2s; }
   .msg:nth-child(5) { animation-delay: .25s; } .msg:nth-child(6) { animation-delay: .3s; }
   .msg:nth-child(7) { animation-delay: .35s; } .msg:nth-child(8) { animation-delay: .4s; }
-  .msg:nth-child(9) { animation-delay: .45s; }
-  @media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
 
-  .card { background: var(--card-sheen), var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px 24px; box-shadow: var(--shadow); }
+  .card { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px 24px; box-shadow: var(--shadow); }
   .card p { margin: 8px 0; }
   .card p:first-child { margin-top: 0; } .card p:last-child { margin-bottom: 0; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .chips li {
-    background: var(--chip-bg); color: #1c1917;
-    border-radius: 20px; padding: 7px 14px; font-size: 15px; font-weight: 500;
-  }
-  .chips li.more { background: transparent; color: var(--ink-dim); border: 1.5px solid var(--border); }
+  .chips li { background: var(--chip-bg); color: #1c1917; border-radius: 20px; padding: 7px 14px; font-size: 15px; font-weight: 500; box-shadow: var(--shadow); }
+  .chips li.more { background: transparent; color: var(--ink-dim); border: 1.5px solid var(--border); box-shadow: none; }
 
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
   @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
 
-  .support {
-    display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;
-    background: var(--card-sheen), var(--card-bg); color: var(--card-ink); border-radius: 24px; padding: 28px;
-    box-shadow: var(--shadow-lg);
-  }
-  @media (max-width: 720px) { .support { grid-template-columns: 1fr; } }
-  .heart { width: 56px; height: 56px; border-radius: 18px; background: var(--tile);
-    animation: beat 2.4s ease-in-out infinite; color: var(--toast-ink); display: grid; place-items: center; }
-  .heart svg { width: 28px; height: 28px; fill: currentColor; }
-  @keyframes beat { 0%,100% { transform: scale(1); } 12% { transform: scale(1.08); } 24% { transform: scale(1); } 36% { transform: scale(1.06); } 48% { transform: scale(1); } }
-  @media (prefers-reduced-motion: reduce) { .heart { animation: none; } }
-  .support h2 { font-size: 22px; margin-bottom: 4px; }
-  .support p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
-
-  footer {
-    margin: 48px 0 32px; padding-top: 24px; border-top: 1px solid var(--border);
-    font-size: 14px; color: var(--ink-dim); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
-  }
+  footer { margin: 48px 0 32px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 14px; color: var(--ink-dim); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
   footer p { margin: 0; }
+
   .js .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
   .js .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) { .js .reveal { opacity: 1; transform: none; transition: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mascot, .waves i, .speech, .orb, .heart, .msg { animation: none; }
+    .waves i { height: 28px; } .waves i:nth-child(odd) { height: 44px; }
+    .js .reveal { opacity: 1; transform: none; transition: none; }
+    .btn, .cta-row .badge img, .phone, .step, .features li, .card, .support-card { transition: none; }
+  }
 </style>
-<script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
-<div class="bg" aria-hidden="true"><i></i><i></i><i></i></div>
-<div class="wrap">
 
 <header class="site">
-  <a class="brand" href="#"><img src="assets/icon.png" alt=""><span class="wordmark">marmalade<small>TTS</small></span></a>
-  <nav class="top">
-    <a href="#features">Features</a>
-    <a href="#screenshots">Screenshots</a>
-    <a href="#languages">Languages</a>
-    <a href="#support">Support</a>
-    <a href="https://github.com/maxwhipw/marmalade-tts-android">Source</a>
-  </nav>
+  <div class="wrap bar">
+    <a class="brand" href="#"><img src="assets/icon.png" alt=""><span class="wordmark">marmalade tts</span></a>
+    <div class="hright">
+      <nav class="top">
+        <a href="#features">Features</a>
+        <a href="#support">Support</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#languages">Languages</a>
+        <a href="https://github.com/maxwhipw/marmalade-tts-android">Source</a>
+      </nav>
+      <button class="mode" id="modeToggle" aria-label="Switch between light and dark theme">
+        <svg class="moon" viewBox="0 0 24 24"><path d="M20 13A8 8 0 1 1 11 4a6.5 6.5 0 0 0 9 9Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.5 4.5 1.4 1.4"/><path d="m18.1 18.1 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.5 19.5 1.4-1.4"/><path d="m18.1 5.9 1.4-1.4"/></svg>
+      </button>
+    </div>
+  </div>
 </header>
+
+<div class="wrap">
 
 <div class="hero">
   <div>
     <span class="eyebrow">Open-source text-to-speech for Android</span>
-    <h1>Give your phone a voice worth listening to.</h1>
+    <h1>Give your phone a <span class="hl">voice</span> worth listening to.</h1>
     <p class="lede">Fast, natural, private text-to-speech for your whole phone. Works offline. Set it once and every app that reads aloud speaks through it.</p>
     <div class="cta-row">
       <a class="badge" href="https://f-droid.org/packages/app.marmalade.tts/"><img src="https://f-droid.org/badge/get-it-on.svg" alt="Get it on F-Droid"></a>
       <a class="btn btn-outlined" href="https://github.com/maxwhipw/marmalade-tts-android/releases">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
         Download APK
       </a>
     </div>
@@ -359,7 +322,7 @@
   </div>
   <div class="stage" aria-hidden="true">
     <div class="speech">Hi! Every app on your phone can sound like this.</div>
-    <span class="orb a"></span><span class="orb b"></span><span class="orb c"></span>
+    <span class="orb a"></span><span class="orb b"></span>
     <div class="waves l"><i></i><i></i><i></i><i></i><i></i></div>
     <img class="mascot" src="assets/mascot.svg" alt="">
     <div class="waves r"><i></i><i></i><i></i><i></i><i></i></div>
@@ -383,13 +346,24 @@
     <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg></div><div><b>Natural neural voices</b><p>Ready to speak the moment you install. Bigger and better engines download only when you choose them.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div><div><b>Fast</b><p>Speech responds quickly even on modest phones. Streaming synthesis starts talking before the sentence is done.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><div><b>Private by default</b><p>No analytics, no telemetry, no accounts, no backend of ours. Text read by on-device voices never leaves your phone.</p></div></li>
-    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 6h6l2 3h8v9H4z"/><path d="M4 6v12"/><path d="M14 13h4"/></svg></div><div><b>A voice for every app</b><p>Build aliases with a voice, speed, and effects. Route your e-reader to one and your chat app to another.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 12h5"/><path d="M9 12c4 0 4-6 8-6"/><path d="M9 12c4 0 4 6 8 6"/><circle cx="19.5" cy="6" r="1.7"/><circle cx="19.5" cy="12" r="1.7"/><circle cx="19.5" cy="18" r="1.7"/><path d="M9 12h8"/></svg></div><div><b>A voice for every app</b><p>Build aliases with a voice, speed, and effects. Route your e-reader to one and your chat app to another.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></div><div><b>Speaks 8 languages</b><p>The Kokoro engine detects the language as it reads and switches pronunciation on the fly.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div><div><b>Reads the web</b><p>Share a link and Marmalade opens a clean reader view, then reads it aloud with the current paragraph highlighted.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/></svg></div><div><b>Voice effects</b><p>22 built-in presets plus an editor to build your own effect chains.</p></div></li>
     <li><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M5 9h14"/><path d="M12 9v5"/><path d="m9 20 3-6 3 6"/></svg></div><div><b>Accessible</b><p>Rich TalkBack support, designed to meet WCAG 2.1 AA. Every control is labeled, progress and errors are announced.</p></div></li>
-        <li><div class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div><div><b>Reads the long stuff</b><p>Long text plays reliably with the screen off, with lock-screen and Bluetooth controls, a Quick Settings tile, and share-to-speak.</p></div></li>
+    <li><div class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div><div><b>Reads the long stuff</b><p>Long text plays reliably with the screen off, with lock-screen and Bluetooth controls, a Quick Settings tile, and share-to-speak.</p></div></li>
   </ul>
+</section>
+
+<section id="support">
+  <div class="support-card">
+    <div class="heart"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9A5.5 5.5 0 0 1 12 6.2 5.5 5.5 0 0 1 21.5 12c-2 4.4-9.5 9-9.5 9Z"/></svg></div>
+    <div>
+      <h2>Support development</h2>
+      <p>Marmalade is free, with no ads, no accounts, and nothing an assistive-tech user needs behind a purchase. If it is useful to you, you can sponsor its development. Donations are voluntary and not tax-deductible.</p>
+    </div>
+    <a class="btn btn-default" href="https://github.com/sponsors/maxwhipw">Sponsor on GitHub</a>
+  </div>
 </section>
 
 <section id="screenshots">
@@ -441,17 +415,6 @@
   </div>
 </section>
 
-<section id="support">
-  <div class="support">
-    <div class="heart"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9A5.5 5.5 0 0 1 12 6.2 5.5 5.5 0 0 1 21.5 12c-2 4.4-9.5 9-9.5 9Z"/></svg></div>
-    <div>
-      <h2>Support development</h2>
-      <p>Marmalade is free, with no ads, no accounts, and nothing an assistive-tech user needs behind a purchase. If it is useful to you, you can sponsor its development. Donations are voluntary and not tax-deductible.</p>
-    </div>
-    <a class="btn btn-default" href="https://github.com/sponsors/maxwhipw">Sponsor on GitHub</a>
-  </div>
-</section>
-
 <section id="license">
   <h2>Open source</h2>
   <div class="card">
@@ -468,6 +431,12 @@
 </div>
 <script>
   (function () {
+    var btn = document.getElementById('modeToggle');
+    btn.addEventListener('click', function () {
+      var dark = document.documentElement.dataset.theme === 'dark';
+      if (dark) { delete document.documentElement.dataset.theme; } else { document.documentElement.dataset.theme = 'dark'; }
+      try { localStorage.setItem('mtts-theme', dark ? 'light' : 'dark'); } catch (e) {}
+    });
     var els = document.querySelectorAll('section > *, .hero > *');
     els.forEach(function (el) { el.classList.add('reveal'); });
     if (!('IntersectionObserver' in window)) { els.forEach(function (el) { el.classList.add('in'); }); return; }
