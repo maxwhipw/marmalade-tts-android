@@ -164,7 +164,11 @@ class VitsDirectEngine @Inject constructor(
     @Volatile private var lastSampleRate: Int = FALLBACK_SAMPLE_RATE
 
     /** A pack that is resident right now: its config plus its ORT session. */
-    private class LoadedPack(val config: VitsPackConfig, val session: OrtSession)
+    private class LoadedPack(
+        val ort: OrtEnvironment,
+        val config: VitsPackConfig,
+        val session: OrtSession,
+    )
 
     // -- install state --------------------------------------------------------
 
@@ -293,6 +297,10 @@ class VitsDirectEngine @Inject constructor(
                 val pack = loadPack(resolved, packDir, threadCount)
                 loaded[resolved] = pack
                 lastSampleRate = pack.config.sampleRate
+                // Marker LAST, after the pack is registered and reachable — so
+                // a concurrent isLoaded() can never report ready on a pack the
+                // synth path can't find yet.
+                env = pack.ort
                 Log.i(
                     TAG,
                     "loaded pack $resolved (${pack.config.dataset}, " +
@@ -346,9 +354,7 @@ class VitsDirectEngine @Inject constructor(
             phonemizer = espeak
             Log.i(TAG, "espeak version=${espeak.version()}")
         }
-        // Publish the marker only once a pack is fully usable.
-        env = ort
-        return LoadedPack(config, session)
+        return LoadedPack(ort, config, session)
     }
 
     private fun buildSessionOptions(intraOpThreads: Int): OrtSession.SessionOptions =
