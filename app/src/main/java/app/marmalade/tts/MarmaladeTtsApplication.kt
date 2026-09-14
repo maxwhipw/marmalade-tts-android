@@ -358,7 +358,11 @@ class MarmaladeTtsApplication : Application() {
          *    Norwegian NVCC ×10). A multi-speaker pack seeds one row per
          *    speaker, id `<engine>:<packId>#<sid>`; single-speaker voice ids
          *    are unchanged.
+         *  - v37: the grapheme ("text" phoneme_type) Ukrainian pack
+         *    `uk-ukrainian_tts-medium` ×3 speakers. `uk-lada-x_low`'s label
+         *    becomes "Lada (Ukrainian, small)" so the two Ladas are tellable
+         *    apart; its id — and any alias pointing at it — is unchanged.
          */
-        const val CATALOG_VERSION: Int = 36
+        const val CATALOG_VERSION: Int = 37
     }
 }

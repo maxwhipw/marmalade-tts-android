@@ -32,6 +32,7 @@ class VoicePackCatalogTest {
                 "sv-nst-medium",
                 "kk-issai-high",
                 "no-nvcc-medium",
+                "uk-ukrainian_tts-medium",
             ),
             VoicePackCatalog.all.map { it.id },
         )
@@ -137,6 +138,23 @@ class VoicePackCatalogTest {
                 voice.displayName.contains("($expected,"),
             )
         }
+    }
+
+    @Test
+    fun everyVoiceLabelIsDistinctIncludingTheTwoLadas() {
+        // Two rows reading "Lada (Ukrainian)" in the picker would be
+        // indistinguishable: the same speaker exists in the x_low pack and in
+        // the 3-speaker medium one. The better voice keeps the plain name.
+        val names = VoicePackCatalog.voicesForEngine(ENGINE).map { it.displayName }
+        assertEquals("voice labels must be unique: $names", names.size, names.distinct().size)
+        assertEquals(
+            "Lada (Ukrainian, small)",
+            VoicePackCatalog.voiceByKey(ENGINE, "uk-lada-x_low")!!.displayName,
+        )
+        assertEquals(
+            "Lada (Ukrainian)",
+            VoicePackCatalog.voiceByKey(ENGINE, "uk-ukrainian_tts-medium#0")!!.displayName,
+        )
     }
 
     @Test
@@ -304,8 +322,8 @@ class VoicePackCatalogTest {
         assertEquals(voices.map { it.sampleRate }, VitsVoiceCatalog.voices.map { it.sampleRate })
         assertEquals(voices.map { it.gender }, VitsVoiceCatalog.voices.map { it.gender })
         assertEquals(voices.map { it.displayName }, VitsVoiceCatalog.voices.map { it.displayName })
-        // 6 single-speaker packs + 6 Kazakh speakers + 10 Norwegian ones.
-        assertEquals(22, VitsVoiceCatalog.voices.size)
+        // 6 single-speaker packs + 6 Kazakh + 10 Norwegian + 3 Ukrainian.
+        assertEquals(25, VitsVoiceCatalog.voices.size)
         assertTrue(
             "the default voice must be one of the catalog's voices",
             VitsVoiceCatalog.voices.any { it.id == VitsVoiceCatalog.DEFAULT_VOICE_ID },

@@ -298,12 +298,17 @@ object VoicePackCatalog {
      *
      * Extracted layout: `model.onnx` (20,628,813) + `model.onnx.json`
      * (4,186) + `MODEL_CARD` (267) + `PROVENANCE.md` (1,246).
+     *
+     * Labelled "…, small": [UK_UKRAINIAN_TTS_MEDIUM] has a Lada too, from the
+     * same corpus family at a higher tier, and the two must be tellable apart
+     * in the picker. The better voice keeps the plain name; this one says what
+     * it is. The pack **id** is unchanged — user aliases point at it.
      */
     val UK_LADA_X_LOW: VoicePack = VoicePack(
         id = "uk-lada-x_low",
         engine = VITS_MARMALADE_ENGINE,
         languageCode = "uk-UA",
-        displayName = "Lada (Ukrainian)",
+        displayName = "Lada (Ukrainian, small)",
         qualityTier = "x_low",
         sampleRate = 16_000,
         // The upstream corpus documents no gender for this speaker.
@@ -484,6 +489,49 @@ object VoicePackCatalog {
         ),
     )
 
+    /**
+     * Ukrainian **ukrainian_tts** pack, 22.05 kHz `medium` tier, **3 speakers**
+     * — and the first **grapheme** pack: its config says
+     * `phoneme_type: "text"`, so the engine skips espeak entirely and feeds the
+     * model characters (see [app.marmalade.tts.engine.vits.VitsPhonemeIds]).
+     *
+     * Same corpus family as [UK_LADA_X_LOW] (egorsmkv, Apache-2.0) at a higher
+     * tier, which is why its Lada gets the plain label and the x_low one is
+     * marked "small".
+     *
+     * The upstream model card misattributes the training data to
+     * OHF-Voice/voice-datasets, which has no Ukrainian entry; the real source
+     * is `egorsmkv/ukrainian-tts-datasets` (verified 2026-09-13, recorded in
+     * the pack's `PROVENANCE.md`). The GPLv3 `robinhad/ukrainian-tts` project
+     * does **not** attach: that is a separate ESPnet codebase and this VITS
+     * checkpoint was trained from scratch on the datasets.
+     */
+    val UK_UKRAINIAN_TTS_MEDIUM: VoicePack = VoicePack(
+        id = "uk-ukrainian_tts-medium",
+        engine = VITS_MARMALADE_ENGINE,
+        languageCode = "uk-UA",
+        displayName = "Ukrainian (ukrainian_tts)",
+        qualityTier = "medium",
+        sampleRate = 22_050,
+        gender = null,
+        archive = packArchive(
+            packId = "uk-ukrainian_tts-medium",
+            sha256 = "00b28714d7a665121d47e499416ae108a4407154512d5887b29b839406d2af4d",
+            sizeBytes = 71_144_912L,
+        ),
+        installedSizeBytes = 76_739_354L,
+        licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
+        // speaker_id_map: {"lada": 0, "mykyta": 1, "tetiana": 2}. Genders are
+        // null: the corpus documents the speakers' names but not their gender,
+        // and guessing from a given name is exactly what this field doesn't do
+        // (the x_low Lada is null for the same reason).
+        speakers = listOf(
+            PackSpeaker(sid = 0, displayName = "Lada (Ukrainian)"),
+            PackSpeaker(sid = 1, displayName = "Mykyta (Ukrainian)"),
+            PackSpeaker(sid = 2, displayName = "Tetiana (Ukrainian)"),
+        ),
+    )
+
     /** Every voice pack the app knows how to install. Read-only. */
     val all: List<VoicePack> = listOf(
         UK_LADA_X_LOW,
@@ -494,6 +542,7 @@ object VoicePackCatalog {
         SV_NST_MEDIUM,
         KK_ISSAI_HIGH,
         NO_NVCC_MEDIUM,
+        UK_UKRAINIAN_TTS_MEDIUM,
     )
 
     /** Lookup by [VoicePack.id]. Null for unknown packs. */

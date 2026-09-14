@@ -42,14 +42,21 @@ import kotlinx.coroutines.withContext
 //     │
 //     ├── ensurePackLoaded(pack) ──► LoadedPack
 //     │        ├── VitsPackConfig.load(packs/<id>/model.onnx.json)
-//     │        │      (sample rate, espeak voice, scales, phoneme_id_map)
+//     │        │      (sample rate, phoneme_type, espeak voice, scales,
+//     │        │       phoneme_id_map, speaker_id_map)
 //     │        └── OrtSession(packs/<id>/model.onnx)   [XNNPACK EP]
 //     │
-//     ├── VitsPhonemeIds.splitClauses(text)   → [(clause text, terminator)]
-//     │        └── per clause: EspeakPhonemizer.phonemize(clause, lang)  → IPA
+//     ├── TextChunker.chunk(text) → chunks, then per chunk ONE of:
 //     │
-//     ├── VitsPhonemeIds.encode(phonemized clauses, config.phonemeIdMap)
-//     │        → int64 ids  ^ _ (p _)* $
+//     │   phoneme_type = "espeak"  (IPA ids)
+//     │     ├── VitsPhonemeIds.splitClauses(chunk) → [(text, terminator)]
+//     │     │     └── per clause: EspeakPhonemizer.phonemize(clause, lang) → IPA
+//     │     └── VitsPhonemeIds.encode(clauses, config.phonemeIdMap)
+//     │
+//     │   phoneme_type = "text"    (grapheme ids — no espeak, no clauses)
+//     │     └── VitsPhonemeIds.encodeText(chunk, config.phonemeIdMap)
+//     │
+//     │        both → int64 ids  ^ _ (p _)* $
 //     │
 //     ├── OrtSession.run:
 //     │        input         int64 [1, T]  ids
@@ -233,12 +240,20 @@ class VitsDirectEngine @Inject constructor(
         val packId = voice.packId
         val pack = ensureLoadedSuspending(packId)
         val sid = sidFor(pack, voice)
+        // A grapheme pack has no phonemizer in its path at all, so
+        // phonemizationLanguage is a no-op for it: there is no G2P whose
+        // language could be overridden, and the character ids are the model's
+        // own table. Left unread rather than validated — callers pass it
+        // uniformly for every engine.
         val lang = phonemizationLanguage?.takeIf { it != LangDetector.AUTO }
             ?: pack.config.espeakVoice
-        // Warm-up only: phonemize(text, lang) re-asserts the voice atomically
-        // per call, because espeak's active voice is process-global and a
-        // concurrent synth on another engine can flip it between chunks.
-        phonemizer?.setVoice(lang)
+        if (pack.config.phonemeType == VitsPhonemeType.ESPEAK) {
+            // Warm-up only: phonemize(text, lang) re-asserts the voice
+            // atomically per call, because espeak's active voice is
+            // process-global and a concurrent synth on another engine can flip
+            // it between chunks.
+            phonemizer?.setVoice(lang)
+        }
         val chunks = TextChunker.chunk(
             text = text,
             maxChars = maxInputChars,
@@ -249,13 +264,12 @@ class VitsDirectEngine @Inject constructor(
             minCharsExemptFirst = true,
         )
         for ((idx, chunk) in chunks.withIndex()) {
-            val clauses = VitsPhonemeIds.splitClauses(chunk)
-            if (clauses.isEmpty()) continue
+            if (chunk.isBlank()) continue
             val startNs = System.nanoTime()
             // Phonemize + infer under the synth lock: the clause loop must not
             // interleave with another utterance on this engine, and an ORT
             // session is not reentrant.
-            val audio = synthLock.withLock { renderUtterance(pack, clauses, lang, sid) }
+            val audio = synthLock.withLock { renderChunk(pack, chunk, lang, sid) }
             if (audio.pcm.isEmpty()) continue
             val inferMs = (System.nanoTime() - startNs) / 1_000_000
             val audioMs = audio.pcm.size * 1000L / audio.sampleRate
@@ -339,7 +353,11 @@ class VitsDirectEngine @Inject constructor(
             buildSessionOptions(intraOpThreads),
             File(packDir, MODEL_FILE),
         )
-        if (phonemizer == null) {
+        // A grapheme pack never phonemizes, so loading it must not drag in
+        // espeak (which unpacks the app-level shared data tree on first use).
+        // A later espeak pack load still opens it — this is the same
+        // "first pack that needs it" check, just narrowed.
+        if (phonemizer == null && config.phonemeType == VitsPhonemeType.ESPEAK) {
             // libespeak-ng.so is compiled into the APK and the data is the
             // app-level shared full-language tree — same as every other
             // espeak-backed engine. See phonemizer/SharedEspeakData.kt.
@@ -418,18 +436,36 @@ class VitsDirectEngine @Inject constructor(
 
     // -- inference ------------------------------------------------------------
 
-    /** Caller holds [synthLock]. [sid] is null for single-speaker packs. */
-    private fun renderUtterance(
+    /**
+     * One chunk of source text → its audio. Caller holds [synthLock]; [sid] is
+     * null for single-speaker packs.
+     *
+     * The frontend forks on the pack's [VitsPhonemeType]: an espeak pack is
+     * split into clauses and phonemized per clause, a grapheme pack is fed its
+     * characters directly (no espeak, no clause splitting — see
+     * [VitsPhonemeIds.encodeText]).
+     */
+    private fun renderChunk(
         pack: LoadedPack,
-        clauses: List<VitsClause>,
+        chunk: String,
         lang: String,
         sid: Int?,
     ): SynthAudio {
-        val phon = phonemizer ?: error("phonemizer missing")
-        val phonemized = clauses.map { clause ->
-            VitsClause(phon.phonemize(clause.text, lang), clause.terminator)
+        val idMap = pack.config.phonemeIdMap
+        val encoded = when (pack.config.phonemeType) {
+            VitsPhonemeType.TEXT -> VitsPhonemeIds.encodeText(chunk, idMap)
+            VitsPhonemeType.ESPEAK -> {
+                val clauses = VitsPhonemeIds.splitClauses(chunk)
+                if (clauses.isEmpty()) {
+                    return SynthAudio(ShortArray(0), pack.config.sampleRate)
+                }
+                val phon = phonemizer ?: error("phonemizer missing")
+                VitsPhonemeIds.encode(
+                    clauses.map { VitsClause(phon.phonemize(it.text, lang), it.terminator) },
+                    idMap,
+                )
+            }
         }
-        val encoded = VitsPhonemeIds.encode(phonemized, pack.config.phonemeIdMap)
         if (encoded.missing.isNotEmpty()) {
             Log.w(
                 TAG,

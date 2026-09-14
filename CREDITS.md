@@ -42,10 +42,10 @@ their own licences, and two of them require attribution:
   (Institute of Smart Systems and Artificial Intelligence), Nazarbayev
   University; Mussakhojayeva et al., arXiv:2104.08459 and
   arXiv:2201.05771. **CC BY 4.0**.
-- **egorsmkv/ukrainian-tts-datasets** — the Ukrainian voice
-  (`uk-lada-x_low`) is trained on Yehor Smoliakov's studio-recorded
-  Ukrainian corpora, **Apache-2.0** (no attribution required;
-  acknowledged with thanks).
+- **egorsmkv/ukrainian-tts-datasets** — the Ukrainian voices
+  (`uk-lada-x_low` and the three-speaker `uk-ukrainian_tts-medium`) are
+  trained on Yehor Smoliakov's studio-recorded Ukrainian corpora,
+  **Apache-2.0** (no attribution required; acknowledged with thanks).
 - **NST Swedish Speech Synthesis** — the Swedish voice
   (`sv-nst-medium`), Språkbanken resource sbr-18, rights holder
   **Nasjonalbiblioteket** (National Library of Norway), **CC0** — no

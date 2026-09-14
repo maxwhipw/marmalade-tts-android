@@ -4,6 +4,36 @@ import java.io.File
 import org.json.JSONObject
 
 /**
+ * What a checkpoint's phoneme ids actually index.
+ *
+ * Upstream's `phoneme_type`. The two values are not interchangeable: feeding
+ * graphemes to an espeak-mode model (or IPA to a text-mode one) maps almost
+ * nothing and renders noise, so an unrecognised value is rejected at load
+ * rather than defaulted.
+ */
+enum class VitsPhonemeType {
+    /** IPA phonemes from espeak-ng. The default when the field is absent. */
+    ESPEAK,
+
+    /**
+     * Characters. The model learned grapheme→audio directly, so the frontend
+     * is a casefold + NFD + codepoint lookup and no phonemizer runs.
+     */
+    TEXT,
+
+    ;
+
+    companion object {
+        /** Upstream's spelling → the enum. Null for anything else. */
+        fun fromConfigValue(value: String): VitsPhonemeType? = when (value) {
+            "espeak" -> ESPEAK
+            "text" -> TEXT
+            else -> null
+        }
+    }
+}
+
+/**
  * Parsed `model.onnx.json` for one VITS voice pack.
  *
  * Everything the runtime needs about a voice comes from this file — sample
@@ -27,9 +57,18 @@ data class VitsPackConfig(
     /**
      * espeak voice/language the checkpoint was trained against, from
      * `espeak.voice` (e.g. `"uk"`). Used verbatim as the phonemization
-     * language unless the caller overrides it.
+     * language unless the caller overrides it. Meaningless — and unused —
+     * when [phonemeType] is [VitsPhonemeType.TEXT], though upstream configs
+     * still carry it.
      */
     val espeakVoice: String,
+    /**
+     * `phoneme_type`: what the model's ids are ids OF. `"espeak"` (the
+     * default when the field is absent) means IPA phonemes and the input goes
+     * through espeak; `"text"` means the ids are ids of *characters* and the
+     * text is fed in as graphemes with no phonemizer at all.
+     */
+    val phonemeType: VitsPhonemeType,
     /** `inference.noise_scale` — the `scales[0]` input. */
     val noiseScale: Float,
     /**
@@ -106,6 +145,22 @@ data class VitsPackConfig(
             parse(file.readText(Charsets.UTF_8), origin = file.path)
 
         /**
+         * `phoneme_type` → [VitsPhonemeType]. Absent or empty means `espeak`,
+         * which is how every pre-1.0 Piper config expresses it.
+         *
+         * @throws IllegalStateException on a value we don't implement. The
+         *   alternative — defaulting to espeak — would render noise with no
+         *   error, because the ids would index a table they don't belong to.
+         */
+        private fun parsePhonemeType(value: String, origin: String): VitsPhonemeType {
+            if (value.isEmpty()) return VitsPhonemeType.ESPEAK
+            return VitsPhonemeType.fromConfigValue(value)
+                ?: throw IllegalStateException(
+                    "pack config at $origin has unsupported phoneme_type '$value'",
+                )
+        }
+
+        /**
          * `speaker_id_map` → name→sid. Absent (single-speaker packs) or
          * `{}` gives an empty map. Order is preserved as the JSON's, which is
          * sid order in practice but is not relied on anywhere.
@@ -136,6 +191,7 @@ data class VitsPackConfig(
                 VitsPackConfig(
                     sampleRate = audio.getInt("sample_rate"),
                     espeakVoice = json.getJSONObject("espeak").getString("voice"),
+                    phonemeType = parsePhonemeType(json.optString("phoneme_type", ""), origin),
                     noiseScale = inference.getDouble("noise_scale").toFloat(),
                     lengthScale = inference.getDouble("length_scale").toFloat(),
                     noiseW = inference.getDouble("noise_w").toFloat(),

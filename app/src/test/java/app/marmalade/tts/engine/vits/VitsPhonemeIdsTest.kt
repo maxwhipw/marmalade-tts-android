@@ -219,4 +219,125 @@ class VitsPhonemeIdsTest {
         assertEquals(emptyList<VitsClause>(), VitsPhonemeIds.splitClauses("   ,. !  "))
         assertEquals(emptyList<VitsClause>(), VitsPhonemeIds.splitClauses(""))
     }
+
+    // -- grapheme ("text" phoneme_type) packs ---------------------------------
+
+    /**
+     * The real map of the grapheme pack `uk-ukrainian_tts-medium`: 49 entries,
+     * Ukrainian letters plus punctuation, no IPA at all.
+     */
+    private val textIdMap: Map<String, List<Int>> =
+        VitsTestFixtures.config("uk-ukrainian_tts-medium").phonemeIdMap
+
+    /** Single-id lookup in [textIdMap], derived rather than hardcoded. */
+    private fun textId(ch: Char): Int =
+        checkNotNull(textIdMap[ch.toString()]) { "'$ch' missing from the grapheme map" }.single()
+
+    @Test
+    fun encodeTextMapsCharactersWithTheSameWrappingAndPadInterspersal() {
+        val encoded = VitsPhonemeIds.encodeText("Привіт!", textIdMap)
+
+        // Derived from the pack's own map: ^ _ then each character + _ , then $.
+        val expected = buildList {
+            add(textId('^'))
+            add(textId('_'))
+            for (ch in "привіт!") {
+                add(textId(ch))
+                add(textId('_'))
+            }
+            add(textId('$'))
+        }
+        assertEquals(expected, encoded.ids.toList())
+        assertEquals("every character is in the pack's map", emptyMap<Int, Int>(), encoded.missing)
+
+        // Structural invariants, independent of the derivation above.
+        val ids = encoded.ids
+        assertEquals(listOf(1, 0), listOf(ids[0], ids[1]))
+        assertEquals(2, ids[ids.size - 1])
+        for (i in 2 until ids.size - 1 step 2) {
+            assertEquals("id at $i must be followed by the pad", 0, ids[i + 1])
+        }
+        // Punctuation flows through as itself — '!' is an entry in the map, and
+        // nothing synthesizes a terminator (contrast the espeak path).
+        assertEquals(textId('!'), ids[ids.size - 3])
+    }
+
+    @Test
+    fun encodeTextCaseFoldsSoAShoutedWordIsTheSameInput() {
+        assertEquals(
+            VitsPhonemeIds.encodeText("привіт", textIdMap).ids.toList(),
+            VitsPhonemeIds.encodeText("ПРИВІТ", textIdMap).ids.toList(),
+        )
+    }
+
+    @Test
+    fun encodeTextAppendsNoTerminatorOfItsOwn() {
+        // The espeak path invents a '.' for an unpunctuated clause. A grapheme
+        // model was trained on the writer's own punctuation, so adding one
+        // would put a sound in the input nobody typed.
+        val bare = VitsPhonemeIds.encodeText("привіт", textIdMap).ids.toList()
+        val stopped = VitsPhonemeIds.encodeText("привіт.", textIdMap).ids.toList()
+        assertEquals("a full stop must cost exactly one id + its pad", bare.size + 2, stopped.size)
+        assertEquals(textId('.'), stopped[stopped.size - 3])
+        // …and the unpunctuated form ends on its last letter, not on a stop.
+        assertEquals(textId('т'), bare[bare.size - 3])
+    }
+
+    @Test
+    fun encodeTextNfdDecomposesUkrainianLettersThatTheMapStoresAsBaseAndMark() {
+        // U+0439 CYRILLIC SMALL LETTER SHORT I decomposes to и + combining
+        // breve, and the map carries the base letter and the breve as separate
+        // entries — it also carries "й" itself, which NFD makes unreachable.
+        // Getting this wrong would drop every "й" in the language.
+        val encoded = VitsPhonemeIds.encodeText("й", textIdMap)
+        assertEquals(emptyMap<Int, Int>(), encoded.missing)
+        assertEquals(
+            listOf(
+                textId('^'), textId('_'),
+                textId('и'), textId('_'),
+                textId('̆'), textId('_'),
+                textId('$'),
+            ),
+            encoded.ids.toList(),
+        )
+    }
+
+    @Test
+    fun encodeTextNfdSplitsAPrecomposedAccentSoTheStressMarkIsFound() {
+        // The map has a standalone combining acute (U+0301) but no precomposed
+        // accented letter. "é" (U+00E9) must decompose so the acute is mapped —
+        // its Latin base is legitimately absent and skipped.
+        val encoded = VitsPhonemeIds.encodeText("é", textIdMap)
+        assertEquals(mapOf('e'.code to 1), encoded.missing)
+        assertEquals(
+            listOf(textId('^'), textId('_'), textId('́'), textId('_'), textId('$')),
+            encoded.ids.toList(),
+        )
+    }
+
+    @Test
+    fun encodeTextSkipsAndCountsCharactersTheMapDoesNotHave() {
+        // Latin letters aren't in a Ukrainian grapheme map. Skipping costs one
+        // sound; failing the synth would cost the sentence.
+        val encoded = VitsPhonemeIds.encodeText("привітz", textIdMap)
+        assertEquals(mapOf('z'.code to 1), encoded.missing)
+        assertEquals(
+            VitsPhonemeIds.encodeText("привіт", textIdMap).ids.toList(),
+            encoded.ids.toList(),
+        )
+    }
+
+    @Test
+    fun encodeTextTreatsParenthesesAsPlainCharactersNotLanguageFlags() {
+        // In the espeak path "(en)" is a language-switch flag to strip. In text
+        // mode there is no espeak, so a parenthesis is just a character — here
+        // one the map lacks, hence counted rather than treated as a flag that
+        // would swallow the letters between the brackets.
+        val encoded = VitsPhonemeIds.encodeText("(та)", textIdMap)
+        assertEquals(mapOf('('.code to 1, ')'.code to 1), encoded.missing)
+        assertEquals(
+            listOf(textId('^'), textId('_'), textId('т'), textId('_'), textId('а'), textId('_'), textId('$')),
+            encoded.ids.toList(),
+        )
+    }
 }

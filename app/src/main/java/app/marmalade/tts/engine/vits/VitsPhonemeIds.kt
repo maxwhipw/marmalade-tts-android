@@ -38,6 +38,13 @@ data class VitsClause(val text: String, val terminator: Char?)
  * Phonemes absent from the map are skipped and counted so the engine can log
  * them once per utterance instead of failing the synth — a missing symbol
  * costs one sound, not the sentence.
+ *
+ * ## Grapheme ("text") packs
+ *
+ * Some checkpoints are trained on characters rather than IPA
+ * (`phoneme_type: "text"`). Those go through [encodeText] instead: no espeak,
+ * no clause splitting, no terminator synthesis — punctuation is already in the
+ * map and reaches the model as itself. See that function.
  */
 object VitsPhonemeIds {
 
@@ -116,12 +123,9 @@ object VitsPhonemeIds {
         idMap: Map<String, List<Int>>,
         appendTerminators: Boolean = true,
     ): Encoded {
-        val padIds = idMap[VitsPackConfig.PAD]
-            ?: error("phoneme_id_map has no '${VitsPackConfig.PAD}' entry")
-        val bosIds = idMap[VitsPackConfig.BOS]
-            ?: error("phoneme_id_map has no '${VitsPackConfig.BOS}' entry")
-        val eosIds = idMap[VitsPackConfig.EOS]
-            ?: error("phoneme_id_map has no '${VitsPackConfig.EOS}' entry")
+        val padIds = marker(idMap, VitsPackConfig.PAD)
+        val bosIds = marker(idMap, VitsPackConfig.BOS)
+        val eosIds = marker(idMap, VitsPackConfig.EOS)
 
         val ids = IntList(initialCapacity = 64)
         val missing = LinkedHashMap<Int, Int>()
@@ -159,11 +163,70 @@ object VitsPhonemeIds {
         return Encoded(ids = ids.toIntArray(), missing = missing)
     }
 
+    /**
+     * Map raw [text] to the id sequence of a **grapheme** ("text") pack.
+     *
+     * These checkpoints learned characters→audio, so there is no phonemizer in
+     * the path at all. Reimplemented from the semantics of the MIT-era
+     * `rhasspy/piper-phonemize` `phonemize_codepoints` with its default
+     * `CASING_FOLD`, as documented in each pack's `PROVENANCE.md`:
+     *
+     *  1. Case-fold the text. **Deviation:** the JDK has no case-folding API
+     *     (`java.lang.Character` offers only `toLowerCase`), so this uses
+     *     locale-independent [String.lowercase], which agrees with full
+     *     case-folding for every script these packs cover. It differs for a
+     *     handful of characters elsewhere — German `ß` folds to `ss` but
+     *     lowercases to itself — which costs at most one character's id in a
+     *     language no text-mode pack ships.
+     *  2. NFD-normalise, because the map's keys are decomposed single
+     *     codepoints (Ukrainian's stress mark is its own entry).
+     *  3. Walk codepoints and map each through `phoneme_id_map`, with the same
+     *     `^ _ (p _)* $` interspersal the espeak path uses.
+     *
+     * What this deliberately does NOT do, unlike [encode]:
+     *  - no clause splitting: the model was trained on punctuated text and the
+     *    punctuation marks are themselves entries in the map, so they flow
+     *    through as literal characters;
+     *  - no terminator synthesis, for the same reason — adding a full stop
+     *    would put a sound in the input the writer didn't;
+     *  - no `(lang)`-flag stripping: those are espeak artefacts and cannot
+     *    appear in user text (a literal parenthesis is just a character, and
+     *    typically one the map doesn't have, so it is skipped and counted).
+     *
+     * Missing codepoints are skipped and tallied exactly as in [encode].
+     */
+    fun encodeText(text: String, idMap: Map<String, List<Int>>): Encoded {
+        val padIds = marker(idMap, VitsPackConfig.PAD)
+        val bosIds = marker(idMap, VitsPackConfig.BOS)
+        val eosIds = marker(idMap, VitsPackConfig.EOS)
+
+        val ids = IntList(initialCapacity = 64)
+        val missing = LinkedHashMap<Int, Int>()
+
+        ids.addAll(bosIds)
+        ids.addAll(padIds)
+
+        val normalized = Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)
+        var i = 0
+        while (i < normalized.length) {
+            val cp = normalized.codePointAt(i)
+            i += Character.charCount(cp)
+            appendPhoneme(cp, idMap, padIds, ids, missing)
+        }
+
+        ids.addAll(eosIds)
+        return Encoded(ids = ids.toIntArray(), missing = missing)
+    }
+
     /** Format a missing-phoneme tally as `U+0069×2, U+02C8×1` for logging. */
     fun describeMissing(missing: Map<Int, Int>): String =
         missing.entries.joinToString(", ") { (cp, count) ->
             "U+%04X×%d".format(cp, count)
         }
+
+    /** A wrapping marker's ids, or a loud failure — [VitsPackConfig] requires them. */
+    private fun marker(idMap: Map<String, List<Int>>, key: String): List<Int> =
+        idMap[key] ?: error("phoneme_id_map has no '$key' entry")
 
     private fun appendPhoneme(
         codePoint: Int,

@@ -105,7 +105,8 @@ how to finish it.
   pending.
 - **Pending upload:** `uk-lada-x_low`, `is-bui-medium`,
   `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`,
-  `sv-nst-medium`, `kk-issai-high`, `no-nvcc-medium`.
+  `sv-nst-medium`, `kk-issai-high`, `no-nvcc-medium`,
+  `uk-ukrainian_tts-medium`.
 - **Why deferred:** publishing a GitHub release asset is Max's call (it
   is a public surface), and the unit tests drive synthetic archives
   through fake fetchers, so nothing here depends on the upload.
@@ -150,3 +151,10 @@ how to finish it.
   For `kk-issai-high` and `no-nvcc-medium`, step through the per-speaker
   voices and confirm each sounds like a distinct person and that the two
   named Kazakh voices (sid 1 "Iseke", sid 3 "Raya") match their genders.
+  For `uk-ukrainian_tts-medium` (grapheme frontend) the thing to hear is
+  whether the case-fold-and-codepoint path pronounces normal punctuated
+  Ukrainian correctly — `VitsPhonemeIdsTest` pins the id structure, but
+  only a listen confirms the recipe matches what the model was trained
+  on. Also confirm the pack loads with espeak never initialised (its
+  frontend needs none): `adb logcat -s VitsDirectEngine` should show no
+  "espeak version=" line if it is the first pack loaded in the process.

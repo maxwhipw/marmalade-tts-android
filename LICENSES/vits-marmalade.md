@@ -12,7 +12,9 @@ The inference in this engine is **Marmalade's own**. The maintained Piper
 runtime (`OHF-Voice/piper1-gpl`) is GPL-3.0; **none of its code is used,
 copied, linked or distributed here**. The phoneme→id mapping semantics
 (NFD normalisation, codepoint iteration, language-switch-flag stripping,
-clause-terminator appending, `^ _ (p _)* $` pad interspersal) were
+clause-terminator appending, `^ _ (p _)* $` pad interspersal — and, for
+grapheme packs, the case-fold + codepoint recipe of
+`phonemize_codepoints`) were
 reimplemented in Kotlin from the behaviour of the MIT-era
 `rhasspy/piper-phonemize` and verified against the checkpoint's own
 `model.onnx.json`, which is the only contract the app relies on.
@@ -67,12 +69,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## 2. Training data — `egorsmkv/ukrainian-tts-datasets` ("lada")
+## 2. Training data — `egorsmkv/ukrainian-tts-datasets` ("lada", "mykyta", "tetiana")
 
-- **Role:** the ~10.6 h single-speaker Ukrainian corpus the
-  `uk-lada-x_low` checkpoint was trained on. The corpus itself is **not**
-  shipped in the app or the pack; it is recorded here because the weights
-  are derived from it.
+- **Role:** the single-speaker Ukrainian corpora both Ukrainian packs were
+  trained on — the ~10.6 h "lada" set for `uk-lada-x_low`, and the "lada",
+  "mykyta" and "tetiana" sets for the 3-speaker
+  `uk-ukrainian_tts-medium` (section 11). The corpora themselves are
+  **not** shipped in the app or the packs; they are recorded here because
+  the weights are derived from them.
+- **Recording:** "high-quality data recorded in a professional studio"
+  (Zenodo 10.5281/zenodo.7396774), purpose-recorded for TTS.
+- **Upstream card correction:** `uk-ukrainian_tts-medium`'s upstream
+  `MODEL_CARD` cites `OHF-Voice/voice-datasets` (CC0) — that repository has
+  **no `uk_UA` entry at all**, and the real source is this Apache-2.0
+  corpus set (verified 2026-09-13; the pack's `PROVENANCE.md` carries the
+  audit). The GPLv3 `robinhad/ukrainian-tts` project does **not** attach:
+  it is a separate ESPnet codebase, and this VITS checkpoint was trained
+  from scratch on the datasets.
 - **Upstream:** https://github.com/egorsmkv/ukrainian-tts-datasets/tree/main/lada
 - **License:** Apache License, Version 2.0
 - **Notice:** Copyright (c) Yehor Smoliakov.
@@ -219,9 +232,29 @@ SOFTWARE.
   meeting rooms rather than a studio, so some speakers carry room
   noise — a fidelity matter, not a licensing one.
 
-## Phonemizer — espeak-ng (all packs)
+## 11. Voice pack — `uk-ukrainian_tts-medium` (Ukrainian, 3 speakers)
 
-VITS Marmalade phonemizes through the same app-level espeak-ng
+- **Files:** `model.onnx`, `model.onnx.json`
+- **Upstream:** https://huggingface.co/rhasspy/piper-voices — path
+  `uk/uk_UA/ukrainian_tts/medium/`
+- **License:** MIT — same repository licence and holder as section 1.
+- **Notice:** Copyright (c) 2022 Michael Hansen.
+- **Training:** trained from scratch per the upstream `MODEL_CARD`, on the
+  Apache-2.0 corpora in section 2 (whose attribution in the upstream card
+  is wrong — see that section).
+- **Speakers:** three — `lada`, `mykyta`, `tetiana` — addressed by the
+  checkpoint's own `speaker_id_map` index.
+- **Frontend:** `phoneme_type: "text"`. This checkpoint takes **graphemes**,
+  so no phonemizer runs for it at all: the app case-folds, NFD-normalises
+  and maps codepoints through the checkpoint's own `phoneme_id_map`. That
+  recipe is a fresh Kotlin implementation of the semantics of the MIT-era
+  `rhasspy/piper-phonemize` `phonemize_codepoints`; **no Piper code is
+  used**, and for this pack espeak-ng is never even loaded.
+
+## Phonemizer — espeak-ng (espeak-mode packs)
+
+VITS Marmalade phonemizes its **espeak-mode** packs (every pack above
+except `uk-ukrainian_tts-medium`) through the same app-level espeak-ng
 integration as the Kitten and Kokoro engines: `libespeak-ng.so` is
 compiled from source into the APK from the pinned
 `third_party/espeak-ng` submodule and `dlopen()`d at runtime by the MIT

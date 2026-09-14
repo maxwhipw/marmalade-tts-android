@@ -103,7 +103,7 @@ class VitsPackConfigTest {
         // separate artefacts. A wrong sid here renders a different speaker than
         // the label promises, with no error anywhere — this is the only check
         // that can catch it without a device.
-        for (packId in listOf("kk-issai-high", "no-nvcc-medium")) {
+        for (packId in listOf("kk-issai-high", "no-nvcc-medium", "uk-ukrainian_tts-medium")) {
             val config = VitsTestFixtures.config(packId)
             val pack = checkNotNull(VoicePackCatalog.byId(packId)) { "no catalog pack $packId" }
             assertEquals(
@@ -127,7 +127,55 @@ class VitsPackConfigTest {
         val declared = VoicePackCatalog.forEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE)
             .filter { it.speakers.isNotEmpty() }
             .map { it.id }
-        assertEquals(listOf("kk-issai-high", "no-nvcc-medium"), declared)
+        assertEquals(
+            listOf("kk-issai-high", "no-nvcc-medium", "uk-ukrainian_tts-medium"),
+            declared,
+        )
+    }
+
+    @Test
+    fun phonemeTypeDefaultsToEspeakAndIsReadWhenPresent() {
+        // uk-lada's config has no `phoneme_type` at all (pre-1.0 exporter),
+        // no-nvcc spells "espeak" out, and uk-ukrainian_tts is the grapheme one.
+        assertEquals(VitsPhonemeType.ESPEAK, VitsTestFixtures.ukLadaConfig().phonemeType)
+        assertEquals(
+            VitsPhonemeType.ESPEAK,
+            VitsTestFixtures.config("no-nvcc-medium").phonemeType,
+        )
+        assertEquals(
+            VitsPhonemeType.TEXT,
+            VitsTestFixtures.config("uk-ukrainian_tts-medium").phonemeType,
+        )
+    }
+
+    @Test
+    fun parsesTheRealGraphemeUkrainianConfig() {
+        val config = VitsTestFixtures.config("uk-ukrainian_tts-medium")
+
+        assertEquals(22_050, config.sampleRate)
+        assertEquals(3, config.numSpeakers)
+        assertEquals(mapOf("lada" to 0, "mykyta" to 1, "tetiana" to 2), config.speakerIdMap)
+        // A grapheme map is small: Ukrainian letters + punctuation, no IPA.
+        assertEquals(49, config.phonemeIdMap.size)
+        assertTrue(
+            "a grapheme map must carry punctuation as its own entries",
+            config.phonemeIdMap.containsKey("!") && config.phonemeIdMap.containsKey(","),
+        )
+    }
+
+    @Test
+    fun anUnknownPhonemeTypeIsRejectedRatherThanDefaulted() {
+        // Defaulting to espeak would feed IPA ids into a table they don't
+        // belong to: no error, pure noise.
+        val doctored = VitsTestFixtures.ukLadaConfigJson()
+            .replace("\"dataset\"", "\"phoneme_type\": \"runes\",\n  \"dataset\"")
+        val error = runCatching { VitsPackConfig.parse(doctored, origin = "packs/w") }
+            .exceptionOrNull()
+        assertTrue("expected IllegalStateException, got $error", error is IllegalStateException)
+        assertTrue(
+            "message should name the offending value, was '${error?.message}'",
+            error?.message?.contains("runes") == true,
+        )
     }
 
     @Test
