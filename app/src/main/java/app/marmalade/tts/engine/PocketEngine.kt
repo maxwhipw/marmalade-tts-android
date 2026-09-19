@@ -472,7 +472,11 @@ open class PocketEngine @Inject constructor(
             val voiceEmb = embeddingForVoice(voiceName)
             val preprocessed = preprocessForPocket("Hi.", bundle)
             val tokens = tokenizer.encode(preprocessed)
-            val ar = startArSession(bundle, voiceEmb, tokens, preprocessed, phases = null)
+            val phases = ArrayList<PhaseSpan>(2)
+            val ar = startArSession(bundle, voiceEmb, tokens, preprocessed, phases = phases)
+            for (p in phases) {
+                Log.d(PERF_TAG, "pocket warmup prefill ${p.name}=${p.ms}ms${p.detail?.let { " ($it)" } ?: ""}")
+            }
             val latents = ArrayList<FloatArray>(3)
             repeat(2) {
                 val step = stepAr(ar) ?: return@repeat
@@ -847,7 +851,13 @@ open class PocketEngine @Inject constructor(
             )
         }
 
-        val ar = startArSession(bundle, voiceEmb, tokens, preprocessed, phases = null)
+        // P-AM.1: time the per-chunk prefill (phase 1 voice cond + phase 2
+        // text cond) so logcat shows prefill vs AR-loop share directly.
+        val phases = ArrayList<PhaseSpan>(2)
+        val ar = startArSession(bundle, voiceEmb, tokens, preprocessed, phases = phases)
+        for (p in phases) {
+            Log.d(PERF_TAG, "pocket chunk=$chunkIdx prefill ${p.name}=${p.ms}ms${p.detail?.let { " ($it)" } ?: ""}")
+        }
         val latents = ArrayList<FloatArray>(ar.maxFrames)
         // P-AD diagnostics: track latent magnitude + EOS so a glitchy chunk's
         // logcat distinguishes the two leading theories (per adversarial
@@ -1378,8 +1388,8 @@ open class PocketEngine @Inject constructor(
      * Returns the live AR session whose `flowLmState` is the post-
      * priming state ready for [stepAr] calls.
      *
-     * [phases] is non-null only when the caller wants timing data
-     * recorded (the bench path); streaming skips it for clarity.
+     * [phases], when non-null, receives a timing span per conditioning
+     * phase (P-AM.1 — logged by callers under [PERF_TAG]).
      */
     private fun startArSession(
         bundle: PocketBundle,
