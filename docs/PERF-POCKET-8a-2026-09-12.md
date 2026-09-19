@@ -11,6 +11,13 @@ measurement taken earlier this evening, (b) a device-state reading I took
 tonight, (c) a prior warm measurement already on record for this exact device,
 or (d) static analysis. Each number says which.
 
+**2026-09-19 UPDATE — warm numbers captured; see §1.3a.** The §1.2 two-point
+fit's "fixed per-chunk prefill ~2.3–2.9 s" is now measured DIRECTLY at
+~0.35–0.42 s (P-AM.1 instrumentation, `e90e823`); the 09-12 cold numbers were
+taken on a phone at ≤3% battery and overstate everything. Phase 1 is
+9.4–12.8% of a warm chunk's `ar=` — **below the 15% gate, so P-AM.2 (voice-KV
+snapshot) is NOT justified** on current evidence.
+
 ---
 
 ## 1. Measured
@@ -120,6 +127,45 @@ adb shell am force-stop app.marmalade.tts.debug
 Read from `warm.log`: `ar=`/`decode=`/`emit`/`TTFA` on the `StreamPerf` tag,
 and `Pocket chunk N: frames=X/Y` on `PocketEngine` for the frame count that
 turns `ar=` into ms/frame. Compare run 1 chunk 0 against run 3 chunk 0.
+
+### 1.3a WARM numbers — CAPTURED 2026-09-19 (recipe above, P-AM.1 build `e90e823`)
+
+Preconditions held for the whole session: MODE_NORMAL, battery 72–74% (not
+charging), thermal status 0 before AND after, low_power 0, 5 ORT threads,
+XNNPACK main+flow. Note the device had been wiped since 09-12 (both marmalade
+TTS apps uninstalled); the debug app was reinstalled from `e90e823` and the
+v21 Pocket bundle side-loaded byte-identical (sha256 verified). Full log:
+`~/coding/scratch/mtts-device-backups/warm-2026-09-19.log`.
+
+3-sentence §1.3 text, RUN 1 cold, RUNs 2–3 same process, 60 s apart:
+
+| run | chunk | frames | prefill p1 (voice) | prefill p2 (text) | ar= | ms/frame (ar−prefill)/frames | decode | TTFA |
+|---|---|---|---|---|---|---|---|---|
+| 1 cold | 0 | 25 | (log evicted) | — | 2572 | — | 1165 | 7882 (load 1847) |
+| 1 cold | 1 | 26 | 292 | 95 | 2536 | 82.7 | 1354 | |
+| 1 cold | 2 | 38 | 312 | 94 | 3251 | 74.9 | 1296 | |
+| 2 warm | 0 | 26 | 249 | 71 | 2489 | 83.4 | 1129 | 4138 |
+| 2 warm | 1 | 24 | 313 | 75 | 2449 | 85.9 | 1097 | |
+| 2 warm | 2 | 35 | 308 | 97 | 3022 | 74.8 | 1290 | |
+| 3 warm | 0 | 32 | 272 | 72 | 2884 | 78.1 | 1195 | 4582 |
+| 3 warm | 1 | 25 | 325 | 86 | 2543 | 85.3 | 1115 | |
+| 3 warm | 2 | 37 | 321 | 99 | 3210 | 75.4 | 1383 | |
+
+Readings:
+
+- **Warm full AR step ≈ 75–86 ms/frame at 5 threads** — right at the 80 ms
+  frame budget, consistent with K=1 holding (trimmed-max of early frames
+  52–57 ms; early frames are faster than late ones as the KV grows).
+- **Cold ≈ warm.** Run 1's `ar=` matches runs 2–3 within noise, and warmup
+  synth absorbs the first-chunk penalty. The §1.2 "cold penalty dominates"
+  inference came from a throttled 2%-battery phone and is retired.
+- **Per-chunk prefill measured directly: phase 1 (voice cond) 249–325 ms,
+  phase 2 (text cond) 71–99 ms** (text_conditioner itself ≤1 ms). Phase 1 =
+  9.4–12.8% of the chunk's `ar=` → under the §5 15% gate. P-AM.2 would save
+  ~0.3 s/chunk at medium risk; not worth it while the AR loop costs 2.4–3.2 s.
+- Warm TTFA 4.1–4.6 s (K=1) — the honest "preparing…" number for E-proposal 4.
+- eosFired=true on every chunk; frames well under maxFrames; peakLatentAbs
+  5.7–6.5, no non-finite values.
 
 ### 1.4 The one WARM per-graph number already on record for this device
 
@@ -310,6 +356,12 @@ scope tonight and permanently settled.
 ## 5. Recommended next experiment — ONE lettered unit
 
 ### P-AM — measure, then eliminate, the per-chunk voice-conditioning prefill
+
+**2026-09-19 OUTCOME: P-AM.1 shipped (`e90e823`); P-AM.2 gate FAILED — do not
+build it.** Measured phase-1 share of warm `ar=` is 9.4–12.8% (§1.3a), under
+the 15% threshold below. The AR loop itself (75–86 ms/frame × 24–37 frames)
+is where the time goes; the next-best levers are §4(b) item 5 / §4(d) KV
+cache-length re-export, not the voice snapshot.
 
 Two steps; **step 1 gates step 2** and step 1 is worth landing on its own.
 
