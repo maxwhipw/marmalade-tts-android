@@ -129,11 +129,6 @@
     font-weight: 800; font-size: clamp(33px, 5.2vw, 54px); line-height: 1.08;
     letter-spacing: -0.02em; margin: 0 0 20px;
   }
-  .hl { position: relative; white-space: nowrap; }
-  .hl::after {
-    content: ""; position: absolute; left: -2px; right: -2px; bottom: 2px; height: 0.24em;
-    background: var(--peach); border-radius: 4px; z-index: -1; transform: rotate(-1.2deg);
-  }
   .lede { font-size: 19px; color: var(--ink-dim); margin: 0 0 28px; max-width: 520px; }
   .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
   .cta-row .badge img { height: 60px; display: block; border-radius: 10px; box-shadow: var(--shadow); }
@@ -150,34 +145,13 @@
   .btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .fineprint { font-size: 14.5px; color: var(--ink-dim); margin: 16px 0 0; }
 
-  .stage { position: relative; min-height: 380px; display: grid; place-items: center; }
-  .stage::before {
-    content: ""; position: absolute; inset: 6% 2%;
-    background: radial-gradient(closest-side, var(--glow), transparent 72%);
-    border-radius: 50%;
-  }
-  .orb { position: absolute; border-radius: 50%; background: var(--tile); opacity: .6; animation: orbit 9s ease-in-out infinite; }
-  .orb.a { width: 24px; height: 24px; left: 16%; top: 18%; }
-  .orb.b { width: 15px; height: 15px; right: 14%; bottom: 22%; animation-delay: -4s; animation-duration: 12s; }
-  @keyframes orbit { 0%,100% { transform: translate(0,0); } 33% { transform: translate(9px,-13px); } 66% { transform: translate(-7px,7px); } }
-  .mascot {
-    position: relative; width: 255px; height: 255px;
-    filter: drop-shadow(0 16px 20px rgba(124, 45, 18, 0.26));
-    animation: bob 4s ease-in-out infinite;
-  }
-  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-  .waves { position: absolute; display: flex; align-items: center; gap: 6px; height: 64px; top: 50%; transform: translateY(-50%); }
-  .waves.l { left: 4%; } .waves.r { right: 4%; }
-  .waves i { display: block; width: 8px; height: 20px; border-radius: 4px; background: var(--wave-grad); animation: wave 1.2s ease-in-out infinite; }
-  .waves i:nth-child(1) { animation-delay: 0s; } .waves i:nth-child(2) { animation-delay: .15s; }
-  .waves i:nth-child(3) { animation-delay: .3s; } .waves i:nth-child(4) { animation-delay: .45s; }
-  .waves i:nth-child(5) { animation-delay: .6s; }
-  .waves.r i:nth-child(1) { animation-delay: .6s; } .waves.r i:nth-child(2) { animation-delay: .45s; }
-  .waves.r i:nth-child(3) { animation-delay: .3s; } .waves.r i:nth-child(4) { animation-delay: .15s; }
-  .waves.r i:nth-child(5) { animation-delay: 0s; }
-  @keyframes wave { 0%,100% { height: 14px; } 50% { height: 56px; } }
+  .stage { position: relative; min-height: 400px; display: grid; place-items: center; }
+  .stage::before { content: ""; position: absolute; inset: 8% 6%; border-radius: 50%; background: radial-gradient(closest-side, var(--glow), transparent 72%); }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage.gl .mascot { visibility: hidden; }
+  .mascot { position: relative; width: 255px; height: 255px; filter: drop-shadow(0 16px 20px rgba(124, 45, 18, 0.26)); }
   .speech {
-    position: absolute; z-index: 2; top: 4%; right: 4%;
+    position: absolute; z-index: 2; top: 2%; right: 2%;
     background: var(--card-bg); color: var(--card-ink);
     padding: 12px 16px; border-radius: 16px 16px 16px 6px;
     font-weight: 600; font-size: 15.5px; max-width: 220px;
@@ -186,9 +160,8 @@
   }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: none; } }
   @media (max-width: 820px) {
-    .stage { min-height: 320px; }
+    .stage { min-height: 340px; }
     .mascot { width: 195px; height: 195px; }
-    .waves.l { left: 0; } .waves.r { right: 0; }
     .speech { right: 0; top: 0; }
   }
 
@@ -234,29 +207,41 @@
   /* screenshots */
   .shots { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 12px 4px 20px; margin: 0 -4px; scrollbar-width: thin; }
   .shot { flex: 0 0 auto; scroll-snap-align: start; width: 225px; margin: 0; }
-  .phone { background: var(--bezel); border-radius: 28px; padding: 9px; box-shadow: var(--shadow-lg); }
+  .phone { background: var(--bezel); border-radius: 36px; padding: 10px; box-shadow: var(--shadow-lg); }
+  .screen { position: relative; border-radius: 27px; overflow: hidden; background: var(--bezel); }
+  .screen::before { content: ""; position: absolute; top: 10px; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--bezel); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08); z-index: 1; }
   .shot:nth-child(odd) .phone { transform: rotate(-1.4deg); }
   .shot:nth-child(even) .phone { transform: rotate(1.4deg); }
   .shot .phone:hover { transform: rotate(0) translateY(-6px); }
-  .phone img { display: block; width: 100%; border-radius: 20px; }
+  .phone img { display: block; width: 100%; }
   .shot figcaption { font-size: 14.5px; color: var(--ink-dim); text-align: center; margin-top: 12px; }
 
   /* languages */
-  .chat { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 0 0 24px; }
-  @media (max-width: 640px) { .chat { grid-template-columns: 1fr; } }
-  .msg { display: flex; align-items: flex-end; gap: 10px; animation: pop .5s ease-out both; }
-  .msg img { width: 32px; height: 32px; flex: 0 0 32px; }
-  .msg .b {
-    background: var(--card-bg); color: var(--card-ink); box-shadow: var(--shadow);
-    padding: 10px 14px; border-radius: 16px 16px 16px 6px;
-    display: flex; flex-direction: column; gap: 1px;
+  .langs { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; margin: 0 0 20px; }
+  @media (max-width: 760px) { .langs { grid-template-columns: 1fr; } }
+  .live {
+    background: var(--card-bg); color: var(--card-ink); border-radius: 24px; padding: 24px;
+    box-shadow: var(--shadow-lg); display: flex; flex-direction: column; justify-content: center; min-height: 260px;
+    position: relative; overflow: hidden;
   }
-  .msg .b strong { font-weight: 700; font-size: 18px; }
-  .msg .b span { font-size: 13.5px; color: var(--ink-dim); }
-  .msg:nth-child(1) { animation-delay: .05s; } .msg:nth-child(2) { animation-delay: .1s; }
-  .msg:nth-child(3) { animation-delay: .15s; } .msg:nth-child(4) { animation-delay: .2s; }
-  .msg:nth-child(5) { animation-delay: .25s; } .msg:nth-child(6) { animation-delay: .3s; }
-  .msg:nth-child(7) { animation-delay: .35s; } .msg:nth-child(8) { animation-delay: .4s; }
+  .live .tag { position: absolute; top: 20px; left: 20px; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--toast-ink); background: var(--toast-bg); padding: 6px 12px; border-radius: 20px; align-self: flex-start; }
+  .live .tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--toast-ink); animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+  .live .hello { font-size: clamp(38px, 5vw, 56px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin: 32px 0 6px; min-height: 1.2em; }
+  .live .which { color: var(--ink-dim); font-size: 15.5px; }
+  .live .swap { animation: swapin .5s ease both; }
+  @keyframes swapin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .live .bars { position: absolute; right: 24px; bottom: 24px; display: flex; align-items: flex-end; gap: 5px; height: 40px; }
+  .live .bars i { display: block; width: 6px; border-radius: 3px; background: var(--wave-grad); height: 12px; animation: wave2 1.1s ease-in-out infinite; }
+  .live .bars i:nth-child(2) { animation-delay: .12s; } .live .bars i:nth-child(3) { animation-delay: .24s; }
+  .live .bars i:nth-child(4) { animation-delay: .36s; } .live .bars i:nth-child(5) { animation-delay: .48s; }
+  .live .bars i:nth-child(6) { animation-delay: .6s; }
+  @keyframes wave2 { 0%,100% { height: 10px; } 50% { height: 40px; } }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .tiles li { background: var(--card-bg); color: var(--card-ink); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 2px; transition: transform .25s ease, box-shadow .25s ease; }
+  .tiles li:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .tiles b { font-weight: 700; font-size: 18px; }
+  .tiles span { color: var(--ink-dim); font-size: 13.5px; }
 
   .card { background: var(--card-bg); color: var(--card-ink); border-radius: 20px; padding: 20px 24px; box-shadow: var(--shadow); }
   .card p { margin: 8px 0; }
@@ -276,8 +261,8 @@
   .js .reveal.in { opacity: 1; transform: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    .mascot, .waves i, .speech, .orb, .heart, .msg { animation: none; }
-    .waves i { height: 28px; } .waves i:nth-child(odd) { height: 44px; }
+    .speech, .heart, .live .tag i, .live .bars i, .live .swap { animation: none; }
+    .live .bars i { height: 22px; } .live .bars i:nth-child(odd) { height: 34px; }
     .js .reveal { opacity: 1; transform: none; transition: none; }
     .btn, .cta-row .badge img, .phone, .step, .features li, .card, .support-card { transition: none; }
   }
@@ -309,7 +294,7 @@
 <div class="hero">
   <div>
     <span class="eyebrow">Open-source text-to-speech for Android</span>
-    <h1>Give your phone a <span class="hl">voice</span> worth listening to.</h1>
+    <h1>Give your phone a voice worth listening to.</h1>
     <p class="lede">Fast, natural, private text-to-speech for your whole phone. Works offline. Set it once and every app that reads aloud speaks through it.</p>
     <div class="cta-row">
       <a class="badge" href="https://f-droid.org/packages/app.marmalade.tts/"><img src="https://f-droid.org/badge/get-it-on.svg" alt="Get it on F-Droid"></a>
@@ -320,12 +305,9 @@
     </div>
     <p class="fineprint">Free, open source, no ads, no accounts.</p>
   </div>
-  <div class="stage" aria-hidden="true">
+  <div class="stage" id="stage" aria-hidden="true">
     <div class="speech">Hi! Every app on your phone can sound like this.</div>
-    <span class="orb a"></span><span class="orb b"></span>
-    <div class="waves l"><i></i><i></i><i></i><i></i><i></i></div>
     <img class="mascot" src="assets/mascot.svg" alt="">
-    <div class="waves r"><i></i><i></i><i></i><i></i><i></i></div>
   </div>
 </div>
 
@@ -370,28 +352,38 @@
   <h2>Screenshots</h2>
   <p class="sub">Warm in the light, calm in the dark.</p>
   <div class="shots">
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode" loading="lazy"></div><figcaption>Speak, light</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode" loading="lazy"></div><figcaption>Speak, dark</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing" loading="lazy"></div><figcaption>Aliases and per-app routing</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list" loading="lazy"></div><figcaption>Kokoro voices, 8 languages</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/05-engines.png" alt="Engine picker" loading="lazy"></div><figcaption>Engines</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/06-effects.png" alt="Voice effect presets" loading="lazy"></div><figcaption>Effect presets</figcaption></figure>
-    <figure class="shot"><div class="phone"><img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines" loading="lazy"></div><figcaption>Optional cloud engines</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode" loading="lazy"></div></div><figcaption>Speak, light</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode" loading="lazy"></div></div><figcaption>Speak, dark</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing" loading="lazy"></div></div><figcaption>Aliases and per-app routing</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list" loading="lazy"></div></div><figcaption>Kokoro voices, 8 languages</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/05-engines.png" alt="Engine picker" loading="lazy"></div></div><figcaption>Engines</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/06-effects.png" alt="Voice effect presets" loading="lazy"></div></div><figcaption>Effect presets</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines" loading="lazy"></div></div><figcaption>Optional cloud engines</figcaption></figure>
   </div>
 </section>
 
 <section id="languages">
   <h2>Speaks 8 languages</h2>
   <p class="sub">The multilingual Kokoro engine speaks all of these with native voices, and switches pronunciation mid-text when the language changes.</p>
-  <div class="chat" aria-label="Greetings in each supported language">
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong>Hello!</strong><span>English (US and UK)</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="es">¡Hola!</strong><span>Spanish</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="fr">Bonjour !</strong><span>French</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="it">Ciao!</strong><span>Italian</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="pt-BR">Olá!</strong><span>Portuguese (Brazil)</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="hi">नमस्ते!</strong><span>Hindi</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="ja">こんにちは！</strong><span>Japanese</span></div></div>
-    <div class="msg"><img src="assets/mascot.svg" alt=""><div class="b"><strong lang="zh">你好！</strong><span>Mandarin Chinese</span></div></div>
+  <div class="langs">
+    <div class="live">
+      <span class="tag"><i></i>Language detected automatically</span>
+      <div>
+        <div class="hello" id="hello" lang="en">Hello!</div>
+        <div class="which" id="which">English</div>
+      </div>
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <ul class="tiles">
+      <li><b lang="en">English</b><span>US and UK voices</span></li>
+      <li><b lang="es">Español</b><span>Spanish</span></li>
+      <li><b lang="fr">Français</b><span>French</span></li>
+      <li><b lang="it">Italiano</b><span>Italian</span></li>
+      <li><b lang="pt-BR">Português</b><span>Portuguese (Brazil)</span></li>
+      <li><b lang="hi">हिन्दी</b><span>Hindi</span></li>
+      <li><b lang="ja">日本語</b><span>Japanese</span></li>
+      <li><b lang="zh">中文</b><span>Mandarin Chinese</span></li>
+    </ul>
   </div>
   <div class="card">
     <p><b>More languages are in the works</b>, with an emphasis on ethically trained voices: clear licenses, consenting speakers, disclosed training data.</p>
@@ -437,6 +429,20 @@
       if (dark) { delete document.documentElement.dataset.theme; } else { document.documentElement.dataset.theme = 'dark'; }
       try { localStorage.setItem('mtts-theme', dark ? 'light' : 'dark'); } catch (e) {}
     });
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var greetings = [
+      ['Hello!', 'English', 'en'], ['¡Hola!', 'Spanish', 'es'], ['Bonjour !', 'French', 'fr'],
+      ['Ciao!', 'Italian', 'it'], ['Olá!', 'Portuguese (Brazil)', 'pt-BR'], ['नमस्ते!', 'Hindi', 'hi'],
+      ['こんにちは！', 'Japanese', 'ja'], ['你好！', 'Mandarin Chinese', 'zh']
+    ];
+    if (!reduce) {
+      var gi = 0, hello = document.getElementById('hello'), which = document.getElementById('which');
+      setInterval(function () {
+        gi = (gi + 1) % greetings.length;
+        hello.textContent = greetings[gi][0]; hello.lang = greetings[gi][2]; which.textContent = greetings[gi][1];
+        hello.classList.remove('swap'); void hello.offsetWidth; hello.classList.add('swap');
+      }, 2200);
+    }
     var els = document.querySelectorAll('section > *, .hero > *');
     els.forEach(function (el) { el.classList.add('reveal'); });
     if (!('IntersectionObserver' in window)) { els.forEach(function (el) { el.classList.add('in'); }); return; }
@@ -445,6 +451,115 @@
     }, { rootMargin: '0px 0px -8% 0px' });
     els.forEach(function (el) { io.observe(el); });
   })();
+</script>
+<script type="module">
+  import * as THREE from './assets/vendor/three/three.module.min.js';
+  const stage = document.getElementById('stage');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' }); }
+  catch (e) { renderer = null; }
+  if (renderer) {
+    const PAL = {
+      light: { a: 0xFED7AA, b: 0xD97706, bubble: 0xFDBA74, shadow: 0x7C2D12 },
+      dark:  { a: 0xFFEDD5, b: 0xFDBA74, bubble: 0xFED7AA, shadow: 0x000000 }
+    };
+    const isDark = () => document.documentElement.dataset.theme === 'dark';
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    stage.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+    camera.position.set(0, 0.6, 10.5);
+    camera.lookAt(0, 0, 0);
+    scene.add(new THREE.HemisphereLight(0xFFF7ED, 0xFED7AA, 1.4));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(3, 6, 5); scene.add(sun);
+
+    // Mascot as a textured plane so the ring can pass behind and in front of it.
+    const group = new THREE.Group(); scene.add(group);
+    const loader = new THREE.TextureLoader();
+    loader.load('assets/mascot.svg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), mat);
+      plane.position.y = 0.1; plane.renderOrder = 2; group.add(plane);
+      // soft contact shadow
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d'); const rg = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+      rg.addColorStop(0, 'rgba(124,45,18,0.28)'); rg.addColorStop(1, 'rgba(124,45,18,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+      const st = new THREE.CanvasTexture(c);
+      const sh = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.2), new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false }));
+      sh.position.set(0, -1.75, -0.2); sh.rotation.x = -0.9; group.add(sh);
+      stage.classList.add('gl');
+    });
+
+    // Ring of pulsing bars: a 3D audio visualizer orbiting the jar.
+    const N = 64, R = 3.0, bars = [], ring = new THREE.Group();
+    ring.rotation.x = 0.32; scene.add(ring);
+    const capGeo = new THREE.CapsuleGeometry(0.06, 1, 4, 10);
+    const cA = new THREE.Color(), cB = new THREE.Color();
+    for (let i = 0; i < N; i++) {
+      const m = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 });
+      const b = new THREE.Mesh(capGeo, m);
+      const a = (i / N) * Math.PI * 2;
+      b.position.set(Math.cos(a) * R, 0, Math.sin(a) * R);
+      b.userData.a = a; b.userData.p = Math.random() * Math.PI * 2;
+      ring.add(b); bars.push(b);
+    }
+    // Floating marmalade droplets.
+    const drops = [], dropGeo = new THREE.SphereGeometry(1, 24, 18);
+    for (let i = 0; i < 16; i++) {
+      const m = new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.32 + Math.random() * 0.3, roughness: 0.25 });
+      const d = new THREE.Mesh(dropGeo, m);
+      const sc = 0.09 + Math.random() * 0.2; d.scale.setScalar(sc);
+      d.position.set((Math.random() - 0.5) * 7, (Math.random() - 0.5) * 4.5, (Math.random() - 0.5) * 4 - 0.5);
+      d.userData = { y0: d.position.y, x0: d.position.x, p: Math.random() * Math.PI * 2, s: 0.4 + Math.random() * 0.6 };
+      scene.add(d); drops.push(d);
+    }
+    function paint() {
+      const P = isDark() ? PAL.dark : PAL.light;
+      cA.set(P.a); cB.set(P.b);
+      bars.forEach((b, i) => b.material.color.copy(cA).lerp(cB, (Math.sin(b.userData.a * 2) + 1) / 2));
+      drops.forEach(d => d.material.color.set(P.bubble));
+    }
+    paint();
+    new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    let px = 0, py = 0;
+    if (!reduce) window.addEventListener('pointermove', (e) => {
+      px = (e.clientX / window.innerWidth - 0.5); py = (e.clientY / window.innerHeight - 0.5);
+    }, { passive: true });
+
+    function resize() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(stage); resize();
+
+    const clock = new THREE.Clock();
+    function frame() {
+      const t = clock.getElapsedTime();
+      ring.rotation.y = t * 0.22 + px * 0.6;
+      ring.rotation.x = 0.32 + py * 0.2;
+      bars.forEach((b, i) => {
+        const h = 0.25 + 1.1 * (0.5 + 0.5 * Math.sin(t * 2.4 + b.userData.a * 4 + b.userData.p)) * (0.55 + 0.45 * Math.sin(t * 0.8 + i * 0.5));
+        b.scale.y = h;
+      });
+      drops.forEach(d => {
+        d.position.y = d.userData.y0 + Math.sin(t * d.userData.s + d.userData.p) * 0.35;
+        d.position.x = d.userData.x0 + Math.cos(t * d.userData.s * 0.6 + d.userData.p) * 0.2;
+      });
+      group.position.y = Math.sin(t * 1.5) * 0.08;
+      group.rotation.y = px * 0.35; group.rotation.x = py * 0.15;
+      renderer.render(scene, camera);
+      if (!reduce) requestAnimationFrame(frame);
+    }
+    if (reduce) { bars.forEach((b, i) => { b.scale.y = 0.3 + 0.9 * Math.abs(Math.sin(i * 0.7)); }); }
+    frame();
+    if (reduce) setTimeout(() => renderer.render(scene, camera), 600); // once the texture is in
+  }
 </script>
 </body>
 </html>
