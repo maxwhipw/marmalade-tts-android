@@ -1037,7 +1037,7 @@ class MarmaladeSynthService : Service() {
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
-        ).coerceAtLeast(sampleRate * 2 / 4)
+        ).coerceAtLeast(quarterSecondBufferBytes(sampleRate))
 
         return AudioTrack.Builder()
             .setAudioAttributes(
@@ -1396,6 +1396,18 @@ class MarmaladeSynthService : Service() {
     )
 
     companion object {
+        /**
+         * ~250 ms of 16-bit mono PCM, in bytes, as a whole number of frames.
+         * AudioTrack rejects a buffer size that isn't a multiple of the frame
+         * size ("Invalid audio buffer size"), and `sampleRate * 2 / 4` is odd
+         * at 22 050 Hz — the rate of the medium/high VITS packs. 24 kHz and
+         * 16 kHz only ever worked because they happen to divide evenly.
+         */
+        internal fun quarterSecondBufferBytes(sampleRate: Int): Int =
+            (sampleRate / 4) * BYTES_PER_FRAME_PCM16_MONO
+
+        private const val BYTES_PER_FRAME_PCM16_MONO = 2
+
         private const val TAG = "MarmaladeSynthService"
         private const val CHANNEL_ID = "marmalade_synth"
         private const val NOTIFICATION_ID = 1
