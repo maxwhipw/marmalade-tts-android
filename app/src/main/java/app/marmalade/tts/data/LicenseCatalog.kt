@@ -247,6 +247,39 @@ object LicenseCatalog {
                 "Kokoro quantization write-up (adrianlyjak.com).",
         ),
         Component(
+            key = "kokoro-de",
+            name = "Thorsten-Voice/Kokoro (German fine-tune)",
+            role = "Neural voice model (German)",
+            shipsIn = "Engine bundle",
+            licenseId = "Apache-2.0",
+            copyright = listOf(
+                "Copyright (c) Thorsten Müller (Thorsten-Voice)",
+                "Base model: Copyright (c) hexgrad and contributors",
+            ),
+            textAsset = "Apache-2.0.txt",
+            note = "A German fine-tune of hexgrad/Kokoro-82M, released by the " +
+                "Thorsten-Voice project under Apache-2.0 \"consistent with the " +
+                "base Kokoro-82M model and the CC0-licensed Thorsten-Voice " +
+                "dataset used for fine-tuning\". The shipped model.onnx is " +
+                "Marmalade's static-QDQ int8 build of the k2-fsa/sherpa-onnx " +
+                "ONNX export of that checkpoint.",
+        ),
+        Component(
+            key = "misaki-de",
+            name = "misaki (German G2P port)",
+            role = "German phonemization tables", shipsIn = "APK (source)",
+            licenseId = "Apache-2.0",
+            copyright = listOf(
+                "Kotlin port: Copyright (c) 2026 marmalade-tts contributors",
+                "Ported from semidark/misaki, a fork of hexgrad/misaki (Apache-2.0)",
+                "Override lexicon originates from kikiri-tts PR #28 (author dida-80b)",
+            ),
+            note = "Clean-room Kotlin port of the German DEG2P pipeline (text " +
+                "normalizer + pronunciation-override lexicon) that drives the " +
+                "app's espeak-de path for the native German Kokoro engine — no " +
+                "upstream code copied, only the algorithm and tables.",
+        ),
+        Component(
             key = "kittentts",
             name = "KittenTTS (nano)", role = "Neural voice model",
             shipsIn = "Engine bundle",

@@ -61,6 +61,12 @@ Full detail, including the MIT notice for the weights:
 ## Neural voice models
 
 - **Kokoro-82M** — Kokoro TTS model. Apache-2.0.
+- **Thorsten-Voice/Kokoro** — the native German engine (`kokoro-de-v1_0`)
+  is a German fine-tune of Kokoro-82M by **Thorsten Müller** (the
+  **Thorsten-Voice** project), trained on his own studio recordings —
+  the **Thorsten-Voice dataset**, which he recorded and released
+  **CC0** himself. **Apache-2.0**.
+  https://huggingface.co/Thorsten-Voice/Kokoro
 - **KittenTTS** (nano / mini) — KittenML. Apache-2.0.
 - **Pocket TTS** — Kyutai. Model/inference code MIT; voices per-license
   (above). https://github.com/kyutai-labs/pocket-tts
@@ -81,6 +87,12 @@ Full detail, including the MIT notice for the weights:
   `pyopenjtalk` and the **misaki** Japanese frontend.
 - **misaki** / **cutlet** — Japanese G2P; our `CutletJaG2P` is a
   clean-room Kotlin port of the cutlet/misaki approach (upstream MIT).
+- **misaki (German)** — the German G2P behind the native German Kokoro
+  engine (text normalizer + pronunciation-override lexicon) is a
+  clean-room Kotlin port of the DEG2P pipeline from
+  **semidark/misaki**, a fork of **hexgrad/misaki** (both **Apache-2.0**).
+  The override lexicon originates from **kikiri-tts** PR #28 (author
+  dida-80b). No upstream code is copied — only the algorithm and tables.
 - **pypinyin** — Mandarin pinyin conventions informing the `lexicon-zh`
   path (MIT). Its per-character pinyin data derives in part from
   **CC-CEDICT** (© [MDBG](https://cc-cedict.org), **CC-BY-SA-4.0**), so the
