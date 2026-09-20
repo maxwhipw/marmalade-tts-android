@@ -12,6 +12,7 @@ import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.PrerollGate
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.kitten.PAD_TOKEN
@@ -426,6 +427,7 @@ open class KokoroDirectEngine @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic — see KittenDirectEngine for the rationale.
         val streamStartNs = System.nanoTime()
@@ -464,24 +466,47 @@ open class KokoroDirectEngine @Inject constructor(
 
         // P-A diagnostic: per-chunk infer time + real-time factor + producer
         // inter-send gap. See KittenDirectEngine for the rationale.
+        //
+        // Adaptive pre-roll (2026-09-20): a downstream time-stretch makes
+        // the played clock run playbackRate× faster than the engine
+        // clock, and warm Kokoro on the 8a is only RTF ~0.55 — at 2×
+        // that's realtime with no headroom, and the old emit-as-rendered
+        // loop stalled ~1.1 s between sentences. The gate holds early
+        // chunks until the buffer covers the measured deficit; at 1.0×
+        // it decides K=1 and this loop behaves exactly as before.
+        val gate = PrerollGate<SynthAudio>(playbackRate, chunks.size)
         var prevSendNs = 0L
+        var firstSent = false
+        suspend fun emitAudio(audio: SynthAudio) {
+            val gapMs = if (prevSendNs == 0L) -1L else (System.nanoTime() - prevSendNs) / 1_000_000
+            if (!firstSent) {
+                firstSent = true
+                val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
+                Log.d(PERF_TAG, "kokoro TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms) K=${gate.prerollChunks}")
+            }
+            Log.d(PERF_TAG, "kokoro emit audio=${audio.pcm.size * 1000L / audio.sampleRate}ms gap=${gapMs}ms K=${gate.prerollChunks}")
+            send(audio)
+            prevSendNs = System.nanoTime()
+        }
         for ((idx, chunk) in chunks.withIndex()) {
             val inferStartNs = System.nanoTime()
             val pcm = synthLock.withLock { runInference(chunk, voiceName, speed, effectiveLang) }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
                 val audioMs = pcm.size * 1000L / sampleRate
-                val gapMs = if (prevSendNs == 0L) -1L else (System.nanoTime() - prevSendNs) / 1_000_000
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
-                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} gap=${gapMs}ms textLen=${chunk.length}")
-                if (idx == 0) {
-                    val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
-                    Log.d(PERF_TAG, "kokoro TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms + firstInfer=${inferMs}ms + overhead=${ttfaMs - loadWaitMs - inferMs}ms)")
-                }
-                send(SynthAudio(pcm = pcm, sampleRate = sampleRate))
-                prevSendNs = System.nanoTime()
+                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} textLen=${chunk.length}")
+                val release = gate.onChunkRendered(
+                    chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
+                    renderMs = inferMs,
+                    audioMs = audioMs,
+                )
+                for (audio in release) emitAudio(audio)
             }
         }
+        // Anything the gate still holds (e.g. the nominal last chunk
+        // phonemized to nothing, so the flush never triggered).
+        for (audio in gate.drain()) emitAudio(audio)
     }.flowOn(Dispatchers.Default)
 
     private fun runInference(text: String, voiceName: String, speed: Float, lang: String): ShortArray {

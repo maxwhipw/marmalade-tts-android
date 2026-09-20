@@ -150,12 +150,21 @@ interface TtsEngine {
      * The flow is cancellable — collectors that throw or cancel will
      * tear down the engine's generation loop cleanly via structured
      * concurrency.
+     *
+     * [playbackRate] is the rate the emitted audio will be consumed at
+     * relative to the engine's own clock — the downstream time-stretch
+     * factor from [app.marmalade.tts.service.SpeedPlan.playbackRate].
+     * It must never influence the synthesis itself (that's what [speed]
+     * is for); engines with a streaming pre-roll use it to budget
+     * against the *played* clock, buffering more chunks up front when
+     * the stretch erases their realtime headroom.
      */
     fun synthesizeStream(
         text: String,
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
+        playbackRate: Float = 1f,
     ): Flow<SynthAudio> = flow {
         emit(synthesize(text, voiceId, speed, phonemizationLanguage))
     }

@@ -41,6 +41,7 @@
     <string name="alias_voice_error">इस उपनाम के लिए कोई वॉइस चुनें</string>
     <string name="alias_speed">स्पीड</string>
     <string name="alias_speed_label">स्पीड: %1$s</string>
+    <string name="alias_speed_perf_warning">1.3× से ऊपर कुछ आवाज़ें ऑडियो उतनी तेज़ी से नहीं बना पातीं। तेज़ वाचन थोड़ी देर से शुरू होता है और वाक्यों के बीच रुक सकता है।</string>
     <string name="alias_effect_label">इफ़ेक्ट</string>
     <string name="alias_pick_effect">इफ़ेक्ट चुनें</string>
     <string name="alias_make_primary">प्राथमिक बनाएँ</string>

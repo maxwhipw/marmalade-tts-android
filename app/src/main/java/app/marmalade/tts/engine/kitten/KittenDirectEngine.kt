@@ -379,6 +379,11 @@ open class KittenDirectEngine @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        // Unused: warm Kitten renders at RTF 0.24–0.27 on the 8a, so even a
+        // 2× stretch leaves ~2× headroom on the played clock — no pre-roll
+        // needed. Wire a PrerollGate here (see KokoroDirectEngine) if a
+        // slower device ever proves otherwise.
+        playbackRate: Float,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic: split "load wait" from "first chunk inference".
         // If loadMs > 0 on the first run after a cold start, the user is paying

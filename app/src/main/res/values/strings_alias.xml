@@ -41,6 +41,7 @@
     <string name="alias_voice_error">Pick a voice for this alias</string>
     <string name="alias_speed">Speed</string>
     <string name="alias_speed_label">Speed: %1$s</string>
+    <string name="alias_speed_perf_warning">Above 1.3× some voices can’t render fast enough to keep up. Fast speech starts a moment later and may pause between sentences.</string>
     <string name="alias_effect_label">Effect</string>
     <string name="alias_pick_effect">Pick effect</string>
     <string name="alias_make_primary">Make primary</string>

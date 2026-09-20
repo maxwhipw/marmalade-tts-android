@@ -41,6 +41,7 @@
     <string name="alias_voice_error">Choisissez une voix pour cet alias</string>
     <string name="alias_speed">Vitesse</string>
     <string name="alias_speed_label">Vitesse&#160;: %1$s</string>
+    <string name="alias_speed_perf_warning">Au-delà de 1,3×, certaines voix ne génèrent pas l’audio assez vite&#160;: la lecture rapide démarre un peu plus tard et peut marquer des pauses entre les phrases.</string>
     <string name="alias_effect_label">Effet</string>
     <string name="alias_pick_effect">Choisir un effet</string>
     <string name="alias_make_primary">Définir comme principal</string>

@@ -212,6 +212,7 @@ class PocketDevEngine @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float, // unused — dev-only engine, strict sequential by design
     ): Flow<SynthAudio> = flow {
         ensureLoadedSuspending()
         synthLock.withLock {

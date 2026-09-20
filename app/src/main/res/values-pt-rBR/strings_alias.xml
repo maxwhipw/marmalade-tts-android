@@ -41,6 +41,7 @@
     <string name="alias_voice_error">Escolha uma voz para este apelido</string>
     <string name="alias_speed">Velocidade</string>
     <string name="alias_speed_label">Velocidade: %1$s</string>
+    <string name="alias_speed_perf_warning">Acima de 1,3×, algumas vozes não conseguem gerar o áudio rápido o bastante: a leitura acelerada demora um pouco mais para começar e pode pausar entre as frases.</string>
     <string name="alias_effect_label">Efeito</string>
     <string name="alias_pick_effect">Escolher efeito</string>
     <string name="alias_make_primary">Tornar principal</string>

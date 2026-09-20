@@ -611,6 +611,7 @@ open class PocketEngine @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic — see KittenDirectEngine for the rationale.
         val streamStartNs = System.nanoTime()
@@ -753,7 +754,12 @@ open class PocketEngine @Inject constructor(
                 if (isFirst && frameTimes != null && frameTimes.size >= 5) {
                     val window = frameTimes.subList(1, 5)
                     val trimmedMaxMs = window.sortedDescending().drop(1).first()
-                    val frameBudgetMs = 1000.0 / bundle.frameRate
+                    // The budget is per PLAYED frame: a downstream time-
+                    // stretch (playbackRate > 1) drains each rendered frame
+                    // in frameDuration / playbackRate, so the deficit — and
+                    // K — must be judged against that shorter clock.
+                    val frameBudgetMs = 1000.0 / bundle.frameRate /
+                        playbackRate.coerceAtLeast(0.01f)
                     val deficitMs = (trimmedMaxMs - frameBudgetMs).coerceAtLeast(0.0)
                     prerollChunks = if (deficitMs == 0.0) {
                         1

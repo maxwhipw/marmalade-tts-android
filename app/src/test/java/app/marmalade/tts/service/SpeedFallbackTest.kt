@@ -38,6 +38,9 @@ class SpeedFallbackTest {
         val plan = applySpeedFallback(FakeEngine(supportsNativeSpeed = true), 2.0f, blocks)
         assertEquals(2.0f, plan.speed, 0f)
         assertSame(blocks, plan.blocks)
+        // Native speed renders at the final rate — no downstream stretch,
+        // so the pre-roll budget stays on the engine clock.
+        assertEquals(1.0f, plan.playbackRate, 0f)
     }
 
     @Test
@@ -45,6 +48,7 @@ class SpeedFallbackTest {
         val plan = applySpeedFallback(FakeEngine(supportsNativeSpeed = false), 1.0f, blocks)
         assertEquals(1.0f, plan.speed, 0f)
         assertSame(blocks, plan.blocks)
+        assertEquals(1.0f, plan.playbackRate, 0f)
     }
 
     @Test
@@ -52,6 +56,9 @@ class SpeedFallbackTest {
         val plan = applySpeedFallback(FakeEngine(supportsNativeSpeed = false), 2.0f, blocks)
         assertEquals(1.0f, plan.speed, 0f)
         assertEquals(listOf(EffectBlock.Tempo(factor = 2.0f), reverb), plan.blocks)
+        // The stretch factor is also the played-clock rate the engine's
+        // pre-roll must budget against (Kokoro-at-2× underrun, 2026-09-19).
+        assertEquals(2.0f, plan.playbackRate, 0f)
     }
 
     @Test

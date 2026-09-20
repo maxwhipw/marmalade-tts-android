@@ -40,6 +40,7 @@
     <string name="alias_voice_error">このエイリアスに使うボイスを選んでください</string>
     <string name="alias_speed">速度</string>
     <string name="alias_speed_label">速度: %1$s</string>
+    <string name="alias_speed_perf_warning">1.3×を超えると、一部の音声では合成が再生に追いつかず、速い読み上げは開始が少し遅れたり、文の間で止まったりすることがあります。</string>
     <string name="alias_effect_label">エフェクト</string>
     <string name="alias_pick_effect">エフェクトを選択</string>
     <string name="alias_make_primary">メインにする</string>

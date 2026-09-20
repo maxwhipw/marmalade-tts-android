@@ -1202,6 +1202,7 @@ internal class FakeKittenDirectEngine(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
@@ -1262,6 +1263,7 @@ internal class FakeKokoroDirectEngine(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage

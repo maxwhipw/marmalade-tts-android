@@ -775,6 +775,7 @@ class MarmaladeSynthService : Service() {
             resolved.voice,
             plan.speed,
             resolved.phonemizationLanguage,
+            plan.playbackRate,
         ).collect { audio ->
             val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                 .also { chain = it; sampleRate = audio.sampleRate }
@@ -849,15 +850,16 @@ class MarmaladeSynthService : Service() {
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
+        playbackRate: Float = 1f,
     ): Flow<SynthAudio> {
         val stream = when (engineName) {
-            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            VitsVoiceCatalog.ENGINE -> vits.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            VitsVoiceCatalog.ENGINE -> vits.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
         }
         // Time-to-first-audio sampling — feeds the Speak screen's per-voice
         // latency hints (VoiceLatencySource). Lived in Synthesizer before

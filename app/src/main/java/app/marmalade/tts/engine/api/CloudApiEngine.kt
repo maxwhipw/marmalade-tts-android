@@ -128,6 +128,7 @@ class CloudApiEngine @Inject constructor(
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String?,
+        playbackRate: Float, // unused — cloud voices speak at native speed, no downstream stretch
     ): Flow<SynthAudio> = flow {
         val ref = CloudApiVoiceCatalog.parseVoiceId(voiceId)
             ?: throw IOException("Not a cloud voice id: $voiceId")

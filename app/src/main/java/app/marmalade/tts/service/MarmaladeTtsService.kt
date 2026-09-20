@@ -672,8 +672,14 @@ class MarmaladeTtsService : TextToSpeechService() {
         var chain: StreamingEffectChain? = null
         var sr = 0
         val plan = applySpeedFallback(engineHandleFor(engineName), params.speed, params.effectBlocks)
-        streamForEngine(engineName, stripped, params.voiceId, plan.speed, params.phonemizationLanguage)
-            .collect { audio ->
+        streamForEngine(
+            engineName,
+            stripped,
+            params.voiceId,
+            plan.speed,
+            params.phonemizationLanguage,
+            plan.playbackRate,
+        ).collect { audio ->
                 val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                     .also { chain = it; sr = audio.sampleRate }
                 val shaped = c.process(audio.pcm)
@@ -1129,13 +1135,14 @@ class MarmaladeTtsService : TextToSpeechService() {
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
+        playbackRate: Float = 1f,
     ): Flow<SynthAudio> {
         val stream = when (engineName) {
-            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
-            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage)
+            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
         }
         var startedAt = 0L
         var recorded = false

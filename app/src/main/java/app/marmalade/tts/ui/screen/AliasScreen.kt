@@ -733,6 +733,20 @@ private fun AliasEditorSheet(
                         stateDescription = speedText
                     },
                 )
+                // Past ~1.3× the time-stretched playback can outrun the
+                // slower engines' rendering (measured: Kokoro at 2× on a
+                // Pixel 8a) — the adaptive pre-roll covers most of it, but
+                // the user should know why fast speech starts later and can
+                // still hesitate between sentences. 1.35 not 1.3: the
+                // slider's 0.1 steps land near-but-not-on round values, and
+                // the warning belongs to the 1.4+ detents.
+                if (state.speed > 1.35f) {
+                    Text(
+                        text = stringResource(R.string.alias_speed_perf_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             EffectPicker(
