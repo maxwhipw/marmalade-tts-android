@@ -104,7 +104,7 @@ synthesis was ever triggered.
 **Recipe for the next session (phone charged, idle, `MODE_NORMAL`):**
 
 ```bash
-export ANDROID_SERIAL=100.114.195.29:36271
+export ANDROID_SERIAL=<device-ip>:<adb-port>
 adb shell dumpsys audio | grep "mAudioModeOwner"      # must say MODE_NORMAL
 adb shell dumpsys battery | grep "  level"            # want >40% and charging
 adb shell settings get global low_power               # must be 0
