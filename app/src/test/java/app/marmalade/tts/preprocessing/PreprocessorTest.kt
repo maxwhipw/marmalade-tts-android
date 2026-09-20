@@ -126,6 +126,14 @@ class PreprocessorTest {
     }
 
     @Test
+    fun currency_thousandsSeparatorIsOneAmount() {
+        // Regression (CLI df81d25): "$1,500" used to split on the comma into
+        // "one dollar,five hundred". INT_GROUPED accepts the separator; the
+        // comma is stripped before parsing, so it reads as one amount.
+        assertEquals("1500 dollars", only("currency", "\$1,500"))
+    }
+
+    @Test
     fun currency_overflowingAmountIsLeftUnchanged() {
         // >19 digits overflows Long. Must pass through untouched instead
         // of throwing NumberFormatException out of the synthesis pipeline
@@ -192,6 +200,38 @@ class PreprocessorTest {
     fun number_decimal_pointwise() {
         // CLI: 99.5 → "ninety-nine point five".
         assertEquals("ninety-nine point five", only("number", "99.5"))
+    }
+
+    @Test
+    fun number_thousandsSeparatorIsOneNumber() {
+        // Regression (CLI df81d25): "1,234" used to split on the comma into
+        // three fragments ("one,two hundred and thirty-four"). INT_GROUPED
+        // accepts the strict 3-digit grouping and it reads as one number.
+        // (Android's spell-out wording differs from the CLI's num2words — no
+        // "and", no comma — but it IS a single number, which is the fix.)
+        assertEquals(
+            "I bought one thousand two hundred thirty-four apples.",
+            only("number", "I bought 1,234 apples."),
+        )
+    }
+
+    @Test
+    fun number_shortGroupsLeftUnchanged() {
+        // Boundary: "1,2,3" has short (1-digit) groups, so the grouped branch
+        // never matches — each digit is verbalized on its own, exactly as
+        // before the separators change.
+        assertEquals("one,two,three", only("number", "1,2,3"))
+    }
+
+    @Test
+    fun number_commaSpaceIsNotAGroup() {
+        // Boundary: "in 2019, 300 people" is a year + a separate number with a
+        // comma-then-space, not a thousands group. 2019 stays a year, 300
+        // verbalizes — unchanged from today's behaviour.
+        assertEquals(
+            "in 2019, three hundred people",
+            only("number", "in 2019, 300 people"),
+        )
     }
 
     // ── abbreviation ────────────────────────────────────────────────

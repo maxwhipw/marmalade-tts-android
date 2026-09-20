@@ -168,9 +168,22 @@ object PreprocessingRules {
     // -- Currency rule --------------------------------------------------------
     //
     // $100 → 100 dollars; $3.50 → 3 dollars and 50 cents; £42 → 42 pounds.
-    // Matches the CLI's _currency exactly.
+    // Matches the CLI's `currency` rule in ts/src/preprocessing.ts — keep the
+    // two in sync.
+    //
+    // The integer part is INT_GROUPED (a strict 3-digit-grouped run or a plain
+    // digit run), so "$1,500" is read as one amount ("1500 dollars") instead of
+    // "one dollar,five hundred". The commas are stripped before parsing.
 
-    private val currencyRegex = Regex("([\$£€¥])(\\d+(?:\\.\\d{1,2})?)")
+    // An integer, optionally with thousands separators. The grouped branch
+    // demands strict 1-3 digits then one or more `,DDD` groups, so "1,234" and
+    // "12,345,678" match but "1,2,3" (short groups) and "2019, 300" (comma+
+    // space, no group) do not. The plain branch handles ungrouped runs. Grouped
+    // branch first so the longer match wins. Mirrors the CLI's INT_GROUPED
+    // (Android uses ASCII `\d`, as the other Android number rules already do).
+    private const val INT_GROUPED = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)"
+
+    private val currencyRegex = Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d{1,2})?)")
 
     private val currencySymbols: Map<String, Pair<String, String>> = mapOf(
         "$" to ("dollar" to "cent"),
@@ -189,7 +202,7 @@ object PreprocessingRules {
                 // toLongOrNull: a >19-digit amount overflows Long; leave the
                 // match unchanged rather than throwing out of the pipeline
                 // (same policy as expandOrdinal / expandNumber).
-                val majorN = parts[0].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
+                val majorN = parts[0].replace(",", "").ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
                 val minorN = parts[1].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
                 val pieces = mutableListOf<String>()
                 if (majorN > 0L) {
@@ -202,7 +215,7 @@ object PreprocessingRules {
                 }
                 if (pieces.isEmpty()) amount else pieces.joinToString(" and ")
             } else {
-                val n = amount.toLongOrNull() ?: return@replace m.value
+                val n = amount.replace(",", "").toLongOrNull() ?: return@replace m.value
                 "$n $major${if (n != 1L) "s" else ""}"
             }
         }
@@ -374,18 +387,28 @@ object PreprocessingRules {
 
     // -- Number rule ----------------------------------------------------------
     //
-    // 42 → forty-two; 99.5 → ninety-nine point five. 4-digit years 1900-2099
-    // are left as digits (the CLI special-cases this to avoid "nineteen
-    // eighty-five" mid-sentence — speech engines say "1985" more naturally).
-    // CLI: _number_to_words.
+    // 42 → forty-two; 1,234 → one thousand two hundred thirty-four; 99.5 →
+    // ninety-nine point five. 4-digit years 1900-2099 are left as digits (the
+    // CLI special-cases this to avoid "nineteen eighty-five" mid-sentence —
+    // speech engines say "1985" more naturally). CLI: `number` rule in
+    // ts/src/preprocessing.ts — keep the two in sync. INT_GROUPED accepts
+    // thousands separators so "1,234" is one number, not three.
+    //
+    // (Wording note: Android's hand-rolled spell-out emits "one thousand two
+    // hundred thirty-four" where the CLI's num2words emits "one thousand, two
+    // hundred and thirty-four". The wording differs, but both render "1,234" as
+    // a SINGLE number — which is the behaviour this rule guarantees.)
 
-    private val numberRegex = Regex("\\b\\d+(?:\\.\\d+)?\\b")
+    private val numberRegex = Regex("\\b$INT_GROUPED(?:\\.\\d+)?\\b")
     private fun expandNumber(text: String): String =
         numberRegex.replace(text) { m ->
             val raw = m.value
+            // The pattern only lets a comma appear as a strict 3-digit group
+            // separator, so dropping them recovers the plain integer value.
+            val bare = raw.replace(",", "")
             try {
-                if ("." in raw) {
-                    val parts = raw.split(".", limit = 2)
+                if ("." in bare) {
+                    val parts = bare.split(".", limit = 2)
                     val whole = parts[0].ifEmpty { "0" }.toLong()
                     val frac = parts[1]
                     val wholeWords = spellCardinal(whole)
@@ -394,7 +417,7 @@ object PreprocessingRules {
                     }.joinToString(" ")
                     "$wholeWords point $fracWords"
                 } else {
-                    val n = raw.toLong()
+                    val n = bare.toLong()
                     // CLI year-protection band: 1900-2099 stays as digits.
                     if (n in 1900L..2099L) raw else spellCardinal(n)
                 }
