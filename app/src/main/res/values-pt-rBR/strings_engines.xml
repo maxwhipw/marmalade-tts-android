@@ -197,6 +197,10 @@
     <string name="engine_kokoro_desc">A melhor qualidade geral com o maior suporte a idiomas — 53 vozes em 9 idiomas, incluindo inglês, espanhol, francês, italiano, híndi, português, japonês e mandarim. Recomendado para a maioria das pessoas. Roda inteiramente no seu dispositivo; japonês e mandarim usam dados de pronúncia incluídos e os demais idiomas usam espeak-ng, tudo carregado em tempo de execução.</string>
     <string name="engine_kokoro_license">Modelo Apache-2.0 + dicionário Open JTalk BSD-3 (japonês); os idiomas europeus são fonemizados pelo espeak-ng integrado ao app (GPL-3.0-or-later).</string>
 
+    <string name="engine_kokoro_de_tagline">Uma voz alemã nativa, ajustada a partir do Kokoro.</string>
+    <string name="engine_kokoro_de_desc">Uma voz alemã nativa — Thorsten, do projeto aberto Thorsten-Voice — ajustada a partir do Kokoro com as próprias gravações que ele compartilhou livremente. Só alemão, uma voz. Escolha quando quiser um alemão que soe alemão em vez de sotaque. Roda inteiramente no seu dispositivo, fonemizada pelo espeak-ng integrado ao app.</string>
+    <string name="engine_kokoro_de_license">Modelo Apache-2.0 (ajuste em alemão do Kokoro-82M); fonemizado pelo espeak-ng integrado ao app (GPL-3.0-or-later).</string>
+
     <string name="engine_pocket_tagline">As vozes em inglês mais expressivas e cheias de personalidade.</string>
     <string name="engine_pocket_desc">Pesado, mas com as vozes em inglês mais expressivas — 6 vozes integradas. Reproduz sem falhas em celulares top de linha; pode engasgar em aparelhos intermediários e mais antigos. Só em inglês. O modelo da Kyutai Labs em uma build de precisão mista, para um som limpo.</string>
     <string name="engine_pocket_license">Código do modelo MIT + runtime MIT (onnxruntime-android); vozes CC0 / CC-BY-4.0. Sem componentes GPL.</string>

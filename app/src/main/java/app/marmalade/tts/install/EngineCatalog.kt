@@ -231,6 +231,7 @@ object EngineCatalog {
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_873L
+    private const val KOKORO_DE_INSTALLED_SIZE_BYTES: Long = 183_180_513L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
     // The clean-reference dev engine still pins the older 8-voice v10 archive
@@ -343,6 +344,46 @@ object EngineCatalog {
         // voices can phonemize German and Bulgarian — intelligible but
         // accented, no trained voice of their own. See [partialLanguageCodes].
         partialLanguageCodes = listOf("de", "bg"),
+    )
+
+    /**
+     * Kokoro German (`kokoro-de-v1_0`) — Thorsten-Voice/Kokoro (Apache-2.0),
+     * a German fine-tune of Kokoro-82M v1.0 with ONE trained German speaker
+     * (Thorsten). A **separate** downloadable engine, not a voice pack for
+     * `kokoro-direct-v1_0`: the fine-tune retrained the whole acoustic stack,
+     * so it can never share weights or `voices.bin` with the multilingual
+     * base — the two live side by side on disk.
+     *
+     * Exported to the same ONNX graph contract as `kokoro-direct-v1_0` and
+     * quantized QDQ int8 (CPU-EP-only, no XNNPACK — the shared
+     * [KokoroDirectEngine] `isQuantizedBundle` path). German is fixed:
+     * phonemization always runs through the app's GermanG2P (espeak-ng `de` +
+     * override lexicon), so the bundle ships no lexicon-zh.txt or
+     * openjtalk_dic. Desktop gates all green (Whisper large-v3 corpus
+     * WER 0.88%, the community-rated 4.5/5 reference).
+     */
+    private val KOKORO_GERMAN: EngineDescriptor = EngineDescriptor(
+        name = "kokoro-de-v1_0",
+        displayName = "Kokoro German (Thorsten)",
+        descriptionRes = R.string.engine_kokoro_de_desc,
+        downloadSizeBytes = 165_992_187L,
+        installedSizeBytes = KOKORO_DE_INSTALLED_SIZE_BYTES,
+        isRecommended = false,
+        archive = EngineArchive(
+            url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v25/kokoro-de-v1_0.tar.gz",
+            sha256 = "733483ee0757d23cfa35b795ed397f54775162aba07bb69bf59e4a4888475c03",
+            sizeBytes = 165_992_187L,
+            archiveRoot = "kokoro-de-v1_0/",
+        ),
+        licenseNotice = "LICENSES/kokoro-de.md",
+        licenseSummaryRes = R.string.engine_kokoro_de_license,
+        taglineRes = R.string.engine_kokoro_de_tagline,
+        speedTier = SpeedTier.FAST,
+        // Same quality framing as the base Kokoro — the German fine-tune
+        // gates at the community-rated reference (WER 0.88%).
+        qualityTier = QualityTier.BEST_OVERALL,
+        // One native, trained German voice — no partial-support tier.
+        languageCodes = listOf("de-DE"),
     )
 
     /**
@@ -485,6 +526,7 @@ object EngineCatalog {
     val all: List<EngineDescriptor> = listOf(
         KITTEN_DIRECT,
         KOKORO_DIRECT,
+        KOKORO_GERMAN,
         POCKET_TTS_EN,
         POCKET_TTS_EN_DEV,
         VITS_MARMALADE,

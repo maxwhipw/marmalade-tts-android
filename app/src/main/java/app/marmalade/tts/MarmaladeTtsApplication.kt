@@ -8,6 +8,7 @@ import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.EffectDao
@@ -168,6 +169,7 @@ class MarmaladeTtsApplication : Application() {
                 // flipping from "en-US" to "ja-JP" in the multi-lang
                 // expansion) without ever wiping the table.
                 dao.upsertAll(KokoroDirectVoiceCatalog.voices)
+                dao.upsertAll(KokoroGermanVoiceCatalog.voices)
                 dao.upsertAll(KittenDirectVoiceCatalog.voices)
                 dao.upsertAll(PocketVoiceCatalog.voices)
                 dao.upsertAll(PocketDevVoiceCatalog.voices)
@@ -377,7 +379,12 @@ class MarmaladeTtsApplication : Application() {
          *    sit at opposite ends of the catalog and used to bracket every
          *    other language). Ids, names and genders are unchanged — the
          *    reseed exists only to rewrite the sort key.
+         *  - v39: the native German Kokoro engine `kokoro-de-v1_0` arrives
+         *    with its one trained voice (Thorsten, de-DE), seeded from
+         *    [KokoroGermanVoiceCatalog]. A separate downloadable engine, not a
+         *    voice pack — the German fine-tune can't share weights with the
+         *    multilingual Kokoro.
          */
-        const val CATALOG_VERSION: Int = 38
+        const val CATALOG_VERSION: Int = 39
     }
 }

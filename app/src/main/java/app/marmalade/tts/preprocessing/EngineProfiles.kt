@@ -84,6 +84,29 @@ object EngineProfiles {
     )
 
     /**
+     * Native German Kokoro (`kokoro-de-v1_0`) default rules.
+     *
+     * Unlike the multilingual Kokoro (which relies on the English generic
+     * rules for currency/time/date because its misaki frontend only normalizes
+     * English), the native German engine phonemizes through
+     * [app.marmalade.tts.phonemizer.GermanG2P], whose GermanTextNormalizer
+     * expands numbers, ordinals, abbreviations, currency, times and dates **in
+     * German**. Running the English generic expanders first would clobber the
+     * text before the German normalizer ever sees it (e.g. "5 €" → "5 euros"),
+     * so those are dropped here on top of the [KOKORO_DEFAULTS] omissions.
+     * `heteronym`/`respell` are English espeak fixups (see [KITTEN_DEFAULTS])
+     * and are dropped too — this engine's espeak voice is German. What remains
+     * is the language-agnostic structural cleanup.
+     */
+    private val KOKORO_GERMAN_DEFAULTS: Set<String> = setOf(
+        "linebreaks", "markdown", "html", "separators", "parens",
+        "percentage",
+        "email", "url", "filename",
+        "math", "ampersand", "hashtag", "emoji",
+        "repeated_punctuation", "terminal_punctuation",
+    )
+
+    /**
      * Pocket TTS default rules. Pocket does its own phonemization upstream of
      * ORT — no espeak anywhere in the pipeline (see the comment in
      * PocketEngine.kt `synthesize`). Every respelling in `respell` and every
@@ -108,6 +131,7 @@ object EngineProfiles {
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
         "kitten-direct-v0_8" to KITTEN_DEFAULTS,
         "kokoro-direct-v1_0" to KOKORO_DEFAULTS,
+        "kokoro-de-v1_0" to KOKORO_GERMAN_DEFAULTS,
         "pocket-tts-en-v2026_04" to POCKET_DEFAULTS,
         // Developer-only clean-room Pocket engine — same profile as production Pocket.
         "pocket-tts-en-v2026_04-dev" to POCKET_DEFAULTS,

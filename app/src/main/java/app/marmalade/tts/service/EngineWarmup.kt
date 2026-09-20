@@ -4,6 +4,7 @@ import android.util.Log
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class EngineWarmup @Inject constructor(
     private val kokoroDirect: KokoroDirectEngine,
+    private val kokoroGerman: KokoroGermanEngine,
     private val kittenDirect: KittenDirectEngine,
     private val pocket: PocketEngine,
 ) {
@@ -44,6 +46,7 @@ class EngineWarmup @Inject constructor(
         scope.launch {
             val engines = listOf(
                 "kokoro-direct" to kokoroDirect,
+                "kokoro-de" to kokoroGerman,
                 "kitten-direct" to kittenDirect,
                 "pocket" to pocket,
             )

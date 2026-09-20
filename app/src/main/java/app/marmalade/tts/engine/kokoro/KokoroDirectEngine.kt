@@ -179,7 +179,29 @@ open class KokoroDirectEngine @Inject constructor(
      */
     private val minCharsPerChunk: Int = MIN_CHARS_PER_CHUNK
 
-    private val engineDir: File get() = File(ctx.filesDir, "engines/$ENGINE_NAME")
+    // -- subclass seams -------------------------------------------------------
+    //
+    // KokoroGermanEngine (`kokoro-de-v1_0`) reuses this whole ORT/streaming
+    // machinery unchanged and only redirects the catalog-shaped lookups: its
+    // bundle is a German fine-tune of the same graph with one speaker and a
+    // fixed espeak-de phonemization language. Overriding these three members
+    // (plus [engineName] and [sampleRate]) is all it needs — the base
+    // behaviour stays byte-identical because each seam resolves against
+    // [KokoroDirectVoiceCatalog], exactly as before.
+
+    /** Speaker-row index into voices.bin for [voiceKey]. -1 when unknown. */
+    protected open fun speakerIdFor(voiceKey: String): Int =
+        KokoroDirectVoiceCatalog.speakerIdFor(voiceKey)
+
+    /** espeak phonemization voice for [voiceKey] — see [espeakPhonemes]. */
+    protected open fun espeakVoiceFor(voiceKey: String): String =
+        KokoroDirectVoiceCatalog.espeakVoiceFor(voiceKey)
+
+    /** Raw voice key the async warmup synthesizes one character with. */
+    protected open val warmupVoiceKey: String
+        get() = KokoroDirectVoiceCatalog.voices.first().id.substringAfter(':')
+
+    private val engineDir: File get() = File(ctx.filesDir, "engines/$engineName")
     private val acousticModelFile: File get() = File(engineDir, MODEL_FILE)
     private val voicesFile: File get() = File(engineDir, VOICES_FILE)
     private val tokensFile: File get() = File(engineDir, TOKENS_FILE)
@@ -272,7 +294,7 @@ open class KokoroDirectEngine @Inject constructor(
         if (env != null) return
         loadLock.withLock {
             if (env != null) return
-            if (!isInstalled()) throw EngineNotInstalledException(ENGINE_NAME)
+            if (!isInstalled()) throw EngineNotInstalledException(engineName)
             val manualThreads = settings.intraOpThreads.firstOrNull()
             val threadCount = manualThreads ?: CpuClusterDetector.detectPerfCoreCount()
             val t0 = System.currentTimeMillis()
@@ -395,8 +417,8 @@ open class KokoroDirectEngine @Inject constructor(
     private fun warmupSynth() {
         val t0 = System.currentTimeMillis()
         try {
-            val firstVoice = KokoroDirectVoiceCatalog.voices.first().id.substringAfter(':')
-            runInference(text = "Hi.", voiceName = firstVoice, speed = 1.0f, lang = "en-us")
+            val voiceKey = warmupVoiceKey
+            runInference(text = "Hi.", voiceName = voiceKey, speed = 1.0f, lang = espeakVoiceFor(voiceKey))
             Log.i(TAG, "warmup synth done in ${System.currentTimeMillis() - t0} ms")
         } catch (t: Throwable) {
             Log.w(TAG, "warmup failed (non-fatal): ${t.message}")
@@ -449,7 +471,7 @@ open class KokoroDirectEngine @Inject constructor(
         // override" rather than passing it on keeps a plumbing gap from
         // reaching espeak_SetVoiceByName as a nonexistent voice.
         val effectiveLang = phonemizationLanguage?.takeIf { it != LangDetector.AUTO }
-            ?: KokoroDirectVoiceCatalog.espeakVoiceFor(voiceName)
+            ?: espeakVoiceFor(voiceName)
         phonemizer?.setVoice(effectiveLang)
         // Same chunking discipline as KittenDirect — never word-split, split
         // only on sentence-end punctuation + newlines, pack up to maxInputChars.
@@ -530,7 +552,7 @@ open class KokoroDirectEngine @Inject constructor(
         }
         val inputIds = wrapForKokoro(phonemeIds)
 
-        val sid = KokoroDirectVoiceCatalog.speakerIdFor(voiceName)
+        val sid = speakerIdFor(voiceName)
         if (sid < 0) {
             Log.w(TAG, "unknown voice '$voiceName' — falling back to speaker 0")
         }

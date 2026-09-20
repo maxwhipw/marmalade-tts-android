@@ -8,12 +8,14 @@ import androidx.activity.ComponentActivity
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -47,6 +49,7 @@ class CheckVoiceDataActivity : ComponentActivity() {
 
     @Inject lateinit var kittenDirect: KittenDirectEngine
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
+    @Inject lateinit var kokoroGerman: KokoroGermanEngine
     @Inject lateinit var pocket: PocketEngine
     @Inject lateinit var cloudApi: CloudApiEngine
 
@@ -63,6 +66,7 @@ class CheckVoiceDataActivity : ComponentActivity() {
         val voices = runBlocking { voiceDao.getAll().first() }
         val installedEngines = buildSet {
             if (kokoroDirect.isInstalled()) add(KokoroDirectVoiceCatalog.ENGINE)
+            if (kokoroGerman.isInstalled()) add(KokoroGermanVoiceCatalog.ENGINE)
             if (kittenDirect.isInstalled()) add(KittenDirectVoiceCatalog.ENGINE)
             if (pocket.isInstalled()) add(PocketVoiceCatalog.ENGINE)
             if (cloudApi.isInstalled()) add(CloudApiVoiceCatalog.ENGINE)

@@ -194,6 +194,10 @@
     <string name="engine_kokoro_desc">综合音质最佳，支持的语言也最多 — 9 种语言共 53 个语音，包括英语、西班牙语、法语、意大利语、印地语、葡萄牙语、日语和普通话。推荐给大多数人。完全在本机运行；日语和普通话使用随附的发音数据，其他语言使用 espeak-ng，都在运行时加载。</string>
     <string name="engine_kokoro_license">模型采用 Apache-2.0，另含 BSD-3 的 Open JTalk 词典（日语）；欧洲语言的音素转换由应用内置的 espeak-ng 完成（GPL-3.0-or-later）。</string>
 
+    <string name="engine_kokoro_de_tagline">从 Kokoro 微调而来的原生德语语音。</string>
+    <string name="engine_kokoro_de_desc">原生德语语音 —— 来自开放的 Thorsten-Voice 项目的 Thorsten，用他本人自由分享的录音从 Kokoro 微调而来。仅德语，一个语音。当你想要地道而非带口音的德语时选它。完全在本机运行，由应用内置的 espeak-ng 进行音素转换。</string>
+    <string name="engine_kokoro_de_license">Apache-2.0 模型（Kokoro-82M 的德语微调）；由应用内置的 espeak-ng 进行音素转换（GPL-3.0-or-later）。</string>
+
     <string name="engine_pocket_tagline">最富表现力、最有个性的英语语音。</string>
     <string name="engine_pocket_desc">体量较大，但英语语音最富表现力 — 内置 6 个语音。在旗舰手机上播放流畅；在中端和较旧的设备上可能卡顿。仅支持英语。采用 Kyutai Labs 的模型，以混合精度构建，输出干净。</string>
     <string name="engine_pocket_license">模型代码为 MIT，运行时（onnxruntime-android）同为 MIT；语音采用 CC0 / CC-BY-4.0。不含 GPL 组件。</string>

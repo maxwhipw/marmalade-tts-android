@@ -19,6 +19,7 @@ import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -139,6 +140,7 @@ class MarmaladeTtsServiceTest {
         )
         setField(service, "engineWarmup", EngineWarmup(
             kokoroDirect = fakeKokoroDirectEngine,
+            kokoroGerman = KokoroGermanEngine(ctx, fakeSettings, fakeSharedEspeakData()),
             kittenDirect = fakeEngine,
             pocket = PocketEngine(ctx, fakeSettings),
         ))

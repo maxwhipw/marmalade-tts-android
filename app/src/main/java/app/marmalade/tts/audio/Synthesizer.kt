@@ -6,6 +6,7 @@ import android.util.Log
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
@@ -16,6 +17,7 @@ import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.service.MarmaladeSynthService
 import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -154,6 +156,7 @@ class Synthesizer @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val kittenDirect: KittenDirectEngine,
     private val kokoroDirect: KokoroDirectEngine,
+    private val kokoroGerman: KokoroGermanEngine,
     private val pocket: PocketEngine,
     private val pocketDev: PocketDevEngine,
     private val vits: VitsDirectEngine,
@@ -287,7 +290,7 @@ class Synthesizer @Inject constructor(
         // settings (e.g. ONNX thread count) that are only read at load time.
         cancel()
         listOf(
-            kittenDirect, kokoroDirect, pocket, pocketDev,
+            kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev,
         ).forEach { runCatching { it.release() } }
     }
 
@@ -326,6 +329,7 @@ class Synthesizer @Inject constructor(
         val name = voiceId.substring(0, sep)
         return when (name) {
             KokoroDirectVoiceCatalog.ENGINE,
+            KokoroGermanVoiceCatalog.ENGINE,
             KittenDirectVoiceCatalog.ENGINE,
             PocketVoiceCatalog.ENGINE,
             PocketDevVoiceCatalog.ENGINE,
@@ -338,6 +342,7 @@ class Synthesizer @Inject constructor(
     /** TtsEngine handle for an engine name — serves preload/isWarm/releaseAll. */
     private fun engineFor(engineName: String): TtsEngine = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
+        KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
         PocketVoiceCatalog.ENGINE -> pocket
         PocketDevVoiceCatalog.ENGINE -> pocketDev

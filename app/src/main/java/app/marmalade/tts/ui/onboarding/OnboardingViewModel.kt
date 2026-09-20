@@ -8,6 +8,7 @@ import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
@@ -706,6 +707,7 @@ class OnboardingViewModel @Inject constructor(
      */
     private fun defaultVoiceIdFor(engine: String): String = when (engine) {
         KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
+        KokoroGermanVoiceCatalog.ENGINE -> KokoroGermanVoiceCatalog.DEFAULT_VOICE_ID
         KittenDirectVoiceCatalog.ENGINE -> KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
         PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID
         else -> ""

@@ -42,6 +42,9 @@ class EngineCatalogTest {
             listOf(
                 "kitten-direct-v0_8",
                 "kokoro-direct-v1_0",
+                // The native German Kokoro fine-tune — a separate engine that
+                // sits with the Kokoro family, ahead of Pocket.
+                "kokoro-de-v1_0",
                 "pocket-tts-en-v2026_04",
                 // Developer-only clean-room Pocket (diagnostic; shares the
                 // production Pocket bundle payload).

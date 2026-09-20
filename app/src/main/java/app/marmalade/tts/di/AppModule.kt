@@ -27,6 +27,7 @@ import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.data.cloud.CloudJsonHttp
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoiceLatencyTracker
@@ -193,12 +194,14 @@ object AppModule {
     fun provideNativeEngineHandle(
         kittenDirect: KittenDirectEngine,
         kokoroDirect: KokoroDirectEngine,
+        kokoroGerman: KokoroGermanEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
         vits: VitsDirectEngine,
     ): NativeEngineHandle = NativeEngineHandle {
         kittenDirect.release()
         kokoroDirect.release()
+        kokoroGerman.release()
         pocket.release()
         pocketDev.release()
         vits.release()

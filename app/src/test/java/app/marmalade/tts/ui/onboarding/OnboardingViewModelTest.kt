@@ -4,6 +4,7 @@ import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
@@ -368,16 +369,19 @@ class OnboardingViewModelTest {
     private companion object {
         const val KITTEN = KittenDirectVoiceCatalog.ENGINE
         const val KOKORO = KokoroDirectVoiceCatalog.ENGINE
+        const val KOKORO_DE = KokoroGermanVoiceCatalog.ENGINE
         const val POCKET = PocketVoiceCatalog.ENGINE
 
         /**
-         * The cards onboarding shows, in catalog order. Pocket is
+         * The cards onboarding shows, in catalog order. The native German
+         * Kokoro (`kokoro-de-v1_0`) sits with the Kokoro family and ships on
+         * both flavors. Pocket is
          * [app.marmalade.tts.install.EngineDescriptor.fdroidOnly], so the
          * Play flavor's run of this same test file expects it absent.
          */
         val CATALOG_CARDS: List<String> =
-            if (BuildConfig.FLAVOR == "play") listOf(KITTEN, KOKORO)
-            else listOf(KITTEN, KOKORO, POCKET)
+            if (BuildConfig.FLAVOR == "play") listOf(KITTEN, KOKORO, KOKORO_DE)
+            else listOf(KITTEN, KOKORO, KOKORO_DE, POCKET)
     }
 }
 

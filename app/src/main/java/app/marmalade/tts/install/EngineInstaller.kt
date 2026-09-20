@@ -1164,6 +1164,7 @@ open class EngineInstaller @Inject constructor(
             "pocket-tts-en-v2026_04-dev" -> verifyPocketLayout(dir)
             "kitten-direct-v0_8"       -> verifyKittenDirectLayout(dir)
             "kokoro-direct-v1_0"       -> verifyKokoroDirectLayout(dir)
+            "kokoro-de-v1_0"           -> verifyKokoroDeLayout(dir)
             // Unknown engine — no layout we know how to verify. Treat as
             // corrupt so the UI steers the user to reinstall rather than
             // silently reporting a non-existent engine as Installed.
@@ -1236,6 +1237,30 @@ open class EngineInstaller @Inject constructor(
         val ojtDict = File(dir, "openjtalk_dic/sys.dic")
         if (!ojtDict.isFile || ojtDict.length() == 0L) return InstallState.Corrupt
 
+        return InstallState.Installed
+    }
+
+    /**
+     * Kokoro German layout (`kokoro-de-v1_0`): model.onnx + voices.bin +
+     * tokens.txt + model-format.txt at top level. Unlike the multilingual
+     * `kokoro-direct-v1_0` bundle this ships **no** lexicon-zh.txt and **no**
+     * openjtalk_dic — German is fixed and phonemizes through the app's
+     * espeak-ng, so those files must be absent, not merely optional.
+     *
+     * A single voices.bin holds the one German speaker (510 × 256 floats).
+     * model-format.txt marks it as a quantized (static QDQ int8) build, which
+     * [app.marmalade.tts.engine.kokoro.KokoroDirectEngine] reads to pick the
+     * CPU EP.
+     */
+    private fun verifyKokoroDeLayout(dir: File): InstallState {
+        val model = File(dir, "model.onnx")
+        if (!model.isFile || model.length() < MIN_MODEL_BYTES) return InstallState.Corrupt
+        val voices = File(dir, "voices.bin")
+        if (!voices.isFile || voices.length() == 0L) return InstallState.Corrupt
+        val tokens = File(dir, "tokens.txt")
+        if (!tokens.isFile || tokens.length() == 0L) return InstallState.Corrupt
+        val format = File(dir, "model-format.txt")
+        if (!format.isFile || format.length() == 0L) return InstallState.Corrupt
         return InstallState.Installed
     }
 

@@ -4,6 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
+import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
@@ -12,6 +13,7 @@ import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
+import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.engine.vits.VitsDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -72,6 +74,7 @@ class EngineResidency internal constructor(
     constructor(
         settings: SettingsRepository,
         kokoroDirect: KokoroDirectEngine,
+        kokoroGerman: KokoroGermanEngine,
         kittenDirect: KittenDirectEngine,
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
@@ -79,6 +82,7 @@ class EngineResidency internal constructor(
     ) : this(
         releasers = linkedMapOf(
             KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::release,
+            KokoroGermanVoiceCatalog.ENGINE to kokoroGerman::release,
             KittenDirectVoiceCatalog.ENGINE to kittenDirect::release,
             PocketVoiceCatalog.ENGINE to pocket::release,
             PocketDevVoiceCatalog.ENGINE to pocketDev::release,
