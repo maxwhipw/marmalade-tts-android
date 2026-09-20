@@ -209,13 +209,25 @@
 
   /* screenshots */
   .shots { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 12px 4px 20px; margin: 0 -4px; scrollbar-width: thin; }
-  .shot { flex: 0 0 auto; scroll-snap-align: start; width: 225px; margin: 0; }
-  .phone { background: var(--bezel); border-radius: 36px; padding: 10px; box-shadow: var(--shadow-lg); }
-  .screen { position: relative; border-radius: 27px; overflow: hidden; background: var(--bezel); }
+  .shot { flex: 0 0 auto; scroll-snap-align: start; width: 206px; margin: 0; }
+  .phone { background: var(--bezel); border-radius: 32px; padding: 8px; box-shadow: var(--shadow-lg); }
+  /* The captures have no system bars, so draw a status bar (with the punch-hole
+     camera) and a gesture strip in each shot's own colours; otherwise the app
+     content sits jammed against the bezel and reads as zoomed in. */
+  .screen { position: relative; border-radius: 24px; overflow: hidden; background: var(--sb); }
+  .screen::before {
+    content: ""; display: block; height: 18px;
+    background: radial-gradient(circle at 50% 10px, #0D0D0D 0 3.5px, transparent 4px), var(--sb);
+  }
+  .screen::after {
+    content: ""; display: block; height: 13px;
+    background: linear-gradient(var(--si), var(--si)) center 5px / 54px 3px no-repeat, var(--nb);
+    border-radius: 0; opacity: 1;
+  }
   .shot:nth-child(odd) .phone { transform: rotate(-1.4deg); }
   .shot:nth-child(even) .phone { transform: rotate(1.4deg); }
   .shot .phone:hover { transform: rotate(0) translateY(-6px); }
-  .phone img { display: block; width: 100%; }
+  .phone img { display: block; width: 100%; height: auto; }
   .shot figcaption { font-size: 14.5px; color: var(--ink-dim); text-align: center; margin-top: 12px; }
 
   /* languages */
@@ -274,7 +286,7 @@
 
 <header class="site">
   <div class="wrap bar">
-    <a class="brand" href="#"><img src="assets/icon.png" alt=""><span class="wordmark">marmalade tts</span></a>
+    <a class="brand" href="#"><img src="assets/icon-96.webp" width="38" height="38" alt=""><span class="wordmark">marmalade tts</span></a>
     <div class="hright">
       <nav class="top">
         <a href="#features">Features</a>
@@ -354,13 +366,13 @@
   <h2>Screenshots</h2>
   <p class="sub">Warm in the light, calm in the dark.</p>
   <div class="shots">
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/01-speak-light.png" alt="Speak screen in light mode" loading="lazy"></div></div><figcaption>Speak, light</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/02-speak-dark.png" alt="Speak screen in dark mode" loading="lazy"></div></div><figcaption>Speak, dark</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/03-aliases.png" alt="Voice aliases with per-app routing" loading="lazy"></div></div><figcaption>Aliases and per-app routing</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/04-kokoro-voices-multilang.png" alt="Multilingual Kokoro voice list" loading="lazy"></div></div><figcaption>Kokoro voices, 8 languages</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/05-engines.png" alt="Engine picker" loading="lazy"></div></div><figcaption>Engines</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/06-effects.png" alt="Voice effect presets" loading="lazy"></div></div><figcaption>Effect presets</figcaption></figure>
-    <figure class="shot"><div class="phone"><div class="screen"><img src="assets/screenshots/07-engines-cloud.png" alt="Optional cloud engines" loading="lazy"></div></div><figcaption>Optional cloud engines</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#ffedd5;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/01-speak-light.webp" width="540" height="1125" alt="Speak screen in light mode" loading="lazy"></div></div><figcaption>Speak, light</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#1a1a1a;--nb:#292524;--si:rgba(245,245,244,.55)"><img src="assets/screenshots/02-speak-dark.webp" width="540" height="1125" alt="Speak screen in dark mode" loading="lazy"></div></div><figcaption>Speak, dark</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#ffedd5;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/03-aliases.webp" width="540" height="1125" alt="Voice aliases with per-app routing" loading="lazy"></div></div><figcaption>Aliases and per-app routing</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#fff7ed;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/04-kokoro-voices-multilang.webp" width="540" height="1125" alt="Multilingual Kokoro voice list" loading="lazy"></div></div><figcaption>Kokoro voices, 8 languages</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#ffedd5;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/05-engines.webp" width="540" height="1125" alt="Engine picker" loading="lazy"></div></div><figcaption>Engines</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#ffedd5;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/06-effects.webp" width="540" height="1125" alt="Voice effect presets" loading="lazy"></div></div><figcaption>Effect presets</figcaption></figure>
+    <figure class="shot"><div class="phone"><div class="screen" style="--sb:#fff7ed;--nb:#ffedd5;--si:rgba(28,25,23,.45)"><img src="assets/screenshots/07-engines-cloud.webp" width="540" height="1125" alt="Optional cloud engines" loading="lazy"></div></div><figcaption>Optional cloud engines</figcaption></figure>
   </div>
 </section>
 
