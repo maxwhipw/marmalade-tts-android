@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Russian (accented) voice review — marmalade-tts</title>
+<style>
+body{font:16px/1.55 system-ui,sans-serif;max-width:880px;margin:2rem auto;padding:0 1rem;color:#222}
+h1{font-size:1.5rem} h2{font-size:1.2rem;margin-top:2rem}
+table{border-collapse:collapse;width:100%} td,th{padding:.5rem .6rem;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
+td.id{color:#777;white-space:nowrap} audio{width:250px}
+.note{background:#f6f3ee;border-left:4px solid #d90;padding:.7rem 1rem;border-radius:4px}
+a{color:#0757a5}
+</style></head><body>
+<h1>Russian (accented) voice review — marmalade-tts</h1>
+<p>There is no native Russian voice yet that meets our
+<a href="https://github.com/maxwhipw/marmalade-tts-android/blob/language-review/LANGUAGES.md">licensing
+and provenance bar</a>. In the meantime, our <b>Ukrainian voices can speak
+Russian with a Ukrainian accent</b> (the text is transliterated into the
+Ukrainian alphabet before synthesis). In an automated intelligibility check this
+scored in the same range as our German accented fallback, which German reviewers
+rated tolerable. But an automated check can't judge the accent — Russian
+speakers, please tell us whether this is usable.</p>
+<p class="note"><b>How to give feedback:</b> comment on
+<a href="https://github.com/maxwhipw/marmalade-tts-android/issues/1">issue #1</a>.
+Most useful: is the accent charming, tolerable, or unusable? Which sample ids
+sound wrong and <i>what</i> is wrong (mispronounced word, weird rhythm, wrong
+stress), an overall 1–5 naturalness rating per voice — and better test sentences
+than these (this is a small starter set written by non-speakers; corrections
+welcome).</p>
+<h2>Lada (female)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Привет! Это голос для приложения Мармелад.</td><td><audio controls preload="none" src="samples/ru_01_lada.wav"></audio></td></tr><tr><td class="id">02</td><td>Сегодня вечером будет дождь, поэтому не забудьте зонтик.</td><td><audio controls preload="none" src="samples/ru_02_lada.wav"></audio></td></tr><tr><td class="id">03</td><td>Который час? Сейчас половина восьмого, а поезд отходит в девять.</td><td><audio controls preload="none" src="samples/ru_03_lada.wav"></audio></td></tr></table>
+<h2>Mykyta (male)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Привет! Это голос для приложения Мармелад.</td><td><audio controls preload="none" src="samples/ru_01_mykyta.wav"></audio></td></tr><tr><td class="id">02</td><td>Сегодня вечером будет дождь, поэтому не забудьте зонтик.</td><td><audio controls preload="none" src="samples/ru_02_mykyta.wav"></audio></td></tr><tr><td class="id">03</td><td>Который час? Сейчас половина восьмого, а поезд отходит в девять.</td><td><audio controls preload="none" src="samples/ru_03_mykyta.wav"></audio></td></tr></table>
+<h2>Tetiana (female)</h2>
+<table><tr><th>#</th><th>Sentence</th><th>Sample</th></tr><tr><td class="id">01</td><td>Привет! Это голос для приложения Мармелад.</td><td><audio controls preload="none" src="samples/ru_01_tetiana.wav"></audio></td></tr><tr><td class="id">02</td><td>Сегодня вечером будет дождь, поэтому не забудьте зонтик.</td><td><audio controls preload="none" src="samples/ru_02_tetiana.wav"></audio></td></tr><tr><td class="id">03</td><td>Который час? Сейчас половина восьмого, а поезд отходит в девять.</td><td><audio controls preload="none" src="samples/ru_03_tetiana.wav"></audio></td></tr></table>
+<h2>Questions for reviewers</h2>
+<ol>
+<li>Is the Ukrainian accent charming, tolerable, or unusable for daily reading?</li>
+<li>Naturalness 1–5 per voice? Any mispronounced words (sample # + word)?</li>
+<li>Are the test sentences themselves wrong anywhere? Suggest better ones.</li>
+<li>Anything Russian-specific we should test (numbers, dates, names)?</li>
+</ol>
+<h2>Credits &amp; licenses</h2>
+<p>All audio here is synthesized output, provided for evaluation.</p>
+<ul><li><b>Voice checkpoints</b> — MIT, from <a href='https://huggingface.co/rhasspy/piper-voices'>rhasspy/piper-voices</a> (Michael Hansen).</li><li><b>Training data</b> — <a href='https://github.com/egorsmkv/ukrainian-tts-datasets'>ukrainian-tts-datasets</a>, Apache-2.0, recorded in a professional studio.</li></ul>
+<p><a href="https://github.com/maxwhipw/marmalade-tts-android/blob/language-review/LANGUAGES.md">Language
+support status page</a> · <a href="https://github.com/maxwhipw/marmalade-tts-android/tree/language-review">branch on GitHub</a></p>
+</body></html>
