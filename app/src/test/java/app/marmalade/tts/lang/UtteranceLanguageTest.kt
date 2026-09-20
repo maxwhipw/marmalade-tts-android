@@ -122,6 +122,17 @@ class UtteranceLanguageTest {
     }
 
     @Test
+    fun kokoroRoutesThePartialTierToItsOwnEspeakVoice() {
+        // Partial-support tier (Max, 2026-09-20): an explicit German/Bulgarian
+        // choice on a Kokoro voice phonemizes with that espeak voice — no
+        // reroute, no region borrowed from the voice.
+        assertEquals("de", UtteranceLanguage.espeakFor(kokoro, bella, "de"))
+        assertEquals("bg", UtteranceLanguage.espeakFor(kokoro, lewis, "bg"))
+        // Explicit codes always pass through resolve untouched (never detection).
+        assertEquals("de", UtteranceLanguage.resolve(detector, kokoro, bella, "de", english))
+    }
+
+    @Test
     fun pocketHasNoEspeakToPointAnywhere() {
         // Pocket doesn't phonemize through espeak, so a leftover sentinel
         // clears to the engine's own English rather than naming a language

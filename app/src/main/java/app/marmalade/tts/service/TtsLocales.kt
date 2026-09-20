@@ -153,9 +153,15 @@ internal object TtsLocales {
         return lang to toIso2Region(parts.getOrNull(1))
     }
 
-    // Every code pair below is exercised by at least one shipped Kokoro
-    // voice (see KokoroDirectVoiceCatalog.languageFor). Grow them as new
-    // engines/voices land — keep the maps small and obviously correct.
+    // Most code pairs below are exercised by at least one shipped Kokoro
+    // voice (see KokoroDirectVoiceCatalog.languageFor). German and Bulgarian
+    // are the exception: they are the partial-support tier (Max, 2026-09-20)
+    // — the multilingual voices phonemize them accented, with no trained
+    // voice of their own — so they carry no VoiceMeta row and stay
+    // LANG_NOT_SUPPORTED for the system-TTS route (which advertises per
+    // installed voice, not per engine). They are mapped here only so the
+    // code shapes are expressible and consistent. Grow the maps as new
+    // engines/voices land — keep them small and obviously correct.
     private val LANG_2_TO_3: Map<String, String> = mapOf(
         "en" to "eng",
         "es" to "spa",
@@ -165,6 +171,8 @@ internal object TtsLocales {
         "ja" to "jpn",
         "pt" to "por",
         "zh" to "zho",
+        "de" to "deu",
+        "bg" to "bul",
     )
 
     private val REGION_2_TO_3: Map<String, String> = mapOf(
@@ -177,6 +185,8 @@ internal object TtsLocales {
         "JP" to "JPN",
         "BR" to "BRA",
         "CN" to "CHN",
+        "DE" to "DEU",
+        "BG" to "BGR",
     )
 
     private val LANG_3_TO_2: Map<String, String> =

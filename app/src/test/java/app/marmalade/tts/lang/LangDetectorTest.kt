@@ -253,6 +253,19 @@ class LangDetectorTest {
     }
 
     @Test
+    fun partialTierLanguagesMapToTheirOwnEspeakVoice() {
+        // German + Bulgarian are the partial-support tier (Max, 2026-09-20):
+        // an explicit choice maps straight to that espeak voice, ignoring the
+        // voice's own region the same way the other non-English languages do.
+        // The trigram table can't yet detect them from text, so this only
+        // fires for an explicit language, but the map stays total.
+        assertEquals("de", LangDetector.espeakCodeFor("de", "en-us"))
+        assertEquals("de", LangDetector.espeakCodeFor("de", "ja"))
+        assertEquals("bg", LangDetector.espeakCodeFor("bg", "en-gb"))
+        assertEquals("bg", LangDetector.espeakCodeFor("bg", null))
+    }
+
+    @Test
     fun noDetectionLeavesTheVoiceAlone() {
         // The one true no-information case: nothing detected and no
         // fallback locale, so the voice's own language stands.

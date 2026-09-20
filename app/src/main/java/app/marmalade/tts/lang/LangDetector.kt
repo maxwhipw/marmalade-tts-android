@@ -298,6 +298,13 @@ class LangDetector(
             "ja" -> "ja"
             "pt" -> "pt-br"
             "zh" -> "en-us"
+            // Partial-support tier (Max, 2026-09-20): the multilingual Kokoro
+            // voices phonemize these accented. The trigram table can't yet
+            // detect them from text (it's lockstep with the CLI), so this
+            // only fires for an explicitly chosen language — but the map
+            // stays total so a future detector addition needs no edit here.
+            "de" -> "de"
+            "bg" -> "bg"
             else -> null
         }
 

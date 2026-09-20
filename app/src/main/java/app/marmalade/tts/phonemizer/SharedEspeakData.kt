@@ -108,6 +108,10 @@ class SharedEspeakData internal constructor(
         private val REQUIRED_FILES = listOf(
             "phondata", "phonindex", "phontab", "intonations",
             "en_dict", "es_dict", "fr_dict", "hi_dict", "it_dict", "pt_dict",
+            // Partial-support tier (Max, 2026-09-20): the Kokoro voices
+            // phonemize German and Bulgarian (accented). Their dicts must be
+            // present for that path to work.
+            "de_dict", "bg_dict",
         )
 
         private fun isComplete(dir: File): Boolean =

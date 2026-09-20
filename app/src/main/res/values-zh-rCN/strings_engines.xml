@@ -154,6 +154,9 @@
     <string name="language_pt_br">葡萄牙语（巴西）</string>
     <string name="language_ja">日语</string>
     <string name="language_zh">普通话</string>
+    <string name="language_de">德语</string>
+    <string name="language_bg">保加利亚语</string>
+    <string name="language_partial_suffix">%1$s（带口音）</string>
     <string name="language_uk">乌克兰语</string>
     <string name="language_is">冰岛语</string>
     <string name="language_sv">瑞典语</string>

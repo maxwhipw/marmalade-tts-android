@@ -39,6 +39,10 @@
     <string name="language_pt_br">Portuguese (Brazil)</string>
     <string name="language_ja">Japanese</string>
     <string name="language_zh">Mandarin Chinese</string>
+    <string name="language_de">German</string>
+    <string name="language_bg">Bulgarian</string>
+    <!-- Wraps a partial-support (accented-fallback) language name. -->
+    <string name="language_partial_suffix">%1$s (accented)</string>
     <string name="language_uk">Ukrainian</string>
     <string name="language_is">Icelandic</string>
     <string name="language_sv">Swedish</string>

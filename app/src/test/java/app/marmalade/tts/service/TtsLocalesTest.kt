@@ -35,7 +35,12 @@ class TtsLocalesTest {
         assertEquals("ja", TtsLocales.toIso2Language("jpn"))
         assertEquals("es", TtsLocales.toIso2Language("SPA"))
         assertEquals("en", TtsLocales.toIso2Language("eng"))
-        assertNull(TtsLocales.toIso2Language("deu"))
+        // German is now a known code shape (the partial-support tier), even
+        // though no trained German voice ships — so it normalises rather than
+        // dropping. Availability still gates on an installed voice (below).
+        assertEquals("de", TtsLocales.toIso2Language("deu"))
+        assertEquals("bg", TtsLocales.toIso2Language("bul"))
+        assertNull(TtsLocales.toIso2Language("xyz"))
         assertNull(TtsLocales.toIso2Language(""))
         assertNull(TtsLocales.toIso2Language(null))
     }
@@ -98,7 +103,10 @@ class TtsLocalesTest {
             TextToSpeech.LANG_NOT_SUPPORTED,
             TtsLocales.availability("jpn", "JPN", listOf("en-US")),
         )
-        // Never in the catalog at all.
+        // German is a mappable code (the partial-support tier) but has no
+        // trained voice, so with no German voice installed the system-TTS
+        // route reports it unsupported — the tier is reached through the
+        // in-app phonemization-language picker, not framework advertising.
         assertEquals(
             TextToSpeech.LANG_NOT_SUPPORTED,
             TtsLocales.availability("deu", "DEU", listOf("en-US", "ja-JP")),

@@ -22,7 +22,9 @@ import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.CutletJaG2P
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
 import app.marmalade.tts.phonemizer.EspeakPhonemizer
+import app.marmalade.tts.phonemizer.GermanG2P
 import app.marmalade.tts.phonemizer.KokoroEspeakG2P
+import app.marmalade.tts.phonemizer.KokoroLangSubstitutions
 import app.marmalade.tts.phonemizer.OpenJtalkPhonemizer
 import app.marmalade.tts.phonemizer.SharedEspeakData
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -659,12 +661,24 @@ open class KokoroDirectEngine @Inject constructor(
      * trained tied-token mapping to mirror); every other espeak language
      * mirrors misaki's EspeakG2P: ties on, multi-char phonemes rewritten
      * to the model's single trained tokens. See [KokoroEspeakG2P].
+     *
+     * German (the partial-support tier, Max 2026-09-20) runs the fuller
+     * DEG2P-parity pipeline in [GermanG2P] — normalizer + override lexicon +
+     * tied espeak-de + postprocess + the ʏ→y vocab repair — off the same
+     * espeak instance ([GermanG2P.forEspeak] pins voice = "de" per span).
+     * Every other non-English language additionally runs
+     * [KokoroLangSubstitutions], which is a no-op except for the measured
+     * out-of-vocab repairs (bg's ɫ→l); the es/fr/it/hi/pt paths stay
+     * byte-identical.
      */
     private fun espeakPhonemes(phon: EspeakPhonemizer, text: String, lang: String): String =
-        if (lang.startsWith("en")) {
-            phon.phonemize(text, lang)
-        } else {
-            KokoroEspeakG2P.postprocess(phon.phonemize(text, lang, tie = true))
+        when {
+            lang.startsWith("en") -> phon.phonemize(text, lang)
+            lang == "de" -> GermanG2P.forEspeak(phon).phonemes(text)
+            else -> KokoroLangSubstitutions.apply(
+                KokoroEspeakG2P.postprocess(phon.phonemize(text, lang, tie = true)),
+                lang,
+            )
         }
 
     /**

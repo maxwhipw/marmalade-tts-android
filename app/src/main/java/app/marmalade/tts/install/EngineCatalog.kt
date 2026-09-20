@@ -160,6 +160,17 @@ data class EngineDescriptor(
     val speedTier: SpeedTier,
     val qualityTier: QualityTier,
     val languageCodes: List<String>,
+    /**
+     * Languages this engine can *phonemize* but has no trained voice for —
+     * the "partial support" / accented-fallback tier (Max, 2026-09-20). The
+     * existing voices read this text intelligibly but with an English/
+     * multilingual accent (community-rated charming/tolerable, not native).
+     * Kept distinct from [languageCodes] (native, backed by a trained voice)
+     * precisely so the UI can label these as accented. Bare ISO-639-1 codes
+     * (`"de"`), no region — there is no voice to carry one. Must not overlap
+     * [languageCodes] and must not repeat.
+     */
+    val partialLanguageCodes: List<String> = emptyList(),
     val developerOnly: Boolean = false,
     /**
      * F-Droid-flavor exclusive: hidden from every user-facing list in the
@@ -193,6 +204,12 @@ data class EngineDescriptor(
         require(name.isNotBlank()) { "engine name must not be blank" }
         require(archive.url.isNotBlank()) { "engine $name has no archive url" }
         require(archive.sizeBytes > 0L) { "engine $name has zero-size archive" }
+        require(partialLanguageCodes.toSet().size == partialLanguageCodes.size) {
+            "engine $name has duplicate partialLanguageCodes"
+        }
+        require(partialLanguageCodes.none { it in languageCodes }) {
+            "engine $name partialLanguageCodes overlap languageCodes"
+        }
     }
 }
 
@@ -322,6 +339,10 @@ object EngineCatalog {
         languageCodes = listOf(
             "en-US", "en-GB", "es-ES", "fr-FR", "it-IT", "hi-IN", "pt-BR", "ja-JP", "zh-CN",
         ),
+        // Partial-support tier (Max, 2026-09-20, v1.1.0): the multilingual
+        // voices can phonemize German and Bulgarian — intelligible but
+        // accented, no trained voice of their own. See [partialLanguageCodes].
+        partialLanguageCodes = listOf("de", "bg"),
     )
 
     /**

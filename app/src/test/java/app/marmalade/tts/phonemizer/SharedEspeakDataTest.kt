@@ -26,6 +26,7 @@ class SharedEspeakDataTest {
         f in listOf(
             "phondata", "phonindex", "phontab", "intonations",
             "en_dict", "es_dict", "fr_dict", "hi_dict", "it_dict", "pt_dict",
+            "de_dict", "bg_dict",
         )
         ) {
             File(dst, f).apply { parentFile?.mkdirs() }.writeText(content)

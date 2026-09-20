@@ -339,6 +339,32 @@ class EngineCatalogTest {
     }
 
     @Test
+    fun kokoroCarriesTheGermanBulgarianPartialTier() {
+        // Partial-support tier (Max, 2026-09-20, v1.1.0): the Kokoro voices
+        // phonemize German + Bulgarian accented, with no trained voice. These
+        // are the ONLY partial-language codes in the catalog; every other
+        // engine must be empty so the "(accented)" chrome can't leak onto an
+        // English-only card.
+        assertEquals(
+            listOf("de", "bg"),
+            EngineCatalog.byName("kokoro-direct-v1_0")!!.partialLanguageCodes,
+        )
+        for (engine in EngineCatalog.all.filter { it.name != "kokoro-direct-v1_0" }) {
+            assertTrue(
+                "${engine.name} must have no partial languages",
+                engine.partialLanguageCodes.isEmpty(),
+            )
+        }
+        // The tier is phonemization-only: partial codes never double as
+        // native (trained-voice) codes.
+        val kokoro = EngineCatalog.byName("kokoro-direct-v1_0")!!
+        assertTrue(
+            "partial codes must not overlap native languageCodes",
+            kokoro.partialLanguageCodes.none { it in kokoro.languageCodes },
+        )
+    }
+
+    @Test
     fun speedTiersMatchTheDesign() {
         // The A3 spec-column card leads with speed; pin the tier per engine so
         // a stray edit can't silently demote the fastest default.

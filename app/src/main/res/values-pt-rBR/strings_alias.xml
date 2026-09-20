@@ -64,6 +64,8 @@
     <string name="alias_lang_it">Italiano</string>
     <string name="alias_lang_ja">Japonês</string>
     <string name="alias_lang_pt_br">Português (BR)</string>
+    <string name="alias_lang_de">Alemão (com sotaque)</string>
+    <string name="alias_lang_bg">Búlgaro (com sotaque)</string>
     <string name="alias_lang_engine_english_only">Este motor fala apenas inglês.</string>
     <string name="alias_lang_engine_accented">Este motor foi treinado em inglês. A detecção automática lê outros idiomas com sotaque inglês.</string>
 

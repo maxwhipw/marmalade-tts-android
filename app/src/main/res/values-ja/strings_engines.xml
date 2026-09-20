@@ -154,6 +154,9 @@
     <string name="language_pt_br">ポルトガル語（ブラジル）</string>
     <string name="language_ja">日本語</string>
     <string name="language_zh">中国語（標準語）</string>
+    <string name="language_de">ドイツ語</string>
+    <string name="language_bg">ブルガリア語</string>
+    <string name="language_partial_suffix">%1$s（訛りあり）</string>
     <string name="language_uk">ウクライナ語</string>
     <string name="language_is">アイスランド語</string>
     <string name="language_sv">スウェーデン語</string>

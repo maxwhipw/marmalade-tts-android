@@ -96,7 +96,10 @@ fun EngineSpecColumn(
             SpecValueText(text = stringResource(qualityTierLabelRes(engine.qualityTier)))
         }
         SpecRow(label = stringResource(R.string.engine_spec_languages)) {
-            EngineLanguagesValue(languageCodes = engine.languageCodes)
+            EngineLanguagesValue(
+                languageCodes = engine.languageCodes,
+                partialLanguageCodes = engine.partialLanguageCodes,
+            )
         }
     }
 }
@@ -140,8 +143,15 @@ private fun SpecValueText(text: String) {
  * The "LANGUAGES" overline directly above supplies the noun the action drops.
  */
 @Composable
-private fun EngineLanguagesValue(languageCodes: List<String>) {
-    if (languageCodes.size <= 1) {
+private fun EngineLanguagesValue(
+    languageCodes: List<String>,
+    partialLanguageCodes: List<String> = emptyList(),
+) {
+    // Partial (accented-fallback) languages count toward "<n> languages" and
+    // appear in the dialog, each tagged "(accented)" so the extra breadth
+    // never reads as another native voice.
+    val total = languageCodes.size + partialLanguageCodes.size
+    if (total <= 1) {
         SpecValueText(text = stringResource(languageNameRes(languageCodes.firstOrNull() ?: "en")))
         return
     }
@@ -154,9 +164,12 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
     // a sighted-only affordance. A button here would break out of the
     // merged card and strand the languages outside the engine's one object
     // (Max's 2026-08-09 TalkBack pass).
-    val spokenLanguages = languageCodes
-        .map { stringResource(languageNameRes(it)) }
-        .joinToString(", ")
+    val spokenLanguages = (
+        languageCodes.map { stringResource(languageNameRes(it)) } +
+            partialLanguageCodes.map {
+                stringResource(R.string.language_partial_suffix, stringResource(languageNameRes(it)))
+            }
+        ).joinToString(", ")
     // Primary/orange, matching the app's other in-app "link" actions (the
     // Engines-tab "Show more"); it's the tap cue. A single small action doesn't
     // flood the card the way a column of accent-filled meters would.
@@ -196,7 +209,7 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
             )
             Spacer(Modifier.width(5.dp))
             Text(
-                text = stringResource(R.string.engine_languages_see_all, languageCodes.size),
+                text = stringResource(R.string.engine_languages_see_all, total),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = tint,
@@ -212,13 +225,18 @@ private fun EngineLanguagesValue(languageCodes: List<String>) {
     }
 
     if (showDialog) {
-        EngineLanguagesDialog(languageCodes = languageCodes, onDismiss = { showDialog = false })
+        EngineLanguagesDialog(
+            languageCodes = languageCodes,
+            partialLanguageCodes = partialLanguageCodes,
+            onDismiss = { showDialog = false },
+        )
     }
 }
 
 @Composable
 private fun EngineLanguagesDialog(
     languageCodes: List<String>,
+    partialLanguageCodes: List<String>,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -229,6 +247,16 @@ private fun EngineLanguagesDialog(
                 for (code in languageCodes) {
                     Text(
                         text = stringResource(languageNameRes(code)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                for (code in partialLanguageCodes) {
+                    Text(
+                        text = stringResource(
+                            R.string.language_partial_suffix,
+                            stringResource(languageNameRes(code)),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
@@ -367,6 +395,8 @@ fun languageNameResOrNull(code: String): Int? = when (code) {
     "pt-BR", "pt" -> R.string.language_pt_br
     "ja-JP", "ja" -> R.string.language_ja
     "zh-CN", "zh" -> R.string.language_zh
+    "de-DE", "de" -> R.string.language_de
+    "bg-BG", "bg" -> R.string.language_bg
     "uk-UA", "uk" -> R.string.language_uk
     "is-IS", "is" -> R.string.language_is
     "sv-SE", "sv" -> R.string.language_sv

@@ -64,6 +64,8 @@
     <string name="alias_lang_it">Italien</string>
     <string name="alias_lang_ja">Japonais</string>
     <string name="alias_lang_pt_br">Portugais (BR)</string>
+    <string name="alias_lang_de">Allemand (avec accent)</string>
+    <string name="alias_lang_bg">Bulgare (avec accent)</string>
     <string name="alias_lang_engine_english_only">Ce moteur ne parle qu’anglais.</string>
     <string name="alias_lang_engine_accented">Ce moteur est entraîné sur l’anglais. La détection automatique lit les autres langues avec un accent anglais.</string>
 

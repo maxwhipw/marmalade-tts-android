@@ -1090,6 +1090,14 @@ private val PHONEMIZATION_ENGINES: Set<String> = setOf(
  * Kokoro's Mandarin voices are absent on purpose: they phonemize Han
  * text through `lexicon-zh.txt`, not espeak, and espeak-cmn produces
  * IPA the model can't read (see KokoroDirectVoiceCatalog.espeakVoiceFor).
+ *
+ * German and Bulgarian are the partial-support tier (Max, 2026-09-20):
+ * the multilingual voices phonemize them intelligibly but accented, with
+ * no trained voice of their own — hence the "(accented)" qualifier baked
+ * into their labels. Detection can't pick them from text (the trigram
+ * table is lockstep with the CLI), so they are offered here as an
+ * explicit choice only. This list is Kokoro-only in practice: the other
+ * phonemization engines use [KITTEN_PHONEMIZATION_LANGUAGES].
  */
 private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     LangDetector.AUTO to R.string.alias_lang_autodetect,
@@ -1101,6 +1109,8 @@ private val PHONEMIZATION_LANGUAGES: List<Pair<String?, Int>> = listOf(
     "it" to R.string.alias_lang_it,
     "ja" to R.string.alias_lang_ja,
     "pt-br" to R.string.alias_lang_pt_br,
+    "de" to R.string.alias_lang_de,
+    "bg" to R.string.alias_lang_bg,
 )
 
 /**
