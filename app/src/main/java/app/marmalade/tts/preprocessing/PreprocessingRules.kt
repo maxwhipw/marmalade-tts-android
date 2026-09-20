@@ -310,10 +310,17 @@ object PreprocessingRules {
 
     // -- Email rule -----------------------------------------------------------
     //
-    // user@example.com → user at example dot com. CLI: _email.
-
+    // user@example.com → user at example dot com. Mirrors the `email` rule in
+    // ts/src/preprocessing.ts (CLI 8fbbb63) — keep the two in sync.
+    //
+    // Bounded quantifiers (RFC limits: local ≤64, labels ≤63, domain ≤255) keep
+    // this linear. An unbounded `+` was quadratic — a long unbroken run of
+    // local-part characters with no `@` (base64 blobs, minified lines) made the
+    // engine rescan the whole run at every start position (java.util.regex
+    // backtracks the same way): a 64 KB token took tens of seconds. The caps are
+    // far above any real address, so matching of genuine emails is unchanged.
     private val emailRegex = Regex(
-        "\\b([a-zA-Z0-9_.+-]+)@([a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+)\\b",
+        "\\b([a-zA-Z0-9_.+-]{1,64})@([a-zA-Z0-9-]{1,63}\\.[a-zA-Z0-9-.]{1,255})\\b",
     )
     private fun expandEmail(text: String): String =
         emailRegex.replace(text) { m ->

@@ -333,6 +333,37 @@ class PreprocessorTest {
         )
     }
 
+    @Test
+    fun email_realAddressesStillExpand_afterBounding() {
+        // The RFC-limit caps sit far above any real address, so plus-addressed
+        // and dotted local parts still match after the quadratic fix.
+        assertEquals(
+            "u.ser+x at mail dot co dot uk",
+            only("email", "u.ser+x@mail.co.uk"),
+        )
+    }
+
+    @Test
+    fun email_longNonEmailRunIsLinearNotQuadratic() {
+        // Regression (CLI 8fbbb63): the unbounded local-part `+` made a long
+        // run of local-part chars with no `@` (base64 blobs, minified lines)
+        // O(n²) — java.util.regex backtracks the same way. Bounding the
+        // quantifiers to the RFC limits caps per-start work, so it's linear:
+        // a 64 KB token must preprocess in well under 2 s (it took tens of
+        // seconds before the bound).
+        val blob = "a.b-c+d_".repeat(8192)   // 64 KB, all local-part chars, no '@'
+        assertEquals(64 * 1024, blob.length)
+        val start = System.nanoTime()
+        val out = only("email", blob)
+        val elapsedMs = (System.nanoTime() - start) / 1_000_000
+        // No '@' → the rule must not change the text.
+        assertEquals(blob, out)
+        assertTrue(
+            "email rule took ${elapsedMs}ms on a 64 KB non-email token (>2s = quadratic regression)",
+            elapsedMs < 2000,
+        )
+    }
+
     // ── url ─────────────────────────────────────────────────────────
 
     @Test
