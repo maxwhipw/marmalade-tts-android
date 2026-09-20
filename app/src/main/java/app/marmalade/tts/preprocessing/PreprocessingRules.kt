@@ -531,20 +531,24 @@ object PreprocessingRules {
     // EmojiVoice intentionally omits this rule (it consumes the emoji to
     // select the speaker id and strips it inside the engine).
     //
-    // We use the Unicode property "Emoji" wherever it's recognised, then a
-    // codepoint-range fallback covering the broad pictograph blocks used by
-    // the CLI: U+1F300–U+1FAFF (symbols, pictographs, transport),
-    // U+2600–U+27BF (misc symbols + dingbats),
-    // U+1F1E6–U+1F1FF (regional indicators / flag halves), ZWJ, VS16,
-    // combining enclosing keycap.
+    // Codepoint ranges mirroring the CLI's emoji rule:
+    // U+1F300–U+1FAFF (symbols, pictographs, transport),
+    // U+2500–U+27BF (box drawing, block elements, geometric shapes,
+    // misc symbols + dingbats — geometric shapes like ■ are the scene-break
+    // markers light novels use; engines read them as "black square", #9),
+    // U+1F1E6–U+1F1FF (regional indicators / flag halves), the four emoji
+    // outside those ranges (⬛ ⬜ ⭐ ⭕), ※ (reference mark, another common
+    // scene break), ZWJ, VS16, combining enclosing keycap.
 
     // Java/Kotlin Pattern syntax: `\x{...}` is the Unicode-aware
     // code-point escape (supports astral plane). `\uXXXX` is BMP-only.
     private val emojiRegex = Regex(
         "[" +
             "\\x{1F300}-\\x{1FAFF}" +
-            "\\u2600-\\u27BF" +
+            "\\u2500-\\u27BF" +
             "\\x{1F1E6}-\\x{1F1FF}" +
+            "\\u2B1B\\u2B1C\\u2B50\\u2B55" +
+            "\\u203B" +
             "\\u200D" +
             "\\uFE0F" +
             "\\u20E3" +
@@ -618,7 +622,7 @@ object PreprocessingRules {
         //    early keeps later debug output readable).
         PreprocessingRule(
             name = "emoji",
-            description = "Strip emoji (engines pronounce them as \"loudly crying face\" otherwise)",
+            description = "Strip emoji and decorative symbols (engines pronounce them as \"loudly crying face\", \"black square\" otherwise)",
             transform = ::stripEmojis,
         ),
         // 2. Strip markdown + HTML before URL/number rules see syntax noise.

@@ -318,6 +318,19 @@ class PreprocessorTest {
         assertEquals("Hello world", only("emoji", "Hello 🤣 world"))
     }
 
+    @Test
+    fun emoji_strips_geometric_scene_break_symbols() {
+        // Light-novel scene breaks (#9): ■ and friends were below the old
+        // U+2600 range start and got read aloud as "black square".
+        assertEquals(
+            "Hitogami appeared in my dreams.",
+            only("emoji", "■ Hitogami appeared in my dreams. ■"),
+        )
+        for (sym in listOf("□", "▪", "◆", "●", "○", "─", "█", "※", "⬛", "⭐")) {
+            assertEquals("before after", only("emoji", "before $sym after"))
+        }
+    }
+
     // ── math, ampersand, hashtag ────────────────────────────────────
 
     @Test
