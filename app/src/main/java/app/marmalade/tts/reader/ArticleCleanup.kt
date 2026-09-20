@@ -242,9 +242,16 @@ internal object ArticleCleanup {
 
     private val SENTENCE_ENDINGS = charArrayOf('.', '!', '?', '。', '！', '？')
 
-    /** Closers that can sit after the sentence-ending punctuation. */
+    /**
+     * Closers that can sit after the sentence-ending punctuation. Includes the
+     * CJK closing brackets and corner quotes so 「こんにちは。」 (the ender sits
+     * before the closer) is recognized as a sentence end. Mirrors the trailing-
+     * closer set in the CLI's `endsSentence` (ts/src/stream_session.ts
+     * TRAILING_CLOSERS) — keep the two in sync.
+     */
     private val TRAILING_WRAPPERS = charArrayOf(
         ' ', '"', '\'', '”', '’', ')', ']', '»',
+        '」', '』', '〕', '》', '】', '〉', '｣', '）',
     )
 
     private val IMAGE_CREDIT = Regex(

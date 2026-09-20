@@ -189,6 +189,26 @@ class ArticleCleanupTest {
         assertEquals(blocks, clean(blocks))
     }
 
+    @Test
+    fun `endsSentence recognizes a sentence ending before a CJK closer`() {
+        // Regression (parity with CLI stream_session TRAILING_CLOSERS): in
+        // Japanese the ender sits BEFORE the closing corner bracket (「…。」).
+        // Without the CJK closers in the trailing set, the closer hid the 。
+        // and the block read as unfinished — so a real short opening sentence
+        // could be dropped as leading cruft.
+        assertTrue(ArticleCleanup.endsSentence("「こんにちは。」"))
+        assertTrue(ArticleCleanup.endsSentence("（了解しました。）"))
+        // And a bracketed opener that does NOT end a sentence still reads as
+        // unfinished (the ellipsis exclusion is unaffected).
+        assertFalse(ArticleCleanup.endsSentence("「読み込み中…」"))
+    }
+
+    @Test
+    fun `a short CJK-quoted opening sentence is kept`() {
+        val blocks = listOf(p("「もう行こう。」"), p(prose(1)))
+        assertEquals(blocks, clean(blocks))
+    }
+
     // -- image credits ----------------------------------------------------------
 
     @Test
