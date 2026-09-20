@@ -231,7 +231,7 @@ object EngineCatalog {
     //   find <extracted-dir> -type f -exec stat -c %s {} + | awk '{s+=$1} END {print s}'
     private const val KITTEN_DIRECT_INSTALLED_SIZE_BYTES: Long = 78_417_260L
     private const val KOKORO_DIRECT_INSTALLED_SIZE_BYTES: Long = 306_030_873L
-    private const val KOKORO_DE_INSTALLED_SIZE_BYTES: Long = 183_180_513L
+    private const val KOKORO_DE_INSTALLED_SIZE_BYTES: Long = 183_180_788L
     // v21 bundle: 6 commercial-safe voices (cosette/jean dropped — CC-BY-NC-4.0).
     private const val POCKET_TTS_INSTALLED_SIZE_BYTES: Long = 217_288_756L
     // The clean-reference dev engine still pins the older 8-voice v10 archive
@@ -366,13 +366,13 @@ object EngineCatalog {
         name = "kokoro-de-v1_0",
         displayName = "Kokoro German (Thorsten)",
         descriptionRes = R.string.engine_kokoro_de_desc,
-        downloadSizeBytes = 165_992_187L,
+        downloadSizeBytes = 165_992_407L,
         installedSizeBytes = KOKORO_DE_INSTALLED_SIZE_BYTES,
         isRecommended = false,
         archive = EngineArchive(
             url = "https://github.com/maxwhipw/marmalade-tts-android-engines/releases/download/v25/kokoro-de-v1_0.tar.gz",
-            sha256 = "733483ee0757d23cfa35b795ed397f54775162aba07bb69bf59e4a4888475c03",
-            sizeBytes = 165_992_187L,
+            sha256 = "8ab002715bd8922ab9c14d2b1818b79a498f842b0c0e2f9a8b39ff541c06c726",
+            sizeBytes = 165_992_407L,
             archiveRoot = "kokoro-de-v1_0/",
         ),
         licenseNotice = "LICENSES/kokoro-de.md",

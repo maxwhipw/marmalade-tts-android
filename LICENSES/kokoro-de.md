@@ -46,9 +46,11 @@ fixed and phonemized in the app.
 - **Fine-tuning method:** the model card credits **kikiri-tts by semidark** for
   the fine-tuning approach.
 - **What we ship:** the shipped `model.onnx` is Marmalade's **selectively
-  static-QDQ int8** build (per-channel; the same 118-node exclusion list the
-  English `kokoro-direct-v1_0` QDQ bundle uses, all verified present in this
-  graph) of the ONNX export produced by the **k2-fsa/sherpa-onnx**
+  static-QDQ int8** build (per-channel; the 155-node "X7" exclusion list —
+  the English bundle's 118-node list plus 37 F0/prosody-predictor,
+  projection and text-encoder nodes kept in fp32, which this fine-tune
+  needs to pass the quality gate) of the ONNX export produced by the
+  **k2-fsa/sherpa-onnx**
   `scripts/kokoro/v1.0/export_onnx.py` recipe (Apache-2.0) run against the
   Thorsten checkpoint. Same graph contract as `kokoro-direct-v1_0`: inputs
   `tokens` int64 [1,N], `style` float32 [1,256], `speed` float32 [1]; outputs
