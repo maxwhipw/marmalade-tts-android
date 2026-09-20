@@ -453,112 +453,115 @@
   })();
 </script>
 <script type="module">
+  // Hero scene: the mascot with the app icon's three sound arcs, lighting up
+  // inner -> outer like a speaker glyph. The <img> stays as the no-WebGL fallback.
   import * as THREE from './assets/vendor/three/three.module.min.js';
   const stage = document.getElementById('stage');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isDark = () => document.documentElement.dataset.theme === 'dark';
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' }); }
   catch (e) { renderer = null; }
   if (renderer) {
-    const PAL = {
-      light: { a: 0xFED7AA, b: 0xD97706, bubble: 0xFDBA74, shadow: 0x7C2D12 },
-      dark:  { a: 0xFFEDD5, b: 0xFDBA74, bubble: 0xFED7AA, shadow: 0x000000 }
-    };
-    const isDark = () => document.documentElement.dataset.theme === 'dark';
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     stage.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 0.6, 10.5);
-    camera.lookAt(0, 0, 0);
-    scene.add(new THREE.HemisphereLight(0xFFF7ED, 0xFED7AA, 1.4));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(3, 6, 5); scene.add(sun);
+    camera.position.set(0, 0, 10.5);
 
-    // Mascot as a textured plane so the ring can pass behind and in front of it.
+    // The mascot SVG is the icon's jar in its own 0..108 space on a PLANE_SIZE
+    // plane. The icon places that jar with translate(44.75,54) scale(0.78)
+    // translate(-54,-60), so icon-space points map onto our plane by its inverse.
+    const PLANE_SIZE = 4.8, U = PLANE_SIZE / 108, K = U / 0.78;
+    const pt = ([x, y]) => [(x - 44.75) * K, -6 * U - (y - 54) * K];
+    // The icon's three arc paths (inner, middle, outer) and their opacities.
+    const ARCS = [
+      { p0: [70.5, 48.7], pc: [75.5, 54.2], p1: [70.5, 59.7], max: 1.00 },
+      { p0: [75.5, 44.2], pc: [83.0, 54.2], p1: [75.5, 64.2], max: 0.94 },
+      { p0: [80.5, 39.7], pc: [90.5, 54.2], p1: [80.5, 68.7], max: 0.86 }
+    ];
+    const STROKE = 2.2 * K, PPU = 460;
+    const GRAD = [(70.5 - 44.75) * K, (91.5 - 44.75) * K];
+    // Light: peach -> amber (the icon's cream would vanish on the cream page).
+    // Dark: the icon's cream -> toast. No bright orange in either.
+    const stops = () => isDark() ? ['#FFEDD5', '#FED7AA'] : ['#FDBA74', '#D97706'];
+
+    function arcMesh(a) {
+      const p0 = pt(a.p0), pc = pt(a.pc), p1 = pt(a.p1);
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i <= 48; i++) {
+        const t = i / 48, u = 1 - t;
+        const x = u * u * p0[0] + 2 * u * t * pc[0] + t * t * p1[0];
+        const y = u * u * p0[1] + 2 * u * t * pc[1] + t * t * p1[1];
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      }
+      const pad = STROKE / 2 + 0.01; x0 -= pad; x1 += pad; y0 -= pad; y1 += pad;
+      const w = x1 - x0, h = y1 - y0;
+      const cv = document.createElement('canvas');
+      cv.width = Math.ceil(w * PPU); cv.height = Math.ceil(h * PPU);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+      mesh.position.set((x0 + x1) / 2, (y0 + y1) / 2, -0.01);
+      mesh.userData = { right: x1, paint() {   // (re)draw in the current theme's colours
+        const ctx = cv.getContext('2d'), X = (x) => (x - x0) * PPU, Y = (y) => (y1 - y) * PPU;
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        const g = ctx.createLinearGradient(X(GRAD[0]), 0, X(GRAD[1]), 0), c = stops();
+        g.addColorStop(0, c[0]); g.addColorStop(1, c[1]);
+        ctx.strokeStyle = g; ctx.lineWidth = STROKE * PPU; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(X(p0[0]), Y(p0[1]));
+        ctx.quadraticCurveTo(X(pc[0]), Y(pc[1]), X(p1[0]), Y(p1[1])); ctx.stroke();
+        tex.needsUpdate = true;
+      } };
+      mesh.userData.paint();
+      return mesh;
+    }
+
     const group = new THREE.Group(); scene.add(group);
-    const loader = new THREE.TextureLoader();
-    loader.load('assets/mascot.svg', (tex) => {
+    const arcs = ARCS.map(arcMesh); arcs.forEach((m) => group.add(m));
+    // Centre jar + arcs as a pair, which leaves the jar left of centre as in the icon.
+    const left = (28 - 54) * U, right = Math.max(...arcs.map((m) => m.userData.right));
+    group.position.x = -(left + right) / 2;
+    const BASE_Y = -0.42;  // sit low in the stage so the speech bubble clears the lid
+    group.position.y = BASE_Y;
+
+    const draw = () => renderer.render(scene, camera);
+    new THREE.TextureLoader().load('assets/mascot.svg', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), mat);
-      plane.position.y = 0.1; plane.renderOrder = 2; group.add(plane);
-      // soft contact shadow
-      const c = document.createElement('canvas'); c.width = c.height = 128;
-      const g = c.getContext('2d'); const rg = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-      rg.addColorStop(0, 'rgba(124,45,18,0.28)'); rg.addColorStop(1, 'rgba(124,45,18,0)');
-      g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
-      const st = new THREE.CanvasTexture(c);
-      const sh = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.2), new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false }));
-      sh.position.set(0, -1.75, -0.2); sh.rotation.x = -0.9; group.add(sh);
+      group.add(new THREE.Mesh(new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02 })));
       stage.classList.add('gl');
+      if (reduce) draw();
     });
-
-    // Ring of pulsing bars: a 3D audio visualizer orbiting the jar.
-    const N = 64, R = 3.0, bars = [], ring = new THREE.Group();
-    ring.rotation.x = 0.32; scene.add(ring);
-    const capGeo = new THREE.CapsuleGeometry(0.06, 1, 4, 10);
-    const cA = new THREE.Color(), cB = new THREE.Color();
-    for (let i = 0; i < N; i++) {
-      const m = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 });
-      const b = new THREE.Mesh(capGeo, m);
-      const a = (i / N) * Math.PI * 2;
-      b.position.set(Math.cos(a) * R, 0, Math.sin(a) * R);
-      b.userData.a = a; b.userData.p = Math.random() * Math.PI * 2;
-      ring.add(b); bars.push(b);
-    }
-    // Floating marmalade droplets.
-    const drops = [], dropGeo = new THREE.SphereGeometry(1, 24, 18);
-    for (let i = 0; i < 16; i++) {
-      const m = new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.32 + Math.random() * 0.3, roughness: 0.25 });
-      const d = new THREE.Mesh(dropGeo, m);
-      const sc = 0.09 + Math.random() * 0.2; d.scale.setScalar(sc);
-      d.position.set((Math.random() - 0.5) * 7, (Math.random() - 0.5) * 4.5, (Math.random() - 0.5) * 4 - 0.5);
-      d.userData = { y0: d.position.y, x0: d.position.x, p: Math.random() * Math.PI * 2, s: 0.4 + Math.random() * 0.6 };
-      scene.add(d); drops.push(d);
-    }
-    function paint() {
-      const P = isDark() ? PAL.dark : PAL.light;
-      cA.set(P.a); cB.set(P.b);
-      bars.forEach((b, i) => b.material.color.copy(cA).lerp(cB, (Math.sin(b.userData.a * 2) + 1) / 2));
-      drops.forEach(d => d.material.color.set(P.bubble));
-    }
-    paint();
-    new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-
-    let px = 0, py = 0;
-    if (!reduce) window.addEventListener('pointermove', (e) => {
-      px = (e.clientX / window.innerWidth - 0.5); py = (e.clientY / window.innerHeight - 0.5);
-    }, { passive: true });
-
+    new MutationObserver(() => { arcs.forEach((m) => m.userData.paint()); if (reduce) draw(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     function resize() {
       const w = stage.clientWidth, h = stage.clientHeight;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      if (reduce) draw();
     }
     new ResizeObserver(resize).observe(stage); resize();
 
-    const clock = new THREE.Clock();
-    function frame() {
-      const t = clock.getElapsedTime();
-      ring.rotation.y = t * 0.22 + px * 0.6;
-      ring.rotation.x = 0.32 + py * 0.2;
-      bars.forEach((b, i) => {
-        const h = 0.25 + 1.1 * (0.5 + 0.5 * Math.sin(t * 2.4 + b.userData.a * 4 + b.userData.p)) * (0.55 + 0.45 * Math.sin(t * 0.8 + i * 0.5));
-        b.scale.y = h;
-      });
-      drops.forEach(d => {
-        d.position.y = d.userData.y0 + Math.sin(t * d.userData.s + d.userData.p) * 0.35;
-        d.position.x = d.userData.x0 + Math.cos(t * d.userData.s * 0.6 + d.userData.p) * 0.2;
-      });
-      group.position.y = Math.sin(t * 1.5) * 0.08;
-      group.rotation.y = px * 0.35; group.rotation.x = py * 0.15;
-      renderer.render(scene, camera);
-      if (!reduce) requestAnimationFrame(frame);
+    // Light up inner -> middle -> outer across ~2.5s, hold, fade out together.
+    const CYCLE = 5.4, RISE = 1.0, STEP = 0.75, FADE_IN = 3.6, FADE_OUT = 4.6;
+    const smooth = (a, b, t) => { const k = Math.min(Math.max((t - a) / (b - a), 0), 1); return k * k * (3 - 2 * k); };
+    if (reduce) {
+      arcs.forEach((m, i) => { m.material.opacity = ARCS[i].max; }); draw();
+    } else {
+      const clock = new THREE.Clock();
+      (function frame() {
+        const t = clock.getElapsedTime(), c = t % CYCLE;
+        arcs.forEach((m, i) => {
+          const lit = Math.min(smooth(i * STEP, i * STEP + RISE, c), 1 - smooth(FADE_IN, FADE_OUT, c));
+          m.material.opacity = (0.35 + 0.65 * lit) * ARCS[i].max;
+        });
+        group.position.y = BASE_Y + Math.sin(t * 0.6) * 0.045;   // barely-there bob
+        draw(); requestAnimationFrame(frame);
+      })();
     }
-    if (reduce) { bars.forEach((b, i) => { b.scale.y = 0.3 + 0.9 * Math.abs(Math.sin(i * 0.7)); }); }
-    frame();
-    if (reduce) setTimeout(() => renderer.render(scene, camera), 600); // once the texture is in
   }
 </script>
 </body>
