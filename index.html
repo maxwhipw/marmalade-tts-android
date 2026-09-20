@@ -131,7 +131,9 @@
   }
   .lede { font-size: 19px; color: var(--ink-dim); margin: 0 0 28px; max-width: 520px; }
   .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-  .cta-row .badge img { height: 60px; display: block; border-radius: 10px; box-shadow: var(--shadow); }
+  .cta-row .badge { display: block; line-height: 0; }
+  .cta-row .badge img { height: 72px; width: auto; max-width: none; display: block; margin: -12px; } /* cancels the SVG's own transparent padding */
+  @media (max-width: 420px) { .cta-row { gap: 12px; } .cta-row .badge img { height: 62px; margin: -10px; } .cta-row .btn { padding: 12px 16px; } }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 22px; border-radius: 16px; min-height: 48px;
@@ -139,7 +141,8 @@
     box-shadow: var(--shadow);
   }
   .btn, .cta-row .badge img, .phone, .step, .features li, .card, .support-card { transition: transform .25s ease, box-shadow .25s ease; }
-  .btn:hover, .cta-row .badge:hover img { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .cta-row .badge:hover img { transform: translateY(-2px); }
   .btn-default { background: var(--toast-bg); color: var(--toast-ink); }
   .btn-outlined { background: transparent; color: var(--outlined); border: 2px solid var(--outlined); box-shadow: none; }
   .btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -209,7 +212,6 @@
   .shot { flex: 0 0 auto; scroll-snap-align: start; width: 225px; margin: 0; }
   .phone { background: var(--bezel); border-radius: 36px; padding: 10px; box-shadow: var(--shadow-lg); }
   .screen { position: relative; border-radius: 27px; overflow: hidden; background: var(--bezel); }
-  .screen::before { content: ""; position: absolute; top: 10px; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--bezel); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08); z-index: 1; }
   .shot:nth-child(odd) .phone { transform: rotate(-1.4deg); }
   .shot:nth-child(even) .phone { transform: rotate(1.4deg); }
   .shot .phone:hover { transform: rotate(0) translateY(-6px); }
