@@ -71,6 +71,13 @@ class SpeakClipboardTileService : TileService() {
                 // No-op; the foreground notification is the user-facing
                 // confirmation that synthesis has started.
             }
+            is SpeakDispatcher.DispatchResult.Failed -> {
+                Toast.makeText(
+                    this,
+                    getString(R.string.speak_error_synthesis_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 

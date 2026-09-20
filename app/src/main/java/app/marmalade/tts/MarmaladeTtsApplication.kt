@@ -1,6 +1,7 @@
 package app.marmalade.tts
 
 import android.app.Application
+import android.util.Log
 import app.marmalade.tts.data.cloud.CloudProviderStore
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
@@ -17,6 +18,7 @@ import dagger.hilt.android.HiltAndroidApp
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Provider
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,13 +112,21 @@ class MarmaladeTtsApplication : Application() {
     lateinit var engineInstaller: Provider<app.marmalade.tts.install.EngineInstaller>
 
     /**
-     * Application-lifetime scope. SupervisorJob so a seed failure doesn't
-     * propagate out of this scope and tear down anything else launched on
-     * it. The Application instance lives for the duration of the process,
-     * so we don't cancel this scope — there's no later point where doing
-     * so would be correct.
+     * Application-lifetime scope. SupervisorJob stops a failed launch from
+     * cancelling its siblings, but does NOT swallow the exception — an
+     * uncaught throw in a root launch still reaches the default handler and
+     * kills the process. The handler below turns any startup-task failure
+     * into a log line instead: every task here is a best-effort seed/re-arm
+     * that retries next launch, and none is worth crashing the app for.
+     * The Application instance lives for the duration of the process, so we
+     * don't cancel this scope — there's no later point where doing so would
+     * be correct.
      */
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val applicationScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, t ->
+            Log.e("MarmaladeTtsApplication", "startup task failed", t)
+        },
+    )
 
     /** Engine id of the retired Kitten Mini engine. See [retireKittenMini]. */
     private val RETIRED_KITTEN_MINI_ENGINE = "kitten-direct-mini-v0_8"

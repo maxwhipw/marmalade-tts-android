@@ -107,6 +107,13 @@ class ShareIntentActivity : ComponentActivity() {
                     )
                 }
             }
+            is SpeakDispatcher.DispatchResult.Failed -> {
+                Toast.makeText(
+                    this,
+                    R.string.speak_error_synthesis_failed,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 

@@ -109,6 +109,11 @@ class CloudProviderStore @Inject constructor(
         } catch (e: IOException) {
             Log.i(TAG, "provider list refresh skipped: ${e.message}")
             return@withContext false
+        } catch (e: SecurityException) {
+            // Revoked INTERNET permission (GrapheneOS Network toggle) throws
+            // unchecked from the socket layer; same quiet no-op as offline.
+            Log.i(TAG, "provider list refresh skipped: ${e.message}")
+            return@withContext false
         }
         try {
             CloudProviders.parse(body) // validate before persisting
@@ -133,6 +138,8 @@ class CloudProviderStore @Inject constructor(
             val body = try {
                 http.get("${provider.baseUrl}/models?type=tts", key)
             } catch (e: IOException) {
+                return@withContext Result.failure(e)
+            } catch (e: SecurityException) {
                 return@withContext Result.failure(e)
             }
             val discovered = try {

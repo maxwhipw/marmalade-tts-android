@@ -67,6 +67,9 @@ internal object SpeakDispatcher {
 
         /** Text was null, empty, or whitespace-only — nothing sent. */
         data object Blank : DispatchResult
+
+        /** The service start was refused by the OS — nothing will play. */
+        data class Failed(val cause: Throwable) : DispatchResult
     }
 
     /**
@@ -82,7 +85,16 @@ internal object SpeakDispatcher {
             putExtra(MarmaladeSynthService.EXTRA_TEXT, prepared.text)
             setPackage(context.packageName)
         }
-        ContextCompat.startForegroundService(context, intent)
+        try {
+            ContextCompat.startForegroundService(context, intent)
+        } catch (t: Throwable) {
+            // The OS can refuse the FGS start (background-start restrictions,
+            // hardened builds throwing SecurityException). The in-app path
+            // guards the identical call in Synthesizer; these external entry
+            // points (share sheet, QS tile) must survive it too.
+            Log.e(TAG, "startForegroundService refused; dropping speak request", t)
+            return DispatchResult.Failed(t)
+        }
         return DispatchResult.Dispatched(
             length = prepared.text.length,
             clamped = prepared.clamped,

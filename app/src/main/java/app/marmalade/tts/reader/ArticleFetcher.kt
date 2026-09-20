@@ -109,6 +109,11 @@ open class ArticleFetcher @Inject constructor() {
                     conn.responseCode
                 } catch (e: IOException) {
                     return@withContext FetchResult.NetworkError(e.message ?: "No response")
+                } catch (e: SecurityException) {
+                    // Hardened OSes (GrapheneOS "Network" toggle) surface a revoked
+                    // INTERNET permission as an unchecked SecurityException from the
+                    // socket/DNS layer, not an IOException. Treat it as offline.
+                    return@withContext FetchResult.NetworkError(e.message ?: "Network access denied")
                 }
 
                 if (code in REDIRECT_CODES) {
@@ -138,6 +143,8 @@ open class ArticleFetcher @Inject constructor() {
                     readCapped(conn)
                 } catch (e: IOException) {
                     return@withContext FetchResult.NetworkError(e.message ?: "Read failed")
+                } catch (e: SecurityException) {
+                    return@withContext FetchResult.NetworkError(e.message ?: "Network access denied")
                 } ?: return@withContext FetchResult.TooLarge
 
                 return@withContext FetchResult.Success(
