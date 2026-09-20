@@ -48,4 +48,22 @@ class KokoroEspeakG2PTest {
     fun `uncovered ties just lose the tie character`() {
         check("a^b", "ab")
     }
+
+    @Test
+    fun `language-switch flags are stripped`() {
+        // German "Das Update kam über die" — espeak switches to English for
+        // "Update" and brackets it with (^e^n)…(^d^e) flags. In tie mode the
+        // tie char lands inside the flag; both must vanish, and the e^ɪ tie
+        // inside "Update" still collapses to A. Captured desktop vector.
+        check(
+            "das (^e^n)ˈʌpde^ɪt(^d^e) kˌɑːm ˌyːbɜ diː",
+            "das ˈʌpdAt kˌɑːm ˌyːbɜ diː",
+        )
+    }
+
+    @Test
+    fun `bare flag with no surrounding phonemes disappears`() {
+        check("(^e^n)", "")
+        check("a^ɪ(^d^e)o^ʊ", "IO")
+    }
 }
