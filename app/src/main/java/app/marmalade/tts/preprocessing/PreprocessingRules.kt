@@ -188,18 +188,33 @@ object PreprocessingRules {
     // partially matched ($3.50 + a stray "1"). Mirrors ts/src/preprocessing.ts.
     private val currencyRegex = Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d+)?)")
 
-    private val currencySymbols: Map<String, Pair<String, String>> = mapOf(
-        "$" to ("dollar" to "cent"),
-        "£" to ("pound" to "penny"),
-        "€" to ("euro" to "cent"),
-        "¥" to ("yen" to ""), // yen has no fractional unit name
+    // Singular/plural names per unit. Plurals are explicit per currency:
+    // yen is invariant (no "s"), so "¥100" reads "100 yen", not "100 yens".
+    // An empty minor means the currency has no spoken subunit; "units" is the
+    // unknown-symbol fallback. Mirrors the CLI's per-currency plural table in
+    // ts/src/preprocessing.ts (CLI 2e72c6e) — keep the two in sync, with ONE
+    // deliberate divergence: the CLI's minor plural for £ is "pennys" (the form
+    // its espeak pipeline was tuned against); Android keeps "pennies", the form
+    // this port has always emitted.
+    private data class CurrencyNames(
+        val majorSingular: String,
+        val majorPlural: String,
+        val minorSingular: String,
+        val minorPlural: String,
+    )
+
+    private val currencySymbols: Map<String, CurrencyNames> = mapOf(
+        "$" to CurrencyNames("dollar", "dollars", "cent", "cents"),
+        "£" to CurrencyNames("pound", "pounds", "penny", "pennies"),
+        "€" to CurrencyNames("euro", "euros", "cent", "cents"),
+        "¥" to CurrencyNames("yen", "yen", "", ""),
     )
 
     private fun expandCurrency(text: String): String =
         currencyRegex.replace(text) { m ->
             val sym = m.groupValues[1]
             val amount = m.groupValues[2]
-            val (major, minor) = currencySymbols[sym] ?: ("units" to "")
+            val names = currencySymbols[sym] ?: CurrencyNames("units", "units", "", "")
             if ("." in amount) {
                 val parts = amount.split(".", limit = 2)
                 // Over-long decimal (>2 fraction digits) is not a currency minor
@@ -214,25 +229,17 @@ object PreprocessingRules {
                 val minorN = parts[1].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
                 val pieces = mutableListOf<String>()
                 if (majorN > 0L) {
-                    pieces += "$majorN $major${if (majorN != 1L) "s" else ""}"
+                    pieces += "$majorN ${if (majorN == 1L) names.majorSingular else names.majorPlural}"
                 }
-                if (minorN > 0L && minor.isNotEmpty()) {
-                    // British "penny" -> "pennies" rather than "pennys".
-                    val minorPlural = pluralizeMinor(minor, minorN)
-                    pieces += "$minorN $minorPlural"
+                if (minorN > 0L && names.minorSingular.isNotEmpty()) {
+                    pieces += "$minorN ${if (minorN == 1L) names.minorSingular else names.minorPlural}"
                 }
                 if (pieces.isEmpty()) amount else pieces.joinToString(" and ")
             } else {
                 val n = amount.replace(",", "").toLongOrNull() ?: return@replace m.value
-                "$n $major${if (n != 1L) "s" else ""}"
+                "$n ${if (n == 1L) names.majorSingular else names.majorPlural}"
             }
         }
-
-    private fun pluralizeMinor(name: String, count: Long): String {
-        if (count == 1L) return name
-        // Special-case "penny" → "pennies"; default rule is "+s".
-        return if (name == "penny") "pennies" else "${name}s"
-    }
 
     // -- Percentage rule ------------------------------------------------------
     //

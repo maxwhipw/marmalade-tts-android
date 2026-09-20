@@ -134,6 +134,23 @@ class PreprocessorTest {
     }
 
     @Test
+    fun currency_yenIsInvariantInThePlural() {
+        // Regression (CLI 2e72c6e): "¥100" became "100 yens" — the major unit
+        // always got an "s". Yen has no distinct plural, so it stays "yen".
+        assertEquals("100 yen", only("currency", "¥100"))
+        assertEquals("1 yen", only("currency", "¥1"))
+        assertEquals("1000 yen", only("currency", "¥1000"))
+    }
+
+    @Test
+    fun currency_penniesBehaviourPreserved() {
+        // Android keeps "pennies" (the CLI uses "pennys"); this port has always
+        // emitted "pennies" and the plural-table refactor must not change it.
+        assertEquals("3 pounds and 50 pennies", only("currency", "£3.50"))
+        assertEquals("99 pennies", only("currency", "£0.99"))
+    }
+
+    @Test
     fun currency_overLongDecimalIsNotPartiallyMatched() {
         // Regression (CLI 39e802c): "$3.501" used to match only "$3.50" and
         // leave a stray "1" ("3 dollars and 50 cents1"). >2 fraction digits is
