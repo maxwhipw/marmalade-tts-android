@@ -331,6 +331,35 @@ class PreprocessorTest {
         }
     }
 
+    // ── separators ──────────────────────────────────────────────────
+
+    @Test
+    fun separators_strip_dinkus_scene_breaks() {
+        // "***" and "* * *" between scenes (#9 follow-up) — espeak reads
+        // them as "asterisk asterisk asterisk".
+        assertEquals("scene one. scene two.", only("separators", "scene one. *** scene two."))
+        assertEquals("scene one. scene two.", only("separators", "scene one. * * * scene two."))
+        assertEquals("a b", only("separators", "a ===== b"))
+        assertEquals("a b", only("separators", "a ~ ~ ~ b"))
+    }
+
+    @Test
+    fun separators_strip_stray_asterisks() {
+        assertEquals("rated 5 hotel", only("separators", "rated 5* hotel"))
+        assertEquals("unbalanced", only("separators", "**unbalanced"))
+    }
+
+    @Test
+    fun separators_leave_glued_tildes_alone() {
+        assertEquals("see /~user or ~5 bucks", only("separators", "see /~user or ~5 bucks"))
+    }
+
+    @Test
+    fun separators_delete_superscript_footnote_digits() {
+        assertEquals("cool note", only("separators", "cool¹ note"))
+        assertEquals("note here", only("separators", "note² here⁴"))
+    }
+
     // ── math, ampersand, hashtag ────────────────────────────────────
 
     @Test

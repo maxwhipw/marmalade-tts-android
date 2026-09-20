@@ -47,7 +47,7 @@ object EngineProfiles {
      */
     /** Kitten family default rules — applies to both Kitten Direct variants. */
     private val KITTEN_DEFAULTS: Set<String> = setOf(
-        "markdown", "html",
+        "markdown", "html", "separators",
         "currency", "percentage", "ordinal", "time", "date",
         "email", "url", "filename", "abbreviation", "number",
         "math", "ampersand", "hashtag", "emoji",
@@ -59,7 +59,7 @@ object EngineProfiles {
      * numbers, abbreviations, and some symbols natively — skip those rules.
      */
     private val KOKORO_DEFAULTS: Set<String> = setOf(
-        "markdown", "html",
+        "markdown", "html", "separators",
         "currency", "percentage", "time", "date",
         "email", "url", "filename",
         "math", "ampersand", "hashtag", "emoji",
@@ -84,7 +84,7 @@ object EngineProfiles {
         "vits-marmalade-v1" to KITTEN_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
-            "markdown", "html",
+            "markdown", "html", "separators",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
@@ -92,7 +92,7 @@ object EngineProfiles {
         ),
         "coqui" to setOf(
             // Coqui handles basic numbers natively but not much else.
-            "markdown", "html",
+            "markdown", "html", "separators",
             "currency", "percentage", "time", "date",
             "email", "url", "filename", "abbreviation",
             "math", "ampersand", "hashtag", "emoji",
@@ -100,7 +100,7 @@ object EngineProfiles {
         ),
         "pocket" to setOf(
             // PocketSphinx-derived engine; no native text normalization.
-            "markdown", "html",
+            "markdown", "html", "separators",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
@@ -108,7 +108,7 @@ object EngineProfiles {
         ),
         "matcha" to setOf(
             // Matcha-TTS phonemizes only — normalize everything upstream.
-            "markdown", "html",
+            "markdown", "html", "separators",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag", "emoji",
@@ -120,7 +120,7 @@ object EngineProfiles {
             // consumes the emoji itself (it maps to the speaker id and
             // strips it inside the engine). Stripping early would force
             // every utterance to the neutral speaker.
-            "markdown", "html",
+            "markdown", "html", "separators",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
             "math", "ampersand", "hashtag",

@@ -611,6 +611,38 @@ object PreprocessingRules {
     private val REPEATED_BANGS = Regex("!{2,}")
     private val REPEATED_QUESTIONS = Regex("\\?{2,}")
 
+    // -- Separators rule ------------------------------------------------------
+    //
+    // Scene-break dinkuses ("***", "* * *", "====="), stray asterisks
+    // (rating stars, censored words, unbalanced emphasis), and superscript
+    // footnote digits. espeak verbalizes all of these ("asterisk asterisk
+    // asterisk", "equals equals equals", "cool¹ note" → "cool one note").
+    // Runs AFTER markdown/html so paired emphasis (**bold**) is consumed as
+    // formatting first. Follow-up to the ■ scene-break fix (#9). CLI:
+    // `separators` in ts/src/preprocessing.ts — keep the two in sync.
+
+    private val ASTERISK_RUN = Regex("\\*+")
+    private val EQUALS_TILDE_RUN = Regex("[=~]{2,}")
+    // A lone ~ between whitespace/line edges ("~ ~ ~" scene breaks). Tildes
+    // glued to text (/~user, "~5") are left alone.
+    private val LONE_TILDE = Regex("(?<=^|\\s)~(?=\\s|$)")
+    // Superscript footnote digits, deleted outright (no space) so
+    // "note¹ here" becomes "note here".
+    private val SUPERSCRIPT_DIGITS = Regex("[¹²³⁰-⁹]+")
+    // A period left alone on its own line (what a spaced dinkus can reduce
+    // to) is meaningless to TTS — drop it.
+    private val LONE_PERIOD_LINE = Regex("(?<=^|\\n)[ \\t]*\\.[ \\t]*(?=\\n|$)")
+
+    private fun stripSeparators(text: String): String {
+        var out = text
+        out = ASTERISK_RUN.replace(out, " ")
+        out = EQUALS_TILDE_RUN.replace(out, " ")
+        out = LONE_TILDE.replace(out, " ")
+        out = SUPERSCRIPT_DIGITS.replace(out, "")
+        out = LONE_PERIOD_LINE.replace(out, "")
+        return out
+    }
+
     // -- Whole catalog --------------------------------------------------------
     //
     // ORDER MATTERS. This is the CLI's `priority` list in
@@ -635,6 +667,11 @@ object PreprocessingRules {
             name = "html",
             description = "Strip HTML tags and decode entities (&amp; → &)",
             transform = ::stripHtml,
+        ),
+        PreprocessingRule(
+            name = "separators",
+            description = "Strip decorative separators: dinkus lines (*** / =====), stray asterisks, superscript footnote digits",
+            transform = ::stripSeparators,
         ),
         // 3. Capture structured patterns (email, url) before the number /
         //    filename rules eat their dots.
