@@ -134,6 +134,28 @@ class PreprocessorTest {
     }
 
     @Test
+    fun currency_overLongDecimalIsNotPartiallyMatched() {
+        // Regression (CLI 39e802c): "$3.501" used to match only "$3.50" and
+        // leave a stray "1" ("3 dollars and 50 cents1"). >2 fraction digits is
+        // not a currency minor unit, so the token is left untouched for the
+        // number rule to verbalize as a plain decimal.
+        assertEquals("\$3.501", only("currency", "\$3.501"))
+        // Normal two-place amounts, including at a sentence end, still convert.
+        assertEquals("3 dollars and 50 cents", only("currency", "\$3.50"))
+        assertEquals("3 dollars and 50 cents.", only("currency", "\$3.50."))
+    }
+
+    @Test
+    fun currency_overLongDecimalVerbalizedByNumberRuleInPipeline() {
+        // The rejected token falls through to the number rule (currency runs
+        // first, number last), which reads it as a plain decimal.
+        assertEquals(
+            "\$three point five zero one",
+            preprocessor.apply("\$3.501", setOf("currency", "number")),
+        )
+    }
+
+    @Test
     fun currency_overflowingAmountIsLeftUnchanged() {
         // >19 digits overflows Long. Must pass through untouched instead
         // of throwing NumberFormatException out of the synthesis pipeline

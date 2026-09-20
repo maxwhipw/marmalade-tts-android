@@ -183,7 +183,10 @@ object PreprocessingRules {
     // (Android uses ASCII `\d`, as the other Android number rules already do).
     private const val INT_GROUPED = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)"
 
-    private val currencyRegex = Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d{1,2})?)")
+    // The fraction capture spans the full run (`\d+`, not `\d{1,2}`) so
+    // over-long decimals ($3.501) can be rejected in the callback rather than
+    // partially matched ($3.50 + a stray "1"). Mirrors ts/src/preprocessing.ts.
+    private val currencyRegex = Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d+)?)")
 
     private val currencySymbols: Map<String, Pair<String, String>> = mapOf(
         "$" to ("dollar" to "cent"),
@@ -199,6 +202,11 @@ object PreprocessingRules {
             val (major, minor) = currencySymbols[sym] ?: ("units" to "")
             if ("." in amount) {
                 val parts = amount.split(".", limit = 2)
+                // Over-long decimal (>2 fraction digits) is not a currency minor
+                // unit — "$3.501" is not "3 dollars 50 cents 1". Leave the token
+                // for the number rule to verbalize as a plain decimal instead of
+                // partially matching.
+                if (parts[1].length > 2) return@replace m.value
                 // toLongOrNull: a >19-digit amount overflows Long; leave the
                 // match unchanged rather than throwing out of the pipeline
                 // (same policy as expandOrdinal / expandNumber).
