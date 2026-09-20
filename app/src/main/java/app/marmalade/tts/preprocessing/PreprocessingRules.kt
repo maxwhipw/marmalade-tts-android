@@ -643,6 +643,314 @@ object PreprocessingRules {
         return out
     }
 
+    // -- Line breaks ----------------------------------------------------------
+    //
+    // Ported from `linebreaks` in ts/src/preprocessing.ts — keep the two in
+    // sync. espeak does NOT treat a newline as a sentence end ("Title\nFirst
+    // line" reads as one run-on clause), and the chunkers only cut at a newline
+    // that survives to them. So line breaks are resolved here, in text: a line
+    // that ends without punctuation gets a period when the next line plainly
+    // starts something new (blank line, list/heading marker, capital, digit,
+    // opening quote); otherwise the break is a soft wrap (hard-wrapped prose)
+    // and becomes a space. Lines already ending in punctuation keep their
+    // newline. Runs BEFORE markdown stripping so bullet/heading markers can
+    // still be seen.
+    //
+    // The CLI uses Python-exact strip/space semantics (pyRstrip/pyStrip). Here
+    // the fixtures are ASCII, so Kotlin's trimEnd()/trimStart()/isBlank() are a
+    // faithful-enough simplification. The `\u0000` soft-wrap sentinel +
+    // join("\n").replace(" \u0000\n", " ") mechanism and the fence-tracking
+    // passthrough mirror the TS exactly.
+
+    private val LINE_MARKER = Regex("^[ \\t]*(?:[-*+]|#{1,6}|>|\\p{Nd}+[.)])[ \\t]")
+    private val LINE_ENDS_PUNCT = Regex("[.!?;:,\u2014\u2026][\"'\u201d\u2019)\\]]*\$")
+    private val SOFT_WRAP_NEXT = Regex("^[a-z]")
+    // A triple-backtick fence delimiter line (with or without a language tag).
+    private val FENCE_LINE = Regex("^[ \\t]*```")
+
+    private fun linebreaks(text: String): String {
+        val lines = text.split("\n")
+        val out = ArrayList<String>(lines.size)
+        var inFence = false
+        for (i in lines.indices) {
+            val cur = lines[i].trimEnd()
+            // Fence delimiters and everything between them pass through
+            // verbatim: no period injection, no soft-wrap gluing.
+            if (FENCE_LINE.containsMatchIn(cur)) {
+                inFence = !inFence
+                out.add(cur)
+                continue
+            }
+            if (inFence) {
+                out.add(cur)
+                continue
+            }
+            var nxt: String? = null
+            for (j in i + 1 until lines.size) {
+                if (lines[j].isNotBlank()) { nxt = lines[j]; break }
+            }
+            if (cur.isBlank() || nxt == null || LINE_ENDS_PUNCT.containsMatchIn(cur)) {
+                out.add(cur)
+                continue
+            }
+            val paragraph = lines[i + 1].isBlank()   // blank line follows
+            val newItem = LINE_MARKER.containsMatchIn(nxt) || LINE_MARKER.containsMatchIn(cur)
+            if (paragraph || newItem || !SOFT_WRAP_NEXT.containsMatchIn(nxt.trimStart())) {
+                out.add("$cur.")
+            } else {
+                out.add("$cur \u0000")   // soft wrap: joined below
+            }
+        }
+        return out.joinToString("\n").replace(" \u0000\n", " ")
+    }
+
+    // -- Parentheses ----------------------------------------------------------
+    //
+    // Ported from `parens` in ts/src/preprocessing.ts — keep the two in sync. A
+    // parenthetical is an aside the speaker sets off with a pause on each side,
+    // but espeak-backed vocab has no brackets (they vanish, no pause) and the
+    // chunkers never cut at them. Rewrite "(aside)" as a semicolon-delimited
+    // clause: `;` is a real render boundary with a clause gap and a natural
+    // pause. Tiny groups — "item(s)", "f(x)", "(a)" markers — just lose their
+    // brackets.
+
+    private val PAREN_GROUP = Regex("[ \\t]*\\(([^()\\n]*)\\)")
+    private const val PAREN_MAX_GLUE = 2   // inner text this short is glued, not set off
+    private val TRAILING_HTAB = Regex("[ \\t]+\$")
+    private val LEADING_HTAB = Regex("^[ \\t]+")
+
+    private fun parens(text: String): String =
+        PAREN_GROUP.replace(text) { m ->
+            val whole = m.value
+            val inner = m.groupValues[1].trim()
+            if (inner.length <= PAREN_MAX_GLUE) {
+                // Tiny group: drop the brackets. "item(s)"/"f(x)" glue with no
+                // space (there was none before the paren); "See (a) first" keeps
+                // the space the source had, so words don't collide ("Seea"). The
+                // regex's leading [ \t]* is part of `whole`, so a leading space
+                // there means the source separated the paren from the prev word.
+                val spaced = whole.isNotEmpty() && (whole[0] == ' ' || whole[0] == '\t')
+                (if (spaced) " " else "") + inner
+            } else {
+                val before = TRAILING_HTAB.replace(text.substring(0, m.range.first), "")
+                val after = LEADING_HTAB.replace(text.substring(m.range.last + 1), "")
+                val lead = when {
+                    before.isEmpty() || before.endsWith("\n") -> ""
+                    ".!?;:,\u2014-".contains(before.last()) -> " "
+                    else -> "; "
+                }
+                val tail = if (after.isNotEmpty() && !".!?;:,)\n".contains(after[0])) ";" else ""
+                lead + inner + tail
+            }
+        }
+
+    // -- Built-in respellings -------------------------------------------------
+    //
+    // Ported from `respell` (RESPELL table) in ts/src/preprocessing.ts — keep
+    // the two in sync. Words espeak's letter-to-sound fallback gets wrong,
+    // respelled so every espeak-backed engine reads them right. Keys lowercase;
+    // a capitalized match keeps its capital. Verified with tools/ph_probe.py in
+    // the CLI — do not add, drop, or "improve" any entry here without the
+    // probe's before/after in hand.
+
+    private val RESPELL: Map<String, String> = mapOf(
+        // The bi- prefix before a w/m/y stem: /bɪ/ instead of /baɪ/.
+        "biweekly" to "bi-weekly",
+        "bimonthly" to "bi-monthly",
+        "biyearly" to "bi-yearly",
+        "bilayer" to "bi-layer",
+        "bimorph" to "bi-morph",
+        // Other prefix/compound boundaries the fallback mis-syllabifies.
+        "triennial" to "tri-ennial",
+        "coworking" to "co-working",
+        "cosign" to "co-sign",
+        "deescalate" to "de-escalate",
+        "reupload" to "re-upload",
+        "smarthome" to "smart-home",
+        "macrophage" to "macro-phage",
+        "triglyceride" to "try-glyceride",
+        // Tech vocabulary
+        "regex" to "reg-ex",
+        "cli" to "C-L-I",
+        "mkdir" to "makedir",
+        "async" to "aysync",
+        "numpy" to "numpie",
+        "scipy" to "sci-pie",
+        "jupyter" to "jupiter",
+        // Names, food, medicine
+        "huawei" to "wahway",
+        "renault" to "renoh",
+        "quinoa" to "keen-wah",
+        "penne" to "pennay",
+        "linguine" to "lin-gweenee",
+        "feta" to "fetta",
+        "miso" to "meeso",
+        "kimchi" to "kimchee",
+        "mochi" to "mohchee",
+        "edema" to "ee-deema",
+    )
+
+    // Escape the regex metacharacters that are special outside a character
+    // class. `-` is intentionally NOT escaped (mirrors the CLI's reEscape).
+    private val RE_SPECIAL = Regex("[.*+?^\$(){}|\\[\\]\\\\/]")
+    private fun reEscape(s: String): String = RE_SPECIAL.replace(s) { "\\" + it.value }
+
+    // Alternation sorted longest-key-first, whole-word boundaries via Unicode
+    // letter/number lookarounds, case-insensitive.
+    private val RESPELL_RE = Regex(
+        "(?<![\\p{L}\\p{N}_])(?:" +
+            RESPELL.keys.sortedByDescending { it.length }.joinToString("|") { reEscape(it) } +
+            ")(?![\\p{L}\\p{N}_])",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private fun respell(text: String): String =
+        RESPELL_RE.replace(text) { m ->
+            val word = m.value
+            val rep = RESPELL[word.lowercase()]!!
+            if (word[0].isUpperCase() || word[0].isTitleCase()) {
+                rep[0].uppercaseChar() + rep.substring(1)
+            } else {
+                rep
+            }
+        }
+
+    // -- Context-gated heteronym respellings ----------------------------------
+    //
+    // Ported from `heteronym` (HETERONYMS table) in ts/src/preprocessing.ts —
+    // keep the two in sync. Heteronyms (same spelling, two pronunciations)
+    // can't go in RESPELL: the right reading depends on the sentence. espeak
+    // has a weak POS heuristic and gets many right on its own — it reads "have
+    // read", "will record", "can wind", "to tear" correctly. What it reliably
+    // fails on is the IMPERATIVE ("Close the door"), where it picks the
+    // noun/adjective reading. Each entry fires only in a context the probe
+    // showed espeak getting wrong, and leaves the word alone otherwise: a wrong
+    // flip is worse than no flip.
+    //
+    // Word list inspired by the public heteronym inventories in Google's
+    // WikipediaHomographData (Apache-2.0) and the AmEPD pronunciation
+    // dictionary (BSD-2-Clause). No data was copied from either — every entry
+    // here is an original context rule with its own probe-verified respelling.
+
+    private val NOUN_CUE = listOf(
+        "the", "a", "an", "this", "that", "these", "those", "my",
+        "your", "his", "her", "its", "our", "their", "some", "any", "no",
+        "each", "every", "another",
+    )
+    private val OBJ_PRON = listOf("me", "us", "him", "her", "them", "it")
+    private val SUBJ_PRON = listOf("i", "he", "she", "we", "they", "you")
+    private val PAST_TIME_CUE = listOf(
+        "yesterday", "last night", "last week", "last month",
+        "last year", "ago", "earlier", "this morning", "this afternoon",
+    )
+
+    private fun alt(words: List<String>): String = words.joinToString("|")
+
+    // Start of an imperative clause: string start, after sentence-final
+    // punctuation, or after "please"/"let's".
+    private const val IMPERATIVE_PRE =
+        "(?:^\\s*|(?<=[.!?;:\\n])\\s*|\\blet['\u2019]?s\\s+|\\bplease\\s+)"
+    // A direct object right after the verb — determiner/possessive or object
+    // pronoun. This separates "Close the door" (verb) from "Close to the
+    // station" or "a close call" (adjective), so those need no extra guard.
+    private val OBJECT_AFTER = "\\s+(?:${alt(NOUN_CUE)}|${alt(OBJ_PRON)})\\b"
+
+    // [compiled context pattern with the word in group "w", respelling]. IPA in
+    // the comments is the espeak output, before → after.
+    private val HETERONYM_RULES: List<Pair<Regex, String>> = listOf(
+        // "He read the report yesterday."  ɹˈiːd → ɹˈɛd
+        // ("have/was read" is already ɹˈɛd in espeak, so no aux rule is needed.)
+        Regex(
+            "\\b(?:${alt(SUBJ_PRON)})\\s+(?<w>read)\\b" +
+                "(?=[^.!?\\n]*\\b(?:${alt(PAST_TIME_CUE)})\\b)",
+            RegexOption.IGNORE_CASE,
+        ) to "red",
+        // "Wind the clock before bed."  wˈɪnd → wˈaɪnd
+        Regex("$IMPERATIVE_PRE(?<w>wind)$OBJECT_AFTER", RegexOption.IGNORE_CASE) to "wined",
+        // "She wound the bandage around his arm."  wˈuːnd → wˈaʊnd
+        // Object pronouns are excluded after the verb so "you wound me" (injure,
+        // wˈuːnd) can't match; "you" is excluded as a subject for the same reason.
+        Regex(
+            "\\b(?:i|he|she|we|they|it)\\s+(?<w>wound)" +
+                "\\s+(?:the|a|an|its|their|my|your|our|up|around|down|through)\\b",
+            RegexOption.IGNORE_CASE,
+        ) to "wowned",
+        // "Record the meeting please."  ɹˈɛkɚd → ɹˌiːkˈɔːɹd
+        Regex("$IMPERATIVE_PRE(?<w>record)$OBJECT_AFTER", RegexOption.IGNORE_CASE) to "re-cord",
+        // "Close the door."  klˈoʊs → klˈoʊz
+        Regex("$IMPERATIVE_PRE(?<w>close)$OBJECT_AFTER", RegexOption.IGNORE_CASE) to "cloze",
+        // "Tear the page out."  tˈɪɹ → tˈɛɹ
+        Regex("$IMPERATIVE_PRE(?<w>tear)$OBJECT_AFTER", RegexOption.IGNORE_CASE) to "tair",
+        // "A minute amount of dust remained."  mˈɪnɪt → maɪnˈuːt
+        Regex(
+            "(?<![\\w-])(?<w>minute)\\s+(?:amounts?|quantit(?:y|ies)|details?|" +
+                "particles?|traces?|differences?|changes?|fractions?)\\b",
+            RegexOption.IGNORE_CASE,
+        ) to "my-newt",
+        // "The differences are minute."  mˈɪnɪt → maɪnˈuːt
+        Regex(
+            "\\b(?:are|is|were|was|seems?|seemed|appears?|appeared|remains?|" +
+                "remained|so|very|extremely|quite)\\s+(?<w>minute)(?=\\s*[.,;:!?]|\\s*\$)",
+            RegexOption.IGNORE_CASE,
+        ) to "my-newt",
+        // "Send me your resume."  ɹᵻzˈuːm → ɹˈɛzˈuːmˈeɪ
+        Regex("\\b(?:${alt(NOUN_CUE)})\\s+(?<w>resume)\\b", RegexOption.IGNORE_CASE) to "rez-oo-may",
+        // "The lead pipe was corroded."  lˈiːd → lˈɛd
+        Regex(
+            "(?<![\\w-])(?<w>lead)\\s+(?:pipes?|paint|poisoning|pencils?|acid|" +
+                "shot|bullets?|weights?|solder)\\b",
+            RegexOption.IGNORE_CASE,
+        ) to "led",
+        // "He dove into the pool."  dˈʌv → dˈoʊv
+        // Needs a pronoun subject: "put the dove into the cage" is the bird.
+        Regex(
+            "\\b(?:${alt(SUBJ_PRON)})\\s+(?<w>dove)" +
+                "\\s+(?:into|in|under|down|off|headfirst|straight|through|beneath)\\b",
+            RegexOption.IGNORE_CASE,
+        ) to "dohv",
+        // "The sow had six piglets."  sˈoʊ → sˈaʊ
+        Regex("\\b(?:${alt(NOUN_CUE)})\\s+(?<w>sow)\\b", RegexOption.IGNORE_CASE) to "sau",
+        // "Excuse me for a moment."  ɛkskjˈuːs → ɛkskjˈuːz
+        Regex("(?<![\\w-])(?<w>excuse)\\s+(?:me|us)\\b", RegexOption.IGNORE_CASE) to "excuze",
+        // "Please excuse the delay."  ɛkskjˈuːs → ɛkskjˈuːz
+        Regex("$IMPERATIVE_PRE(?<w>excuse)$OBJECT_AFTER", RegexOption.IGNORE_CASE) to "excuze",
+    )
+
+    /**
+     * Respell heteronyms whose context identifies the reading espeak gets
+     * wrong. Only the matched word is rewritten — the surrounding context the
+     * pattern consumed is put back verbatim. Mirrors the CLI: for each pattern,
+     * replace only the `w` group within each non-overlapping match, preserving
+     * a leading capital.
+     */
+    private fun heteronym(text: String): String {
+        var current = text
+        for ((pattern, respelling) in HETERONYM_RULES) {
+            val sb = StringBuilder()
+            var last = 0
+            for (m in pattern.findAll(current)) {
+                val whole = m.value
+                val base = m.range.first
+                val wGroup = m.groups["w"]!!
+                val word = wGroup.value
+                val ws = wGroup.range.first
+                val we = wGroup.range.last + 1
+                val rep = if (word[0].isUpperCase() || word[0].isTitleCase()) {
+                    respelling[0].uppercaseChar() + respelling.substring(1)
+                } else {
+                    respelling
+                }
+                val rebuilt = whole.substring(0, ws - base) + rep + whole.substring(we - base)
+                sb.append(current, last, base)
+                sb.append(rebuilt)
+                last = base + whole.length
+            }
+            sb.append(current, last, current.length)
+            current = sb.toString()
+        }
+        return current
+    }
+
     // -- Whole catalog --------------------------------------------------------
     //
     // ORDER MATTERS. This is the CLI's `priority` list in
@@ -656,6 +964,13 @@ object PreprocessingRules {
             name = "emoji",
             description = "Strip emoji and decorative symbols (engines pronounce them as \"loudly crying face\", \"black square\" otherwise)",
             transform = ::stripEmojis,
+        ),
+        // 1b. Resolve line breaks BEFORE markdown so bullet/heading markers
+        //     are still visible (mirrors the CLI's priority order).
+        PreprocessingRule(
+            name = "linebreaks",
+            description = "Unpunctuated line ends become sentence ends; soft wraps join",
+            transform = ::linebreaks,
         ),
         // 2. Strip markdown + HTML before URL/number rules see syntax noise.
         PreprocessingRule(
@@ -672,6 +987,13 @@ object PreprocessingRules {
             name = "separators",
             description = "Strip decorative separators: dinkus lines (*** / =====), stray asterisks, superscript footnote digits",
             transform = ::stripSeparators,
+        ),
+        // 2b. Rewrite parentheticals AFTER markdown (link syntax uses parens)
+        //     and separators, BEFORE the structured/number rules.
+        PreprocessingRule(
+            name = "parens",
+            description = "Parentheticals become ;-delimited clauses (pause + chunk seam)",
+            transform = ::parens,
         ),
         // 3. Capture structured patterns (email, url) before the number /
         //    filename rules eat their dots.
@@ -730,8 +1052,22 @@ object PreprocessingRules {
             description = "Numbers to words: 42 → forty-two (years 1900-2099 left as digits)",
             transform = ::expandNumber,
         ),
+        // 7b. Heteronyms (context-gated) then flat respellings, AFTER number
+        //     and BEFORE math (mirrors the CLI's priority order). Both are
+        //     espeak-specific fixups; profiles gate them to espeak-backed
+        //     engines only. No pronounce rule on Android (no YAML dict).
+        PreprocessingRule(
+            name = "heteronym",
+            description = "Context-gated heteronym respellings (Close the door → Cloze the door)",
+            transform = ::heteronym,
+        ),
+        PreprocessingRule(
+            name = "respell",
+            description = "Built-in respellings for words espeak misreads (biweekly → bi-weekly)",
+            transform = ::respell,
+        ),
         // 8. Tail end — math / ampersand / hashtag operate on the already-
-        //    normalized text. No pronounce rule on Android (no YAML dict).
+        //    normalized text.
         PreprocessingRule(
             name = "math",
             description = "Math symbols to words: + → plus (only when standalone)",

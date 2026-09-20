@@ -1,6 +1,7 @@
 package app.marmalade.tts.preprocessing
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -41,6 +42,10 @@ class PreprocessorTest {
     /** Convenience: run with one rule only. */
     private fun only(rule: String, text: String): String =
         preprocessor.apply(text, setOf(rule))
+
+    /** Convenience: run the full kitten (everything-on) pipeline. */
+    private fun kitten(text: String): String =
+        preprocessor.apply(text, EngineProfiles.defaultsFor("kitten-direct-v0_8"))
 
     // ── whitespace collapse (newline-preserving) ─────────────────────
 
@@ -499,5 +504,326 @@ class PreprocessorTest {
             "digits should be verbalized when number rule is on: $out",
             "one hundred" in out,
         )
+    }
+
+    // ── linebreaks ───────────────────────────────────────────────────
+    // Ported from the CLI's `linebreaks` describe block.
+
+    @Test
+    fun linebreaks_titleIntoParagraphGetsPeriod() {
+        assertEquals(
+            "Title.\nFirst line of para.",
+            only("linebreaks", "Title\nFirst line of para."),
+        )
+    }
+
+    // These three isolate linebreaks (+markdown, needed to strip the bullet /
+    // heading markers linebreaks relies on). They deliberately avoid the full
+    // kitten profile because Android runs `terminal_punctuation` IN-pipeline
+    // (the CLI does not — it appends the terminal period only at the
+    // whole-utterance entries), which would otherwise add a trailing "." to
+    // the last, unpunctuated line and diverge from the CLI fixtures.
+    private fun lineMd(text: String): String =
+        preprocessor.apply(text, setOf("linebreaks", "markdown"))
+
+    @Test
+    fun linebreaks_unpunctuatedBulletsBecomeSentences() {
+        assertEquals("item one.\nitem two.\nNext", lineMd("- item one\n- item two\nNext"))
+    }
+
+    @Test
+    fun linebreaks_headingMarkerLineGetsPeriod() {
+        assertEquals("Heading.\nsome text", lineMd("# Heading\nsome text"))
+    }
+
+    @Test
+    fun linebreaks_paragraphBreakCollapses() {
+        // Documented divergence from the CLI: the CLI collapses any newline run
+        // to a single "\n" at the end of preprocess() (CLI expects
+        // "first block.\nsecond block"), but Android's Preprocessor preserves
+        // paragraph structure (2+ newlines → "\n\n"; see the Preprocessor.kt
+        // module comment), so a paragraph break survives as "\n\n".
+        assertEquals("first block.\n\nsecond block", lineMd("first block\n\n\nsecond block"))
+    }
+
+    @Test
+    fun linebreaks_softWrapJoinsWithSpace() {
+        assertEquals(
+            "this is hard wrapped prose that continues here.",
+            only("linebreaks", "this is hard\nwrapped prose that\ncontinues here."),
+        )
+    }
+
+    @Test
+    fun linebreaks_keepsNewlinesAfterPunctuatedEnds() {
+        val text = "Ingredients:\nflour,\nsugar,\nand eggs.\nMix well."
+        assertEquals(text, kitten(text))
+    }
+
+    @Test
+    fun linebreaks_closingQuoteAfterTerminalIsPunctuated() {
+        assertEquals("\"Go.\"\nHe went", only("linebreaks", "\"Go.\"\nHe went"))
+    }
+
+    @Test
+    fun linebreaks_keepsFencedCodeThroughFullPipeline() {
+        // Regression: linebreaks used to glue the opening ``` fence to the first
+        // code line, so the markdown fence rule captured an empty body and
+        // dropped the code. Exercise the FULL pipeline.
+        val out = kitten("Here is code:\n```\nx = 1\n```\nDone.")
+        assertFalse("no fence markers: $out", "```" in out)
+        assertTrue("Here is code survives: $out", "Here is code" in out)
+        assertTrue("Done survives: $out", "Done" in out)
+        // The code line survives (x = 1 → "x equals one" via math/number rules).
+        assertTrue("code line survives: $out", "x equals one" in out)
+    }
+
+    @Test
+    fun linebreaks_doesNotInjectPeriodInsideCodeFence() {
+        val out = preprocessor.apply(
+            "```python\nprint('hi')\nprint('bye')\n```",
+            setOf("linebreaks", "markdown"),
+        )
+        assertFalse("no fence markers: $out", "```" in out)
+        assertTrue("first code line survives: $out", "print('hi')" in out)
+        assertTrue("second code line survives: $out", "print('bye')" in out)
+        assertFalse("no spurious period injected: $out", "print('hi')." in out)
+    }
+
+    // ── parens ───────────────────────────────────────────────────────
+    // Ported from the CLI's `parens` describe block.
+
+    @Test
+    fun parens_setsOffMidSentenceAside() {
+        assertEquals(
+            "He left; quietly; and then returned.",
+            only("parens", "He left (quietly) and then returned."),
+        )
+    }
+
+    @Test
+    fun parens_asideBeforeTerminalPunctuation() {
+        assertEquals("He returned; late.", only("parens", "He returned (late)."))
+    }
+
+    @Test
+    fun parens_keepsPrecedingComma() {
+        assertEquals("Yes, mostly; done.", only("parens", "Yes, (mostly) done."))
+    }
+
+    @Test
+    fun parens_wholeSentenceInParens() {
+        assertEquals("Done. Also this.", only("parens", "Done. (Also this.)"))
+    }
+
+    @Test
+    fun parens_gluesTinyGroups() {
+        assertEquals("Check the items and fx.", only("parens", "Check the item(s) and f(x)."))
+    }
+
+    @Test
+    fun parens_keepsSpaceBeforeSpacedTinyGroup() {
+        // Regression: a tiny group used to swallow the space that preceded it,
+        // so a list marker like "(a)" fused onto the previous word ("Seea").
+        assertEquals("See a first and b second.", only("parens", "See (a) first and (b) second."))
+    }
+
+    @Test
+    fun parens_lineStartAside() {
+        assertEquals("note; read me", only("parens", "(note) read me"))
+    }
+
+    @Test
+    fun parens_leavesUnbalancedParensAlone() {
+        assertEquals("a (b c", only("parens", "a (b c"))
+    }
+
+    @Test
+    fun parens_doesNotMangleMarkdownLinkTarget() {
+        assertEquals("See the docs now.", kitten("See [the docs](https://example.com) now."))
+    }
+
+    // ── respell ──────────────────────────────────────────────────────
+    // Ported from the CLI's `respell` describe block (the pronounce
+    // user-dict layering test is skipped — Android has no pronounce rule).
+
+    @Test
+    fun respell_splitsBiPrefixWords() {
+        assertEquals(
+            "bi-weekly bi-monthly bi-yearly",
+            only("respell", "biweekly bimonthly biyearly"),
+        )
+    }
+
+    @Test
+    fun respell_preservesLeadingCapital() {
+        assertEquals("Bi-weekly", only("respell", "Biweekly"))
+    }
+
+    @Test
+    fun respell_matchesWholeWordsOnly() {
+        assertEquals("biweeklyish", only("respell", "biweeklyish"))
+    }
+
+    // ── heteronym ────────────────────────────────────────────────────
+    // Ported from the CLI's `heteronym` describe block. Each pair is one
+    // context the probe showed espeak reading wrongly, plus a natural
+    // sentence where the word must be left alone (Max approved by ear, H1–H6).
+
+    private fun het(text: String): String = only("heteronym", text)
+
+    @Test
+    fun heteronym_read_pastTenseCueFires() {
+        assertEquals("He red the report yesterday.", het("He read the report yesterday."))
+    }
+
+    @Test
+    fun heteronym_read_presentTenseLeftAlone() {
+        assertEquals("I read the book every night.", het("I read the book every night."))
+    }
+
+    @Test
+    fun heteronym_wind_imperativeFires() {
+        assertEquals("Wined the clock before bed.", het("Wind the clock before bed."))
+    }
+
+    @Test
+    fun heteronym_wind_nounLeftAlone() {
+        assertEquals("The wind blew hard all night.", het("The wind blew hard all night."))
+    }
+
+    @Test
+    fun heteronym_wound_verbFires() {
+        assertEquals(
+            "She wowned the bandage around his arm.",
+            het("She wound the bandage around his arm."),
+        )
+    }
+
+    @Test
+    fun heteronym_wound_nounLeftAlone() {
+        assertEquals("The wound had not healed.", het("The wound had not healed."))
+    }
+
+    @Test
+    fun heteronym_wound_injureSenseLeftAlone() {
+        assertEquals("You wound me deeply.", het("You wound me deeply."))
+    }
+
+    @Test
+    fun heteronym_record_imperativeFires() {
+        assertEquals("Please re-cord the meeting.", het("Please record the meeting."))
+    }
+
+    @Test
+    fun heteronym_record_nounLeftAlone() {
+        assertEquals("The record was broken.", het("The record was broken."))
+    }
+
+    @Test
+    fun heteronym_record_afterModalLeftAlone() {
+        assertEquals("We will record a new album.", het("We will record a new album."))
+    }
+
+    @Test
+    fun heteronym_close_imperativeFires() {
+        assertEquals("Cloze the door.", het("Close the door."))
+    }
+
+    @Test
+    fun heteronym_close_adjectiveLeftAlone() {
+        assertEquals("That was a close call.", het("That was a close call."))
+        assertEquals("We are close to the end.", het("We are close to the end."))
+    }
+
+    @Test
+    fun heteronym_tear_imperativeFires() {
+        assertEquals("Tair the page out.", het("Tear the page out."))
+    }
+
+    @Test
+    fun heteronym_tear_nounLeftAlone() {
+        assertEquals("There is a tear in the fabric.", het("There is a tear in the fabric."))
+    }
+
+    @Test
+    fun heteronym_minute_adjectiveFires() {
+        assertEquals(
+            "A my-newt amount of dust remained.",
+            het("A minute amount of dust remained."),
+        )
+        assertEquals("The differences are my-newt.", het("The differences are minute."))
+    }
+
+    @Test
+    fun heteronym_minute_nounLeftAlone() {
+        assertEquals("Wait a minute please.", het("Wait a minute please."))
+    }
+
+    @Test
+    fun heteronym_resume_nounFires() {
+        assertEquals("Send me your rez-oo-may.", het("Send me your resume."))
+    }
+
+    @Test
+    fun heteronym_resume_verbLeftAlone() {
+        assertEquals("We will resume the meeting.", het("We will resume the meeting."))
+    }
+
+    @Test
+    fun heteronym_lead_metalFires() {
+        assertEquals("The led pipe was corroded.", het("The lead pipe was corroded."))
+    }
+
+    @Test
+    fun heteronym_lead_verbLeftAlone() {
+        assertEquals("He took the lead in the race.", het("He took the lead in the race."))
+    }
+
+    @Test
+    fun heteronym_dove_verbFires() {
+        assertEquals("He dohv into the pool.", het("He dove into the pool."))
+    }
+
+    @Test
+    fun heteronym_dove_birdLeftAlone() {
+        assertEquals("The dove landed on the roof.", het("The dove landed on the roof."))
+        // The bird as a direct object of an imperative must also stay put.
+        assertEquals("Put the dove into the cage.", het("Put the dove into the cage."))
+    }
+
+    @Test
+    fun heteronym_sow_nounFires() {
+        assertEquals("The sau had six piglets.", het("The sow had six piglets."))
+    }
+
+    @Test
+    fun heteronym_sow_verbLeftAlone() {
+        assertEquals("Farmers sow seeds in spring.", het("Farmers sow seeds in spring."))
+    }
+
+    @Test
+    fun heteronym_excuse_verbFires() {
+        assertEquals("Excuze me for a moment.", het("Excuse me for a moment."))
+        assertEquals("Please excuze the delay.", het("Please excuse the delay."))
+    }
+
+    @Test
+    fun heteronym_excuse_nounLeftAlone() {
+        assertEquals("That is a poor excuse.", het("That is a poor excuse."))
+    }
+
+    @Test
+    fun heteronym_preservesCapitalAndFiresAtMidTextSentenceStart() {
+        assertEquals(
+            "Let's cloze the shop. Re-cord the notes too.",
+            het("Let's close the shop. Record the notes too."),
+        )
+    }
+
+    @Test
+    fun heteronym_comesRightBeforeRespellInPriority() {
+        // "come close to me" is the adjective — no flip.
+        assertEquals("Come close to me.", het("Come close to me."))
     }
 }

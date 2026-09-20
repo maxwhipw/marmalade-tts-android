@@ -91,6 +91,39 @@ class EngineProfilesTest {
     }
 
     @Test
+    fun linebreaks_and_parens_are_in_every_profile() {
+        // Both rules are engine-agnostic in the CLI too — every engine gets
+        // them regardless of its native phonemization.
+        for ((engine, profile) in EngineProfiles.DEFAULT_PROFILES) {
+            assertTrue("$engine must include linebreaks", "linebreaks" in profile)
+            assertTrue("$engine must include parens", "parens" in profile)
+        }
+    }
+
+    @Test
+    fun heteronym_and_respell_only_in_espeak_backed_profiles() {
+        // espeak-backed engines (all the direct/legacy ones) get the espeak
+        // heteronym + respell fixups. The pocket-tts-* ORT engines do their own
+        // phonemization with no espeak, so they must NOT — the respellings are
+        // probe-verified against espeak specifically and would corrupt Pocket.
+        val espeakBacked = listOf(
+            "kitten-direct-v0_8", "kokoro-direct-v1_0", "vits-marmalade-v1",
+            "piper", "coqui", "matcha", "emojivoice", "pocket",
+        )
+        for (engine in espeakBacked) {
+            val profile = EngineProfiles.defaultsFor(engine)
+            assertTrue("$engine must include heteronym", "heteronym" in profile)
+            assertTrue("$engine must include respell", "respell" in profile)
+        }
+        val noEspeak = listOf("pocket-tts-en-v2026_04", "pocket-tts-en-v2026_04-dev")
+        for (engine in noEspeak) {
+            val profile = EngineProfiles.defaultsFor(engine)
+            assertFalse("$engine must NOT include heteronym", "heteronym" in profile)
+            assertFalse("$engine must NOT include respell", "respell" in profile)
+        }
+    }
+
+    @Test
     fun every_engine_in_catalog_has_a_profile_defined() {
         // Forward-compat with the install catalog — every engine the
         // user can install MUST have a non-fallback profile or Settings →

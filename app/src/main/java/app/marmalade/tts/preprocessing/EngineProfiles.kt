@@ -45,11 +45,19 @@ object EngineProfiles {
      * of a List avoids the question "do duplicates matter?" — they
      * don't.
      */
-    /** Kitten family default rules — applies to both Kitten Direct variants. */
+    /**
+     * Kitten family default rules — applies to both Kitten Direct variants.
+     *
+     * Kitten ships no native text normalization, so this is the full rule set
+     * (every rule in [PreprocessingRules.ALL]). It includes the espeak-specific
+     * `heteronym` and `respell` fixups: Kitten phonemizes English through
+     * espeak, so it needs them.
+     */
     private val KITTEN_DEFAULTS: Set<String> = setOf(
-        "markdown", "html", "separators",
+        "linebreaks", "markdown", "html", "separators", "parens",
         "currency", "percentage", "ordinal", "time", "date",
         "email", "url", "filename", "abbreviation", "number",
+        "heteronym", "respell",
         "math", "ampersand", "hashtag", "emoji",
         "repeated_punctuation", "terminal_punctuation",
     )
@@ -57,60 +65,91 @@ object EngineProfiles {
     /**
      * Kokoro family default rules. Kokoro (via misaki upstream) handles
      * numbers, abbreviations, and some symbols natively — skip those rules.
+     *
+     * NOTE the deliberate divergence from the CLI's `kokoro` profile: the CLI
+     * omits BOTH `heteronym` and `respell` for kokoro, because CLI-kokoro
+     * phonemizes with misaki, which disambiguates heteronyms via POS tags and
+     * has its own lexicon. Android's KokoroDirect instead routes English
+     * through espeak (untied espeak + EnPhonemeFixups — see the
+     * KokoroEspeakG2P.kt header), so it needs the same espeak fixups as Kitten.
+     * Hence `heteronym` and `respell` ARE included here.
      */
     private val KOKORO_DEFAULTS: Set<String> = setOf(
-        "markdown", "html", "separators",
+        "linebreaks", "markdown", "html", "separators", "parens",
         "currency", "percentage", "time", "date",
         "email", "url", "filename",
+        "heteronym", "respell",
+        "math", "ampersand", "hashtag", "emoji",
+        "repeated_punctuation", "terminal_punctuation",
+    )
+
+    /**
+     * Pocket TTS default rules. Pocket does its own phonemization upstream of
+     * ORT — no espeak anywhere in the pipeline (see the comment in
+     * PocketEngine.kt `synthesize`). Every respelling in `respell` and every
+     * heteronym context in `heteronym` is probe-verified against espeak
+     * specifically, so those two rules would only corrupt Pocket's readings.
+     * Pocket DOES get the engine-agnostic `linebreaks` and `parens`, plus the
+     * rest of the generic normalization it has no native handling for.
+     */
+    private val POCKET_DEFAULTS: Set<String> = setOf(
+        "linebreaks", "markdown", "html", "separators", "parens",
+        "currency", "percentage", "ordinal", "time", "date",
+        "email", "url", "filename", "abbreviation", "number",
         "math", "ampersand", "hashtag", "emoji",
         "repeated_punctuation", "terminal_punctuation",
     )
 
     /**
      * Default preprocessing rule sets per engine name. Kitten Direct uses the
-     * Kitten defaults; Kokoro Direct uses the Kokoro defaults. Pocket TTS
-     * does no native text normalization upstream (per NekoSpeak's
-     * reverse-engineering of the pipeline), so it gets the full Kitten rule
-     * set.
+     * Kitten defaults; Kokoro Direct uses the Kokoro defaults. Pocket TTS uses
+     * [POCKET_DEFAULTS] (no espeak, so no heteronym/respell).
      */
     val DEFAULT_PROFILES: Map<String, Set<String>> = mapOf(
         "kitten-direct-v0_8" to KITTEN_DEFAULTS,
         "kokoro-direct-v1_0" to KOKORO_DEFAULTS,
-        "pocket-tts-en-v2026_04" to KITTEN_DEFAULTS,
+        "pocket-tts-en-v2026_04" to POCKET_DEFAULTS,
         // Developer-only clean-room Pocket engine — same profile as production Pocket.
-        "pocket-tts-en-v2026_04-dev" to KITTEN_DEFAULTS,
+        "pocket-tts-en-v2026_04-dev" to POCKET_DEFAULTS,
         // VITS Marmalade: the checkpoints normalize nothing upstream — espeak
-        // gets the text as-is — so every rule applies, same as Kitten.
+        // gets the text as-is — so every rule applies, same as Kitten
+        // (including the espeak heteronym/respell fixups).
         "vits-marmalade-v1" to KITTEN_DEFAULTS,
         "piper" to setOf(
             // Piper does almost nothing natively — apply everything.
-            "markdown", "html", "separators",
+            "linebreaks", "markdown", "html", "separators", "parens",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
+            "heteronym", "respell",
             "math", "ampersand", "hashtag", "emoji",
         "terminal_punctuation",
         ),
         "coqui" to setOf(
             // Coqui handles basic numbers natively but not much else.
-            "markdown", "html", "separators",
+            "linebreaks", "markdown", "html", "separators", "parens",
             "currency", "percentage", "time", "date",
             "email", "url", "filename", "abbreviation",
+            "heteronym", "respell",
             "math", "ampersand", "hashtag", "emoji",
         "terminal_punctuation",
         ),
         "pocket" to setOf(
-            // PocketSphinx-derived engine; no native text normalization.
-            "markdown", "html", "separators",
+            // Legacy PocketSphinx-derived espeak engine; no native text
+            // normalization (distinct from the pocket-tts-* ORT engines above,
+            // which do their own phonemization and get no espeak fixups).
+            "linebreaks", "markdown", "html", "separators", "parens",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
+            "heteronym", "respell",
             "math", "ampersand", "hashtag", "emoji",
         "terminal_punctuation",
         ),
         "matcha" to setOf(
             // Matcha-TTS phonemizes only — normalize everything upstream.
-            "markdown", "html", "separators",
+            "linebreaks", "markdown", "html", "separators", "parens",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
+            "heteronym", "respell",
             "math", "ampersand", "hashtag", "emoji",
         "terminal_punctuation",
         ),
@@ -120,9 +159,10 @@ object EngineProfiles {
             // consumes the emoji itself (it maps to the speaker id and
             // strips it inside the engine). Stripping early would force
             // every utterance to the neutral speaker.
-            "markdown", "html", "separators",
+            "linebreaks", "markdown", "html", "separators", "parens",
             "currency", "percentage", "ordinal", "time", "date",
             "email", "url", "filename", "abbreviation", "number",
+            "heteronym", "respell",
             "math", "ampersand", "hashtag",
         ),
     )
