@@ -1,0 +1,415 @@
+{
+  "normalizer": [
+    {
+      "input": "Dr. Schmidt und Prof. Weber treffen Hr. Meier.",
+      "expected": "Doktor Schmidt und Professor Weber treffen Herr Meier."
+    },
+    {
+      "input": "Fr. Schneider wohnt in der Hauptstr. 5.",
+      "expected": "Frau Schneider wohnt in der Hauptstr. fünf."
+    },
+    {
+      "input": "Die Bahnhofstr. 12 ist die Adresse der Firma.",
+      "expected": "Die Bahnhofstr. zwölf ist die Adresse der Firma."
+    },
+    {
+      "input": "Dipl.-Ing. Krause leitet die Abt. drei.",
+      "expected": "Diplom-Ingenieur Krause leitet die Abteilung drei."
+    },
+    {
+      "input": "Tel. 030 erreichbar, Nr. 7 im Verzeichnis.",
+      "expected": "Telefon dreißig erreichbar, Nummer sieben im Verzeichnis."
+    },
+    {
+      "input": "Die Muster GmbH und die Beispiel AG fusionieren.",
+      "expected": "Die Muster Gesellschaft mit beschränkter Haftung und die Beispiel Aktiengesellschaft fusionieren."
+    },
+    {
+      "input": "Wir brauchen z.B. Mehl, d.h. Weizenmehl, u.a. für Brot.",
+      "expected": "Wir brauchen zum Beispiel Mehl, das heißt Weizenmehl, unter anderem für Brot."
+    },
+    {
+      "input": "Das ist gut bzw. sehr gut, usw. usw.",
+      "expected": "Das ist gut beziehungsweise sehr gut, und so weiter und so weiter"
+    },
+    {
+      "input": "Es kostet ca. zehn Euro, vgl. Seite drei, inkl. Versand, exkl. Porto.",
+      "expected": "Es kostet circa zehn Euro, vergleiche Seite drei, inklusive Versand, exklusive Porto."
+    },
+    {
+      "input": "Kommen Sie ggf. vorbei, i.d.R. klappt das, o.ä. Lösungen gibt es, u.U. sofort.",
+      "expected": "Kommen Sie gegebenenfalls vorbei, in der Regel klappt das, oder ähnliches Lösungen gibt es, unter Umständen sofort."
+    },
+    {
+      "input": "Am 3. Okt. beginnt das Fest, im Dez. endet es.",
+      "expected": "Am dritte Oktober beginnt das Fest, im Dezember endet es."
+    },
+    {
+      "input": "Der Preis beträgt €49,99 für Mitglieder.",
+      "expected": "Der Preis beträgt neunundvierzig Euro und neunundneunzig Cent für Mitglieder."
+    },
+    {
+      "input": "Das Buch kostet 12,50 € im Handel.",
+      "expected": "Das Buch kostet zwölf Euro und fünfzig Cent im Handel."
+    },
+    {
+      "input": "Er zahlte £3 und später ¥500 sowie $20.",
+      "expected": "Er zahlte drei Pfund und später fünfhundert Yen sowie zwanzig Dollar"
+    },
+    {
+      "input": "Der Zug fährt um 9:05 Uhr und kommt um 23:59 an.",
+      "expected": "Der Zug fährt um neun Uhr fünf und kommt um dreiundzwanzig Uhr neunundfünfzig an."
+    },
+    {
+      "input": "Um 24:00 passiert nichts, aber 12:30 Uhr ist Mittag.",
+      "expected": "Um 24:00 passiert nichts, aber zwölf Uhr dreißig ist Mittag."
+    },
+    {
+      "input": "Am 24.12.2024 ist Heiligabend.",
+      "expected": "Am vierundzwanzigste Dezember zweitausendvierundzwanzig ist Heiligabend."
+    },
+    {
+      "input": "Der 32.01.2024 existiert nicht.",
+      "expected": "Der zweiunddreißig.eins.zweitausendvierundzwanzig existiert nicht."
+    },
+    {
+      "input": "Am 3. Mai beginnt die Messe.",
+      "expected": "Am dritte Mai beginnt die Messe."
+    },
+    {
+      "input": "Im Jahr 1985 wurde er geboren, 2044 wird er alt sein.",
+      "expected": "Im Jahr neunzehnhundertfünfundachtzig wurde er geboren, zweitausendvierundvierzig wird er alt sein."
+    },
+    {
+      "input": "Die Jahre 1099 und 2100 liegen außerhalb.",
+      "expected": "Die Jahre eintausendneunundneunzig und zweitausendeinhundert liegen außerhalb."
+    },
+    {
+      "input": "Die Stadt hat 1.234.567 Einwohner.",
+      "expected": "Die Stadt hat eine Million zweihundertvierunddreißigtausendfünfhundertsiebenundsechzig Einwohner."
+    },
+    {
+      "input": "Der Wert liegt bei 1.234,56 Punkten.",
+      "expected": "Der Wert liegt bei eintausendzweihundertvierunddreißig Komma fünf sechs Punkten."
+    },
+    {
+      "input": "Pi ist ungefähr 3,14 groß.",
+      "expected": "Pi ist ungefähr drei Komma eins vier groß."
+    },
+    {
+      "input": "Es sind noch 42 Kilometer bis zum Ziel.",
+      "expected": "Es sind noch zweiundvierzig Kilometer bis zum Ziel."
+    },
+    {
+      "input": "„Guten Tag“, sagte er, ‚wie gehts?‘",
+      "expected": "\"Guten Tag\", sagte er, ‚wie gehts?'"
+    },
+    {
+      "input": "Der «Bericht» und der ‹Anhang› sind fertig.",
+      "expected": "Der \"Bericht\" und der \"Anhang\" sind fertig."
+    },
+    {
+      "input": "Sie kaufte 2 Brote, 15 Brötchen und 100 Eier.",
+      "expected": "Sie kaufte zwei Brote, fünfzehn Brötchen und einhundert Eier."
+    },
+    {
+      "input": "Eine Million ist 1.000.000, eine Milliarde 1.000.000.000.",
+      "expected": "Eine Million ist eine Million, eine Milliarde eine Milliarde."
+    },
+    {
+      "input": "Das Meeting ist am 14. Mai 2026 um 9 Uhr.",
+      "expected": "Das Meeting ist am vierzehnte Mai zweitausendsechsundzwanzig um neun Uhr."
+    }
+  ],
+  "lookup": [
+    {
+      "input": "GitHub",
+      "expected": "github"
+    },
+    {
+      "input": "Moët",
+      "expected": "moet"
+    },
+    {
+      "input": "Disney+",
+      "expected": "disneyplus"
+    },
+    {
+      "input": "PyTorch",
+      "expected": "pytorch"
+    },
+    {
+      "input": "H&M",
+      "expected": "handm"
+    },
+    {
+      "input": "user@host",
+      "expected": "userathost"
+    },
+    {
+      "input": "Zero-Shot",
+      "expected": "zeroshot"
+    },
+    {
+      "input": "espeak-ng",
+      "expected": "espeakng"
+    },
+    {
+      "input": "PRIME Video",
+      "expected": "primevideo"
+    },
+    {
+      "input": "Straße",
+      "expected": "strasse"
+    }
+  ],
+  "g2p_de": [
+    {
+      "text": "Die Bundesregierung hat heute ein neues Gesetz zum Klimaschutz verabschiedet.",
+      "normalized": "Die Bundesregierung hat heute ein neues Gesetz zum Klimaschutz verabschiedet.",
+      "spans": [
+        {
+          "text": "Die Bundesregierung hat heute ein neues Gesetz zum Klimaschutz verabschiedet.",
+          "tied": "diː bˈʊndəsreːɡˈiːrʊŋ hat hˈɔ^øtə a^ɪn nˈɔ^øəs ɡəzˈɛt^s t^sʊm klˈiːmaʃˌʊt^s fɛɾˈapʃˌiːdət . "
+        }
+      ],
+      "expected": "diː bˈʊndəsreːɡˈiːrʊŋ hat hˈɔøtə In nˈɔøəs ɡəzˈɛʦ ʦʊm klˈiːmaʃˌʊʦ fɛɾˈapʃˌiːdət ."
+    },
+    {
+      "text": "Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?",
+      "normalized": "Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?",
+      "spans": [
+        {
+          "text": "Könntest du mir bitte sagen, wann der nächste Zug nach München fährt?",
+          "tied": "kˈœntəst duː miːɾ bˈɪtə zˈɑːɡən , vˈan dɛɾ nˈɛçstə t^sˈuːk nɑːx mˈʏnçən fˈɛːɾt ? "
+        }
+      ],
+      "expected": "kˈœntəst duː miːɾ bˈɪtə zˈɑːɡən , vˈan dɛɾ nˈɛçstə ʦˈuːk nɑːx mˈynçən fˈɛːɾt ?"
+    },
+    {
+      "text": "Das neue Modell kostet 2499 Euro und wiegt nur 1,3 Kilogramm.",
+      "normalized": "Das neue Modell kostet zweitausendvierhundertneunundneunzig Euro und wiegt nur eins Komma drei Kilogramm.",
+      "spans": [
+        {
+          "text": "Das neue Modell kostet zweitausendvierhundertneunundneunzig Euro und wiegt nur eins Komma drei Kilogramm.",
+          "tied": "das nˈɔ^øə moːdˈɛl kˈɔstət t^svˈa^ɪta^ʊzˌɛndviːɾhˌʊndɜtnˌɔ^ønʊndnˌɔ^ønt^sɪç ˈɔ^øroː ʊnt vˈiːkt nˈuːɾ a^ɪns kˈɔmɑː dɾˈa^ɪ kˌiːlɔɡɾˈam . "
+        }
+      ],
+      "expected": "das nˈɔøə moːdˈɛl kˈɔstət ʦvˈItWzˌɛndviːɾhˌʊndɜtnˌɔønʊndnˌɔønʦɪç ˈɔøroː ʊnt vˈiːkt nˈuːɾ Ins kˈɔmɑː dɾˈI kˌiːlɔɡɾˈam ."
+    },
+    {
+      "text": "Am 14. Mai 2026 beginnt die Konferenz pünktlich um 9 Uhr.",
+      "normalized": "Am vierzehnte Mai zweitausendsechsundzwanzig beginnt die Konferenz pünktlich um neun Uhr.",
+      "spans": [
+        {
+          "text": "Am vierzehnte Mai zweitausendsechsundzwanzig beginnt die Konferenz pünktlich um neun Uhr.",
+          "tied": "am fˈiːɾt^seːntə mˈa^ɪ t^svˈa^ɪta^ʊzˌɛndzɛksˌʊntt^svant^sˌɪç bəɡˈɪnt diː kɔnfeːrˈɛnt^s pˈʏŋktlɪç ʊm nˈɔ^øn ˈuːɾ . "
+        }
+      ],
+      "expected": "am fˈiːɾʦeːntə mˈI ʦvˈItWzˌɛndzɛksˌʊntʦvanʦˌɪç bəɡˈɪnt diː kɔnfeːrˈɛnʦ pˈyŋktlɪç ʊm nˈɔøn ˈuːɾ ."
+    },
+    {
+      "text": "Die Donaudampfschifffahrtsgesellschaft sucht dringend neue Mitarbeiter.",
+      "normalized": "Die Donaudampfschifffahrtsgesellschaft sucht dringend neue Mitarbeiter.",
+      "spans": [
+        {
+          "text": "Die Donaudampfschifffahrtsgesellschaft sucht dringend neue Mitarbeiter.",
+          "tied": "diː dˌoːna^ʊdˌampfʃɪfˌɑːɾtsɡeːzˈɛlʃaft zˈuːxt dɾˈɪŋənt nˈɔ^øə mˈɪtˌaɾba^ɪtɜ . "
+        }
+      ],
+      "expected": "diː dˌoːnWdˌampfʃɪfˌɑːɾtsɡeːzˈɛlʃaft zˈuːxt dɾˈɪŋənt nˈɔøə mˈɪtˌaɾbItɜ ."
+    },
+    {
+      "text": "Der kleine See im Wald war an diesem Morgen spiegelglatt und still.",
+      "normalized": "Der kleine See im Wald war an diesem Morgen spiegelglatt und still.",
+      "spans": [
+        {
+          "text": "Der kleine See im Wald war an diesem Morgen spiegelglatt und still.",
+          "tied": "dɛɾ klˈa^ɪnə zˈeː ɪm vˈalt vɑːɾ an dˌiːzəm mˈɔɾɡən ʃpˈiːɡəlɡlˌat ʊnt ʃtˈɪl . "
+        }
+      ],
+      "expected": "dɛɾ klˈInə zˈeː ɪm vˈalt vɑːɾ an dˌiːzəm mˈɔɾɡən ʃpˈiːɡəlɡlˌat ʊnt ʃtˈɪl ."
+    },
+    {
+      "text": "Für die Krankenversicherung benötigen wir Ihre Sozialversicherungsnummer.",
+      "normalized": "Für die Krankenversicherung benötigen wir Ihre Sozialversicherungsnummer.",
+      "spans": [
+        {
+          "text": "Für die Krankenversicherung benötigen wir Ihre Sozialversicherungsnummer.",
+          "tied": "fyːɾ diː kɾˌankənfɛɾzˈɪçərˌʊŋ bənˈøːtɪɡən viːɾ ˌiːrə zˈoːt^siːˌalfɛɾzˌɪçeːrˌʊŋsnʊmɜ . "
+        }
+      ],
+      "expected": "fyːɾ diː kɾˌankənfɛɾzˈɪçərˌʊŋ bənˈøːtɪɡən viːɾ ˌiːrə zˈoːʦiːˌalfɛɾzˌɪçeːrˌʊŋsnʊmɜ ."
+    },
+    {
+      "text": "Warum ist der Himmel am Tag eigentlich blau und abends manchmal rot?",
+      "normalized": "Warum ist der Himmel am Tag eigentlich blau und abends manchmal rot?",
+      "spans": [
+        {
+          "text": "Warum ist der Himmel am Tag eigentlich blau und abends manchmal rot?",
+          "tied": "vɑːrˈʊm ɪst dɛɾ hˈɪməl am tˈɑːk ˈa^ɪɡəntlɪç blˈa^ʊ ʊnt ˈɑːbənt^s mˈançmɑːl rˈoːt ? "
+        }
+      ],
+      "expected": "vɑːrˈʊm ɪst dɛɾ hˈɪməl am tˈɑːk ˈIɡəntlɪç blˈW ʊnt ˈɑːbənʦ mˈançmɑːl rˈoːt ?"
+    },
+    {
+      "text": "Die Physikerin erklärte die überraschenden Messergebnisse überzeugend.",
+      "normalized": "Die Physikerin erklärte die überraschenden Messergebnisse überzeugend.",
+      "spans": [
+        {
+          "text": "Die Physikerin erklärte die überraschenden Messergebnisse überzeugend.",
+          "tied": "diː fˈyːziːkərˌɪn ɛɾklˈɛɾtə diː ˌyːbɜrˈaʃəndən mˈɛsɜɡˌɛbnɪsə ˌyːbɜt^sˈɔ^øɡənt . "
+        }
+      ],
+      "expected": "diː fˈyːziːkərˌɪn ɛɾklˈɛɾtə diː ˌyːbɜrˈaʃəndən mˈɛsɜɡˌɛbnɪsə ˌyːbɜʦˈɔøɡənt ."
+    },
+    {
+      "text": "Tschüss, bis zum nächsten Mal!",
+      "normalized": "Tschüss, bis zum nächsten Mal!",
+      "spans": [
+        {
+          "text": "Tschüss, bis zum nächsten Mal!",
+          "tied": "t^ʃˈʏs , bɪs t^sʊm nˈɛçstən mˈɑːl ! "
+        }
+      ],
+      "expected": "ʧˈys , bɪs ʦʊm nˈɛçstən mˈɑːl !"
+    },
+    {
+      "text": "Ich habe den Code auf GitHub veröffentlicht.",
+      "normalized": "Ich habe den Code auf GitHub veröffentlicht.",
+      "spans": [
+        {
+          "text": "Ich habe den Code auf ",
+          "tied": "ɪç hɑːbə deːn kˈoːt ˈa^ʊf"
+        },
+        {
+          "override": "ɡˈɪthab"
+        },
+        {
+          "text": " veröffentlicht.",
+          "tied": "fɛɾˈœfəntlɪçt . "
+        }
+      ],
+      "expected": "ɪç hɑːbə deːn kˈoːt ˈWf ɡˈɪthab fɛɾˈœfəntlɪçt ."
+    },
+    {
+      "text": "PyTorch und CUDA beschleunigen das Training enorm.",
+      "normalized": "PyTorch und CUDA beschleunigen das Training enorm.",
+      "spans": [
+        {
+          "override": "pˈaɪtɔːɹtʃ"
+        },
+        {
+          "text": " und ",
+          "tied": "ˈʊnt"
+        },
+        {
+          "override": "kˈuːda"
+        },
+        {
+          "text": " beschleunigen das Training enorm.",
+          "tied": "bəʃlˈɔ^ønɪɡən das tɾˈɛnɪŋ ˈeːnɔɾm . "
+        }
+      ],
+      "expected": "pˈaɪtɔːɹtʃ ˈʊnt kˈuːda bəʃlˈɔønɪɡən das tɾˈɛnɪŋ ˈeːnɔɾm ."
+    },
+    {
+      "text": "Die Hypnose und die Synthese sind beides Fremdwörter.",
+      "normalized": "Die Hypnose und die Synthese sind beides Fremdwörter.",
+      "spans": [
+        {
+          "text": "Die ",
+          "tied": "diː"
+        },
+        {
+          "override": "hˈyːpnoːzə"
+        },
+        {
+          "text": " und die ",
+          "tied": "ʊnt diː"
+        },
+        {
+          "override": "zyntˈeːzə"
+        },
+        {
+          "text": " sind beides Fremdwörter.",
+          "tied": "zɪnt bˈa^ɪdəs frˈɛmdvœɾtɜ . "
+        }
+      ],
+      "expected": "diː hˈyːpnoːzə ʊnt diː zyntˈeːzə zɪnt bˈIdəs frˈɛmdvœɾtɜ ."
+    },
+    {
+      "text": "Wir streamen den Film heute Abend auf Disney+.",
+      "normalized": "Wir streamen den Film heute Abend auf Disney+.",
+      "spans": [
+        {
+          "text": "Wir streamen den Film heute Abend auf ",
+          "tied": "viːɾ ʃtɾˈeːɑːmən deːn fˈɪlm hˈɔ^øtə ˈɑːbənt ˈa^ʊf"
+        },
+        {
+          "override": "dˈɪzni plˈʌs"
+        },
+        {
+          "passthrough": "."
+        }
+      ],
+      "expected": "viːɾ ʃtɾˈeːɑːmən deːn fˈɪlm hˈɔøtə ˈɑːbənt ˈWf dˈɪzni plˈʌs."
+    },
+    {
+      "text": "Das Update kam über die API direkt vom Repository.",
+      "normalized": "Das Update kam über die API direkt vom Repository.",
+      "spans": [
+        {
+          "text": "Das Update kam über die ",
+          "tied": "das (^e^n)ˈʌpde^ɪt(^d^e) kˌɑːm ˌyːbɜ diː"
+        },
+        {
+          "override": "eɪpiːˈaɪ"
+        },
+        {
+          "text": " direkt vom ",
+          "tied": "diːrˈɛkt fˈɔm"
+        },
+        {
+          "override": "ɹᵻpˈɑːzɪtˌɔːɹi"
+        },
+        {
+          "passthrough": "."
+        }
+      ],
+      "expected": "das ˈʌpdAt kˌɑːm ˌyːbɜ diː eɪpiːˈaɪ diːrˈɛkt fˈɔm ɹᵻpˈɑːzɪtˌɔːɹi."
+    }
+  ],
+  "g2p_bg": [
+    {
+      "text": "Днес времето в София е слънчево и топло.",
+      "tied": "dnˈes vremˈeto fsofˈijɐ e sɫənt^ʃˈevo iː tˈopɫo . ",
+      "expected": "dnˈes vremˈeto fsofˈijɐ e slənʧˈevo iː tˈoplo . "
+    },
+    {
+      "text": "Моля, кажете ми кога тръгва следващият влак за Пловдив.",
+      "tied": "mˈolɐ , kaʒˈete miː kˈoɡɐ trˈəɡvɐ slˌedvaʃtˈijɐt vɫˈak zˌɐpɫovdˈif . ",
+      "expected": "mˈolɐ , kaʒˈete miː kˈoɡɐ trˈəɡvɐ slˌedvaʃtˈijɐt vlˈak zˌɐplovdˈif . "
+    },
+    {
+      "text": "Новият модел струва хиляда и петстотин лева.",
+      "tied": "novˈijɐt modˈeɫ strˈuvɐ çilˈadɐ iː petstˈotin lˈevɐ . ",
+      "expected": "novˈijɐt modˈel strˈuvɐ çilˈadɐ iː petstˈotin lˈevɐ . "
+    },
+    {
+      "text": "Защо небето е синьо през деня?",
+      "tied": "zˈaʃto nebˈeto e sˈiɲo prezdˈeɲɐ ? ",
+      "expected": "zˈaʃto nebˈeto e sˈiɲo prezdˈeɲɐ ? "
+    },
+    {
+      "text": "Благодаря ви много за помощта!",
+      "tied": "bɫˌɐɡodˈarʲɐ viː mnˈoɡo zˌɐpomˈoʃttɐ ! ",
+      "expected": "blˌɐɡodˈarʲɐ viː mnˈoɡo zˌɐpomˈoʃttɐ ! "
+    },
+    {
+      "text": "Конференцията започва точно в девет часа сутринта.",
+      "tied": "kˌonferˌent^sijˈatɐ zapˈot^ʃvɐ tˈot^ʃno vdˈevet t^ʃˈasɐ sutrˈintɐ . ",
+      "expected": "kˌonferˌenʦijˈatɐ zapˈoʧvɐ tˈoʧno vdˈevet ʧˈasɐ sutrˈintɐ . "
+    }
+  ]
+}
