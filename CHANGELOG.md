@@ -3,6 +3,89 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-09-20
+
+### Added
+- **Reader mode**: share a web page to Marmalade and it extracts the
+  article and reads it aloud — paragraph-by-paragraph playback with the
+  current block highlighted and auto-scrolled, a player notification
+  with transport controls that reopens the article at the position you
+  left, a table of contents, a typography sheet (font size stepper,
+  line width), per-read speed chips that stack on your alias speed, and
+  junk-block filtering with an honest "short extraction" banner when a
+  page resists extraction. The next block synthesizes while the current
+  one plays, so paragraph gaps are short. Article extraction runs
+  entirely on-device (Readability4J); the page is fetched once, and
+  nothing about your reading is sent anywhere.
+- **German, for real**: a native German voice engine (**Kokoro German
+  v1.0**, downloadable). It speaks with Thorsten Müller's voice — the
+  Thorsten-Voice dataset was recorded and donated by him specifically
+  for open TTS — fine-tuned on the Kokoro architecture, quantized to
+  int8 with the pitch/prosody predictors deliberately kept at full
+  precision after they proved intolerant to quantization. Word-error
+  rate matches the full-precision reference exactly, and two native
+  speakers rated the candidate 4.5/5 and daily-usable (issue #1 — thank
+  you!). Comes with an on-device German pronunciation pipeline: number,
+  date and unit normalization, an override lexicon, and a German G2P
+  that matches the reference phonemization.
+- **German and Bulgarian partial support** on the existing Kokoro
+  voices: pick the language explicitly and any Kokoro voice will speak
+  de or bg — with a noticeable accent, which community reviewers called
+  charming and tolerable. Honest tiering: automatic language detection
+  and the system-TTS language claims still only advertise the languages
+  with native support, so nothing routes to the accented tier unless
+  you ask for it.
+- **Language sample pages** for community review — recorded samples of
+  candidate voices (German, Ukrainian, Russian, Icelandic, Swedish,
+  Kazakh, Norwegian) are published on the project's GitHub Pages so
+  native speakers can grade them before anything ships. Ukrainian is
+  currently held after exactly that feedback: the reviewed voices
+  aren't daily-usable yet, so they stay out until they are.
+- The **Sponsors** row in Settings now ships in both flavors.
+
+### Changed
+- **Speed is now a true time-stretch on every engine.** Kokoro, Kitten
+  and Pocket used to feed your speed into the model (Pocket dropped it
+  entirely — issue #7); model-side speed audibly degraded articulation
+  and silently saturated around 1.85–2.2× no matter what you asked for.
+  Every engine now renders at its natural pace and the requested speed
+  is applied as a tempo stage afterwards, so 2.0× actually plays in
+  half the time — on the Speak screen, the reader, and system TTS
+  (screen readers included). Sentence pauses scale with the speed too.
+- **Speed-aware buffering**: at high speeds the app now pre-buffers
+  enough synthesized audio to avoid mid-text stalls where playback
+  outruns synthesis, and the alias editor warns that speeds above
+  ~1.35× may stutter on slower devices.
+
+### Fixed
+- **Offline / hardened-Android crashes** (issue #12): opening the Cloud
+  voices screen with the Network permission revoked (GrapheneOS's
+  per-app toggle) crashed the app — network errors now surface
+  gracefully. Sharing a URL while offline no longer crashes the reader,
+  and a share or Quick Settings speak request that the system refuses
+  to start now shows an error toast instead of failing silently.
+- **Word endings are no longer swallowed at high speeds** (issue #8):
+  Kokoro and Kitten trimmed a fixed slice off each chunk's tail, which
+  ate final consonants at 2×. The trim is now amplitude-aware — it only
+  removes actual silence.
+- **Text preprocessing** got a sweep of pronunciation fixes:
+  thousands-separated numbers and currency amounts verbalize correctly
+  ("$1,234.56" no longer reads digit-by-digit), "¥" amounts say "yen"
+  (not "yens"), over-long decimals no longer half-match, scene-break
+  symbol lines (asterisks, dinkuses, ■) are treated as breaks instead
+  of being read out, superscript footnote markers are dropped, and
+  hard-wrapped text (emails, plain-text notes) is re-joined so
+  line breaks mid-sentence don't become sentence breaks. Parenthetical
+  asides get a natural spoken pause, ~30 words espeak mispronounces
+  ("yeah", "gauge", …) are respelled, and common heteronyms ("lead",
+  "tear", …) pick the right reading from context — ported from the
+  Marmalade TTS CLI so both stay in lockstep.
+- Kokoro's espeak-backed languages no longer read stray language-switch
+  markers aloud when a foreign word appears mid-sentence.
+- The reader recognizes sentence endings before CJK closing brackets.
+- The email preprocessing rule was accidentally quadratic — very long
+  texts with many @-signs preprocessed slowly. Now linear.
+
 ## [1.0.0] - 2026-08-10
 
 ### Removed

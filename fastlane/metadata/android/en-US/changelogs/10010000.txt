@@ -1,0 +1,5 @@
+Marmalade TTS 1.1.0.
+- Reader mode: share a web page and it's read aloud, paragraph by paragraph, with transport controls — extraction stays on-device.
+- German: a native community-reviewed voice (Thorsten/Kokoro), plus accented German and Bulgarian on every Kokoro voice.
+- Speed is now a true time-stretch on all engines — 2.0x really plays twice as fast, without slurred articulation.
+- Fixes: offline crashes on hardened Android, swallowed word endings at high speed, smarter number/currency reading.
