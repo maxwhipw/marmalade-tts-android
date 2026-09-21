@@ -37,3 +37,19 @@ Open questions for the design pass: margin size, whether to use the
 onboarding probe's prediction or a live measured RTF for the installed
 engine, and what the warning says when it does fire (name the cause:
 "this voice can't render this fast on this phone").
+
+### Addendum (same day) — hard cap at 1.5×?
+
+Max floated a global speed cap at 1.5×: would get pushback, but avoids
+some hard failures. Context that shapes the call: the actual failure is
+between-sentence stalling (non-native-speed engines render at 1.0× and
+time-stretch, so playback outruns synthesis when RTF × speed ≥ ~1), not a
+crash; and speed-hungry users skew accessibility (screen-reader users run
+2×+), the group a flat cap hurts most. A flat cap also doesn't save weak
+phones on big models, which can stall below 1.5×.
+
+Variant on the table: a per-device+engine cap derived from the same RTF
+headroom — the slider max simply stops where this phone can't keep up,
+warning zone just beneath it. Fast phones keep 2.0×, weak ones get an
+honest ceiling instead of a stall. NOT DECIDED — options are: flat 1.5×
+cap, RTF-derived cap, or warning-only (no cap).
