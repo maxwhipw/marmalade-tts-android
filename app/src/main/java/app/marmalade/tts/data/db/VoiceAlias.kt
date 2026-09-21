@@ -160,15 +160,15 @@ data class VoiceAlias(
         const val MAX_SPEED: Float = 2.0f
 
         /**
-         * Effective speed above which time-stretched playback can outrun the
-         * slower engines' rendering (measured: Kokoro at 2× on a Pixel 8a).
-         * Both the alias editor's speed slider and the reader sheet's speed
-         * chips surface the same perf warning past this point — the reader
-         * multiplies its chip by the alias's own speed first, so a modest chip
-         * on an already-fast alias can cross it. 1.35 not 1.30: the alias
-         * slider's 0.1 detents land near-but-not-on round values, so the guard
-         * sits just above the 1.3 label and belongs to the 1.4+ steps. The
-         * user-facing copy still reads "Above 1.3×".
+         * Static fallback threshold for the speed-up perf warning, used only
+         * when we have no RTF signal for the engine at all — no measured
+         * rolling RTF and no probe prediction (see
+         * [app.marmalade.tts.perf.SpeedPerfWarning]). With a signal, the
+         * warning is decided per engine-on-this-device instead.
+         *
+         * 1.35 not 1.30: the alias slider's 0.1 detents land near-but-not-on
+         * round values, so the guard sits just above the 1.3 label and belongs
+         * to the 1.4+ steps.
          */
         const val SPEED_PERF_WARNING_THRESHOLD: Float = 1.35f
     }

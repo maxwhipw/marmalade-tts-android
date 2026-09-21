@@ -111,6 +111,23 @@ object EngineRecommender {
     }
 
     /**
+     * Predicted warm RTF for [engineName] on this device, or null when the
+     * probe carries no signal or the engine isn't one of the three the
+     * recommender models. Derived from the same Kokoro anchor + fixed ratios
+     * as [recommend]; the speed-up warning uses it as its cold-start estimate
+     * before measured RTFs accrue.
+     */
+    fun predictedRtf(engineName: String, probe: DeviceProbe): Double? {
+        val kokoro = predictedKokoroRtf(probe) ?: return null
+        return when (engineName) {
+            KITTEN -> kokoro / KOKORO_RTF_PER_KITTEN_RTF
+            KOKORO -> kokoro
+            POCKET -> kokoro * POCKET_COST_VS_KOKORO
+            else -> null
+        }
+    }
+
+    /**
      * Fit + ordering for the three production engines, or null when the
      * probe says nothing (see [predictedKokoroRtf]).
      *

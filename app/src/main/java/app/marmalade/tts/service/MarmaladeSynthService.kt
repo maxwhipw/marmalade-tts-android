@@ -772,7 +772,21 @@ class MarmaladeSynthService : Service() {
 
         var chain: StreamingEffectChain? = null
         var sampleRate = 0
-        val plan = applySpeedFallback(engineHandleFor(engineName), resolved.speed, resolved.effectBlocks)
+        val handle = engineHandleFor(engineName)
+        // Cold-start skew guard: an engine that has to load its model during
+        // this utterance renders the first chunk far slower than it will warm.
+        // Match DeviceCapability's benchmark, which excludes model load — only
+        // record RTF when the model is already resident.
+        val warm = handle.isLoaded()
+        val plan = applySpeedFallback(handle, resolved.speed, resolved.effectBlocks)
+        // Rolling-RTF measurement. renderNanos accumulates only the time the
+        // engine spends producing each chunk (the gap before it arrives),
+        // reset AFTER the send so downstream effect processing and channel
+        // backpressure — which have nothing to do with render speed — are
+        // excluded. audioSamples is the engine's own rendered PCM (pre-stretch).
+        var renderNanos = 0L
+        var audioSamples = 0L
+        var lastResume = System.nanoTime()
         streamForEngine(
             engineName,
             stripped,
@@ -781,13 +795,38 @@ class MarmaladeSynthService : Service() {
             resolved.phonemizationLanguage,
             plan.playbackRate,
         ).collect { audio ->
+            renderNanos += System.nanoTime() - lastResume
+            audioSamples += audio.pcm.size
             val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                 .also { chain = it; sampleRate = audio.sampleRate }
             channel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
+            lastResume = System.nanoTime()
         }
         chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
             channel.send(SynthAudio(tail, sampleRate))
         }
+        recordEngineRtf(engineName, warm, renderNanos, audioSamples, sampleRate)
+    }
+
+    /**
+     * Fold this utterance's warm RTF into the per-engine rolling average that
+     * feeds the speed-up performance warning. Skipped when the engine was
+     * cold (model loaded mid-utterance) or the audio is too short to divide
+     * meaningfully. Fire-and-forget on the service scope, like the latency
+     * write, so a slow DataStore can't stall the producer.
+     */
+    private fun recordEngineRtf(
+        engineName: String,
+        warm: Boolean,
+        renderNanos: Long,
+        audioSamples: Long,
+        sampleRate: Int,
+    ) {
+        if (!warm || renderNanos <= 0L || audioSamples <= 0L || sampleRate <= 0) return
+        val audioNanos = audioSamples * 1_000_000_000.0 / sampleRate
+        if (audioNanos < MIN_RTF_AUDIO_NANOS) return
+        val rtf = renderNanos / audioNanos
+        scope.launch { runCatching { settings.recordEngineRtf(engineName, rtf) } }
     }
 
     /**
@@ -1435,6 +1474,13 @@ class MarmaladeSynthService : Service() {
          * shallow enough that a book-length share-sheet read stays bounded.
          */
         private const val SYNTH_BUFFER_CHUNKS = 8
+
+        /**
+         * Below ~0.2 s of rendered audio an RTF is noise — a stray one-word
+         * chunk divides by too little to mean anything. Mirrors
+         * DeviceCapability.MIN_BENCH_AUDIO_MS.
+         */
+        private const val MIN_RTF_AUDIO_NANOS = 200_000_000.0
 
         /** Separate id so stopForeground's removal can't take errors with it. */
         private const val ERROR_NOTIFICATION_ID = 2

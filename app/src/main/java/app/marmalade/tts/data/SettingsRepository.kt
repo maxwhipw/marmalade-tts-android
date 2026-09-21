@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.perf.KittenRtfMeasurement
+import app.marmalade.tts.perf.RollingRtf
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.service.KeepaliveMode
 import app.marmalade.tts.ui.theme.ThemePreset
@@ -523,6 +524,39 @@ open class SettingsRepository @Inject constructor(
     }
 
     /**
+     * Rolling measured warm RTF per engine name (rendered-audio seconds ÷
+     * wall-clock render time), fed by the synth service on every completed
+     * utterance. Drives the speed-up performance warning once a few
+     * utterances have accrued; before that the warning runs on
+     * [app.marmalade.tts.perf.EngineRecommender]'s probe prediction.
+     *
+     * Purely derived data — safe to drop, and it repopulates from use — so
+     * it is deliberately not part of the semver-frozen settings surface.
+     * One key per engine, mirroring the latency window's per-model layout.
+     */
+    open val engineRtf: Flow<Map<String, Double>> = dataStore.data.map { prefs ->
+        val out = mutableMapOf<String, Double>()
+        for ((key, value) in prefs.asMap()) {
+            val name = key.name.removePrefix(ENGINE_RTF_PREFIX)
+            if (name != key.name && value is Double) out[name] = value
+        }
+        out
+    }
+
+    /**
+     * Fold one measured RTF [sampleRtf] for [engineName] into its rolling
+     * average (see [RollingRtf]). Read-modify-write inside a single
+     * DataStore edit so concurrent utterances can't clobber each other's
+     * update.
+     */
+    open suspend fun recordEngineRtf(engineName: String, sampleRtf: Double) {
+        dataStore.edit { prefs ->
+            val key = doublePreferencesKey("$ENGINE_RTF_PREFIX$engineName")
+            prefs[key] = RollingRtf.update(prefs[key], sampleRtf)
+        }
+    }
+
+    /**
      * Reader-mode background preset, stored as a
      * [app.marmalade.tts.ui.reader.ReaderBackground] name.
      *
@@ -661,6 +695,10 @@ open class SettingsRepository @Inject constructor(
         // reason.
         private val KEY_KITTEN_RTF = doublePreferencesKey("device_kitten_rtf")
         private val KEY_KITTEN_RTF_AT = longPreferencesKey("device_kitten_rtf_at")
+
+        // Rolling per-engine measured warm RTF, one key per engine. Derived
+        // data — safe to drop; repopulates from use — so not semver-frozen.
+        private const val ENGINE_RTF_PREFIX = "engine_rtf_"
 
         // Reader display settings (step G). All three are absent until the
         // user changes them; the reader applies its own defaults on read.
