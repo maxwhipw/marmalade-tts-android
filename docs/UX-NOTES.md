@@ -93,3 +93,16 @@ Post-v1.1 work; v1.1 ships the static 1.35 threshold as-is.
   before deciding. Lab to demo: chip × alias behavior, soft-cap slider
   with type-in bypass, info-icon copy, and the RTF warning firing under
   simulated slow/mid/fast devices.
+
+### Addendum 4 (same day) — DECIDED at the lab: A3 + dynamic warning
+
+- **Cap style: A3** — slider stays 0.5–2.0, no cap (hard or soft). Cap
+  scope and info icon are therefore moot; the warning does the work.
+- **Warning copy (Max's final text, signed off):** "At faster speeds some
+  voices can't render fast enough for some devices to keep up. Expect
+  delays in time to first audio and pauses between sentences at higher
+  values."
+- Warning trigger stands: **measured RTF × effective speed > 0.8**, both
+  surfaces (alias editor + reader sheet); rolling measured warm RTF per
+  engine, cold-start from the probe prediction, static-1.35 rule as the
+  no-data fallback.
