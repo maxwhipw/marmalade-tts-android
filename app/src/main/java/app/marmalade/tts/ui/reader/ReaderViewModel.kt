@@ -10,6 +10,7 @@ import app.marmalade.tts.reader.ArticleFetcher
 import app.marmalade.tts.reader.ExtractionResult
 import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderArticle
+import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -98,6 +99,7 @@ class ReaderViewModel @Inject constructor(
     private val extractor: ArticleExtractor,
     private val playbackController: ReaderPlaybackController,
     private val settings: SettingsRepository,
+    private val aliasDao: VoiceAliasDao,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -144,6 +146,23 @@ class ReaderViewModel @Inject constructor(
             ),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderDisplayPrefs())
+
+    /**
+     * The speed the reader's playback resolves to *before* the session's
+     * chip multiplier — i.e. the user's primary alias's own tuned speed, which
+     * the service multiplies the chip against (see
+     * [app.marmalade.tts.service.TtsRouter.resolveAlias] and MarmaladeSynthService's
+     * `speed * speedMultiplier`). Falls back to 1.0 when no primary alias is set
+     * (or it has been deleted), which mirrors the service falling through to the
+     * engine's default speed. The speed sheet needs it to warn on the *effective*
+     * speed (chip × this) rather than the chip alone.
+     */
+    val aliasSpeed: StateFlow<Float> = combine(
+        settings.primaryAliasId,
+        aliasDao.getAll(),
+    ) { primaryId, aliases ->
+        aliases.firstOrNull { it.id == primaryId }?.speed ?: 1.0f
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
 
     private val shortExtractionNoticeDismissed = MutableStateFlow(false)
 

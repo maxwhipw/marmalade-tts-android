@@ -136,6 +136,7 @@ fun ReaderScreen(
     val currentBlockIndex by viewModel.currentBlockIndex.collectAsStateWithLifecycle()
     val playback by viewModel.playback.collectAsStateWithLifecycle()
     val prefs by viewModel.display.collectAsStateWithLifecycle()
+    val aliasSpeed by viewModel.aliasSpeed.collectAsStateWithLifecycle()
     val showShortExtractionNotice by
         viewModel.showShortExtractionNotice.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -254,6 +255,7 @@ fun ReaderScreen(
     if (showSpeedSheet) {
         ReaderSpeedSheet(
             speedMultiplier = playback.speedMultiplier,
+            aliasSpeed = aliasSpeed,
             onSpeedChange = viewModel::onSpeedMultiplierChange,
             onDismiss = { showSpeedSheet = false },
         )

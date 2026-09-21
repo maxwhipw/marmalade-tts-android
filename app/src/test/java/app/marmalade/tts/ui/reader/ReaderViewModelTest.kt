@@ -10,8 +10,10 @@ import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackStatus
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
+import app.marmalade.tts.ui.screen.FakeAliasDao
 import app.marmalade.tts.ui.screen.FakeSettings
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
@@ -132,6 +134,7 @@ class ReaderViewModelTest {
             extractor = FakeExtractor(ExtractionResult.ExtractionFailed),
             playbackController = newController(),
             settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
+            aliasDao = FakeAliasDao(),
             savedStateHandle = SavedStateHandle(),
         )
 
@@ -385,6 +388,39 @@ class ReaderViewModelTest {
         assertEquals(ReaderDisplayPrefs.MIN_FONT_SIZE_SP, vm.display.first().fontSizeSp)
     }
 
+    // -- Alias base speed (drives the effective-speed perf warning) -----------
+
+    @Test
+    fun `aliasSpeed resolves the primary alias's own speed`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-fast")
+        val aliasDao = FakeAliasDao(
+            initial = listOf(alias(id = "id-fast", speed = 1.2f)),
+        )
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+
+        assertEquals(1.2f, vm.aliasSpeed.first())
+    }
+
+    @Test
+    fun `aliasSpeed falls back to 1x when no primary alias is set`() = runTest {
+        // FakeSettings defaults primaryAliasId to null; the reader's speak path
+        // then resolves to the engine default, which is 1.0.
+        val vm = newViewModel(aliasDao = FakeAliasDao())
+
+        assertEquals(1.0f, vm.aliasSpeed.first())
+    }
+
+    private fun alias(id: String, speed: Float) = VoiceAlias(
+        id = id,
+        name = id,
+        engine = "kitten-direct-v0_8",
+        voiceId = "kitten-direct-v0_8:Bella",
+        speed = speed,
+        effectPreset = "NONE",
+        createdAt = 0L,
+    )
+
     private fun threeBlocks() = ExtractionResult.Success(
         title = "Marmalade Ships",
         byline = "By Max",
@@ -420,11 +456,13 @@ class ReaderViewModelTest {
         settings: FakeSettings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
         fetcher: FakeFetcher = FakeFetcher(fetch),
         controller: ReaderPlaybackController = newController(),
+        aliasDao: FakeAliasDao = FakeAliasDao(),
     ) = ReaderViewModel(
         fetcher = fetcher,
         extractor = extractor,
         playbackController = controller,
         settings = settings,
+        aliasDao = aliasDao,
         savedStateHandle = SavedStateHandle(
             mapOf(
                 ReaderViewModel.ARG_URL to url,

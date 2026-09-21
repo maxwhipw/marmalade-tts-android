@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.marmalade.tts.R
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
@@ -39,6 +40,7 @@ private val SPEED_CHOICES = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 @Composable
 fun ReaderSpeedSheet(
     speedMultiplier: Float,
+    aliasSpeed: Float,
     onSpeedChange: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -77,6 +79,19 @@ fun ReaderSpeedSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
             )
+            // The chips are FACTORS on the alias's own speed, so the perf
+            // warning has to fire on the EFFECTIVE speed (chip × alias): a
+            // 1.25× chip on a 1.2× alias already lands at 1.5×. Same threshold
+            // and same copy as the alias editor's slider warning — see
+            // VoiceAlias.SPEED_PERF_WARNING_THRESHOLD.
+            if (speedMultiplier * aliasSpeed > VoiceAlias.SPEED_PERF_WARNING_THRESHOLD) {
+                Text(
+                    text = stringResource(R.string.alias_speed_perf_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
         }
     }
 }
