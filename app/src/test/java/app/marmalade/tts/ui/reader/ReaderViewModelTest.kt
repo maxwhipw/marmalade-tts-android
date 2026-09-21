@@ -13,7 +13,9 @@ import app.marmalade.tts.reader.ReaderPlaybackStatus
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
+import app.marmalade.tts.perf.DeviceProbe
 import app.marmalade.tts.ui.screen.FakeAliasDao
+import app.marmalade.tts.ui.screen.FakeDeviceProbe
 import app.marmalade.tts.ui.screen.FakeSettings
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
@@ -135,6 +137,7 @@ class ReaderViewModelTest {
             playbackController = newController(),
             settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
             aliasDao = FakeAliasDao(),
+            deviceProbe = FakeDeviceProbe(),
             savedStateHandle = SavedStateHandle(),
         )
 
@@ -388,27 +391,60 @@ class ReaderViewModelTest {
         assertEquals(ReaderDisplayPrefs.MIN_FONT_SIZE_SP, vm.display.first().fontSizeSp)
     }
 
-    // -- Alias base speed (drives the effective-speed perf warning) -----------
+    // -- Speed-up perf warning (RTF-aware, chip × primary alias speed) --------
 
     @Test
-    fun `aliasSpeed resolves the primary alias's own speed`() = runTest {
+    fun `speed warning uses the static fallback with no RTF signal`() = runTest {
+        // Primary alias speed 1.5, chip default 1.0 → effective 1.5, past the
+        // 1.35 static threshold. No probe and no measured RTF, so the warning
+        // falls back to that static rule.
         val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
         settings.setPrimaryAliasId("id-fast")
-        val aliasDao = FakeAliasDao(
-            initial = listOf(alias(id = "id-fast", speed = 1.2f)),
-        )
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 1.5f)))
         val vm = newViewModel(settings = settings, aliasDao = aliasDao)
 
-        assertEquals(1.2f, vm.aliasSpeed.first())
+        assertTrue(vm.showSpeedWarning.first())
     }
 
     @Test
-    fun `aliasSpeed falls back to 1x when no primary alias is set`() = runTest {
-        // FakeSettings defaults primaryAliasId to null; the reader's speak path
-        // then resolves to the engine default, which is 1.0.
-        val vm = newViewModel(aliasDao = FakeAliasDao())
+    fun `speed warning stays off below the static threshold with no RTF signal`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-slow")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-slow", speed = 1.2f)))
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
 
-        assertEquals(1.0f, vm.aliasSpeed.first())
+        assertFalse(vm.showSpeedWarning.first())
+    }
+
+    @Test
+    fun `measured RTF fires the warning below the static threshold`() = runTest {
+        // Alias speed 1.0 — the static rule would never fire here. A measured
+        // Kitten RTF of 0.9 pushes effective RTF (0.9 × 1.0) past 0.8, so the
+        // warning fires on measurement, proving measured beats the fallback.
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-1x")
+        settings.setEngineRtfForTest("kitten-direct-v0_8", 0.9)
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-1x", speed = 1.0f)))
+        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+
+        assertTrue(vm.showSpeedWarning.first())
+    }
+
+    @Test
+    fun `predicted RTF fires the warning when no measured value exists`() = runTest {
+        // Probe measures Kitten at 0.9 RTF → predicted Kitten RTF 0.9. No
+        // stored measured RTF, so the warning runs on the prediction:
+        // 0.9 × 1.0 > 0.8. Alias speed 1.0 keeps the static rule silent.
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-1x")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-1x", speed = 1.0f)))
+        val vm = newViewModel(
+            settings = settings,
+            aliasDao = aliasDao,
+            deviceProbe = FakeDeviceProbe(DeviceProbe(measuredKittenRtf = 0.9, computeScore = null)),
+        )
+
+        assertTrue(vm.showSpeedWarning.first())
     }
 
     private fun alias(id: String, speed: Float) = VoiceAlias(
@@ -457,12 +493,14 @@ class ReaderViewModelTest {
         fetcher: FakeFetcher = FakeFetcher(fetch),
         controller: ReaderPlaybackController = newController(),
         aliasDao: FakeAliasDao = FakeAliasDao(),
+        deviceProbe: FakeDeviceProbe = FakeDeviceProbe(),
     ) = ReaderViewModel(
         fetcher = fetcher,
         extractor = extractor,
         playbackController = controller,
         settings = settings,
         aliasDao = aliasDao,
+        deviceProbe = deviceProbe,
         savedStateHandle = SavedStateHandle(
             mapOf(
                 ReaderViewModel.ARG_URL to url,

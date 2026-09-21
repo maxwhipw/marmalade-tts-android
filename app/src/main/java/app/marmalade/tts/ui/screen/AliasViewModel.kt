@@ -23,6 +23,10 @@ import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.perf.DeviceProbe
+import app.marmalade.tts.perf.DeviceProbeSource
+import app.marmalade.tts.perf.EngineRecommender
+import app.marmalade.tts.perf.SpeedPerfWarning
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -151,6 +155,7 @@ class AliasViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val installer: EngineInstaller,
     private val voicePaths: VoicePathResolver,
+    private val deviceProbe: DeviceProbeSource,
     latencySource: VoiceLatencySource,
     effectDao: EffectDao,
 ) : ViewModel() {
@@ -265,6 +270,34 @@ class AliasViewModel @Inject constructor(
 
     private val _editorState = MutableStateFlow(EditorState())
     val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
+
+    /**
+     * This device's synthesis-capability probe, resolved once. Feeds the
+     * cold-start RTF prediction the speed-up warning uses before measured
+     * RTFs accrue; null while it's still running or if it carried no signal.
+     */
+    private val _deviceProbe = MutableStateFlow<DeviceProbe?>(null)
+
+    /**
+     * Whether the editor should show the speed-up performance warning for the
+     * currently-selected engine at the slider's speed. Resolves the engine's
+     * measured RTF, then its probe prediction, then the static fallback — see
+     * [SpeedPerfWarning].
+     */
+    val showSpeedWarning: StateFlow<Boolean> = combine(
+        _editorState,
+        _deviceProbe,
+        settings.engineRtf,
+    ) { state, probe, rtfByEngine ->
+        val measured = rtfByEngine[state.engine]
+        val predicted = probe?.let { EngineRecommender.predictedRtf(state.engine, it) }
+        SpeedPerfWarning.shouldWarn(measured, predicted, state.speed)
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
 
     // -- Voice picker ---------------------------------------------------------
     //
@@ -400,6 +433,10 @@ class AliasViewModel @Inject constructor(
 
     init {
         refresh()
+        // Probe once for the speed-up warning's cold-start RTF prediction. Off
+        // the critical path — the warning falls back to the static rule until
+        // it lands.
+        viewModelScope.launch { _deviceProbe.value = deviceProbe.probe() }
     }
 
     /**

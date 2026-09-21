@@ -9,6 +9,7 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.perf.DeviceProbe
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -770,6 +771,54 @@ class AliasViewModelTest {
      * recorder lists after the action. Passing both is an error in tests —
      * seed via the DAO directly when you need both.
      */
+    // -- Speed-up perf warning (RTF-aware editor slider) ----------------------
+
+    @Test
+    fun `speed warning uses the static fallback with no RTF signal`() = runTest {
+        // Editor engine = Kitten, slider speed 1.5, no probe and no measured
+        // RTF → the static 1.35 rule fires.
+        val vm = newViewModel()
+        vm.openEditor(alias(name = "fast", speed = 1.5f))
+
+        assertTrue(vm.showSpeedWarning.first())
+    }
+
+    @Test
+    fun `speed warning stays off below the static threshold with no RTF signal`() = runTest {
+        val vm = newViewModel()
+        vm.openEditor(alias(name = "slow", speed = 1.2f))
+
+        assertFalse(vm.showSpeedWarning.first())
+    }
+
+    @Test
+    fun `measured RTF fires the editor warning below the static threshold`() = runTest {
+        // Slider speed 1.0 — the static rule stays silent. A measured Kitten
+        // RTF of 0.9 pushes effective RTF past 0.8, so the warning fires on
+        // measurement.
+        val settings = FakeSettings(
+            initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setEngineRtfForTest("kitten-direct-v0_8", 0.9)
+        val vm = newViewModel(settings = settings)
+        vm.openEditor(alias(name = "onex", speed = 1.0f))
+
+        assertTrue(vm.showSpeedWarning.first())
+    }
+
+    @Test
+    fun `predicted RTF fires the editor warning when no measured value exists`() = runTest {
+        // Probe measures Kitten at 0.9 RTF → predicted Kitten RTF 0.9; no
+        // measured value stored, so the warning runs on the prediction.
+        val vm = newViewModel(
+            deviceProbe = FakeDeviceProbe(DeviceProbe(measuredKittenRtf = 0.9, computeScore = null)),
+        )
+        vm.openEditor(alias(name = "onex", speed = 1.0f))
+
+        assertTrue(vm.showSpeedWarning.first())
+    }
+
     private fun newViewModel(
         aliasDao: FakeAliasDao? = null,
         aliases: List<VoiceAlias> = emptyList(),
@@ -778,6 +827,7 @@ class AliasViewModelTest {
             initialOnboarded = true,
         ),
         mappingDao: FakeAppAliasMappingDao = FakeAppAliasMappingDao(),
+        deviceProbe: FakeDeviceProbe = FakeDeviceProbe(),
     ): AliasViewModel {
         require(aliasDao == null || aliases.isEmpty()) {
             "Pass either aliasDao or aliases, not both"
@@ -793,6 +843,7 @@ class AliasViewModelTest {
             // No cloud providers configured — on-device voices resolve
             // entirely from EngineCatalog, which is what these tests use.
             voicePaths = VoicePathResolver { null },
+            deviceProbe = deviceProbe,
             latencySource = VoiceLatencySource { flowOf(emptyMap()) },
             effectDao = FakeEffectDao(),
         )

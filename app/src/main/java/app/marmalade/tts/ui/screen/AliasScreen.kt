@@ -143,6 +143,7 @@ fun AliasScreen(
     val voiceTree by viewModel.voiceTree.collectAsStateWithLifecycle()
     val pickerState by viewModel.pickerState.collectAsStateWithLifecycle()
     val voiceLatency by viewModel.voiceLatency.collectAsStateWithLifecycle()
+    val showSpeedWarning by viewModel.showSpeedWarning.collectAsStateWithLifecycle()
 
     val mappings by routingViewModel.mappings.collectAsStateWithLifecycle()
     val installedApps by routingViewModel.installedApps.collectAsStateWithLifecycle()
@@ -257,6 +258,7 @@ fun AliasScreen(
             canSetPrimary = !editorState.isNew &&
                 editorState.originalName != null &&
                 editorState.originalName != primaryAliasId,
+            showSpeedWarning = showSpeedWarning,
             fallbackCandidates = viewModel.fallbackCandidates(),
             onSetPrimary = {
                 editorState.editingId?.let { viewModel.setPrimary(it) }
@@ -636,6 +638,7 @@ private fun AliasEditorSheet(
     effects: List<Effect>,
     canDelete: Boolean,
     canSetPrimary: Boolean,
+    showSpeedWarning: Boolean,
     fallbackCandidates: List<VoiceAlias>,
     onSetPrimary: () -> Unit,
     onNameChange: (String) -> Unit,
@@ -733,14 +736,14 @@ private fun AliasEditorSheet(
                         stateDescription = speedText
                     },
                 )
-                // Past ~1.3× the time-stretched playback can outrun the
-                // slower engines' rendering (measured: Kokoro at 2× on a
-                // Pixel 8a) — the adaptive pre-roll covers most of it, but
-                // the user should know why fast speech starts later and can
-                // still hesitate between sentences. The reader sheet mirrors
-                // this warning off the same threshold; see
-                // VoiceAlias.SPEED_PERF_WARNING_THRESHOLD for why it's 1.35.
-                if (state.speed > VoiceAlias.SPEED_PERF_WARNING_THRESHOLD) {
+                // Time-stretched playback can outrun the slower engines'
+                // rendering — the adaptive pre-roll covers most of it, but the
+                // user should know why fast speech starts later and can still
+                // hesitate between sentences. Whether to warn is decided per
+                // engine-on-this-device by the ViewModel (measured/predicted
+                // RTF × speed), not a static threshold — see
+                // AliasViewModel.showSpeedWarning. The reader sheet mirrors it.
+                if (showSpeedWarning) {
                     Text(
                         text = stringResource(R.string.alias_speed_perf_warning),
                         style = MaterialTheme.typography.bodySmall,

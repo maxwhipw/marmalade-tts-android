@@ -216,6 +216,31 @@ internal class FakeSettings(
     override suspend fun setEnabledRules(engineName: String, rules: Set<String>) {
         rulesByEngine.value = rulesByEngine.value + (engineName to rules)
     }
+
+    // Per-engine rolling RTF. AliasViewModel + ReaderViewModel combine this
+    // into their speed-warning flow, so the NoOp store's never-emitting flow
+    // would freeze the warning; back it with real state. Seed via
+    // setEngineRtfForTest / the real recordEngineRtf (EMA) both work.
+    private val engineRtfState = MutableStateFlow<Map<String, Double>>(emptyMap())
+    override val engineRtf: Flow<Map<String, Double>> = engineRtfState
+    override suspend fun recordEngineRtf(engineName: String, sampleRtf: Double) {
+        val previous = engineRtfState.value[engineName]
+        engineRtfState.value = engineRtfState.value +
+            (engineName to app.marmalade.tts.perf.RollingRtf.update(previous, sampleRtf))
+    }
+
+    /** Directly seed a measured RTF without going through the EMA. */
+    fun setEngineRtfForTest(engineName: String, rtf: Double) {
+        engineRtfState.value = engineRtfState.value + (engineName to rtf)
+    }
+}
+
+/** Canned [DeviceProbeSource] — the real one needs an ORT session + sysfs. */
+internal class FakeDeviceProbe(
+    private val result: app.marmalade.tts.perf.DeviceProbe =
+        app.marmalade.tts.perf.DeviceProbe(measuredKittenRtf = null, computeScore = null),
+) : app.marmalade.tts.perf.DeviceProbeSource {
+    override suspend fun probe(): app.marmalade.tts.perf.DeviceProbe = result
 }
 
 /**

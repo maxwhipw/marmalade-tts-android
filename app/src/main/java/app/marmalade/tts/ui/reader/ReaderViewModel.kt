@@ -11,6 +11,10 @@ import app.marmalade.tts.reader.ExtractionResult
 import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.data.db.VoiceAliasDao
+import app.marmalade.tts.perf.DeviceProbe
+import app.marmalade.tts.perf.DeviceProbeSource
+import app.marmalade.tts.perf.EngineRecommender
+import app.marmalade.tts.perf.SpeedPerfWarning
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -93,6 +97,9 @@ sealed interface ReaderUiState {
     ) : ReaderUiState
 }
 
+/** The primary alias's engine + its own tuned speed, or a neutral default. */
+private data class PrimaryAlias(val engine: String, val speed: Float)
+
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val fetcher: ArticleFetcher,
@@ -100,6 +107,7 @@ class ReaderViewModel @Inject constructor(
     private val playbackController: ReaderPlaybackController,
     private val settings: SettingsRepository,
     private val aliasDao: VoiceAliasDao,
+    private val deviceProbe: DeviceProbeSource,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -148,21 +156,47 @@ class ReaderViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderDisplayPrefs())
 
     /**
-     * The speed the reader's playback resolves to *before* the session's
-     * chip multiplier — i.e. the user's primary alias's own tuned speed, which
-     * the service multiplies the chip against (see
+     * The primary alias's engine and its own tuned speed — the two inputs the
+     * effective-speed perf warning needs. The service multiplies the reader's
+     * chip against this speed (see
      * [app.marmalade.tts.service.TtsRouter.resolveAlias] and MarmaladeSynthService's
-     * `speed * speedMultiplier`). Falls back to 1.0 when no primary alias is set
-     * (or it has been deleted), which mirrors the service falling through to the
-     * engine's default speed. The speed sheet needs it to warn on the *effective*
-     * speed (chip × this) rather than the chip alone.
+     * `speed * speedMultiplier`), and it routes to this engine. Falls back to
+     * an empty engine + 1.0 speed when no primary alias is set (or it has been
+     * deleted), mirroring the service falling through to the engine's default.
      */
-    val aliasSpeed: StateFlow<Float> = combine(
+    private val primaryAlias: StateFlow<PrimaryAlias> = combine(
         settings.primaryAliasId,
         aliasDao.getAll(),
     ) { primaryId, aliases ->
-        aliases.firstOrNull { it.id == primaryId }?.speed ?: 1.0f
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
+        aliases.firstOrNull { it.id == primaryId }
+            ?.let { PrimaryAlias(engine = it.engine, speed = it.speed) }
+            ?: PrimaryAlias(engine = "", speed = 1.0f)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, PrimaryAlias(engine = "", speed = 1.0f))
+
+    /**
+     * This device's synthesis-capability probe, resolved once. Feeds the
+     * cold-start RTF prediction the warning uses before measured RTFs accrue;
+     * null while the probe is still running or if it carried no signal.
+     */
+    private val deviceProbeState = MutableStateFlow<DeviceProbe?>(null)
+
+    /**
+     * Whether to show the speed-up performance warning for the current chip
+     * selection. Effective speed is chip × the primary alias's own speed; the
+     * warning fires when that outruns the engine's measured (or, cold,
+     * predicted) RTF. See [SpeedPerfWarning].
+     */
+    val showSpeedWarning: StateFlow<Boolean> = combine(
+        playback,
+        primaryAlias,
+        deviceProbeState,
+        settings.engineRtf,
+    ) { pb, alias, probe, rtfByEngine ->
+        val effectiveSpeed = pb.speedMultiplier * alias.speed
+        val measured = rtfByEngine[alias.engine]
+        val predicted = probe?.let { EngineRecommender.predictedRtf(alias.engine, it) }
+        SpeedPerfWarning.shouldWarn(measured, predicted, effectiveSpeed)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val shortExtractionNoticeDismissed = MutableStateFlow(false)
 
@@ -187,6 +221,9 @@ class ReaderViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { load() }
+        // Probe once, off the load path. The warning falls back to the static
+        // rule until this lands, so a slow probe never blocks the sheet.
+        viewModelScope.launch { deviceProbeState.value = deviceProbe.probe() }
     }
 
     fun onDismissShortExtractionNotice() {
