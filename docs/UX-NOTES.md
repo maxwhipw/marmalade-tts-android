@@ -79,3 +79,17 @@ service can observe on every utterance) stored in the datastore — after a
 few utterances the warning runs on measurement, not prediction.
 
 Post-v1.1 work; v1.1 ships the static 1.35 threshold as-is.
+
+### Addendum 3 (same day) — v1.1 scope + soft-cap direction, lab pending
+
+- **This ships in v1.1** — multiple users have hit it; it's a significant
+  UX issue, not post-release polish.
+- Cap direction revised: likely a **soft cap** — the slider's max/detents
+  stop at the recommended 1.5×, but users can **type an exact value** to
+  go beyond (informed bypass instead of a hard clamp). No DB migration
+  needed under this model.
+- Cap-scope question (does it bite effective speed incl. reader chips?)
+  **deferred to a design lab** — Max wants to see the chip interaction
+  before deciding. Lab to demo: chip × alias behavior, soft-cap slider
+  with type-in bypass, info-icon copy, and the RTF warning firing under
+  simulated slow/mid/fast devices.
