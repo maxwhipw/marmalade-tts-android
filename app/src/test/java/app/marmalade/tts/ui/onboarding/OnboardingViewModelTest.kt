@@ -9,6 +9,7 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
+import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.perf.DeviceProbe
 import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.perf.EngineFit
@@ -371,17 +372,20 @@ class OnboardingViewModelTest {
         const val KOKORO = KokoroDirectVoiceCatalog.ENGINE
         const val KOKORO_DE = KokoroGermanVoiceCatalog.ENGINE
         const val POCKET = PocketVoiceCatalog.ENGINE
+        const val VITS = VoicePackCatalog.VITS_MARMALADE_ENGINE
 
         /**
          * The cards onboarding shows, in catalog order. The native German
          * Kokoro (`kokoro-de-v1_0`) sits with the Kokoro family and ships on
          * both flavors. Pocket is
          * [app.marmalade.tts.install.EngineDescriptor.fdroidOnly], so the
-         * Play flavor's run of this same test file expects it absent.
+         * Play flavor's run of this same test file expects it absent. VITS
+         * Marmalade went user-visible for v1.1 (Max, 2026-09-22) and ships on
+         * both flavors, so it now appears last on this list.
          */
         val CATALOG_CARDS: List<String> =
-            if (BuildConfig.FLAVOR == "play") listOf(KITTEN, KOKORO, KOKORO_DE)
-            else listOf(KITTEN, KOKORO, KOKORO_DE, POCKET)
+            if (BuildConfig.FLAVOR == "play") listOf(KITTEN, KOKORO, KOKORO_DE, VITS)
+            else listOf(KITTEN, KOKORO, KOKORO_DE, POCKET, VITS)
     }
 }
 

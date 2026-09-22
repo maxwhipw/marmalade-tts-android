@@ -81,18 +81,19 @@ class EngineCatalogTest {
 
     @Test
     fun developerOnlyFlagsTheDiagnosticEngines() {
-        // Developer-only = the clean-room Pocket diagnostic engine plus the
-        // pack-based VITS engine, which stays hidden from normal users while
-        // its voice-pack UI is built out (Max, 2026-09-13). The production
-        // direct-ORT engines + Pocket stay visible; visibleTo(false) must
-        // drop exactly those two.
+        // Developer-only = just the clean-room Pocket diagnostic engine now.
+        // VITS Marmalade went user-visible for v1.1 (Max, 2026-09-22) — it
+        // ships one reviewed pack (Jenny) and gates the rest per-pack via
+        // VoicePack.released, so the engine itself no longer needs to hide.
+        // The production direct-ORT engines + Pocket + VITS stay visible;
+        // visibleTo(false) must drop exactly the one diagnostic engine.
         assertEquals(
-            setOf("pocket-tts-en-v2026_04-dev", "vits-marmalade-v1"),
+            setOf("pocket-tts-en-v2026_04-dev"),
             EngineCatalog.developerOnlyNames,
         )
         assertEquals(
-            "visibleTo(false) drops the developer-only engines",
-            EngineCatalog.all.size - 2,
+            "visibleTo(false) drops the developer-only engine",
+            EngineCatalog.all.size - 1,
             EngineCatalog.visibleTo(showDeveloper = false, flavor = "fdroid").size,
         )
         // visibleTo(true) keeps every engine but sorts the developer-only

@@ -482,10 +482,11 @@ object EngineCatalog {
      * checkpoint's own config. Phonemization is the app's existing espeak-ng
      * integration, which is why the licence summary still discloses GPL.
      *
-     * Developer-only for now (Max, 2026-09-13): the engine and its pack UI
-     * are still being built out. `fdroidOnly = false` — Play is a target,
-     * because the weights (MIT) and training data (Apache-2.0) are
-     * permissive end to end.
+     * User-visible for v1.1 (Max, 2026-09-22): the engine and its pack UI are
+     * built out and it ships exactly one reviewed voice pack — Jenny (Dioco).
+     * The other nine packs stay developer-only via [VoicePack.released] until
+     * Max signs them off. `fdroidOnly = false` — Play is a target, because the
+     * exposed pack's weights and training data are permissive end to end.
      */
     private val VITS_MARMALADE: EngineDescriptor = run {
         val defaultPack = VoicePackCatalog.defaultPackFor(VoicePackCatalog.VITS_MARMALADE_ENGINE)
@@ -497,7 +498,7 @@ object EngineCatalog {
             downloadSizeBytes = defaultPack.archive.sizeBytes,
             installedSizeBytes = defaultPack.installedSizeBytes,
             isRecommended = false,
-            developerOnly = true,
+            developerOnly = false,
             archive = defaultPack.archive,
             licenseNotice = defaultPack.licenseNotice,
             licenseSummaryRes = R.string.engine_vits_license,
