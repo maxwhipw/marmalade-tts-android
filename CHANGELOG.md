@@ -35,6 +35,15 @@ This project follows [Semantic Versioning](https://semver.org/).
   and the system-TTS language claims still only advertise the languages
   with native support, so nothing routes to the accented tier unless
   you ask for it.
+- **A new engine: VITS Marmalade** — Marmalade's own on-device runtime
+  for Piper-class VITS voices, organized as per-language downloadable
+  voice packs. It debuts with one English voice, **Jenny (Dioco)**: a
+  ~58 MB pack of a voice Jenny recorded herself expressly for TTS,
+  independently trained from scratch with permissively licensed weights
+  and data (her attribution ships in the pack and the in-app licenses
+  screen). It's light enough to run well on very slow devices. More
+  language packs are already built and will ship as they pass community
+  review.
 - **Language sample pages** for community review — recorded samples of
   candidate voices (German, Ukrainian, Russian, Icelandic, Swedish,
   Kazakh, Norwegian) are published on the project's GitHub Pages so
