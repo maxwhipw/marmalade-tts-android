@@ -196,6 +196,19 @@ class ReaderViewModelTest {
     }
 
     @Test
+    fun `leaving the reader by back pauses playback`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+        vm.state.first()
+        assertEquals(ReaderPlaybackStatus.Playing, vm.playback.first().status)
+
+        vm.onBackFromReader()
+
+        // Paused, not stopped: the highlight stays so returning resumes in place.
+        assertEquals(ReaderPlaybackStatus.Paused, vm.playback.first().status)
+        assertEquals(0, vm.currentBlockIndex.first())
+    }
+
+    @Test
     fun `forward and backward walk the article`() = runTest {
         val vm = newViewModel(extraction = threeBlocks())
         vm.state.first()

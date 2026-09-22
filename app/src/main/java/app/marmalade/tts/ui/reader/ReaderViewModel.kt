@@ -259,6 +259,15 @@ class ReaderViewModel @Inject constructor(
 
     fun onPlayPause() = playbackController.togglePlayPause()
 
+    /**
+     * Leaving the reader by back navigation (the top-bar arrow or system back)
+     * pauses playback. Switching to another app does NOT come through here — the
+     * FGS/MediaSession keeps that audio alive on purpose — so only an explicit
+     * back gesture stops it. No-op when nothing is playing (see
+     * [ReaderPlaybackController.pause]).
+     */
+    fun onBackFromReader() = playbackController.pause()
+
     fun onNextBlock() = playbackController.next()
 
     fun onPreviousBlock() = playbackController.previous()

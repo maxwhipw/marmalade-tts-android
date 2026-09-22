@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -155,6 +156,15 @@ fun ReaderScreen(
     var showSpeedSheet by remember { mutableStateOf(false) }
     var showTocSheet by remember { mutableStateOf(false) }
 
+    // Leaving the reader by an explicit back gesture pauses playback; switching
+    // to another app does not (that path never reaches here — the FGS keeps it
+    // playing). Both the top-bar arrow and system back route through this.
+    val leaveReader = {
+        viewModel.onBackFromReader()
+        onBack()
+    }
+    BackHandler(onBack = leaveReader)
+
     // Only articles with a real heading structure get a contents button (see
     // tocEntriesOf); everything else would open a list of nothing.
     val tocEntries = remember(ready) { tocEntriesOf(ready?.blocks.orEmpty()) }
@@ -170,7 +180,7 @@ fun ReaderScreen(
                 title = { Text(stringResource(R.string.reader_title)) },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = leaveReader) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.reader_back),
