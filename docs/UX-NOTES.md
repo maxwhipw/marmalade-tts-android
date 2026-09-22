@@ -106,3 +106,19 @@ Post-v1.1 work; v1.1 ships the static 1.35 threshold as-is.
   surfaces (alias editor + reader sheet); rolling measured warm RTF per
   engine, cold-start from the probe prediction, static-1.35 rule as the
   no-data fallback.
+
+### 2026-09-21 — five UI fixes from Max's screenshot review (A–E)
+
+A ⚠️ prefix on both speed warnings (UI layer, translations untouched,
+`c630025`). B back/system-back from the reader pauses playback AND
+cancels queued synthesis (`3fb2345` + fix `37f6fbd` — the pre-first-audio
+window leaked queued requests that spoke ~16 s after leaving; explicit
+back now cancels via stopRequest and resume restarts the current block;
+app-switch still keeps playing). C alias voice picker opens at the
+installed-engines list (`ce6d543`). D "Make primary" hidden on the
+already-primary alias — was a latent name-vs-id comparison bug that made
+it always show (`5a60d2e`). E flag emoji per language in the Engines
+languages dialog, sighted-only text (`092ed82`).
+
+Device-verified so far: B (playing case + D). Pending phone power-on:
+B-fix edge case, C, E, ⚠️ screenshots.
