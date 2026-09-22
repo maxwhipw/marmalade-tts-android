@@ -60,9 +60,13 @@ object VitsVoiceCatalog {
         return key.substringBefore(VoicePack.SPEAKER_SEPARATOR).takeIf { it.isNotEmpty() }
     }
 
-    /** Default voice = the first voice of the engine's default pack. */
+    /**
+     * Default voice = the first voice of the engine's default pack — which is
+     * the first RELEASED pack (Jenny for v1.1), so the engine's own default
+     * never points at a staged developer-only voice.
+     */
     val DEFAULT_VOICE_ID: String =
-        voiceId(VoicePackCatalog.voicesForEngine(ENGINE).firstOrNull()?.voiceKey ?: "")
+        voiceId(VoicePackCatalog.defaultPackFor(ENGINE)?.voices?.firstOrNull()?.voiceKey ?: "")
 
     /**
      * Rank of each voice key in a **language-grouped** ordering: languages in

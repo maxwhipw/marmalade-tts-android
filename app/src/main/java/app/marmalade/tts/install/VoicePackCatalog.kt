@@ -676,6 +676,13 @@ object VoicePackCatalog {
      * The pack installed when the user taps Install on the engine card
      * itself (rather than picking a language). Null if the engine has no
      * packs at all, which the catalog never ships.
+     *
+     * The first RELEASED pack, not merely the first catalog pack: installing
+     * the user-visible engine must fetch a pack the user is actually allowed to
+     * see (for v1.1 that is Jenny (Dioco)), never a staged developer-only one.
+     * Falls back to the first catalog pack only if nothing is released, which
+     * the catalog never ships — the engine descriptor requires a default pack.
      */
-    fun defaultPackFor(engineName: String): VoicePack? = forEngine(engineName).firstOrNull()
+    fun defaultPackFor(engineName: String): VoicePack? =
+        releasedForEngine(engineName).firstOrNull() ?: forEngine(engineName).firstOrNull()
 }

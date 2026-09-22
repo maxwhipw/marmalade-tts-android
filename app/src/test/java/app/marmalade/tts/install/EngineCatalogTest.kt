@@ -383,6 +383,10 @@ class EngineCatalogTest {
 
         assertTrue("the VITS engine must be pack-based", vits.isPackBased)
         assertEquals("vits-marmalade-v1", defaultPack.engine)
+        // The default pack is the released one (Jenny), so "install the engine"
+        // fetches the user-visible voice — never a staged developer-only pack.
+        assertEquals("en-jenny_dioco-medium", vits.defaultPackId)
+        assertEquals(VoicePackCatalog.EN_JENNY_DIOCO_MEDIUM.archive, vits.archive)
         // The card's download/install sizes and the bytes the installer
         // actually fetches must be the default pack's, or the progress bar
         // lies and the sha check fails mid-install.
@@ -399,15 +403,17 @@ class EngineCatalogTest {
     }
 
     @Test
-    fun vitsLanguageCodesMatchItsPackCatalog() {
-        // Same invariant as Kokoro's: the languages the card advertises must be
-        // exactly what the engine can actually speak — which for a pack-based
-        // engine is its pack list.
-        val fromPacks = VoicePackCatalog.forEngine("vits-marmalade-v1")
+    fun vitsLanguageCodesMatchItsReleasedPackCatalog() {
+        // Same invariant as Kokoro's, but for a pack-based engine the card
+        // advertises what an ordinary user can actually install — the RELEASED
+        // packs. For v1.1 that is English only (Jenny); the staged packs' other
+        // languages are reachable in developer mode, not on the card.
+        val fromReleasedPacks = VoicePackCatalog.releasedForEngine("vits-marmalade-v1")
             .map { it.languageCode }
             .toSet()
         val fromDescriptor = EngineCatalog.byName("vits-marmalade-v1")!!.languageCodes
-        assertEquals(fromPacks, fromDescriptor.toSet())
+        assertEquals(fromReleasedPacks, fromDescriptor.toSet())
+        assertEquals(setOf("en-GB"), fromDescriptor.toSet())
         assertEquals(
             "no duplicate language codes on the VITS descriptor",
             fromDescriptor.size,

@@ -502,14 +502,19 @@ object EngineCatalog {
             licenseNotice = defaultPack.licenseNotice,
             licenseSummaryRes = R.string.engine_vits_license,
             taglineRes = R.string.engine_vits_tagline,
-            // x_low VITS is in Kitten's speed class — a 20 MB single-speaker
-            // graph at 16 kHz, far lighter than Kokoro's multi-lang model.
+            // The default pack (Jenny (Dioco)) is a single-speaker medium VITS
+            // graph at 22.05 kHz, ~58 MB on the wire — heavier than an x_low
+            // build but still far lighter than Kokoro's multi-lang model, and a
+            // single graph. FASTEST/NATURAL stand: Max ships Jenny precisely
+            // because it stays real-time on very slow devices.
             speedTier = SpeedTier.FASTEST,
             qualityTier = QualityTier.NATURAL,
-            // The distinct locales the installed-pack catalog can speak. Pinned
-            // to VoicePackCatalog by EngineCatalogTest, so adding a pack is the
-            // only edit needed to grow this list.
-            languageCodes = VoicePackCatalog.forEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE)
+            // The distinct locales the card advertises: the RELEASED packs only,
+            // so the spec column matches what an ordinary user can actually
+            // install (English for v1.1). Developer mode reaches the staged
+            // packs through Configure → Voice packs, not this line. Pinned to
+            // VoicePackCatalog by EngineCatalogTest.
+            languageCodes = VoicePackCatalog.releasedForEngine(VoicePackCatalog.VITS_MARMALADE_ENGINE)
                 .map { it.languageCode }
                 .distinct(),
             defaultPackId = defaultPack.id,

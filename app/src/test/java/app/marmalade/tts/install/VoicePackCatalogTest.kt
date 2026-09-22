@@ -330,7 +330,10 @@ class VoicePackCatalogTest {
             "the default voice must be one of the catalog's voices",
             VitsVoiceCatalog.voices.any { it.id == VitsVoiceCatalog.DEFAULT_VOICE_ID },
         )
-        assertEquals("${VitsVoiceCatalog.ENGINE}:uk-lada-x_low", VitsVoiceCatalog.DEFAULT_VOICE_ID)
+        // The default voice follows the default pack, which is now the released
+        // one (Jenny), so the engine's own default never points at a staged
+        // developer-only voice.
+        assertEquals("${VitsVoiceCatalog.ENGINE}:en-jenny_dioco-medium", VitsVoiceCatalog.DEFAULT_VOICE_ID)
     }
 
     @Test
