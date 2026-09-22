@@ -382,7 +382,9 @@ class VoicePackCatalogTest {
         assertEquals("medium", jenny.qualityTier)
         assertEquals(PackQuality.GOOD, jenny.quality)
         assertEquals(22_050, jenny.sampleRate)
-        assertNull(jenny.gender)
+        // Documented by the dataset README ("Voice is recorded by Jenny.
+        // She's Irish."), not inferred from the name.
+        assertEquals("female", jenny.gender)
         assertEquals(
             "56392403ed64cd4f6bb316322904cab04b695cb1324581efd9d3a115c7c9f261",
             jenny.archive.sha256,

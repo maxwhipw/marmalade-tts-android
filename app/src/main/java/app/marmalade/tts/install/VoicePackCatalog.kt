@@ -584,9 +584,9 @@ object VoicePackCatalog {
      * requires the voice be named "Jenny", and where practical "Jenny
      * (Dioco)" — so [displayName] is exactly `"Jenny (Dioco)"` and must not be
      * shortened anywhere it is shown. This is a licence condition, not a style
-     * choice. Gender is left null: the pack's `PROVENANCE.md` documents the
-     * speaker's name but not a gender field, and this catalog never infers
-     * gender from a name.
+     * choice. Gender comes from the dataset README's own description of the
+     * speaker ("Voice is recorded by Jenny. She's Irish.") — documented, not
+     * inferred from the name.
      */
     val EN_JENNY_DIOCO_MEDIUM: VoicePack = VoicePack(
         id = "en-jenny_dioco-medium",
@@ -596,7 +596,7 @@ object VoicePackCatalog {
         qualityTier = "medium",
         quality = PackQuality.GOOD,
         sampleRate = 22_050,
-        gender = null,
+        gender = "female",
         archive = packArchive(
             packId = "en-jenny_dioco-medium",
             sha256 = "56392403ed64cd4f6bb316322904cab04b695cb1324581efd9d3a115c7c9f261",
