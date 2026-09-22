@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img alt="status" src="https://img.shields.io/badge/status-1.0.0--beta.1-F5A623">
+  <img alt="status" src="https://img.shields.io/badge/status-1.0.0-F5A623">
   &nbsp;<img alt="source" src="https://img.shields.io/badge/source-MIT-3DA639">
   &nbsp;<img alt="binary" src="https://img.shields.io/badge/APK-GPL--3.0--or--later-blue">
   &nbsp;<img alt="privacy" src="https://img.shields.io/badge/privacy-on--device_by_default-2EA44F">
@@ -58,9 +58,12 @@ selection" action, or speak your clipboard from a Quick Settings tile.
 
 ## Install
 
-Store listings (Google Play and F-Droid) are in progress. Until they
-land (and forever after, for sideloaders):
+<a href="https://f-droid.org/packages/app.marmalade.tts/">
+  <img alt="Get it on F-Droid" src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="75">
+</a>
 
+- **[F-Droid](https://f-droid.org/packages/app.marmalade.tts/)** — the
+  recommended way to install: reproducible builds and automatic updates.
 - **[GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases)** —
   grab the latest `fdroid`-flavor APK (every feature unlocked, no
   billing code) and install it.
