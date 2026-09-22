@@ -84,8 +84,10 @@ fun ReaderSpeedSheet(
             // resolution (see ReaderViewModel.showSpeedWarning). Same copy as
             // the alias editor's slider warning.
             if (showPerfWarning) {
+                // ⚠️ prefix composed here, not in the shared string, so the
+                // eight translations of alias_speed_perf_warning stay untouched.
                 Text(
-                    text = stringResource(R.string.alias_speed_perf_warning),
+                    text = "⚠️ " + stringResource(R.string.alias_speed_perf_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp),

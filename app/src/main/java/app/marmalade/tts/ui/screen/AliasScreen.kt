@@ -744,8 +744,10 @@ private fun AliasEditorSheet(
                 // RTF × speed), not a static threshold — see
                 // AliasViewModel.showSpeedWarning. The reader sheet mirrors it.
                 if (showSpeedWarning) {
+                    // The ⚠️ lead is composed here, not baked into the string,
+                    // so the eight translated warning strings stay untouched.
                     Text(
-                        text = stringResource(R.string.alias_speed_perf_warning),
+                        text = "⚠️ " + stringResource(R.string.alias_speed_perf_warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
