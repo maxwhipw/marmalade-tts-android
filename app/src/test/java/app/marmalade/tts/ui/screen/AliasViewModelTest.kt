@@ -496,6 +496,25 @@ class AliasViewModelTest {
         )
     }
 
+    // -- Voice picker --------------------------------------------------------
+
+    @Test
+    fun openVoicePicker_landsAtTheTopLevel() = runTest {
+        // Editing an alias that already has a voice: the picker must still open
+        // at the source list (top level), not inside that voice's engine.
+        val existing = alias("narrator")
+        val vm = newViewModel(aliases = listOf(existing))
+        vm.aliases.first { it.isNotEmpty() }
+        vm.openEditor(existing)
+
+        vm.openVoicePicker()
+
+        val picker = vm.pickerState.first()
+        assertTrue("picker should be open", picker.isOpen)
+        assertNull("opens at the source list, not inside an engine", picker.source)
+        assertNull(picker.model)
+    }
+
     // -- Effect / engine change ----------------------------------------------
 
     @Test

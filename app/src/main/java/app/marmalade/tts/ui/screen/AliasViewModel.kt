@@ -326,18 +326,15 @@ class AliasViewModel @Inject constructor(
     private val _pickerState = MutableStateFlow(VoicePickerState())
     val pickerState: StateFlow<VoicePickerState> = _pickerState.asStateFlow()
 
-    /** Open the picker at the top level (or inside the current voice's source). */
+    /**
+     * Open the picker at the top level — the list of installed engines/sources
+     * — rather than inside the current voice's engine. Switching engine is the
+     * common reason to open the picker, so the top level is the useful landing
+     * spot; the current voice still shows its check when the user drills into
+     * its engine (the sheet is passed [pickerState]'s selected voice id).
+     */
     fun openVoicePicker() {
-        val current = _editorState.value.voiceId
-        val path = current.takeIf { it.isNotBlank() }
-            ?.let { voicePaths.resolve(it, _editorState.value.engine) }
-        _pickerState.value = VoicePickerState(
-            isOpen = true,
-            // Land where the user already is rather than making them
-            // re-navigate to the voice they're about to change.
-            source = path?.source,
-            model = path?.model,
-        )
+        _pickerState.value = VoicePickerState(isOpen = true)
     }
 
     fun dismissVoicePicker() {
