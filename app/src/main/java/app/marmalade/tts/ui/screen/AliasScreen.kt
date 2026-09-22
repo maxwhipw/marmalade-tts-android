@@ -255,9 +255,12 @@ fun AliasScreen(
             // Promoting is only meaningful for a saved alias that isn't
             // already primary. The star that used to do this on the card was
             // the only control there that wasn't "open the editor".
+            // primaryAliasId is an alias id, so this compares against editingId
+            // — comparing it to originalName (a name) never matched, which left
+            // "Make primary" showing on the alias that already was.
             canSetPrimary = !editorState.isNew &&
-                editorState.originalName != null &&
-                editorState.originalName != primaryAliasId,
+                editorState.editingId != null &&
+                editorState.editingId != primaryAliasId,
             showSpeedWarning = showSpeedWarning,
             fallbackCandidates = viewModel.fallbackCandidates(),
             onSetPrimary = {
