@@ -196,13 +196,23 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `leaving the reader by back pauses playback`() = runTest {
+    fun `leaving the reader by back cancels queued synthesis before first audio`() = runTest {
         val vm = newViewModel(extraction = threeBlocks())
         vm.state.first()
         assertEquals(ReaderPlaybackStatus.Playing, vm.playback.first().status)
+        // Freshly loaded: the lookahead has queued all three blocks and no
+        // completion has fired, i.e. nothing has produced audio yet — the
+        // before-first-audio window from the device repro.
+        val queued = speech.spoken.map { it.requestId }
+        assertEquals(3, queued.size)
+        assertTrue("nothing cancelled before back", speech.stopped.isEmpty())
 
         vm.onBackFromReader()
 
+        // Every queued request is cancelled, so none starts speaking once the
+        // user has left the screen (the reported defect: pause alone left them
+        // to fire ~16 s later).
+        assertEquals(queued.toSet(), speech.stopped.toSet())
         // Paused, not stopped: the highlight stays so returning resumes in place.
         assertEquals(ReaderPlaybackStatus.Paused, vm.playback.first().status)
         assertEquals(0, vm.currentBlockIndex.first())

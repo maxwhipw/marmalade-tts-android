@@ -303,6 +303,32 @@ class ReaderPlaybackController internal constructor(
         }
     }
 
+    /**
+     * Pause because the user navigated out of the reader (the top-bar arrow or
+     * system back), cancelling every outstanding synthesis request.
+     *
+     * Unlike [pause] — the in-screen / notification pause, which halts the
+     * AudioTrack but keeps the queue so resume can pick up mid-sentence — this
+     * drops the whole queue. Backing out during the pre-first-audio synthesis
+     * wait must not leave queued blocks to start speaking after the user has
+     * left the screen: pausing the (still silent) transport does not stop them,
+     * cancelling the requests does (ACTION_STOP_REQUEST, which never touches an
+     * unrelated share-sheet read).
+     *
+     * Stays Paused with the highlight intact — coming back and pressing play
+     * re-enqueues from the current block, exactly as a paused seek does. A
+     * no-op when nothing of the reader's is active; an app switch never routes
+     * through here, so background playback is untouched.
+     */
+    fun pauseForNavigation() {
+        synchronized(lock) {
+            if (!_state.value.isActive) return
+            cancelPendingLocked()
+            pausedAt = clock()
+            setStatusLocked(ReaderPlaybackStatus.Paused)
+        }
+    }
+
     /** Stop this article's playback entirely, leaving the article loaded. */
     fun stop() {
         synchronized(lock) {

@@ -261,12 +261,13 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * Leaving the reader by back navigation (the top-bar arrow or system back)
-     * pauses playback. Switching to another app does NOT come through here — the
-     * FGS/MediaSession keeps that audio alive on purpose — so only an explicit
-     * back gesture stops it. No-op when nothing is playing (see
-     * [ReaderPlaybackController.pause]).
+     * pauses playback AND cancels the reader's queued/in-flight synthesis, so
+     * nothing starts speaking after the user has left — including a back tap
+     * during the pre-first-audio synthesis wait. Switching to another app does
+     * NOT come through here — the FGS/MediaSession keeps that audio alive on
+     * purpose. See [ReaderPlaybackController.pauseForNavigation].
      */
-    fun onBackFromReader() = playbackController.pause()
+    fun onBackFromReader() = playbackController.pauseForNavigation()
 
     fun onNextBlock() = playbackController.next()
 
