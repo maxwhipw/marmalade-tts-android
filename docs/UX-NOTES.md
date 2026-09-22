@@ -120,5 +120,10 @@ already-primary alias — was a latent name-vs-id comparison bug that made
 it always show (`5a60d2e`). E flag emoji per language in the Engines
 languages dialog, sighted-only text (`092ed82`).
 
-Device-verified so far: B (playing case + D). Pending phone power-on:
-B-fix edge case, C, E, ⚠️ screenshots.
+ALL FIVE DEVICE-VERIFIED 2026-09-21 (late): ⚠️ renders on both surfaces;
+B-fix edge case clean (early back → navigates, nothing speaks in a 20 s
+watch); C picker opens at "All sources" engine list; D button gone on the
+primary alias; E flags dialog shows all 11 languages. Screenshots in
+docs/design/speed-warning-screens/. Note: engine "Slow" chips in the
+picker are the pre-existing measured-TTFA latency bucket, polluted by the
+2× stress tests — self-corrects with normal use.
