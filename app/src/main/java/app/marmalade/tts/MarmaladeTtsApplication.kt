@@ -384,7 +384,10 @@ class MarmaladeTtsApplication : Application() {
          *    [KokoroGermanVoiceCatalog]. A separate downloadable engine, not a
          *    voice pack — the German fine-tune can't share weights with the
          *    multilingual Kokoro.
+         *  - v40: the VITS Marmalade catalog gains its first English voice
+         *    pack, `en-jenny_dioco-medium` ("Jenny (Dioco)", en-GB), so the
+         *    reseed adds its VoiceMeta row (25 → 26 VITS voices).
          */
-        const val CATALOG_VERSION: Int = 39
+        const val CATALOG_VERSION: Int = 40
     }
 }

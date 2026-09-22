@@ -106,7 +106,7 @@ how to finish it.
 - **Pending upload:** `uk-lada-x_low`, `is-bui-medium`,
   `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`,
   `sv-nst-medium`, `kk-issai-high`, `no-nvcc-medium`,
-  `uk-ukrainian_tts-medium`.
+  `uk-ukrainian_tts-medium`, `en-jenny_dioco-medium`.
 - **Why deferred:** publishing a GitHub release asset is Max's call (it
   is a public surface), and the unit tests drive synthetic archives
   through fake fetchers, so nothing here depends on the upload.

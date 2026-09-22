@@ -142,7 +142,7 @@ class EngineDetailViewModelTest {
 
     @Test
     fun packGroups_listEveryCatalogPackBeforeAnyProbe() = runTest {
-        // The section must render its full list immediately; waiting for nine
+        // The section must render its full list immediately; waiting for ten
         // disk probes would flash an empty "Voice packs" heading.
         val vm = newViewModel(engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE)
 
@@ -167,7 +167,7 @@ class EngineDetailViewModelTest {
         vm.refreshPacks()
 
         val summary = vm.packSummary.first { it.installedCount == 1 }
-        assertEquals(9, summary.packCount)
+        assertEquals(10, summary.packCount)
         // Read through the flow, not `.value`: these StateFlows are
         // WhileSubscribed, so an unsubscribed `.value` is still the initial
         // (all-NotInstalled) snapshot.

@@ -13,7 +13,7 @@ import org.junit.Test
  * Pure logic with sharp edges, which is why it's tested here rather than
  * through the UI: the action mapping decides whether a mid-download row offers
  * a second "Install" button, and the summary decides whether the engine card
- * claims nine packs the user hasn't got.
+ * claims ten packs the user hasn't got.
  */
 class VoicePackRowsTest {
 
@@ -25,7 +25,7 @@ class VoicePackRowsTest {
         // Languages in first-appearance order; the two Ukrainian packs land in
         // ONE group even though they sit at opposite ends of the catalog.
         assertEquals(
-            listOf("uk-UA", "is-IS", "sv-SE", "kk-KZ", "nb-NO"),
+            listOf("uk-UA", "is-IS", "sv-SE", "kk-KZ", "nb-NO", "en-GB"),
             groups.map { it.languageCode },
         )
         val ukrainian = groups.first { it.languageCode == "uk-UA" }
@@ -148,8 +148,8 @@ class VoicePackRowsTest {
     @Test
     fun theSummaryCountsPacksLanguagesAndWhatIsActuallyOnDisk() {
         val all = voicePackSummary(engine, emptyMap())
-        assertEquals(9, all.packCount)
-        assertEquals(5, all.languageCount)
+        assertEquals(10, all.packCount)
+        assertEquals(6, all.languageCount)
         assertEquals(0, all.installedCount)
 
         val partial = voicePackSummary(
@@ -163,7 +163,7 @@ class VoicePackRowsTest {
                 "no-nvcc-medium" to InstallState.Corrupt,
             ),
         )
-        assertEquals(9, partial.packCount)
+        assertEquals(10, partial.packCount)
         assertEquals(2, partial.installedCount)
     }
 

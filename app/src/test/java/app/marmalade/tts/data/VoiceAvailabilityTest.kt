@@ -13,7 +13,7 @@ import org.junit.Test
  * could leave developer-only.
  *
  * The bug it replaces: the engine verifies as installed the moment ANY of its
- * nine per-language packs is on disk, so an engine-level filter listed all 25
+ * per-language packs is on disk, so an engine-level filter listed all 26
  * voices after a single 18 MB download, and picking an absent one failed at
  * synthesis with `EngineNotInstalledException`. Every case below is one shape
  * of that mistake.

@@ -212,22 +212,27 @@ data class PackVoice(
 /**
  * Static catalog of downloadable voice packs.
  *
- * Every pack's weights are MIT (`rhasspy/piper-voices`) and every corpus
- * behind them is permissive with commercial use stated by the rights holder
- * (Apache-2.0, CC BY 4.0 or CC0) — inference runs entirely on Marmalade's
- * own direct-ORT VITS path, so no Piper runtime code is used or shipped.
- * Per-pack provenance is audited in the `PROVENANCE.md` shipped inside each
- * tarball and summarised in `LICENSES/vits-marmalade.md`.
+ * Almost every pack's weights are MIT (`rhasspy/piper-voices`) and every
+ * corpus behind them is permissive with commercial use stated by the rights
+ * holder (Apache-2.0, CC BY 4.0 or CC0). The one exception is the English
+ * "Jenny (Dioco)" pack: an independent from-scratch build whose weights and
+ * training dataset each carry a custom attribution licence (still commercial-
+ * use-permitted). Inference runs entirely on Marmalade's own direct-ORT VITS
+ * path, so no Piper runtime code is used or shipped. Per-pack provenance is
+ * audited in the `PROVENANCE.md` shipped inside each tarball and summarised in
+ * `LICENSES/vits-marmalade.md`.
  *
  * **The [PackQuality] grades in here are provisional** until Max's ear-lab
  * pass recalibrates them, and they are his to set either way: they are a
  * listening judgement about the source audio, not something derivable from the
  * checkpoint metadata. Never "fix" a grade to match a pack's [qualityTier].
  *
- * **CC BY 4.0 packs require attribution** (the Icelandic Talrómur voices):
- * the notice lives in `LICENSES/vits-marmalade.md` and in `CREDITS.md`,
- * which is the repo's home for required voice-data attribution. Adding
- * another CC-BY corpus means editing both.
+ * **Some packs require attribution** — the CC BY 4.0 corpora (the Icelandic
+ * Talrómur voices, the Kazakh ISSAI voices) and the English "Jenny (Dioco)"
+ * pack, whose custom licence additionally mandates the voice's exact name.
+ * The notice lives in `LICENSES/vits-marmalade.md` and in `CREDITS.md`, which
+ * is the repo's home for required voice-data attribution. Adding another
+ * attribution-bearing corpus means editing both.
  */
 object VoicePackCatalog {
 
@@ -563,6 +568,44 @@ object VoicePackCatalog {
         ),
     )
 
+    /**
+     * English (en_GB, Irish accent), single speaker "Jenny (Dioco)",
+     * 22.05 kHz `medium` tier, espeak-mode (config voice `"en"`).
+     *
+     * **Not** the rejected `rhasspy/piper-voices` `en_GB-jenny_dioco-medium`
+     * checkpoint (that one is fine-tuned from the Blizzard-2013 lessac voice,
+     * whose restrictive research licence bars it). This ships the INDEPENDENT
+     * from-scratch model trained by Bryce Beattie
+     * (https://brycebeattie.com/files/tts/) on the ~30 h jenny-tts-dataset —
+     * a different artifact with a clean provenance. See the pack's
+     * `PROVENANCE.md` and `LICENSES/vits-marmalade.md` §12–13.
+     *
+     * **License-mandated display name.** The dataset's attribution term
+     * requires the voice be named "Jenny", and where practical "Jenny
+     * (Dioco)" — so [displayName] is exactly `"Jenny (Dioco)"` and must not be
+     * shortened anywhere it is shown. This is a licence condition, not a style
+     * choice. Gender is left null: the pack's `PROVENANCE.md` documents the
+     * speaker's name but not a gender field, and this catalog never infers
+     * gender from a name.
+     */
+    val EN_JENNY_DIOCO_MEDIUM: VoicePack = VoicePack(
+        id = "en-jenny_dioco-medium",
+        engine = VITS_MARMALADE_ENGINE,
+        languageCode = "en-GB",
+        displayName = "Jenny (Dioco)",
+        qualityTier = "medium",
+        quality = PackQuality.GOOD,
+        sampleRate = 22_050,
+        gender = null,
+        archive = packArchive(
+            packId = "en-jenny_dioco-medium",
+            sha256 = "56392403ed64cd4f6bb316322904cab04b695cb1324581efd9d3a115c7c9f261",
+            sizeBytes = 58_419_075L,
+        ),
+        installedSizeBytes = 63_542_750L,
+        licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
+    )
+
     /** Every voice pack the app knows how to install. Read-only. */
     val all: List<VoicePack> = listOf(
         UK_LADA_X_LOW,
@@ -574,6 +617,7 @@ object VoicePackCatalog {
         KK_ISSAI_HIGH,
         NO_NVCC_MEDIUM,
         UK_UKRAINIAN_TTS_MEDIUM,
+        EN_JENNY_DIOCO_MEDIUM,
     )
 
     /** Lookup by [VoicePack.id]. Null for unknown packs. */

@@ -29,9 +29,21 @@ The upstream `cosette` (Expresso) and `jean` (EARS) voices are
 ### VITS Marmalade voice packs
 
 The VITS Marmalade engine downloads one voice pack per language. The
-model weights are MIT throughout; the corpora they were trained on carry
-their own licences, and two of them require attribution:
+model weights are MIT throughout (except the English "Jenny (Dioco)"
+pack, whose from-scratch weights carry the trainer's own attribution
+licence); the corpora they were trained on carry their own licences, and
+three of them require attribution:
 
+- **jenny-tts-dataset (Jenny / dioco-group)** — the English voice
+  (`en-jenny_dioco-medium`, **"Jenny (Dioco)"**) is an independent
+  from-scratch VITS model trained by **Bryce Beattie**
+  (https://brycebeattie.com/files/tts/) on the ~30 h **jenny-tts-dataset**
+  recorded and released by **Jenny** for TTS training
+  (https://github.com/dioco-group/jenny-tts-dataset). Both the dataset and
+  the weights are under **custom attribution licences** (commercial use
+  permitted). The dataset's term is binding on how the voice is named: it
+  **must be credited "Jenny (Dioco)"** — which is exactly the voice's
+  in-app display name.
 - **Talrómur** — the four Icelandic voices (`is-bui-medium`,
   `is-salka-medium`, `is-steinn-medium`, `is-ugla-medium`) are trained
   on the **Talrómur** corpus — Reykjavík University & RÚV, Icelandic
@@ -75,6 +87,12 @@ Full detail, including the MIT notice for the weights:
   Only the *voice data* is used: the app's inference is its own, and no
   Piper runtime code is used or shipped.
   https://huggingface.co/rhasspy/piper-voices
+- **Jenny (Dioco)** — the English VITS Marmalade pack
+  (`en-jenny_dioco-medium`) is an independent from-scratch model by
+  **Bryce Beattie** (https://brycebeattie.com/files/tts/), trained on the
+  **jenny-tts-dataset** recorded by **Jenny** (dioco-group). Both are under
+  custom attribution licences; the voice is credited "Jenny (Dioco)" as the
+  dataset requires. https://github.com/dioco-group/jenny-tts-dataset
 
 ## Phonemization
 

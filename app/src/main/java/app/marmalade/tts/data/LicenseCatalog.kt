@@ -136,6 +136,15 @@ object LicenseCatalog {
             "OFL-1.1", "OFL-1.1.txt",
             "https://openfontlicense.org",
         ),
+        // Custom attribution — no standard body and no embedded copyright
+        // line, so (like MIT/BSD) the component ships its own exact text.
+        // Used by the English "Jenny (Dioco)" VITS pack, whose model weights
+        // and training dataset each carry their own short custom-attribution
+        // terms (quoted verbatim in the component's bundled text).
+        License(
+            "Custom attribution", null,
+            "https://github.com/dioco-group/jenny-tts-dataset",
+        ),
     )
 
     /**
@@ -285,6 +294,29 @@ object LicenseCatalog {
             shipsIn = "Engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) KittenML contributors"),
+        ),
+        Component(
+            key = "vits-jenny-dioco",
+            name = "Jenny (Dioco) — English VITS voice pack",
+            role = "Neural voice model (English)",
+            shipsIn = "Voice pack (downloaded)",
+            licenseId = "Custom attribution",
+            copyright = listOf(
+                "Model weights: Copyright (c) Bryce Beattie " +
+                    "(https://brycebeattie.com/files/tts/)",
+                "Training data — jenny-tts-dataset: Copyright (c) Jenny / " +
+                    "dioco-group (https://github.com/dioco-group/jenny-tts-dataset)",
+            ),
+            textAsset = "jenny-dioco.txt",
+            note = "An independent from-scratch VITS model for the VITS " +
+                "Marmalade engine — NOT the rhasspy/piper-voices " +
+                "jenny_dioco checkpoint (which is fine-tuned from a " +
+                "restrictively-licensed base and is not used). The dataset's " +
+                "attribution term requires the voice be credited \"Jenny " +
+                "(Dioco)\", which is its in-app display name. Both the weights " +
+                "and the dataset permit commercial use; the trainer imposes " +
+                "\"no further license or restrictions\". Full verbatim terms " +
+                "in the bundled text.",
         ),
         Component(
             key = "pocket-model",

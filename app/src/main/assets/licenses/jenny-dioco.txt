@@ -1,0 +1,37 @@
+Jenny (Dioco) — English VITS Marmalade voice pack (en-jenny_dioco-medium)
+
+This pack is an independent, from-scratch VITS model. Two custom
+attribution licences apply: one to the model weights and one to the
+training dataset. Both permit commercial use. The dataset's attribution
+term dictates that the voice be named "Jenny (Dioco)".
+
+
+MODEL WEIGHTS
+
+Trained from scratch by Bryce Beattie (https://brycebeattie.com/files/tts/).
+Licence, verbatim from the trainer's page:
+
+    Attribution required, similar to CC BY
+    See the link for license details. I impose no further license or
+    restrictions.
+
+The page footer adds:
+
+    Feel free to use these for any legal and ethical purpose. If somebody
+    wants to upload these to HuggingFace or somewhere similar, you have my
+    blessing.
+
+
+TRAINING DATASET
+
+jenny-tts-dataset, recorded and released by Jenny (dioco-group)
+(https://github.com/dioco-group/jenny-tts-dataset). Licence, verbatim from
+the dataset README:
+
+    Attribution is required in software/websites/projects/interfaces
+    (including voice interfaces) that generate audio in response to user
+    action using this dataset. Atribution means: the voice must be referred
+    to as "Jenny", and where at all practical, "Jenny (Dioco)". Attribution
+    is not required when distributing the generated clips (although
+    welcome). Commercial use is permitted. Don't do unfair things like claim
+    the dataset is your own. No further restrictions apply.

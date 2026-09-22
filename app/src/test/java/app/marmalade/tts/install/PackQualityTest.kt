@@ -67,6 +67,7 @@ class PackQualityTest {
             "kk-issai-high" to PackQuality.GOOD,
             "no-nvcc-medium" to PackQuality.ROUGH,
             "uk-ukrainian_tts-medium" to PackQuality.GOOD,
+            "en-jenny_dioco-medium" to PackQuality.GOOD,
         )
         assertEquals(expected, VoicePackCatalog.all.associate { it.id to it.quality })
     }

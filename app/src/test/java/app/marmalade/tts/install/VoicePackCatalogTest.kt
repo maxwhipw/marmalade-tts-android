@@ -33,6 +33,7 @@ class VoicePackCatalogTest {
                 "kk-issai-high",
                 "no-nvcc-medium",
                 "uk-ukrainian_tts-medium",
+                "en-jenny_dioco-medium",
             ),
             VoicePackCatalog.all.map { it.id },
         )
@@ -322,8 +323,8 @@ class VoicePackCatalogTest {
         assertEquals(voices.map { it.sampleRate }, VitsVoiceCatalog.voices.map { it.sampleRate })
         assertEquals(voices.map { it.gender }, VitsVoiceCatalog.voices.map { it.gender })
         assertEquals(voices.map { it.displayName }, VitsVoiceCatalog.voices.map { it.displayName })
-        // 6 single-speaker packs + 6 Kazakh + 10 Norwegian + 3 Ukrainian.
-        assertEquals(25, VitsVoiceCatalog.voices.size)
+        // 7 single-speaker packs + 6 Kazakh + 10 Norwegian + 3 Ukrainian.
+        assertEquals(26, VitsVoiceCatalog.voices.size)
         assertTrue(
             "the default voice must be one of the catalog's voices",
             VitsVoiceCatalog.voices.any { it.id == VitsVoiceCatalog.DEFAULT_VOICE_ID },
@@ -334,7 +335,7 @@ class VoicePackCatalogTest {
     @Test
     fun seededSortOrderGroupsTheVoicesByLanguage() {
         // The picker sorts a model's voices by sortOrder, so this is what keeps
-        // the 25 VITS voices from interleaving languages — the two Ukrainian
+        // the 26 VITS voices from interleaving languages — the two Ukrainian
         // packs sit at opposite ends of the catalog list and would otherwise
         // bracket every other language.
         val byOrder = VitsVoiceCatalog.voices.sortedBy { it.sortOrder }
@@ -345,7 +346,7 @@ class VoicePackCatalogTest {
             }
         assertEquals(
             "each language must appear as ONE contiguous run: $languageRuns",
-            listOf("uk-UA", "is-IS", "sv-SE", "kk-KZ", "nb-NO"),
+            listOf("uk-UA", "is-IS", "sv-SE", "kk-KZ", "nb-NO", "en-GB"),
             languageRuns,
         )
         // Ranks are a dense 0..n-1 permutation — a duplicate would make two
@@ -365,6 +366,36 @@ class VoicePackCatalogTest {
             ),
             byOrder.filter { it.languageCode == "uk-UA" }.map { it.displayName },
         )
+    }
+
+    @Test
+    fun theEnglishJennyPackCarriesItsLicenseMandatedIdentity() {
+        // The dataset's attribution term requires the voice be named "Jenny
+        // (Dioco)" — a licence condition, not a style choice — so pin the exact
+        // display name here alongside the download identity a stray edit could
+        // corrupt.
+        val jenny = VoicePackCatalog.EN_JENNY_DIOCO_MEDIUM
+        assertEquals("en-jenny_dioco-medium", jenny.id)
+        assertEquals(ENGINE, jenny.engine)
+        assertEquals("en-GB", jenny.languageCode)
+        assertEquals("Jenny (Dioco)", jenny.displayName)
+        assertEquals("medium", jenny.qualityTier)
+        assertEquals(PackQuality.GOOD, jenny.quality)
+        assertEquals(22_050, jenny.sampleRate)
+        assertNull(jenny.gender)
+        assertEquals(
+            "56392403ed64cd4f6bb316322904cab04b695cb1324581efd9d3a115c7c9f261",
+            jenny.archive.sha256,
+        )
+        assertEquals(58_419_075L, jenny.archive.sizeBytes)
+        assertEquals(63_542_750L, jenny.installedSizeBytes)
+        // Single speaker → one voice keyed by the bare pack id, and its name is
+        // the mandated one too (this is what the picker actually shows).
+        val voice = jenny.voices.single()
+        assertEquals("en-jenny_dioco-medium", voice.voiceKey)
+        assertEquals(0, voice.sid)
+        assertEquals("Jenny (Dioco)", voice.displayName)
+        assertEquals("Jenny (Dioco)", VoicePackCatalog.voiceByKey(ENGINE, jenny.id)!!.displayName)
     }
 
     @Test

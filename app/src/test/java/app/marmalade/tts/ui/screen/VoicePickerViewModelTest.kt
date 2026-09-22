@@ -74,7 +74,7 @@ class VoicePickerViewModelTest {
     @Test
     fun `a vits voice is listed only when its own pack is installed`() = runTest {
         // The promotion blocker this closes: the engine verifies as installed
-        // from ONE pack, so an engine-level filter offered all 25 voices and
+        // from ONE pack, so an engine-level filter offered all 26 voices and
         // picking an absent one failed at synthesis.
         val settings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
         // VITS Marmalade is developerOnly, so the picker hides it otherwise.

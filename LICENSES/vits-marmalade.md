@@ -28,10 +28,12 @@ their own permissive licences and listed below.
 | Layer | Contents | License |
 |---|---|---|
 | Marmalade APK | Kotlin VITS engine (`engine/vits/`), ORT bindings, JNI shim, **libespeak-ng.so (compiled from source)**, full espeak-ng-data | Source files MIT; **APK distributed under GPL-3.0-or-later** because of espeak-ng |
-| Voice pack (downloaded) | `model.onnx`, `model.onnx.json`, `MODEL_CARD`, `PROVENANCE.md` | Weights MIT; training data per pack — Apache-2.0, CC BY 4.0 or CC0 (see below) |
+| Voice pack (downloaded) | `model.onnx`, `model.onnx.json`, `MODEL_CARD`, `PROVENANCE.md` | Weights MIT (Piper checkpoints) or custom attribution (the from-scratch English "Jenny (Dioco)" build); training data per pack — Apache-2.0, CC BY 4.0, CC0, or a custom attribution licence (see below) |
 
 Some of the corpora behind these packs are **CC BY 4.0, which requires
-attribution**. The required credits are given in full below and repeated
+attribution**, and the English "Jenny (Dioco)" pack carries a **custom
+attribution licence that mandates the voice be credited "Jenny (Dioco)"**.
+The required credits are given in full below and repeated
 in [`../CREDITS.md`](../CREDITS.md), the repo's home for
 attribution-required voice data.
 
@@ -251,6 +253,66 @@ SOFTWARE.
   `rhasspy/piper-phonemize` `phonemize_codepoints`; **no Piper code is
   used**, and for this pack espeak-ng is never even loaded.
 
+## 12. Voice pack — `en-jenny_dioco-medium` (English en_GB, "Jenny (Dioco)")
+
+- **Files:** `model.onnx`, `model.onnx.json`
+- **Upstream:** Bryce Beattie — https://brycebeattie.com/files/tts/ (weights
+  downloaded from
+  `https://sfo3.digitaloceanspaces.com/bkmdls/jenny.onnx`).
+- **NOT the `rhasspy/piper-voices` `en_GB-jenny_dioco-medium` checkpoint.**
+  That Piper checkpoint was **rejected**: its `MODEL_CARD` states it is
+  "Finetuned from U.S. English lessac voice (medium quality)", a
+  Blizzard-2013 restrictive-research-licence base our exclusion table bars.
+  This pack instead ships an **independent from-scratch model** — a
+  different artifact (see the pack's `PROVENANCE.md`).
+- **Training:** "Trained from scratch for 287 epochs on medium quality
+  settings using the ~30 hour Jenny (Dioco) dataset" — Bryce Beattie's own
+  published statement. No inherited base checkpoint.
+- **License (model weights):** custom **attribution** licence stated by the
+  trainer, verbatim from his page:
+
+  > Attribution required, similar to CC BY
+  > See the link for license details. I impose no further license or
+  > restrictions.
+
+  The page footer adds:
+
+  > Feel free to use these for any legal and ethical purpose. If somebody
+  > wants to upload these to HuggingFace or somewhere similar, you have my
+  > blessing.
+
+- **Notice:** Model weights © Bryce Beattie (https://brycebeattie.com/files/tts/).
+
+## 13. Training data — jenny-tts-dataset (Jenny / dioco-group) — **ATTRIBUTION REQUIRED**
+
+- **Role:** the ~30 h / 22,419-prompt corpus the `en-jenny_dioco-medium`
+  checkpoint was trained on (48 kHz studio recordings). The corpus itself
+  is **not** shipped in the app or the pack; it is recorded here because the
+  weights are derived from it.
+- **Upstream:** https://github.com/dioco-group/jenny-tts-dataset
+- **Consent:** recorded by Jenny herself and published expressly for TTS
+  training ("A high-quality, varied ~30hr voice dataset suitable for
+  training a TTS model"; "Jenny is available to produce further recordings
+  for your own use").
+- **License:** custom **attribution** licence — commercial use permitted,
+  **attribution required, and the attribution term dictates the voice's
+  name.** Verbatim from the dataset README:
+
+  > Attribution is required in software/websites/projects/interfaces
+  > (including voice interfaces) that generate audio in response to user
+  > action using this dataset. Atribution means: the voice must be referred
+  > to as "Jenny", and where at all practical, "Jenny (Dioco)". Attribution
+  > is not required when distributing the generated clips (although
+  > welcome). Commercial use is permitted. Don't do unfair things like claim
+  > the dataset is your own. No further restrictions apply.
+
+- **Attribution obligation carried by this pack:** the in-app voice name is
+  **"Jenny (Dioco)"** (never plain "Jenny" or a curated rename) — a licence
+  term, satisfied by the pack's mandated `displayName` plus this notice and
+  the [`../CREDITS.md`](../CREDITS.md) block.
+- **Notice:** jenny-tts-dataset © Jenny / dioco-group
+  (https://github.com/dioco-group/jenny-tts-dataset).
+
 ## Phonemizer — espeak-ng (espeak-mode packs)
 
 VITS Marmalade phonemizes its **espeak-mode** packs (every pack above
@@ -275,9 +337,11 @@ notice.
 
 ## GPL-3.0 implications
 
-Voice packs themselves contain **no GPL material**: weights are MIT and
-every training corpus is Apache-2.0, CC BY 4.0 or CC0, all of which
-permit commercial use — which is why this engine can ship on Play as
-well as F-Droid. The distributed APK remains a
+Voice packs themselves contain **no GPL material**: weights are MIT (or,
+for the English "Jenny (Dioco)" pack, the trainer's custom attribution
+licence) and every training corpus is Apache-2.0, CC BY 4.0, CC0, or a
+custom attribution licence, all of which permit commercial use — which is
+why this engine can ship on Play as well as F-Droid. The distributed APK
+remains a
 GPL-3.0-or-later combined work because espeak-ng is compiled into it;
 Marmalade's own source files stay MIT.
