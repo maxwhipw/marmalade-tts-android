@@ -3,6 +3,7 @@ package app.marmalade.tts.ui.screen
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
@@ -18,8 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -157,21 +158,29 @@ class EngineDetailViewModel @Inject constructor(
      * draw before [refreshPacks] has probed anything, and only the per-row
      * state changes underneath.
      */
-    val packGroups: StateFlow<List<VoicePackLanguageGroup>> = _packStates
-        .map { voicePackGroups(engineName, it) }
+    val packGroups: StateFlow<List<VoicePackLanguageGroup>> = combine(
+        _packStates,
+        settings.showDeveloperEngines,
+    ) { states, showDeveloper ->
+        voicePackGroups(engineName, states, includeUnreleased = showDeveloper)
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = voicePackGroups(engineName, emptyMap()),
+            initialValue = voicePackGroups(engineName, emptyMap(), includeUnreleased = BuildConfig.DEBUG),
         )
 
     /** Counts for the pack section's "N packs · M languages · K installed" line. */
-    val packSummary: StateFlow<VoicePackSummary> = _packStates
-        .map { voicePackSummary(engineName, it) }
+    val packSummary: StateFlow<VoicePackSummary> = combine(
+        _packStates,
+        settings.showDeveloperEngines,
+    ) { states, showDeveloper ->
+        voicePackSummary(engineName, states, includeUnreleased = showDeveloper)
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = voicePackSummary(engineName, emptyMap()),
+            initialValue = voicePackSummary(engineName, emptyMap(), includeUnreleased = BuildConfig.DEBUG),
         )
 
     /**

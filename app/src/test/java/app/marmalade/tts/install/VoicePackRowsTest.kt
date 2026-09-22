@@ -21,7 +21,9 @@ class VoicePackRowsTest {
 
     @Test
     fun packsAreGroupedByLanguageInCatalogOrder() {
-        val groups = voicePackGroups(engine, emptyMap())
+        // Developer view (includeUnreleased) so the whole staged catalog is
+        // present — this pins the grouping/order logic, not the release gate.
+        val groups = voicePackGroups(engine, emptyMap(), includeUnreleased = true)
         // Languages in first-appearance order; the two Ukrainian packs land in
         // ONE group even though they sit at opposite ends of the catalog.
         assertEquals(
@@ -42,7 +44,7 @@ class VoicePackRowsTest {
 
     @Test
     fun aGroupCountsTheVoicesOfEveryPackBeneathIt() {
-        val groups = voicePackGroups(engine, emptyMap())
+        val groups = voicePackGroups(engine, emptyMap(), includeUnreleased = true)
         // 4 single-speaker Icelandic packs.
         assertEquals(4, groups.first { it.languageCode == "is-IS" }.voiceCount)
         // One pack, ten speakers.
@@ -55,7 +57,7 @@ class VoicePackRowsTest {
     fun anUnprobedPackReadsAsNotInstalledRatherThanDisappearing() {
         // The section must draw its full list before the disk probe finishes —
         // an empty map is "we haven't looked yet", not "nothing exists".
-        val groups = voicePackGroups(engine, emptyMap())
+        val groups = voicePackGroups(engine, emptyMap(), includeUnreleased = true)
         val rows = groups.flatMap { it.rows }
         assertEquals(VoicePackCatalog.forEngine(engine).size, rows.size)
         for (row in rows) {
@@ -63,6 +65,27 @@ class VoicePackRowsTest {
             assertEquals(VoicePackAction.INSTALL, row.action)
             assertFalse(row.isUsable)
         }
+    }
+
+    @Test
+    fun ordinaryUsersSeeOnlyTheReleasedPacks() {
+        // The v1.1 release gate (Max, 2026-09-22): with developer mode off the
+        // pack section shows exactly the released packs — only Jenny (Dioco) —
+        // never the nine staged-but-unreviewed ones.
+        val groups = voicePackGroups(engine, emptyMap())
+        val rows = groups.flatMap { it.rows }
+        assertEquals(1, rows.size)
+        assertEquals("en-jenny_dioco-medium", rows.single().pack.id)
+        assertEquals(listOf("en-GB"), groups.map { it.languageCode })
+    }
+
+    @Test
+    fun developerModeSeesEveryStagedPack() {
+        val groups = voicePackGroups(engine, emptyMap(), includeUnreleased = true)
+        assertEquals(
+            VoicePackCatalog.forEngine(engine).size,
+            groups.flatMap { it.rows }.size,
+        )
     }
 
     @Test
@@ -147,7 +170,9 @@ class VoicePackRowsTest {
 
     @Test
     fun theSummaryCountsPacksLanguagesAndWhatIsActuallyOnDisk() {
-        val all = voicePackSummary(engine, emptyMap())
+        // Developer view: the full staged catalog is ten packs across six
+        // languages.
+        val all = voicePackSummary(engine, emptyMap(), includeUnreleased = true)
         assertEquals(10, all.packCount)
         assertEquals(6, all.languageCount)
         assertEquals(0, all.installedCount)
@@ -162,9 +187,36 @@ class VoicePackRowsTest {
                 "kk-issai-high" to InstallState.Downloading(1L, 2L, ""),
                 "no-nvcc-medium" to InstallState.Corrupt,
             ),
+            includeUnreleased = true,
         )
         assertEquals(10, partial.packCount)
         assertEquals(2, partial.installedCount)
+    }
+
+    @Test
+    fun theSummaryReflectsTheReleasedSetForOrdinaryUsers() {
+        // With developer mode off the card's "N packs · M languages" line
+        // counts only the released set: one pack, one language.
+        val released = voicePackSummary(engine, emptyMap())
+        assertEquals(1, released.packCount)
+        assertEquals(1, released.languageCount)
+        assertEquals(0, released.installedCount)
+
+        // An installed staged pack does not inflate the ordinary-user count:
+        // uk-lada is not released, so it stays out of the released summary.
+        val stagedInstalled = voicePackSummary(
+            engine,
+            mapOf("uk-lada-x_low" to InstallState.Installed),
+        )
+        assertEquals(1, stagedInstalled.packCount)
+        assertEquals(0, stagedInstalled.installedCount)
+
+        // Jenny installed does count once it's on disk.
+        val jennyInstalled = voicePackSummary(
+            engine,
+            mapOf("en-jenny_dioco-medium" to InstallState.Installed),
+        )
+        assertEquals(1, jennyInstalled.installedCount)
     }
 
     @Test

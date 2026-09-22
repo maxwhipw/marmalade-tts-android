@@ -113,6 +113,34 @@ class VoiceAvailabilityTest {
     }
 
     @Test
+    fun anUninstalledUnreleasedPackCanNeverReachAnOrdinaryUser() {
+        // The store-safety invariant (Max, 2026-09-22): a staged-but-unreleased
+        // pack that isn't on disk must be unreachable two ways over for a non-
+        // developer — it fails the availability check (not installed) AND the
+        // release check. Only Jenny is released, so every other pack's voices
+        // are gated even before the disk probe runs.
+        val nothing = InstalledVoiceAssets(engines = setOf(vits), packs = emptySet())
+        for (voice in VitsVoiceCatalog.voices) {
+            assertFalse("${voice.id} must be unavailable while uninstalled", isVoiceAvailable(voice, nothing))
+        }
+        // The released flag alone (independent of install state) exposes only
+        // Jenny; every staged pack's voices read as unreleased.
+        val jennyId = VitsVoiceCatalog.voiceId("en-jenny_dioco-medium")
+        for (voice in VitsVoiceCatalog.voices) {
+            val expectReleased = voice.id == jennyId
+            assertEquals("${voice.id} released", expectReleased, isVoiceReleased(voice))
+        }
+    }
+
+    @Test
+    fun nonVitsVoicesAreAlwaysReleased() {
+        // The release gate is VITS-only: a Kokoro/Kitten row has no pack, so it
+        // must never be filtered by it.
+        assertTrue(isVoiceReleased(row("kokoro-direct-v1_0", "kokoro-direct-v1_0:af_bella")))
+        assertTrue(isVoiceReleased(row("kitten-direct-v0_8", "kitten-direct-v0_8:Bella")))
+    }
+
+    @Test
     fun packVoiceOfResolvesTheCatalogEntryBehindARoomRow() {
         // How a picker row reaches the pack's quality grade.
         val iseke = VitsVoiceCatalog.packVoiceOf("$vits:kk-issai-high#1")!!

@@ -128,25 +128,44 @@ data class VoicePackSummary(
  * A pack with no entry in [states] renders as [InstallState.NotInstalled] —
  * that is the correct pre-probe reading, and it means the list draws
  * immediately instead of waiting for nine flows to emit.
+ *
+ * [includeUnreleased] gates the unreviewed staged packs: false (the default,
+ * the ordinary-user view) shows only [VoicePack.released] packs, true (the
+ * developer-engines view) shows every staged pack. The default is the safe
+ * one so a caller that forgets to thread the developer flag can never leak an
+ * unreleased pack into a user-facing list.
  */
 fun voicePackGroups(
     engineName: String,
     states: Map<String, InstallState>,
+    includeUnreleased: Boolean = false,
 ): List<VoicePackLanguageGroup> =
-    VoicePackCatalog.forEngine(engineName)
+    packsFor(engineName, includeUnreleased)
         .map { pack -> VoicePackRow(pack, states[pack.id] ?: InstallState.NotInstalled) }
         .groupBy { it.pack.languageCode }
         .map { (language, rows) -> VoicePackLanguageGroup(language, rows) }
 
-/** Counts behind the engine card's "N voice packs · M languages" line. */
+/**
+ * Counts behind the engine card's "N voice packs · M languages" line. See
+ * [voicePackGroups] for [includeUnreleased].
+ */
 fun voicePackSummary(
     engineName: String,
     states: Map<String, InstallState>,
+    includeUnreleased: Boolean = false,
 ): VoicePackSummary {
-    val packs = VoicePackCatalog.forEngine(engineName)
+    val packs = packsFor(engineName, includeUnreleased)
     return VoicePackSummary(
         packCount = packs.size,
         languageCount = packs.map { it.languageCode }.distinct().size,
         installedCount = packs.count { pack -> states[pack.id]?.isUsableOnDisk == true },
     )
 }
+
+/** Released-only by default; the whole staged catalog in developer mode. */
+private fun packsFor(engineName: String, includeUnreleased: Boolean): List<VoicePack> =
+    if (includeUnreleased) {
+        VoicePackCatalog.forEngine(engineName)
+    } else {
+        VoicePackCatalog.releasedForEngine(engineName)
+    }

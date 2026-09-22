@@ -14,6 +14,7 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.isVoiceAvailable
+import app.marmalade.tts.data.isVoiceReleased
 import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
@@ -159,7 +160,8 @@ class VoicePickerViewModel @Inject constructor(
         allVoices.filter { voice ->
             isVoiceAvailable(voice, assets) &&
                 (engineFilter == null || voice.engine == engineFilter) &&
-                (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames)
+                (showDeveloper ||
+                    (voice.engine !in EngineCatalog.developerOnlyNames && isVoiceReleased(voice)))
         }
     }
         .stateIn(

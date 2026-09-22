@@ -236,6 +236,29 @@ class EngineDetailViewModelTest {
     }
 
     @Test
+    fun withDeveloperModeOffThePackSectionShowsOnlyReleasedPacks() = runTest {
+        // The release gate at the pack-management surface: an ordinary user
+        // configuring the VITS engine sees exactly the released pack (Jenny),
+        // never the nine staged ones.
+        val installer = FakeInstaller()
+        val vm = newViewModel(
+            engineName = VoicePackCatalog.VITS_MARMALADE_ENGINE,
+            installer = installer,
+            developerEngines = false,
+        )
+        vm.refreshPacks()
+
+        // The StateFlow's initial value is computed with the debug-build
+        // default (all packs); wait for the released-only steady state that
+        // the developer-off setting drives it to.
+        val rows = vm.packGroups
+            .map { groups -> groups.flatMap { it.rows } }
+            .first { it.size == 1 }
+        assertEquals(listOf("en-jenny_dioco-medium"), rows.map { it.pack.id })
+        assertEquals(1, vm.packSummary.first { it.packCount == 1 }.packCount)
+    }
+
+    @Test
     fun aNonPackEngineHasNoPackRows() = runTest {
         // The screen keys its whole section off this being empty.
         val vm = newViewModel(engineName = "kokoro-direct-v1_0")
@@ -262,7 +285,15 @@ class EngineDetailViewModelTest {
         engineName: String,
         settings: FakeSettings = FakeSettings(initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID),
         installer: EngineInstaller = FakeInstaller(),
+        // The pack-mechanics cases exercise the STAGED (unreleased) packs —
+        // Icelandic, Swedish, etc. — which are developer-only after the v1.1
+        // release gate. Run them in developer mode so the full catalog is
+        // visible; the release gate itself is covered in VoicePackRowsTest.
+        developerEngines: Boolean = true,
     ): EngineDetailViewModel {
+        if (developerEngines) {
+            kotlinx.coroutines.runBlocking { settings.setShowDeveloperEngines(true) }
+        }
         val savedState = SavedStateHandle(mapOf(EngineDetailViewModel.NAV_ARG_NAME to engineName))
         return EngineDetailViewModel(
             settings = settings,

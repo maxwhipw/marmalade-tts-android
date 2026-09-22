@@ -12,6 +12,7 @@ import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.filterAvailable
+import app.marmalade.tts.data.isVoiceReleased
 import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
@@ -314,8 +315,15 @@ class AliasViewModel @Inject constructor(
     val voiceTree: StateFlow<List<VoiceSource>> = combine(
         voiceDao.getAll(),
         _installedAssets,
-    ) { voices, assets ->
-        buildVoiceTree(voices.filterAvailable(assets), voicePaths)
+        settings.showDeveloperEngines,
+    ) { voices, assets, showDeveloper ->
+        // Same released gate the full-screen picker applies: an installed but
+        // unreleased VITS pack's voices stay out of an ordinary user's tree,
+        // and a developer still sees them. Uninstalled packs are already
+        // dropped by filterAvailable.
+        val available = voices.filterAvailable(assets)
+            .filter { showDeveloper || isVoiceReleased(it) }
+        buildVoiceTree(available, voicePaths)
     }
         .stateIn(
             scope = viewModelScope,

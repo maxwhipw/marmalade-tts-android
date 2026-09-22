@@ -72,6 +72,22 @@ fun List<VoiceMeta>.filterAvailable(assets: InstalledVoiceAssets): List<VoiceMet
     filter { isVoiceAvailable(it, assets) }
 
 /**
+ * Whether [voice] is exposed to an ordinary (non-developer) user.
+ *
+ * A pack-based VITS voice is released only when its own pack is
+ * [app.marmalade.tts.install.VoicePack.released]; an installed-but-unreleased
+ * pack (side-loaded or dev-installed) follows the developer-engines precedent —
+ * visible only in developer mode. Every non-VITS voice, and any VITS id whose
+ * pack the catalog no longer lists, is released (the latter is filtered out by
+ * [isVoiceAvailable] anyway). The picker ORs this with the developer flag, so a
+ * developer still sees the staged packs' voices.
+ */
+fun isVoiceReleased(voice: VoiceMeta): Boolean {
+    val packId = VitsVoiceCatalog.packIdOf(voice.id) ?: return true
+    return VoicePackCatalog.byId(packId)?.released ?: true
+}
+
+/**
  * True when [engineName]'s voices arrive as separate downloadable packs, so a
  * per-voice availability check has to look at the pack as well as the engine.
  */

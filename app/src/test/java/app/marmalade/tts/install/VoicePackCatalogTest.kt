@@ -3,6 +3,7 @@ package app.marmalade.tts.install
 import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.engine.vits.VitsDirectEngine
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -398,6 +399,21 @@ class VoicePackCatalogTest {
         assertEquals(0, voice.sid)
         assertEquals("Jenny (Dioco)", voice.displayName)
         assertEquals("Jenny (Dioco)", VoicePackCatalog.voiceByKey(ENGINE, jenny.id)!!.displayName)
+    }
+
+    @Test
+    fun onlyJennyIsReleasedToOrdinaryUsersForV1_1() {
+        // The v1.1 exposure policy (Max, 2026-09-22): ship only reviewed packs.
+        // Exactly one pack is released — the English "Jenny (Dioco)" — and every
+        // other staged pack stays developer-only until Max signs it off.
+        assertEquals(
+            listOf("en-jenny_dioco-medium"),
+            VoicePackCatalog.releasedForEngine(ENGINE).map { it.id },
+        )
+        assertTrue(VoicePackCatalog.EN_JENNY_DIOCO_MEDIUM.released)
+        for (pack in VoicePackCatalog.all.filter { it.id != "en-jenny_dioco-medium" }) {
+            assertFalse("${pack.id} must not be released yet", pack.released)
+        }
     }
 
     @Test

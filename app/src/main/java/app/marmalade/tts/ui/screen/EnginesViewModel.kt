@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -79,20 +80,45 @@ class EnginesViewModel @Inject constructor(
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()
 
     /**
+     * Per-engine, per-pack install state, keyed engine → packId → state. Only
+     * pack-based engines appear. Seeded with each such engine at an empty map
+     * so the counts draw on first frame; [refresh] fills the per-pack states in
+     * after probing the disk.
+     */
+    private val _packStates = MutableStateFlow(
+        EngineCatalog.all
+            .filter { it.isPackBased }
+            .associate { it.name to emptyMap<String, InstallState>() },
+    )
+
+    /**
      * Per-engine voice-pack counts for the card's aggregate line, keyed by
      * engine name. Only pack-based engines appear; the card renders nothing for
      * the others.
      *
-     * Seeded with every pack at NotInstalled so the "N packs · M languages"
-     * half of the line is right on first frame and only the installed count
-     * fills in after [refresh] probes the disk.
+     * Derived reactively from [_packStates] and the "show developer engines"
+     * setting so the counts reflect exactly the packs the current mode exposes:
+     * the released set for ordinary users, the whole staged catalog in
+     * developer mode. Toggling the setting refreshes the line without a reload,
+     * matching [engines].
      */
-    private val _packSummaries = MutableStateFlow(
-        EngineCatalog.all
-            .filter { it.isPackBased }
-            .associate { it.name to voicePackSummary(it.name, emptyMap()) },
-    )
-    val packSummaries: StateFlow<Map<String, VoicePackSummary>> = _packSummaries.asStateFlow()
+    val packSummaries: StateFlow<Map<String, VoicePackSummary>> = combine(
+        _packStates,
+        settings.showDeveloperEngines,
+    ) { states, showDeveloper ->
+        states.mapValues { (engineName, packStates) ->
+            voicePackSummary(engineName, packStates, includeUnreleased = showDeveloper)
+        }
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = EngineCatalog.all
+                .filter { it.isPackBased }
+                .associate {
+                    it.name to voicePackSummary(it.name, emptyMap(), includeUnreleased = BuildConfig.DEBUG)
+                },
+        )
 
     /**
      * Probe each catalog engine to populate the install-state map. Called
@@ -110,10 +136,13 @@ class EnginesViewModel @Inject constructor(
                 val state = installer.verify(engine.name)
                 _installStates.update { current -> current + (engine.name to state) }
                 if (!engine.isPackBased) continue
+                // Probe every catalog pack, released or not: developer mode
+                // needs the staged packs' states too, and voicePackSummary
+                // filters to the released set when it isn't on.
                 val packStates = VoicePackCatalog.forEngine(engine.name)
                     .associate { pack -> pack.id to installer.verifyPack(pack.id) }
-                _packSummaries.update { current ->
-                    current + (engine.name to voicePackSummary(engine.name, packStates))
+                _packStates.update { current ->
+                    current + (engine.name to packStates)
                 }
             }
         }

@@ -86,6 +86,21 @@ package app.marmalade.tts.install
  * @property licenseNotice Repo-relative path to the long-form third-party
  *                         notice covering this pack's weights + training
  *                         data.
+ * @property released      Whether this pack is exposed to ordinary (non-
+ *                         developer) users. Only the packs Max has signed off
+ *                         are `true`; everything staged-but-unreviewed stays
+ *                         `false` and is visible only in developer-engines
+ *                         mode, exactly like a [EngineDescriptor.developerOnly]
+ *                         engine. Gating happens at the user-facing surfaces
+ *                         (the engine card's pack summary, the pack-management
+ *                         section, the voice picker); routing and disk
+ *                         verification still see every installed pack, so an
+ *                         already-installed unreleased pack keeps working. The
+ *                         v1.1 policy (Max, 2026-09-22) is ship-only-reviewed:
+ *                         Ukrainian is quality-held, and the Icelandic / Swedish
+ *                         / Kazakh / Norwegian packs have had no community
+ *                         review yet, so only the English "Jenny (Dioco)" pack
+ *                         is released.
  */
 data class VoicePack(
     val id: String,
@@ -99,6 +114,7 @@ data class VoicePack(
     val archive: EngineArchive,
     val installedSizeBytes: Long,
     val licenseNotice: String,
+    val released: Boolean = false,
     val speakers: List<PackSpeaker> = emptyList(),
 ) {
     init {
@@ -604,6 +620,10 @@ object VoicePackCatalog {
         ),
         installedSizeBytes = 63_542_750L,
         licenseNotice = VITS_MARMALADE_LICENSE_NOTICE,
+        // The one pack exposed to ordinary users for v1.1 (Max, 2026-09-22):
+        // clean end-to-end provenance and reviewed. The other nine stay
+        // developer-only until Max signs them off — see [VoicePack.released].
+        released = true,
     )
 
     /** Every voice pack the app knows how to install. Read-only. */
@@ -625,6 +645,16 @@ object VoicePackCatalog {
 
     /** Packs belonging to [engineName], in catalog (display) order. */
     fun forEngine(engineName: String): List<VoicePack> = all.filter { it.engine == engineName }
+
+    /**
+     * Packs of [engineName] that are exposed to ordinary users — [forEngine]
+     * filtered to [VoicePack.released]. This is what the user-facing pack
+     * lists and counts derive from; developer-engines mode uses [forEngine]
+     * to see every staged pack. Routing and disk verification never use this —
+     * they must resolve any installed pack, released or not.
+     */
+    fun releasedForEngine(engineName: String): List<VoicePack> =
+        forEngine(engineName).filter { it.released }
 
     /**
      * Every selectable voice of [engineName]'s packs, pack order then declared
