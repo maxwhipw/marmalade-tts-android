@@ -19,6 +19,12 @@
   &nbsp;<img alt="privacy" src="https://img.shields.io/badge/privacy-on--device_by_default-2EA44F">
 </p>
 
+<p align="center">
+  <a href="https://f-droid.org/packages/app.marmalade.tts/">
+    <img alt="Get it on F-Droid" src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="75">
+  </a>
+</p>
+
 ---
 
 Marmalade TTS gives your phone a voice worth listening to. Set it as your
@@ -57,10 +63,6 @@ selection" action, or speak your clipboard from a Quick Settings tile.
 </p>
 
 ## Install
-
-<a href="https://f-droid.org/packages/app.marmalade.tts/">
-  <img alt="Get it on F-Droid" src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="75">
-</a>
 
 - **[F-Droid](https://f-droid.org/packages/app.marmalade.tts/)** — the
   recommended way to install: reproducible builds and automatic updates.
