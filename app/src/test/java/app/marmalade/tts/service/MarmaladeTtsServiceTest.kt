@@ -12,6 +12,7 @@ import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.EngineNotInstalledException
@@ -20,6 +21,7 @@ import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.preprocessing.EngineProfiles
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -71,6 +74,7 @@ class MarmaladeTtsServiceTest {
     private lateinit var service: MarmaladeTtsService
     private lateinit var fakeEngine: FakeKittenDirectEngine
     private lateinit var fakeKokoroDirectEngine: FakeKokoroDirectEngine
+    private lateinit var fakeVits: FakeVitsDirectEngine
     private lateinit var fakeDao: FakeVoiceMetaDao
     private lateinit var fakeSettings: FakePreprocessSettings
     private lateinit var preprocessor: Preprocessor
@@ -81,9 +85,16 @@ class MarmaladeTtsServiceTest {
         fakeSettings = FakePreprocessSettings()
         fakeEngine = FakeKittenDirectEngine(ctx, fakeSettings)
         fakeKokoroDirectEngine = FakeKokoroDirectEngine(ctx, fakeSettings)
-        // Seed both catalogs so the engine-routing tests can resolve
-        // either a kitten-direct:* or kokoro-direct:* voice through the DAO lookup.
-        fakeDao = FakeVoiceMetaDao(KittenDirectVoiceCatalog.voices + KokoroDirectVoiceCatalog.voices)
+        fakeVits = FakeVitsDirectEngine(ctx, fakeSettings)
+        // Seed all three catalogs so the engine-routing tests can resolve a
+        // kitten-direct:*, kokoro-direct:* or vits-marmalade-v1:* voice through
+        // the DAO lookup. The VITS rows stay out of the negotiation surfaces
+        // until the fake reports a pack installed — see the VITS suite below.
+        fakeDao = FakeVoiceMetaDao(
+            KittenDirectVoiceCatalog.voices +
+                KokoroDirectVoiceCatalog.voices +
+                VitsVoiceCatalog.voices,
+        )
         preprocessor = Preprocessor(
             rulesByName = PreprocessingRules.ALL.associateBy { it.name },
         )
@@ -96,6 +107,10 @@ class MarmaladeTtsServiceTest {
         // unset — no test routes a voice to them, so they're never accessed.
         setField(service, "kittenDirect", fakeEngine)
         setField(service, "kokoroDirect", fakeKokoroDirectEngine)
+        // installedVoices() probes the VITS engine's install/pack state on every
+        // negotiation callback, so the field must be set for every test — not
+        // only the VITS-routing ones.
+        setField(service, "vits", fakeVits)
         setField(service, "voiceDao", fakeDao)
         setField(service, "preprocessor", preprocessor)
         setField(service, "settings", fakeSettings)
@@ -143,6 +158,7 @@ class MarmaladeTtsServiceTest {
             kokoroGerman = KokoroGermanEngine(ctx, fakeSettings, fakeSharedEspeakData()),
             kittenDirect = fakeEngine,
             pocket = PocketEngine(ctx, fakeSettings),
+            vits = fakeVits,
         ))
     }
 
@@ -1037,6 +1053,95 @@ class MarmaladeTtsServiceTest {
         assertNull(fakeEngine.languages.single())
     }
 
+    // -- VITS Marmalade wiring (Letter C) -----------------------------------
+    //
+    // The pack-based VITS engine had no arms in this service — engineHandleFor
+    // silently fell back to kokoro, and the negotiation path never advertised
+    // it. These pin the mirror of MarmaladeSynthService's VITS handling:
+    // routing, the pack-based install gate, per-pack sample rate, and the
+    // released+installed enumeration filter.
+
+    private val jennyVoiceId = VitsVoiceCatalog.voiceId("en-jenny_dioco-medium")
+
+    @Test
+    fun onSynthesizeText_vitsVoiceRoutesToVitsEngineNotKokoro() {
+        fakeVits.installedPacks = listOf("en-jenny_dioco-medium")
+        fakeVits.nextPcm = ShortArray(2048) { 0 }
+
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(newRequestWithVoice("hello", jennyVoiceId), callback)
+
+        // Routed to VITS, never the kokoro fallback.
+        assertEquals("VITS voice must hit the vits engine exactly once", 1, fakeVits.calls.size)
+        assertEquals("VITS voice must NOT touch the kokoro engine", 0, fakeKokoroDirectEngine.calls.size)
+        assertEquals(jennyVoiceId, fakeVits.calls.single().second)
+        // Committed rate is the pack's 22.05 kHz, not a 24 kHz engine default.
+        val start = callback.events.first() as FakeSynthesisCallback.Event.Start
+        assertEquals(22_050, start.sampleRate)
+    }
+
+    @Test
+    fun onSynthesizeText_vitsSampleRateIsPerPackNotAnEngineDefault() {
+        // Packs differ (16 kHz x_low, 22.05 kHz medium/high), so the service
+        // must commit the requested VOICE's rate, not one engine constant. The
+        // x_low Ukrainian row is 16 kHz while the fake engine's default is
+        // 22.05 kHz — so a Start of 16 kHz proves the per-pack VoiceMeta rate
+        // won, exactly as it must in the system stream (streamPcm honours only
+        // the committed rate).
+        fakeVits.nextPcm = ShortArray(1024) { 0 }
+        val ukLadaVoiceId = VitsVoiceCatalog.voiceId("uk-lada-x_low")
+
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(newRequestWithVoice("hi", ukLadaVoiceId), callback)
+
+        assertEquals(1, fakeVits.calls.size)
+        val start = callback.events.first() as FakeSynthesisCallback.Event.Start
+        assertEquals(16_000, start.sampleRate)
+    }
+
+    @Test
+    fun onLoadVoice_acceptsAVitsVoice() {
+        // The system voice picker round-trips a VITS voice id — before the
+        // wiring, isKnownEngine rejected it and the system dropped the voice.
+        assertEquals(TextToSpeech.SUCCESS, service.onLoadVoice(jennyVoiceId))
+    }
+
+    @Test
+    fun onGetVoices_advertisesAnInstalledReleasedVitsPackWithItsLanguage() {
+        fakeVits.installedPacks = listOf("en-jenny_dioco-medium")
+
+        val voices = service.onGetVoices()
+        val jenny = voices.single { it.name == jennyVoiceId }
+        // Advertised to the system with its own language (en-GB), the way the
+        // other downloadable engines' voices are — before the wiring the row
+        // never reached onGetVoices because the engine wasn't installable here.
+        assertEquals("en", jenny.locale.language)
+        assertEquals("GB", jenny.locale.country)
+        assertFalse("an on-device VITS voice never needs the network", jenny.isNetworkConnectionRequired)
+    }
+
+    @Test
+    fun onGetVoices_hidesEveryVitsVoiceWhenNoPackIsInstalled() {
+        // Engine absent (no pack on disk) → not one VITS voice reaches the
+        // system, even though the DAO holds every catalog row.
+        fakeVits.installedPacks = emptyList()
+        assertTrue(service.onGetVoices().none { it.name.startsWith("${VitsVoiceCatalog.ENGINE}:") })
+    }
+
+    @Test
+    fun onGetVoices_hidesAStagedPackEvenWhenItIsInstalled() {
+        // A developer-sideloaded, unreleased pack (uk-lada) must never be
+        // advertised to the OS: the system-TTS surface is user-facing and only
+        // ever exposes released voices. Jenny, released and installed, still
+        // shows; the staged Ukrainian voice does not.
+        fakeVits.installedPacks = listOf("en-jenny_dioco-medium", "uk-lada-x_low")
+
+        val vitsVoiceNames = service.onGetVoices()
+            .map { it.name }
+            .filter { it.startsWith("${VitsVoiceCatalog.ENGINE}:") }
+        assertEquals(listOf(jennyVoiceId), vitsVoiceNames)
+    }
+
     // ----------------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------------
@@ -1276,6 +1381,62 @@ internal class FakeKokoroDirectEngine(
                 kotlinx.coroutines.delay(5)
             }
         }
+        emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FakeVitsDirectEngine — JVM-safe subclass of the pack-based VITS engine.
+// Mirrors the Kitten/Kokoro fakes but adds pack-level install control: the
+// system service advertises a VITS voice only when its own pack is on disk,
+// so [installedPacks] drives both isInstalled() and installedPackIds().
+// ---------------------------------------------------------------------------
+
+internal class FakeVitsDirectEngine(
+    ctx: Context,
+    settings: SettingsRepository,
+) : VitsDirectEngine(ctx, settings, fakeSharedEspeakData()) {
+
+    var nextPcm: ShortArray = ShortArray(0)
+    var synthesizeException: Throwable? = null
+
+    /** Pack ids this fake reports as present on disk. Empty = engine absent. */
+    var installedPacks: List<String> = emptyList()
+
+    val calls: MutableList<Triple<String, String, Float>> = mutableListOf()
+    val languages: MutableList<String?> = mutableListOf()
+
+    // Medium/high VITS packs (Jenny included) render at 22.05 kHz.
+    override val sampleRate: Int get() = 22_050
+
+    override fun isInstalled(): Boolean = installedPacks.isNotEmpty()
+
+    override fun installedPackIds(): List<String> = installedPacks
+
+    override fun ensureModelLoaded() { /* no ORT session in Robolectric */ }
+
+    override suspend fun synthesize(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+    ): SynthAudio {
+        calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
+        synthesizeException?.let { throw it }
+        return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
+    }
+
+    override fun synthesizeStream(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+        playbackRate: Float,
+    ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        calls += Triple(text, voiceId, speed)
+        languages += phonemizationLanguage
+        synthesizeException?.let { throw it }
         emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
     }
 }

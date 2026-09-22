@@ -27,6 +27,9 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
+import app.marmalade.tts.data.isVoiceReleased
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
@@ -158,6 +161,7 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var kokoroGerman: KokoroGermanEngine
     @Inject lateinit var pocket: PocketEngine
+    @Inject lateinit var vits: VitsDirectEngine
     @Inject lateinit var cloudApi: CloudApiEngine
 
     @Inject lateinit var voiceDao: VoiceMetaDao
@@ -351,6 +355,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                 KokoroGermanVoiceCatalog.ENGINE,
                 KittenDirectVoiceCatalog.ENGINE,
                 PocketVoiceCatalog.ENGINE,
+                VitsVoiceCatalog.ENGINE,
                 // Cloud belongs here too even though it has no model to
                 // warm: without it the rules cache never gets a cloud
                 // entry, so every cloud utterance paid a blocking DataStore
@@ -395,6 +400,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect
         PocketVoiceCatalog.ENGINE -> pocket
+        VitsVoiceCatalog.ENGINE -> vits
         CloudApiVoiceCatalog.ENGINE -> cloudApi
         else -> kokoroDirect
     }
@@ -1018,7 +1024,21 @@ class MarmaladeTtsService : TextToSpeechService() {
         val all = voiceSnapshot.ifEmpty {
             runBlocking { voiceDao.getAll().first() }.also { voiceSnapshot = it }
         }
-        return all.filter { isEngineInstalled(it.engine) }
+        // Pack-based VITS needs per-pack granularity here: isEngineInstalled is
+        // true as soon as ANY pack is on disk, so an engine-level filter would
+        // advertise every VITS voice to the system the moment one pack landed —
+        // the same over-listing VoiceAvailability fixed for the in-app picker.
+        // Probe the installed pack set once and require each VITS voice's own
+        // pack to be present AND released: the system-TTS surface is user-facing
+        // and has no developer toggle, so it only ever exposes released voices.
+        val installedVitsPacks =
+            if (isEngineInstalled(VitsVoiceCatalog.ENGINE)) vits.installedPackIds().toSet() else emptySet()
+        return all.filter { meta ->
+            if (!isEngineInstalled(meta.engine)) return@filter false
+            if (meta.engine != VitsVoiceCatalog.ENGINE) return@filter true
+            val packId = VitsVoiceCatalog.packIdOf(meta.id) ?: return@filter false
+            isVoiceReleased(meta) && packId in installedVitsPacks
+        }
     }
 
     /** On-disk install state of the engine named [engineName]. */
@@ -1027,6 +1047,11 @@ class MarmaladeTtsService : TextToSpeechService() {
         KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.isInstalled()
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.isInstalled()
         PocketVoiceCatalog.ENGINE -> pocket.isInstalled()
+        // Pack-based: installed once at least one pack is on disk. The picker's
+        // per-pack VoiceAvailability filter still gates which pack's voices are
+        // offered — this only decides whether the engine surfaces to the system
+        // at all (see installedVoices / onGetVoices).
+        VitsVoiceCatalog.ENGINE -> vits.isInstalled()
         CloudApiVoiceCatalog.ENGINE -> cloudApi.isInstalled()
         // Developer-only rows (Pocket dev) and anything else unknown are
         // never advertised to the system.
@@ -1100,6 +1125,11 @@ class MarmaladeTtsService : TextToSpeechService() {
         KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.sampleRate
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.sampleRate
         PocketVoiceCatalog.ENGINE -> pocket.sampleRate
+        // Fallback only: VITS packs differ (16 kHz x_low, 22.05 kHz medium/high)
+        // so the per-voice VoiceMeta.sampleRate in [sampleRateFor]'s cache is
+        // the real answer. This is what a not-yet-cached VITS voice commits to
+        // — vits.sampleRate is the last-loaded pack's rate, else its fallback.
+        VitsVoiceCatalog.ENGINE -> vits.sampleRate
         CloudApiVoiceCatalog.ENGINE -> cloudApi.sampleRate
         else -> kokoroDirect.sampleRate
     }
@@ -1126,6 +1156,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.synthesize(text, voiceId, speed, phonemizationLanguage)
             KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
             PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
+            VitsVoiceCatalog.ENGINE -> vits.synthesize(text, voiceId, speed, phonemizationLanguage)
             CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
             else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
         }
@@ -1150,6 +1181,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
             KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
             PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
+            VitsVoiceCatalog.ENGINE -> vits.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
             CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
             else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
         }
@@ -1187,6 +1219,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             name == KokoroGermanVoiceCatalog.ENGINE ||
             name == KittenDirectVoiceCatalog.ENGINE ||
             name == PocketVoiceCatalog.ENGINE ||
+            name == VitsVoiceCatalog.ENGINE ||
             name == CloudApiVoiceCatalog.ENGINE
 
     /**

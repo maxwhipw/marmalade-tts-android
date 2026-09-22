@@ -5,6 +5,7 @@ import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +36,7 @@ class EngineWarmup @Inject constructor(
     private val kokoroGerman: KokoroGermanEngine,
     private val kittenDirect: KittenDirectEngine,
     private val pocket: PocketEngine,
+    private val vits: VitsDirectEngine,
 ) {
     // Application-lifetime scope; never cancelled (singletons live as long
     // as the process). IO because ensureModelLoaded reads model bytes off
@@ -49,6 +51,10 @@ class EngineWarmup @Inject constructor(
                 "kokoro-de" to kokoroGerman,
                 "kitten-direct" to kittenDirect,
                 "pocket" to pocket,
+                // Warmed like the rest so Persistent keepalive keeps VITS
+                // resident: EngineResidency already releases it, so without
+                // this the load/release pair was asymmetric.
+                "vits" to vits,
             )
             for ((name, engine) in engines) {
                 try {

@@ -119,8 +119,12 @@ private const val PERF_TAG = "StreamPerf"
  */
 private const val MIN_CHARS_PER_CHUNK = 80
 
+// `open` solely to enable the JVM-safe test double (FakeVitsDirectEngine in
+// MarmaladeTtsServiceTest), exactly like KittenDirectEngine/KokoroDirectEngine:
+// the real synthesize path needs an ONNX Runtime session that won't load under
+// Robolectric.
 @Singleton
-class VitsDirectEngine @Inject constructor(
+open class VitsDirectEngine @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val settings: SettingsRepository,
     private val sharedEspeak: SharedEspeakData,
@@ -637,7 +641,7 @@ class VitsDirectEngine @Inject constructor(
         installedPackIds().firstOrNull() ?: throw EngineNotInstalledException(ENGINE_NAME)
 
     /** Ids of catalog packs present on disk, in catalog order. */
-    fun installedPackIds(): List<String> =
+    open fun installedPackIds(): List<String> =
         VoicePackCatalog.forEngine(ENGINE_NAME)
             .map { it.id }
             .filter { isPackUsable(File(packsDir, it)) }
