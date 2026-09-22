@@ -245,20 +245,17 @@ private fun EngineLanguagesDialog(
         text = {
             Column {
                 for (code in languageCodes) {
-                    Text(
-                        text = stringResource(languageNameRes(code)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 4.dp),
-                    )
+                    LanguageDialogRow(withFlag(code, stringResource(languageNameRes(code))))
                 }
                 for (code in partialLanguageCodes) {
-                    Text(
-                        text = stringResource(
-                            R.string.language_partial_suffix,
-                            stringResource(languageNameRes(code)),
+                    LanguageDialogRow(
+                        withFlag(
+                            code,
+                            stringResource(
+                                R.string.language_partial_suffix,
+                                stringResource(languageNameRes(code)),
+                            ),
                         ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
             }
@@ -270,6 +267,20 @@ private fun EngineLanguagesDialog(
         },
     )
 }
+
+/** One flagged language line in the languages dialog. */
+@Composable
+private fun LanguageDialogRow(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(vertical = 4.dp),
+    )
+}
+
+/** Prefix [name] with [code]'s flag emoji, or leave it bare when there is none. */
+private fun withFlag(code: String, name: String): String =
+    languageFlagOrNull(code)?.let { "$it $name" } ?: name
 
 /**
  * The four-segment speed meter. Filled segments take a traffic-light colour
@@ -427,6 +438,38 @@ private fun languageNameRes(code: String): Int =
 @Composable
 fun languageDisplayName(code: String): String =
     languageNameResOrNull(code)?.let { stringResource(it) } ?: code
+
+/**
+ * Flag emoji for a BCP-47 language code, or null when the app has no flag for
+ * it. Keyed on the same codes as [languageNameResOrNull] so a listed language
+ * always resolves to both a name and its flag.
+ *
+ * The app pairs flags with locales elsewhere (Kokoro voice display names like
+ * "🇺🇸 Bella"), but that mapping is keyed on the voice-key letter, not a
+ * language code — so this is the code-keyed companion the languages dialog
+ * needs. Flags stay in sighted-only UI: espeak/TalkBack reads 🇺🇸 aloud as
+ * "United States", which would double the language name it already announces.
+ */
+fun languageFlagOrNull(code: String): String? = when (code) {
+    "en-US" -> "🇺🇸"
+    "en-GB" -> "🇬🇧"
+    "es-ES", "es" -> "🇪🇸"
+    "fr-FR", "fr" -> "🇫🇷"
+    "it-IT", "it" -> "🇮🇹"
+    "hi-IN", "hi" -> "🇮🇳"
+    "pt-BR", "pt" -> "🇧🇷"
+    "ja-JP", "ja" -> "🇯🇵"
+    "zh-CN", "zh" -> "🇨🇳"
+    "de-DE", "de" -> "🇩🇪"
+    "bg-BG", "bg" -> "🇧🇬"
+    "uk-UA", "uk" -> "🇺🇦"
+    "is-IS", "is" -> "🇮🇸"
+    "sv-SE", "sv" -> "🇸🇪"
+    "kk-KZ", "kk" -> "🇰🇿"
+    "nb-NO", "nb", "no" -> "🇳🇴"
+    "en" -> "🇺🇸"
+    else -> null
+}
 
 /**
  * Vertical padding that grows the languages value's tap target, and equally the
