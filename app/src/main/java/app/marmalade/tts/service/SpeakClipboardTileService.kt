@@ -1,12 +1,10 @@
 package app.marmalade.tts.service
 
-import android.content.ClipDescription
-import android.content.ClipboardManager
+import android.app.PendingIntent
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.util.Log
-import android.widget.Toast
 import app.marmalade.tts.R
 
 // -----------------------------------------------------------------------------
@@ -18,32 +16,30 @@ import app.marmalade.tts.R
 //     ▼
 //   SpeakClipboardTileService.onClick()
 //     │
-//     ├── getSystemService(ClipboardManager) → primaryClip
-//     │     ├── null / no items / non-text MIME ──► Toast "Clipboard is empty"
-//     │     └── primary text                    ──► passes through
+//     ├── lock screen showing → unlockAndRun { … }  (the user unlocks first)
 //     │
-//     └── SpeakDispatcher.dispatch(this, clipboardText)
-//           │
-//           ├── Blank      → Toast "Clipboard is empty"
-//           └── Dispatched → MarmaladeSynthService starts in the foreground
+//     └── startActivityAndCollapse(SpeakClipboardActivity)
+//           │   (PendingIntent overload on API 34+, where the Intent one
+//           │    throws; the Intent overload below that)
+//           ▼
+//         SpeakClipboardActivity reads the clipboard once it has window
+//         focus, dispatches via SpeakDispatcher, and finishes.
+//
+//   The tile never reads the clipboard itself: since Android 10 only the
+//   focused app or the default IME can, and a TileService is neither — the
+//   read always came back empty.
 //
 //   onStartListening() refreshes the tile label + icon every time the
 //   panel becomes visible. We don't currently expose an "is speaking"
 //   state on the tile — that can come later; the active-tile metadata
 //   in the manifest leaves the door open for it.
-//
-//   This tile requires the device to be unlocked. We do not declare
-//   `UNLOCK_REQUIRED=false` because Android 10+ blocks background
-//   clipboard reads from a locked context — the primary clip read would
-//   come back empty even if the tile were allowed to fire from the lock
-//   screen, so the unlock dance is unavoidable for "speak clipboard."
 // -----------------------------------------------------------------------------
 
 /**
  * Quick Settings tile that speaks whatever text is currently on the
- * clipboard. The tile dispatches to
- * [app.marmalade.tts.service.MarmaladeSynthService] via [SpeakDispatcher]
- * — same code path as the share-sheet target.
+ * clipboard, through the [SpeakClipboardActivity] trampoline — which
+ * dispatches to [MarmaladeSynthService] via [SpeakDispatcher], the same code
+ * path as the share-sheet target.
  */
 class SpeakClipboardTileService : TileService() {
 
@@ -58,61 +54,23 @@ class SpeakClipboardTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val text = readClipboardText()
-        when (SpeakDispatcher.dispatch(this, text)) {
-            SpeakDispatcher.DispatchResult.Blank -> {
-                Toast.makeText(
-                    this,
-                    getString(R.string.service_clipboard_empty),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-            is SpeakDispatcher.DispatchResult.Dispatched -> {
-                // No-op; the foreground notification is the user-facing
-                // confirmation that synthesis has started.
-            }
-            is SpeakDispatcher.DispatchResult.Failed -> {
-                Toast.makeText(
-                    this,
-                    getString(R.string.speak_error_synthesis_failed),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
+        if (isLocked) unlockAndRun { openTrampoline() } else openTrampoline()
     }
 
-    /**
-     * Read the primary clipboard text, or null if the clipboard is empty
-     * or holds a non-text MIME type. Defensive against
-     * SecurityException — some OEM builds throw if the tile fires before
-     * the user fully unlocks.
-     */
-    private fun readClipboardText(): String? {
-        val cm = getSystemService(ClipboardManager::class.java) ?: return null
-        val clip = try {
-            cm.primaryClip
-        } catch (t: SecurityException) {
-            Log.w(TAG, "Clipboard read denied", t)
-            return null
+    private fun openTrampoline() {
+        val intent = SpeakClipboardActivity.intent(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startActivityAndCollapse(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
         }
-        if (clip == null || clip.itemCount == 0) return null
-        // Without this MIME-type guard, `coerceToText` happily turns a
-        // content-URI for an image (or any non-text item with a uri/intent)
-        // into the URI string itself, which the dispatcher would then speak
-        // aloud literally. Accept text/plain and text/html only; everything
-        // else surfaces as the "Clipboard is empty" toast.
-        val description = clip.description
-        if (description == null ||
-            (!description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) &&
-                !description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML))
-        ) {
-            return null
-        }
-        val item = clip.getItemAt(0) ?: return null
-        return item.coerceToText(this)?.toString()
-    }
-
-    private companion object {
-        const val TAG = "SpeakClipboardTile"
     }
 }

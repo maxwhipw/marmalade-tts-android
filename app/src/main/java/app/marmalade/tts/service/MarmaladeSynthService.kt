@@ -15,6 +15,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
@@ -67,6 +68,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
@@ -135,7 +138,8 @@ import kotlinx.coroutines.withContext
 //
 //   runOne(prepared) — consumer:
 //     ├── requestAudioFocus(AUDIOFOCUS_GAIN)
-//     │     - LOSS_TRANSIENT → pause; GAIN → resume; LOSS → doStop
+//     │     - LOSS_TRANSIENT → pause; GAIN → resume (only that focus
+//     │       pause, never the user's own); LOSS → doStop
 //     ├── playFromChannel → AudioTrack (a synthesis failure reaches here as
 //     │     the channel's close cause, and maps to the same outcome it did
 //     │     when the two halves were one function)
@@ -147,7 +151,10 @@ import kotlinx.coroutines.withContext
 //   ACTION_STOP stops everything; ACTION_STOP_REQUEST stops only the
 //   named in-app request (ViewModel teardown must not kill an external
 //   read). Drain loops bail out if the playback head stalls (Android 16
-//   audio hardening parks policy-muted tracks).
+//   audio hardening parks policy-muted tracks). Only ACTION_SPEAK promotes
+//   the service to foreground; control actions on an idle instance stop it
+//   again. A partial wake lock is held while a request plays or waits and
+//   playback isn't paused, so screen-off reads don't freeze mid-inference.
 //
 //   Bluetooth headset hand-off: not implemented explicitly — AudioTrack
 //   honours the system routing automatically, and audio-focus loss when
@@ -245,26 +252,118 @@ class MarmaladeSynthService : Service() {
     @Volatile private var paused: Boolean = false
     @Volatile private var cancelled: Boolean = false
 
+    /**
+     * True only while [paused] is an audio-focus pause (a transient loss), so
+     * regaining focus resumes exactly that and never a pause the user asked
+     * for. Cleared by every user pause/resume and by the next request.
+     */
+    @Volatile private var pausedByFocus: Boolean = false
+
+    /**
+     * The request [activeJob] is playing, so a stop can cancel its channel —
+     * see [doStopRequest]. Guarded by `lock`, set and cleared with [activeJob].
+     */
+    private var activePrepared: Prepared? = null
+
+    /**
+     * Newest start id delivered to [onStartCommand]. Stopping with
+     * `stopSelfResult(lastStartId)` rather than a bare `stopSelf()` leaves
+     * the service up when a newer start is already in flight — above all a
+     * startForegroundService(SPEAK), which must reach its startForeground.
+     */
+    @Volatile private var lastStartId: Int = 0
+
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var mediaSession: MediaSessionCompat? = null
     private var notificationManager: NotificationManager? = null
 
+    /**
+     * Keeps the CPU running while there is speech to produce — a foreground
+     * service alone does not: with the screen off the device can suspend
+     * between requests, during an underrun or on a cloud round-trip, freezing
+     * inference mid-read. Held (with a timeout, re-armed as chunks flow) only
+     * while work is active and not paused. See [holdWakeLock].
+     */
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(NotificationManager::class.java)
         audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        wakeLock = getSystemService(PowerManager::class.java)
+            ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
+            // One logical hold, re-armed many times; one release ends it.
+            ?.apply { setReferenceCounted(false) }
         ensureNotificationChannel()
         ensureMediaSession()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Always promote to foreground before doing any work — Android 12+
-        // throws ForegroundServiceStartNotAllowedException if we delay.
-        // Android 14+ (API 34) additionally requires the type argument to
-        // match the manifest declaration (mediaPlayback) — otherwise we get
-        // a MissingForegroundServiceTypeException at runtime. The 3-arg
-        // overload exists since API 29 (Q), so we guard the type pass on Q+.
+        lastStartId = startId
+        if (intent?.action == ACTION_SPEAK) {
+            // ACTION_SPEAK is the only action ever sent with
+            // startForegroundService (SpeakDispatcher, Synthesizer.speak,
+            // ReaderSpeechClient.speak), so it alone owes a startForeground —
+            // immediately, before any work: Android 12+ throws
+            // ForegroundServiceStartNotAllowedException if we delay.
+            promoteToForeground()
+            val req = parseRequest(intent)
+            if (req == null) {
+                Log.w(TAG, "ACTION_SPEAK without ${EXTRA_TEXT} — ignoring")
+                // A malformed in-app request must still resolve its
+                // awaiting speak() call.
+                completions.post(
+                    intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
+                    PreviewCompletions.ErrorKind.FAILED,
+                    "malformed request",
+                )
+                stopIfIdle()
+                return START_NOT_STICKY
+            }
+            enqueue(req)
+            return START_NOT_STICKY
+        }
+
+        // Everything else is a control intent, sent with plain startService
+        // (Synthesizer.cancel, ReaderSpeechClient's transport, the
+        // notification's PendingIntent.getService buttons) and never promoted
+        // to foreground. One can land on an instance that has nothing to
+        // play — the reader's STOP_REQUESTs racing the stopSelf of the
+        // instance they were meant for create a fresh one — so stopIfIdle
+        // below puts that instance straight back down instead of leaving it
+        // running (or, as when every action promoted, stuck on a "Preparing…"
+        // notification or refused as a background FGS start).
+        when (intent?.action) {
+            // System restart with no intent — START_NOT_STICKY means this
+            // should not happen, but be defensive.
+            null -> Unit
+            ACTION_PAUSE -> doPause()
+            ACTION_RESUME -> doResume()
+            ACTION_STOP -> doStop()
+            ACTION_STOP_REQUEST ->
+                doStopRequest(intent.getLongExtra(EXTRA_REQUEST_ID, 0L))
+            // Reader transport, from the notification's own buttons. Only
+            // shown while the reader is mid-article (see buildNotification),
+            // but a stale PendingIntent can still land after it stopped —
+            // hence the guard rather than a bare call.
+            ACTION_READER_NEXT -> if (transport.reader.value.isReading) readerPlayback.next()
+            ACTION_READER_PREVIOUS ->
+                if (transport.reader.value.isReading) readerPlayback.previous()
+            // Unknown action — ignore but don't crash.
+            else -> Log.w(TAG, "Unknown action: ${intent.action}")
+        }
+        stopIfIdle()
+        return START_NOT_STICKY
+    }
+
+    /**
+     * Android 14+ (API 34) requires the type argument to match the manifest
+     * declaration (mediaPlayback) — otherwise we get a
+     * MissingForegroundServiceTypeException at runtime. The 3-arg overload
+     * exists since API 29 (Q), so we guard the type pass on Q+.
+     */
+    private fun promoteToForeground() {
         val notification = buildNotification(
             stateText = getString(R.string.service_synth_state_preparing),
         )
@@ -278,55 +377,12 @@ class MarmaladeSynthService : Service() {
             @Suppress("DEPRECATION")
             startForeground(NOTIFICATION_ID, notification)
         }
-
-        if (intent == null) {
-            // System restart with no intent — START_NOT_STICKY means this
-            // should not happen, but be defensive.
-            return START_NOT_STICKY
-        }
-
-        when (intent.action) {
-            ACTION_SPEAK -> {
-                val req = parseRequest(intent)
-                if (req == null) {
-                    Log.w(TAG, "ACTION_SPEAK without ${EXTRA_TEXT} — ignoring")
-                    // A malformed in-app request must still resolve its
-                    // awaiting speak() call.
-                    completions.post(
-                        intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
-                        PreviewCompletions.ErrorKind.FAILED,
-                        "malformed request",
-                    )
-                    stopIfIdle()
-                    return START_NOT_STICKY
-                }
-                enqueue(req)
-            }
-            ACTION_PAUSE -> doPause()
-            ACTION_RESUME -> doResume()
-            ACTION_STOP -> doStop()
-            ACTION_STOP_REQUEST ->
-                doStopRequest(intent.getLongExtra(EXTRA_REQUEST_ID, 0L))
-            // Reader transport, from the notification's own buttons. Only
-            // shown while the reader is mid-article (see buildNotification),
-            // but a stale PendingIntent can still land after it stopped —
-            // hence the guard rather than a bare call.
-            ACTION_READER_NEXT -> if (transport.reader.value.isReading) readerPlayback.next()
-            ACTION_READER_PREVIOUS ->
-                if (transport.reader.value.isReading) readerPlayback.previous()
-            else -> {
-                // Unknown action — ignore but don't crash.
-                Log.w(TAG, "Unknown action: ${intent.action}")
-                stopIfIdle()
-            }
-        }
-        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        doStop()
+        doStop() // also drops the wake lock
         mediaSession?.release()
         mediaSession = null
         scope.cancel()
@@ -463,7 +519,9 @@ class MarmaladeSynthService : Service() {
             return
         }
         cancelled = false
+        pausedByFocus = false
         setPaused(false)
+        holdWakeLock()
         // P-K — share-sheet / Tasker / clipboard tile path. This service
         // is already foregrounded, so starting the keepalive service from
         // here is FGS-from-FGS, which is always allowed.
@@ -474,14 +532,20 @@ class MarmaladeSynthService : Service() {
         // without waiting for the engine.
         val prepared = preparedHead?.also { preparedHead = null } ?: prepareLocked(next)
         val job = scope.launch {
-            runOne(prepared)
-            synchronized(lock) {
-                activeJob = null
-                activeRequestId = 0L
-                if (queue.isNotEmpty()) {
-                    startNextLocked()
-                } else {
-                    stopIfIdle()
+            try {
+                runOne(prepared)
+            } finally {
+                // In a finally so no way out of runOne — a cancellation
+                // included — can leave activeJob set and wedge the queue.
+                synchronized(lock) {
+                    activeJob = null
+                    activePrepared = null
+                    activeRequestId = 0L
+                    if (queue.isNotEmpty()) {
+                        startNextLocked()
+                    } else {
+                        stopIfIdle()
+                    }
                 }
             }
         }
@@ -495,6 +559,7 @@ class MarmaladeSynthService : Service() {
             }
         }
         activeJob = job
+        activePrepared = prepared
         // THE point of the pipeline: while this request plays, synthesise the
         // one behind it. Without this every queue handover costs a full
         // time-to-first-audio, which in the reader is a silence at every
@@ -669,8 +734,14 @@ class MarmaladeSynthService : Service() {
         // recover earlier leaks either. try { … } finally { releaseFocus() }
         // is the only safe shape.
         try {
+            // A pause can already have landed (the request only just started,
+            // but the user or a focus loss was quicker); don't paper over it.
             updateNotification(
-                getString(R.string.service_synth_state_speaking_text, req.text.take(40)),
+                if (paused) {
+                    getString(R.string.service_synth_state_paused)
+                } else {
+                    getString(R.string.service_synth_state_speaking_text, req.text.take(40))
+                },
             )
 
             // Everything upstream of the AudioTrack already happened (or is
@@ -696,6 +767,8 @@ class MarmaladeSynthService : Service() {
             } catch (e: UnsupportedOperationException) {
                 // The direct engines' "model files absent" signal — same
                 // meaning as EngineNotInstalledException for the caller.
+                // (buildTrack rewraps AudioTrack's own UOE so it can't land
+                // here.)
                 Log.w(TAG, "Engine not installed", e)
                 outcome = PreviewCompletions.ErrorKind.MODEL_MISSING
                 if (req.requestId == 0L) {
@@ -708,7 +781,16 @@ class MarmaladeSynthService : Service() {
                 }
                 return
             } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
+                if (t is kotlinx.coroutines.CancellationException) {
+                    // A real teardown (onDestroy's scope.cancel) propagates.
+                    currentCoroutineContext().ensureActive()
+                    // Otherwise the channel itself was cancelled: a stop aimed
+                    // at this request (doStopRequest / doStop cancel it so a
+                    // consumer parked on a slow chunk wakes at once). That is
+                    // a user stop — a terminal success, like the cancelled-
+                    // flag break in the write loop.
+                    if (cancelled) return
+                }
                 Log.e(TAG, "Synthesis failed", t)
                 outcome = PreviewCompletions.ErrorKind.FAILED
                 outcomeMessage = t.message
@@ -784,8 +866,17 @@ class MarmaladeSynthService : Service() {
         // reset AFTER the send so downstream effect processing and channel
         // backpressure — which have nothing to do with render speed — are
         // excluded. audioSamples is the engine's own rendered PCM (pre-stretch).
+        //
+        // That only holds while the collector never waits: the engines'
+        // synthesizeStream is a buffered flow on its own dispatcher, so while
+        // a send is backpressured (playback behind, or paused) the engine
+        // keeps rendering ahead, and the chunks after it arrive with near-zero
+        // gaps. Such an utterance is marked skewed and not sampled — left in,
+        // it drags the rolling RTF far below the truth and silences the
+        // speed-up warning.
         var renderNanos = 0L
         var audioSamples = 0L
+        var skewed = false
         var lastResume = System.nanoTime()
         streamForEngine(
             engineName,
@@ -799,33 +890,28 @@ class MarmaladeSynthService : Service() {
             audioSamples += audio.pcm.size
             val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
                 .also { chain = it; sampleRate = audio.sampleRate }
-            channel.send(SynthAudio(c.process(audio.pcm), audio.sampleRate))
+            val out = SynthAudio(c.process(audio.pcm), audio.sampleRate)
+            if (paused) skewed = true
+            if (!channel.trySend(out).isSuccess) {
+                skewed = true
+                channel.send(out)
+            }
             lastResume = System.nanoTime()
         }
         chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
             channel.send(SynthAudio(tail, sampleRate))
         }
-        recordEngineRtf(engineName, warm, renderNanos, audioSamples, sampleRate)
+        engineRtfSample(warm, skewed, renderNanos, audioSamples, sampleRate)
+            ?.let { recordEngineRtf(engineName, it) }
     }
 
     /**
-     * Fold this utterance's warm RTF into the per-engine rolling average that
-     * feeds the speed-up performance warning. Skipped when the engine was
-     * cold (model loaded mid-utterance) or the audio is too short to divide
-     * meaningfully. Fire-and-forget on the service scope, like the latency
-     * write, so a slow DataStore can't stall the producer.
+     * Fold this utterance's warm RTF (see [engineRtfSample]) into the
+     * per-engine rolling average that feeds the speed-up performance warning.
+     * Fire-and-forget on the service scope, like the latency write, so a slow
+     * DataStore can't stall the producer.
      */
-    private fun recordEngineRtf(
-        engineName: String,
-        warm: Boolean,
-        renderNanos: Long,
-        audioSamples: Long,
-        sampleRate: Int,
-    ) {
-        if (!warm || renderNanos <= 0L || audioSamples <= 0L || sampleRate <= 0) return
-        val audioNanos = audioSamples * 1_000_000_000.0 / sampleRate
-        if (audioNanos < MIN_RTF_AUDIO_NANOS) return
-        val rtf = renderNanos / audioNanos
+    private fun recordEngineRtf(engineName: String, rtf: Double) {
         scope.launch { runCatching { settings.recordEngineRtf(engineName, rtf) } }
     }
 
@@ -950,24 +1036,61 @@ class MarmaladeSynthService : Service() {
         transport.setPaused(value)
     }
 
-    private fun doPause() {
-        setPaused(true)
-        val track = currentTrack ?: return
-        try {
-            if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.pause()
-        } catch (_: IllegalStateException) { /* track gone */ }
+    /**
+     * [byFocus] marks a transient audio-focus loss — the one kind of pause
+     * that regaining focus may undo. Every other caller is the user.
+     */
+    private fun doPause(byFocus: Boolean = false) {
+        // Under `lock` with the release, so a chunk's holdWakeLock can't
+        // re-arm between the flag and the release.
+        synchronized(lock) {
+            pausedByFocus = byFocus
+            setPaused(true)
+            releaseWakeLock()
+        }
+        currentTrack?.let { track ->
+            try {
+                if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.pause()
+            } catch (_: IllegalStateException) { /* track gone */ }
+        }
+        // Even with no track yet (paused during time-to-first-audio) — the
+        // track, once built, then starts paused (see playFromChannel). An idle
+        // service has nothing to show: a notification posted there would
+        // outlive the stopIfIdle that follows, as it was never foreground.
+        if (!hasWork()) return
         updateMediaState(PlaybackStateCompat.STATE_PAUSED)
         updateNotification(getString(R.string.service_synth_state_paused))
     }
 
     private fun doResume() {
+        pausedByFocus = false
         setPaused(false)
-        val track = currentTrack ?: return
-        try {
-            if (track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
-        } catch (_: IllegalStateException) { /* track gone */ }
+        currentTrack?.let { track ->
+            try {
+                if (track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
+            } catch (_: IllegalStateException) { /* track gone */ }
+        }
+        if (!hasWork()) return
+        holdWakeLock()
         updateMediaState(PlaybackStateCompat.STATE_PLAYING)
         updateNotification(getString(R.string.service_synth_state_speaking))
+    }
+
+    /** A request is playing or queued. */
+    private fun hasWork(): Boolean = synchronized(lock) { activeJob != null || queue.isNotEmpty() }
+
+    /**
+     * Arm (or re-arm) the wake lock for another [WAKE_LOCK_TIMEOUT_MS] —
+     * never while paused, when there is nothing to keep the CPU up for.
+     */
+    private fun holdWakeLock() {
+        synchronized(lock) {
+            if (!paused) wakeLock?.acquire(WAKE_LOCK_TIMEOUT_MS)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.takeIf { it.isHeld }?.release()
     }
 
     /**
@@ -976,6 +1099,12 @@ class MarmaladeSynthService : Service() {
      * in progress (or queued) keeps playing. Queued → removed + resolved;
      * currently playing → current job cancelled (the queue continues);
      * already finished / unknown → no-op.
+     *
+     * Cancelling the playing request's [Prepared] matters as much as the
+     * flag: its consumer may be parked waiting for the next chunk (the
+     * batched emoji path sends the whole text as one), with the producer
+     * holding [synthMutex] — the flag alone would only be seen when that
+     * chunk finally arrived.
      */
     private fun doStopRequest(requestId: Long) {
         if (requestId == 0L) return
@@ -992,6 +1121,7 @@ class MarmaladeSynthService : Service() {
             }
             if (activeRequestId != requestId) return
             cancelled = true
+            activePrepared?.cancel()
         }
         val track = currentTrack
         if (track != null) {
@@ -1010,9 +1140,15 @@ class MarmaladeSynthService : Service() {
         synchronized(lock) {
             // Queued in-app requests will never reach runOne — complete
             // them now (as cancels) or their awaiting speak() calls hang.
+            // They post before the active one (which posts from runOne's
+            // finally) — ReaderPlaybackController reads that order as Stop.
             queue.forEach { completions.post(it.requestId, null) }
             queue.clear()
             dropPreparedHeadLocked()
+            // Wake the playing request's consumer now, as doStopRequest does
+            // — the service may outlive this stop (a newer start in flight).
+            activePrepared?.cancel()
+            releaseWakeLock()
         }
         val track = currentTrack
         if (track != null) {
@@ -1027,15 +1163,18 @@ class MarmaladeSynthService : Service() {
         releaseFocus()
         updateMediaState(PlaybackStateCompat.STATE_STOPPED)
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopSelfResult(lastStartId)
     }
 
     private fun stopIfIdle() {
         synchronized(lock) {
             if (activeJob == null && queue.isEmpty()) {
+                releaseWakeLock()
                 releaseFocus()
                 stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                // Not a bare stopSelf(): a start already in flight (a SPEAK
+                // racing this idle moment) keeps the service — see lastStartId.
+                stopSelfResult(lastStartId)
             }
         }
     }
@@ -1043,11 +1182,11 @@ class MarmaladeSynthService : Service() {
     // -- audio focus ----------------------------------------------------------
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
-        when (change) {
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> doPause()
-            AudioManager.AUDIOFOCUS_GAIN -> if (paused) doResume()
-            AudioManager.AUDIOFOCUS_LOSS -> doStop()
+        when (focusAction(change, paused, pausedByFocus)) {
+            FocusAction.PAUSE -> doPause(byFocus = true)
+            FocusAction.RESUME -> doResume()
+            FocusAction.STOP -> doStop()
+            FocusAction.NONE -> Unit
         }
     }
 
@@ -1080,6 +1219,10 @@ class MarmaladeSynthService : Service() {
      * responsive (the audio device drains the buffer before we see the
      * effect), large enough that the write loops aren't constantly
      * stalling on full-buffer back-pressure.
+     *
+     * A format the device rejects surfaces as IllegalStateException: the
+     * builder's own UnsupportedOperationException would otherwise reach
+     * runOne's "model files absent" branch and blame an installed engine.
      */
     private fun buildTrack(sampleRate: Int): AudioTrack {
         val minBuf = AudioTrack.getMinBufferSize(
@@ -1088,7 +1231,7 @@ class MarmaladeSynthService : Service() {
             AudioFormat.ENCODING_PCM_16BIT,
         ).coerceAtLeast(quarterSecondBufferBytes(sampleRate))
 
-        return AudioTrack.Builder()
+        val builder = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -1104,7 +1247,11 @@ class MarmaladeSynthService : Service() {
             )
             .setBufferSizeInBytes(minBuf)
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
+        return try {
+            builder.build()
+        } catch (e: UnsupportedOperationException) {
+            throw IllegalStateException("AudioTrack rejected $sampleRate Hz mono PCM16", e)
+        }
     }
 
     /**
@@ -1172,7 +1319,7 @@ class MarmaladeSynthService : Service() {
      * Consumer half of the pipeline: open the AudioTrack lazily on the
      * first chunk (its sample rate sets the format), write chunks as they
      * arrive, then drain. Pause blocks this consumer, which backpressures
-     * the producer through the channel.
+     * the producer through the channel. Each chunk re-arms the wake lock.
      */
     private suspend fun playFromChannel(channel: ReceiveChannel<SynthAudio>) =
         withContext(Dispatchers.IO) {
@@ -1181,11 +1328,21 @@ class MarmaladeSynthService : Service() {
             try {
                 for (audio in channel) {
                     if (cancelled) break
+                    holdWakeLock()
                     val t = track ?: buildTrack(audio.sampleRate).also {
                         track = it
                         currentTrack = it
-                        updateMediaState(PlaybackStateCompat.STATE_PLAYING)
-                        it.play()
+                        // Paused before the first chunk (during time-to-
+                        // first-audio): the track starts paused and doResume
+                        // plays it. currentTrack is published first, so a
+                        // resume racing this either sees the track or has
+                        // already cleared the flag read below.
+                        if (paused) {
+                            updateMediaState(PlaybackStateCompat.STATE_PAUSED)
+                        } else {
+                            updateMediaState(PlaybackStateCompat.STATE_PLAYING)
+                            it.play()
+                        }
                     }
                     written += writePcm(t, audio.pcm)
                 }
@@ -1413,6 +1570,9 @@ class MarmaladeSynthService : Service() {
     }
 
 
+    /** See [focusAction]. */
+    internal enum class FocusAction { NONE, PAUSE, RESUME, STOP }
+
     internal data class SpeakRequest(
         val text: String,
         val engine: String,
@@ -1456,6 +1616,54 @@ class MarmaladeSynthService : Service() {
             (sampleRate / 4) * BYTES_PER_FRAME_PCM16_MONO
 
         private const val BYTES_PER_FRAME_PCM16_MONO = 2
+
+        /**
+         * One utterance's engine RTF (render time / audio time), or null when
+         * it can't be trusted: the engine was cold (model loaded mid-
+         * utterance), the collector was backpressured or paused ([skewed] —
+         * see produceAudio), or the audio is too short to divide meaningfully.
+         */
+        internal fun engineRtfSample(
+            warm: Boolean,
+            skewed: Boolean,
+            renderNanos: Long,
+            audioSamples: Long,
+            sampleRate: Int,
+        ): Double? {
+            if (!warm || skewed) return null
+            if (renderNanos <= 0L || audioSamples <= 0L || sampleRate <= 0) return null
+            val audioNanos = audioSamples * 1_000_000_000.0 / sampleRate
+            if (audioNanos < MIN_RTF_AUDIO_NANOS) return null
+            return renderNanos / audioNanos
+        }
+
+        /**
+         * What an audio-focus change should do to playback. Only a pause the
+         * focus loss itself caused is resumed on regain — resuming whenever
+         * focus came back used to undo the user's own pause.
+         */
+        internal fun focusAction(change: Int, paused: Boolean, pausedByFocus: Boolean): FocusAction =
+            when (change) {
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
+                    // Already paused (by the user) — that pause stays theirs.
+                    if (paused) FocusAction.NONE else FocusAction.PAUSE
+                AudioManager.AUDIOFOCUS_GAIN ->
+                    if (pausedByFocus) FocusAction.RESUME else FocusAction.NONE
+                AudioManager.AUDIOFOCUS_LOSS -> FocusAction.STOP
+                else -> FocusAction.NONE
+            }
+
+        /** Wake-lock tag, `app:component` as PowerManager recommends. */
+        private const val WAKE_LOCK_TAG = "marmalade:synth"
+
+        /**
+         * Safety bound on one arming of the wake lock. Re-armed on every
+         * chunk, so this only has to outlast the longest honest wait between
+         * two — a cold model load, a slow cloud round-trip — while making sure
+         * a wedged job can't hold the CPU awake indefinitely.
+         */
+        private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 
         private const val TAG = "MarmaladeSynthService"
         private const val CHANNEL_ID = "marmalade_synth"

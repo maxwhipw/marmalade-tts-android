@@ -60,6 +60,14 @@ class MarmaladeKeepaliveService : Service() {
     private var notificationManager: NotificationManager? = null
     private var persistent: Boolean = false
 
+    /**
+     * Newest start id delivered — the timer stops with
+     * `stopSelfResult(lastStartId)` so a refresh already in flight (a
+     * startForegroundService that must still reach its startForeground)
+     * keeps the service rather than dying with it.
+     */
+    private var lastStartId: Int = 0
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(NotificationManager::class.java)
@@ -67,6 +75,7 @@ class MarmaladeKeepaliveService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         val newPersistent = intent?.getBooleanExtra(EXTRA_PERSISTENT, false) ?: false
         val now = System.currentTimeMillis()
         val notification = buildNotification(persistent = newPersistent, lastUsedAt = now)
@@ -94,7 +103,7 @@ class MarmaladeKeepaliveService : Service() {
         if (!persistent) {
             val r = Runnable {
                 Log.d(TAG, "Smart-keepalive timeout — stopping")
-                stopSelf()
+                stopSelfResult(lastStartId)
             }
             stopRunnable = r
             mainHandler.postDelayed(r, SMART_TIMEOUT_MS)
