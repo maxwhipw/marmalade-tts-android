@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,9 +129,14 @@ fun ReaderTocSheet(
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        // Bold + primary is visual only; `selected` tells
+                        // TalkBack which section is being read.
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onEntryTapped(entry.blockIndex) }
+                            .clickable(
+                                onClickLabel = stringResource(R.string.reader_read_from_here),
+                            ) { onEntryTapped(entry.blockIndex) }
+                            .semantics { selected = isCurrent }
                             .padding(
                                 start = 24.dp + TOC_INDENT * entry.depth,
                                 end = 24.dp,

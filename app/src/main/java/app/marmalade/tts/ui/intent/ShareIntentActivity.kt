@@ -23,7 +23,7 @@ import app.marmalade.tts.service.SpeakDispatcher
 //   ShareIntentActivity.onCreate(savedInstanceState)
 //     │
 //     ├── extractSpeakableText(intent)
-//     │     ├── ACTION_SEND          ──► EXTRA_TEXT
+//     │     ├── ACTION_SEND          ──► EXTRA_TEXT (CharSequence)
 //     │     ├── ACTION_PROCESS_TEXT  ──► EXTRA_PROCESS_TEXT (CharSequence)
 //     │     └── anything else        ──► null
 //     │
@@ -125,7 +125,9 @@ class ShareIntentActivity : ComponentActivity() {
     private fun extractSpeakableText(intent: Intent?): String? {
         if (intent == null) return null
         return when (intent.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            // CharSequence, not String: senders that share styled text put a
+            // Spanned here, which getStringExtra would read back as null.
+            Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
             Intent.ACTION_PROCESS_TEXT ->
                 intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
             else -> null

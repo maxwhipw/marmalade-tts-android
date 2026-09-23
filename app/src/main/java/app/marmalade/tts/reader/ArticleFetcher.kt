@@ -19,6 +19,13 @@ import kotlinx.coroutines.withContext
 // (http → https and back), which is exactly what publishers' canonical-URL
 // chains do — hence the manual redirect loop below.
 //
+// HTTPS ONLY ON THE WIRE: the manifest sets usesCleartextTraffic="false", so
+// an http:// request dies in the platform with UnknownServiceException — the
+// user would be told the site is unreachable when it isn't. Rather than open
+// cleartext up, every hop (the shared URL and each redirect target) is
+// upgraded to https before it is requested. Nearly every site that still
+// hands out http:// links serves the same page over TLS.
+//
 // PRIVACY INVARIANT (F-Droid posture, see PRIVACY.md): this class contacts
 // the URL the user shared and nothing else. There are no hardcoded
 // endpoints here — no favicon service, no image proxy, no unshortener, no
@@ -33,9 +40,10 @@ sealed class FetchResult {
     /**
      * Body fetched successfully.
      *
-     * [bytes] is deliberately *undecoded*: charset detection belongs to jsoup
-     * downstream, which reads the document's own `<meta charset>` and the BOM.
-     * Decoding here would force a guess and mangle every non-UTF-8 page.
+     * [bytes] is deliberately *undecoded*: charset detection belongs to the
+     * extractor downstream, which weighs the BOM, [contentType]'s `charset=`
+     * and the document's own `<meta charset>`. Decoding here would force a
+     * guess and mangle every non-UTF-8 page.
      *
      * [finalUrl] is the URL after redirects — the correct base URI for
      * resolving relative links during extraction.
@@ -75,7 +83,17 @@ sealed class FetchResult {
  * [Dispatchers.IO].
  */
 @Singleton
-open class ArticleFetcher @Inject constructor() {
+open class ArticleFetcher internal constructor(
+    /**
+     * Rewrites each hop's URL just before it is requested — [upgradeToHttps]
+     * in the app. Injectable because the JVM tests drive a plaintext loopback
+     * server, which an https upgrade would make unreachable.
+     */
+    private val secureHop: (URL) -> URL,
+) {
+
+    @Inject
+    constructor() : this(secureHop = { upgradeToHttps(it) })
 
     /**
      * GET [url], following redirects manually, and return the raw body.
@@ -97,9 +115,13 @@ open class ArticleFetcher @Inject constructor() {
                     "Refusing non-http(s) URL scheme: ${parsed.protocol}",
                 )
             }
+            // What is actually requested — and so what a relative Location
+            // resolves against and what finalUrl reports.
+            val requested = secureHop(parsed)
+            current = requested.toString()
 
             val conn = try {
-                openConnection(parsed)
+                openConnection(requested)
             } catch (e: IOException) {
                 return@withContext FetchResult.NetworkError(e.message ?: "Connection failed")
             }
@@ -122,7 +144,7 @@ open class ArticleFetcher @Inject constructor() {
                     // Location is allowed to be relative ("/article/2026/x") —
                     // resolve it against the URL we just requested.
                     current = try {
-                        URL(parsed, location).toString()
+                        URL(requested, location).toString()
                     } catch (e: Exception) {
                         return@withContext FetchResult.NetworkError(
                             "Bad redirect target: $location",
@@ -164,7 +186,7 @@ open class ArticleFetcher @Inject constructor() {
         (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             // We drive redirects ourselves so we can cross http↔https, count
-            // hops, and re-validate the scheme of every target.
+            // hops, and re-validate (and upgrade) the scheme of every target.
             instanceFollowRedirects = false
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
@@ -220,6 +242,20 @@ open class ArticleFetcher @Inject constructor() {
 
     companion object {
         private const val TAG = "ArticleFetcher"
+
+        /**
+         * [url] with `http` swapped for `https`; anything else is returned
+         * as-is. An explicit `:80` is dropped with the scheme — it is http's
+         * default port, and TLS aimed at it would never connect. Any other
+         * explicit port is kept.
+         */
+        internal fun upgradeToHttps(url: URL): URL {
+            if (!url.protocol.equals("http", ignoreCase = true)) return url
+            val authority = url.authority.orEmpty()
+                .let { if (url.port == 80) it.removeSuffix(":80") else it }
+            val ref = url.ref?.let { "#$it" }.orEmpty()
+            return URL("https://$authority${url.file}$ref")
+        }
 
         /** Max redirect hops before we assume a loop. Browsers use 20; 5 is plenty for articles. */
         const val MAX_REDIRECTS = 5

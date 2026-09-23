@@ -21,6 +21,7 @@
     <string name="reader_previous_block">Parágrafo anterior</string>
     <string name="reader_next_block">Próximo parágrafo</string>
     <string name="reader_progress">%1$d de %2$d</string>
+    <string name="reader_read_from_here">Ler a partir daqui</string>
 
     <!-- Painel de exibição: fundo, fonte, tamanho do texto -->
     <string name="reader_display_sample">Aa</string>

@@ -32,15 +32,28 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Set when we were started by [app.marmalade.tts.ui.intent.ShareIntentActivity]
-     * with a shared link. Held as state (rather than read once from `intent`) so
-     * a second share arriving at an already-running MainActivity — which lands
-     * in [onNewIntent] — reopens the reader on the new link.
+     * with a shared link (or by the reader's playback notification). Held as
+     * state (rather than read once from `intent`) so a second share arriving
+     * at an already-running MainActivity — which lands in [onNewIntent] —
+     * reopens the reader on the new link. AppRoot clears it once handled.
      */
     private val readerRequest = mutableStateOf<ReaderRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        readerRequest.value = readerRequestFrom(intent)
+        readerRequest.value = when {
+            // A recreation — rotation, dark mode or locale change, a restore
+            // after process death. The launch intent was handled the first
+            // time round; `intent` still carries it, and re-reading it would
+            // reopen (and after process death, restart) the reader unasked.
+            // Only a request that never got handled carries over: one that
+            // arrived while onboarding was still on screen.
+            savedInstanceState != null -> savedInstanceState.pendingReaderRequest()
+            // Relaunched from Recents: Android replays the original launch
+            // intent, extras and all, but the share it carried is old news.
+            (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0 -> null
+            else -> readerRequestFrom(intent)
+        }
         enableEdgeToEdge()
         setContent {
             val rootVm: AppRootViewModel = viewModel()
@@ -73,13 +86,27 @@ class MainActivity : ComponentActivity() {
         readerRequest.value = readerRequestFrom(intent)
     }
 
-    private fun readerRequestFrom(intent: Intent?): ReaderRequest? {
-        val url = intent?.getStringExtra(EXTRA_READER_URL) ?: return null
-        return ReaderRequest(
-            url = url,
-            sharedText = intent.getStringExtra(EXTRA_READER_SHARED_TEXT).orEmpty(),
-        )
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        readerRequest.value?.let {
+            outState.putString(STATE_PENDING_READER_URL, it.url)
+            outState.putString(STATE_PENDING_READER_TEXT, it.sharedText)
+        }
     }
+
+    /**
+     * This activity is exported, so these extras can come from any app, not
+     * just our own share trampoline — [ReaderRequest.of] validates them.
+     */
+    private fun readerRequestFrom(intent: Intent?): ReaderRequest? = ReaderRequest.of(
+        url = intent?.getStringExtra(EXTRA_READER_URL),
+        sharedText = intent?.getStringExtra(EXTRA_READER_SHARED_TEXT),
+    )
+
+    private fun Bundle.pendingReaderRequest(): ReaderRequest? = ReaderRequest.of(
+        url = getString(STATE_PENDING_READER_URL),
+        sharedText = getString(STATE_PENDING_READER_TEXT),
+    )
 
     companion object {
         /** The link ShareIntentActivity found in a share, to open in reader mode. */
@@ -87,5 +114,9 @@ class MainActivity : ComponentActivity() {
 
         /** The full share payload the link came from; the reader's read-as-is fallback. */
         const val EXTRA_READER_SHARED_TEXT = "app.marmalade.tts.extra.READER_SHARED_TEXT"
+
+        /** Saved-state keys for a reader request not yet handled when we were recreated. */
+        private const val STATE_PENDING_READER_URL = "pending_reader_url"
+        private const val STATE_PENDING_READER_TEXT = "pending_reader_text"
     }
 }

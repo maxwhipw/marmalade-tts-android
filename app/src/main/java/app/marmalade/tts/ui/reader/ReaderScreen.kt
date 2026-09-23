@@ -1,6 +1,5 @@
 package app.marmalade.tts.ui.reader
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -34,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,8 +64,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -98,7 +101,8 @@ import app.marmalade.tts.service.SpeakDispatcher
 //
 //   Ready also carries the transport bar ("Aa" | transport | "N of M") and
 //   follows the spoken block with a smooth scroll. The scroll defers to the
-//   user: a recent drag suppresses it (ReaderAutoScroll).
+//   user: a recent drag suppresses it (ReaderAutoScroll). When reading stops
+//   on an error, a line above the transport bar says why.
 //
 //   The reading surface is painted from ReaderDisplayPrefs, NOT the app theme:
 //   someone running the app in light mode still gets to read on black. Loading
@@ -140,6 +144,7 @@ fun ReaderScreen(
     val showSpeedWarning by viewModel.showSpeedWarning.collectAsStateWithLifecycle()
     val showShortExtractionNotice by
         viewModel.showShortExtractionNotice.collectAsStateWithLifecycle()
+    val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Which preset an untouched preference resolves to. Read off the theme's
@@ -214,16 +219,19 @@ fun ReaderScreen(
         },
         bottomBar = {
             if (ready != null) {
-                TransportBar(
-                    blockCount = ready.blocks.size,
-                    playback = playback,
-                    palette = surface.palette,
-                    onOpenDisplaySettings = { showDisplaySheet = true },
-                    onOpenSpeedSettings = { showSpeedSheet = true },
-                    onPlayPause = viewModel::onPlayPause,
-                    onPrevious = viewModel::onPreviousBlock,
-                    onNext = viewModel::onNextBlock,
-                )
+                Column {
+                    playbackError?.let { PlaybackErrorLine(it, surface.palette) }
+                    TransportBar(
+                        blockCount = ready.blocks.size,
+                        playback = playback,
+                        palette = surface.palette,
+                        onOpenDisplaySettings = { showDisplaySheet = true },
+                        onOpenSpeedSettings = { showSpeedSheet = true },
+                        onPlayPause = viewModel::onPlayPause,
+                        onPrevious = viewModel::onPreviousBlock,
+                        onNext = viewModel::onNextBlock,
+                    )
+                }
             }
         },
     ) { innerPadding ->
@@ -323,19 +331,29 @@ private fun FailedBody(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = stringResource(R.string.reader_failed_title),
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { heading() },
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(reason.messageRes()),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        // Loading → Failed swaps the whole body, which TalkBack doesn't
+        // announce by itself; a polite live region reads the title and
+        // reason out as one utterance when they appear.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                liveRegion = LiveRegionMode.Polite
+            },
+        ) {
+            Text(
+                text = stringResource(R.string.reader_failed_title),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(reason.messageRes()),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         Spacer(Modifier.height(24.dp))
         Button(onClick = onOpenInBrowser, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.reader_open_in_browser))
@@ -506,6 +524,42 @@ private fun ArticleHeader(title: String?, byline: String?, surface: ReaderSurfac
 }
 
 /**
+ * Why reading stopped, pinned above the transport bar. The service posts no
+ * error notification for the reader's own requests, so without this a failed
+ * read would simply go quiet. A polite live region, so TalkBack users hear it
+ * too. Play clears it (the controller drops the error when playback restarts).
+ */
+@Composable
+private fun PlaybackErrorLine(error: ReaderPlaybackError, palette: ReaderPalette) {
+    val message = when (error) {
+        is ReaderPlaybackError.EngineNotInstalled ->
+            stringResource(R.string.service_synth_error_engine_not_installed, error.engineLabel)
+        ReaderPlaybackError.Failed -> stringResource(R.string.speak_error_synthesis_failed)
+    }
+    Surface(color = palette.highlight, contentColor = palette.text) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = null,
+                tint = palette.text,
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.text,
+            )
+        }
+    }
+}
+
+/**
  * Three zones: "Aa" + speed (the two per-reading settings) | transport |
  * "N of M".
  *
@@ -618,7 +672,9 @@ private fun TransportBar(
 /**
  * One article block. The highlight background is the whole point of the row
  * wrapper: playback marks its current block by index, and the row it lands on
- * has to read as "this is what you're hearing" without moving the text.
+ * has to read as "this is what you're hearing" without moving the text. The
+ * highlight is visual only, so `selected` carries the same fact to TalkBack,
+ * and the click label says what a double-tap does.
  */
 @Composable
 private fun BlockRow(
@@ -639,7 +695,11 @@ private fun BlockRow(
             .fillMaxWidth()
             .clip(shape)
             .background(background, shape)
-            .clickable(onClick = onClick)
+            .clickable(
+                onClickLabel = stringResource(R.string.reader_read_from_here),
+                onClick = onClick,
+            )
+            .semantics { selected = isCurrent }
             .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         when (block) {
@@ -737,7 +797,13 @@ private fun ReaderFailure.messageRes(): Int = when (this) {
     ReaderFailure.ExtractionFailed -> R.string.reader_failed_extraction
 }
 
-/** Open [url] in the user's browser; no-op (logged) if nothing can handle it. */
+/**
+ * Open [url] in the user's browser; no-op (logged) if it can't be opened.
+ *
+ * Catches every RuntimeException, not just ActivityNotFoundException: a
+ * `file://` link throws FileUriExposedException, and this process also hosts
+ * the system TTS service — a crash here would take other apps' speech down.
+ */
 private fun openUrl(context: Context, url: String) {
     try {
         context.startActivity(
@@ -745,7 +811,7 @@ private fun openUrl(context: Context, url: String) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
-    } catch (e: ActivityNotFoundException) {
-        Log.w("ReaderScreen", "No browser to open the shared link", e)
+    } catch (e: RuntimeException) {
+        Log.w("ReaderScreen", "Couldn't open the shared link in a browser", e)
     }
 }

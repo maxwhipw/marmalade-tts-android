@@ -1,5 +1,6 @@
 package app.marmalade.tts.reader
 
+import java.net.URL
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -16,7 +17,12 @@ import org.junit.Test
  */
 class ArticleFetcherTest {
 
-    private val fetcher = ArticleFetcher()
+    /**
+     * No https upgrade: the loopback server speaks plaintext only. The upgrade
+     * itself is covered by the `upgradeToHttps` tests and the hop-rewrite test
+     * at the bottom.
+     */
+    private val fetcher = ArticleFetcher(secureHop = { it })
 
     private fun html(body: String) = "<html><body>$body</body></html>".toByteArray()
 
@@ -206,5 +212,64 @@ class ArticleFetcherTest {
         val deadPort = java.net.ServerSocket(0).use { it.localPort }
         val result = fetcher.fetch("http://127.0.0.1:$deadPort/article")
         assertTrue("expected NetworkError, got $result", result is FetchResult.NetworkError)
+    }
+
+    // -- https upgrade -----------------------------------------------------
+
+    @Test
+    fun `upgradeToHttps swaps the scheme and keeps the rest of the url`() {
+        assertEquals(
+            "https://example.com/a/b?c=1&d=2#frag",
+            upgraded("http://example.com/a/b?c=1&d=2#frag"),
+        )
+        assertEquals("https://example.com/", upgraded("HTTP://example.com/"))
+    }
+
+    @Test
+    fun `upgradeToHttps drops an explicit port 80 but keeps any other port`() {
+        assertEquals("https://example.com/a", upgraded("http://example.com:80/a"))
+        assertEquals("https://example.com:8080/a", upgraded("http://example.com:8080/a"))
+    }
+
+    @Test
+    fun `upgradeToHttps leaves an https url alone`() {
+        assertEquals("https://example.com:8443/a?b", upgraded("https://example.com:8443/a?b"))
+    }
+
+    // Compared as strings: URL.equals resolves hostnames, which a hermetic
+    // test must never do.
+    private fun upgraded(url: String) = ArticleFetcher.upgradeToHttps(URL(url)).toString()
+
+    /**
+     * The production fetcher upgrades with [ArticleFetcher.upgradeToHttps];
+     * this proves the seam is applied to the shared URL AND every redirect
+     * target, and that what it returns is what is requested and reported.
+     * The stand-in rewrite maps `/plain/…` to `/tls/…` so the loopback server
+     * can observe it without speaking TLS.
+     */
+    @Test
+    fun `every hop is rewritten before it is requested`() = runTest {
+        val seen = mutableListOf<String>()
+        val rewriting = ArticleFetcher(
+            secureHop = { url ->
+                seen += url.path
+                URL(url.toString().replace("/plain/", "/tls/"))
+            },
+        )
+        val body = html("<p>secure</p>")
+        LoopbackHttpServer { path ->
+            when (path) {
+                "/tls/one" -> redirect(301, "/plain/two")
+                "/tls/two" -> ok(body)
+                else -> LoopbackHttpServer.Response(status = 404)
+            }
+        }.use { server ->
+            val result = rewriting.fetch(server.url("/plain/one"))
+
+            assertTrue("expected Success, got $result", result is FetchResult.Success)
+            assertEquals(server.url("/tls/two"), (result as FetchResult.Success).finalUrl)
+            assertEquals(listOf("/plain/one", "/plain/two"), seen)
+            assertEquals(2, server.requestCount)
+        }
     }
 }

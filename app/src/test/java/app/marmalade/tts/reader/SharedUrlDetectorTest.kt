@@ -93,4 +93,48 @@ class SharedUrlDetectorTest {
     fun `scheme with no host is rejected`() {
         assertNull(SharedUrlDetector.findUrl("https://"))
     }
+
+    @Test
+    fun `url in japanese prose ends at the ideographic full stop`() {
+        assertEquals(
+            "https://example.com/a",
+            SharedUrlDetector.findUrl("「記事はこちら：https://example.com/a。続きは…」"),
+        )
+    }
+
+    @Test
+    fun `url ends at the ideographic comma and fullwidth bracket`() {
+        assertEquals(
+            "https://example.com/b",
+            SharedUrlDetector.findUrl("（https://example.com/b）を見て"),
+        )
+        assertEquals(
+            "https://example.com/c",
+            SharedUrlDetector.findUrl("リンク https://example.com/c、それから"),
+        )
+    }
+
+    @Test
+    fun `unicode spaces end a url`() {
+        assertEquals(
+            "https://example.com/d",
+            SharedUrlDetector.findUrl("see https://example.com/d now"),
+        )
+        assertEquals(
+            "https://example.com/e",
+            SharedUrlDetector.findUrl("https://example.com/e　次"),
+        )
+        assertEquals(
+            "https://example.com/f",
+            SharedUrlDetector.findUrl("https://example.com/f thin"),
+        )
+    }
+
+    @Test
+    fun `cjk letters in an iri path are kept`() {
+        assertEquals(
+            "https://ja.wikipedia.org/wiki/日本",
+            SharedUrlDetector.findUrl("https://ja.wikipedia.org/wiki/日本"),
+        )
+    }
 }

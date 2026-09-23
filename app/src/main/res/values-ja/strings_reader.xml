@@ -21,6 +21,7 @@
     <string name="reader_previous_block">前の段落</string>
     <string name="reader_next_block">次の段落</string>
     <string name="reader_progress">%2$d 件中 %1$d 件目</string>
+    <string name="reader_read_from_here">ここから読む</string>
 
     <!-- 表示設定：背景・フォント・文字サイズ -->
     <string name="reader_display_sample">Aa</string>

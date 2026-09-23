@@ -2,6 +2,7 @@ package app.marmalade.tts.reader
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -223,6 +224,105 @@ class ArticleExtractorTest {
         val joined = result.blocks.joinToString(" ") { it.text }
         assertTrue("accents mangled: $joined", joined.contains("Le café était très chaud"))
         assertFalse("replacement char present: $joined", joined.contains('�'))
+    }
+
+    /** A latin-1 page whose only charset signal is the HTTP header. */
+    private val latin1NoMeta = """
+        <html>
+          <head><title>Café Culture</title></head>
+          <body><article>
+            <p>Le café était très chaud, ${filler(3)}</p>
+            <p>${filler(3)}</p>
+          </article></body>
+        </html>
+    """.trimIndent()
+
+    @Test
+    fun `charset is honoured from the http content type`() {
+        val result = extractor.extract(
+            latin1NoMeta.toByteArray(Charsets.ISO_8859_1),
+            BASE_URL,
+            contentType = "text/html; charset=ISO-8859-1",
+        ) as ExtractionResult.Success
+        val joined = result.blocks.joinToString(" ") { it.text }
+        assertTrue("accents mangled: $joined", joined.contains("Le café était très chaud"))
+    }
+
+    @Test
+    fun `a byte order mark beats the http content type`() {
+        val bom = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
+        val result = extractor.extract(
+            bom + latin1NoMeta.toByteArray(Charsets.UTF_8),
+            BASE_URL,
+            contentType = "text/html; charset=ISO-8859-1",
+        ) as ExtractionResult.Success
+        val joined = result.blocks.joinToString(" ") { it.text }
+        assertTrue("BOM ignored: $joined", joined.contains("Le café était très chaud"))
+    }
+
+    @Test
+    fun `charsetOf reads the charset parameter`() {
+        assertEquals("ISO-8859-1", ArticleExtractor.charsetOf("text/html; charset=ISO-8859-1"))
+        assertEquals("utf-8", ArticleExtractor.charsetOf("text/html;Charset=\"utf-8\""))
+        assertEquals(
+            "Shift_JIS",
+            ArticleExtractor.charsetOf("text/html; foo=bar; charset=Shift_JIS"),
+        )
+    }
+
+    @Test
+    fun `charsetOf ignores missing, unknown and malformed charsets`() {
+        assertNull(ArticleExtractor.charsetOf(null))
+        assertNull(ArticleExtractor.charsetOf("text/html"))
+        assertNull(ArticleExtractor.charsetOf("text/html; charset="))
+        assertNull(ArticleExtractor.charsetOf("text/html; charset=no-such-charset"))
+        assertNull(ArticleExtractor.charsetOf("text/html; charset=bad name!"))
+    }
+
+    // -- oversized blocks --------------------------------------------------
+
+    @Test
+    fun `a paragraph over the speak cap is split at sentences and nothing is lost`() {
+        val sentence = "This sentence is one of very many in an enormous paragraph. "
+        val huge = sentence.repeat(ArticleExtractor.MAX_BLOCK_CHARS / sentence.length * 2 + 3)
+            .trim()
+        val html = page(title = "Long", body = "<p>$huge</p>")
+
+        val result = extract(html) as ExtractionResult.Success
+
+        assertTrue("expected a split, got ${result.blocks.size}", result.blocks.size >= 3)
+        assertTrue(result.blocks.all { it is ArticleBlock.Paragraph })
+        assertTrue(result.blocks.all { it.text.length <= ArticleExtractor.MAX_BLOCK_CHARS })
+        assertTrue(
+            "every piece should end on a sentence",
+            result.blocks.all { it.text.endsWith(".") },
+        )
+        assertEquals(huge, result.blocks.joinToString(" ") { it.text })
+    }
+
+    @Test
+    fun `splitText falls back to spaces, then to a hard cut`() {
+        assertEquals(
+            listOf("aaa bbb", "ccc"),
+            ArticleExtractor.splitText("aaa bbb ccc", max = 8),
+        )
+        assertEquals(
+            listOf("abcd", "efgh", "ij"),
+            ArticleExtractor.splitText("abcdefghij", max = 4),
+        )
+    }
+
+    @Test
+    fun `splitText breaks after cjk full stops without needing a space`() {
+        assertEquals(
+            listOf("一二三。", "四五六。", "七八"),
+            ArticleExtractor.splitText("一二三。四五六。七八", max = 5),
+        )
+    }
+
+    @Test
+    fun `splitText leaves text under the cap alone`() {
+        assertEquals(listOf("Short. Text."), ArticleExtractor.splitText("Short. Text.", max = 50))
     }
 
     // -- failure modes -----------------------------------------------------

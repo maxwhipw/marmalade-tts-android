@@ -1,6 +1,8 @@
 package app.marmalade.tts.reader
 
+import app.marmalade.tts.service.SpeakDispatcher
 import java.io.ByteArrayInputStream
+import java.nio.charset.Charset
 import javax.inject.Inject
 import javax.inject.Singleton
 import net.dankito.readability4j.Readability4J
@@ -27,6 +29,10 @@ import org.jsoup.nodes.Element
 // Text-only in v1: images are dropped, not downloaded (they live on
 // third-party CDNs; skipping them keeps "we contact only the shared host"
 // literally true).
+//
+// Every block fits in one speak request: a block longer than the service's
+// per-request cap (SpeakDispatcher.MAX_TEXT_LENGTH) is split into several
+// blocks of the same type, at sentence boundaries, so none of it is dropped.
 // -----------------------------------------------------------------------------
 
 /** One speakable unit of an extracted article, in document order. */
@@ -85,14 +91,25 @@ open class ArticleExtractor @Inject constructor() {
      * (post-redirect — it is the base URI for relative links and the URL
      * Readability4J uses for its own resolution).
      *
-     * [bytes] must be the undecoded response body: jsoup reads the charset
-     * from the BOM and `<meta charset>` itself, which is the only way an
-     * ISO-8859-1 or Shift_JIS page comes out with its accents intact.
+     * [bytes] must be the undecoded response body. The charset comes from, in
+     * order: a BOM, the `charset=` parameter of the HTTP [contentType], then
+     * the document's own `<meta charset>` — the precedence browsers use, and
+     * the only way an ISO-8859-1 or Shift_JIS page comes out with its accents
+     * intact. jsoup applies the BOM and meta steps itself.
      */
-    open fun extract(bytes: ByteArray, finalUrl: String): ExtractionResult {
+    open fun extract(
+        bytes: ByteArray,
+        finalUrl: String,
+        contentType: String? = null,
+    ): ExtractionResult {
         val article = try {
-            // charsetName = null → detect from BOM / meta / default UTF-8.
-            val document = Jsoup.parse(ByteArrayInputStream(bytes), null, finalUrl)
+            // charsetName = null → detect from BOM / meta / default UTF-8. A
+            // named charset skips the meta sniff but still loses to a BOM.
+            val document = Jsoup.parse(
+                ByteArrayInputStream(bytes),
+                charsetOf(contentType),
+                finalUrl,
+            )
             Readability4J(finalUrl, document).parse()
         } catch (t: Throwable) {
             // jsoup and Readability4J both walk arbitrary hostile markup.
@@ -108,10 +125,10 @@ open class ArticleExtractor @Inject constructor() {
 
         val walked = mutableListOf<ArticleBlock>()
         collectBlocks(Jsoup.parse(cleanedHtml, finalUrl).body(), walked)
-        // extract → title echo → junk filters → count. The count comes last on
-        // purpose: it is the short-extraction signal, so it has to describe
-        // what will be spoken, not what Readability handed over.
-        val blocks = ArticleCleanup.clean(walked, title)
+        // extract → title echo → junk filters → split → count. The count comes
+        // last on purpose: it is the short-extraction signal, so it has to
+        // describe what will be spoken, not what Readability handed over.
+        val blocks = ArticleCleanup.clean(walked, title).flatMap(::splitOversized)
 
         if (blocks.isEmpty()) return ExtractionResult.ExtractionFailed
         return ExtractionResult.Success(
@@ -173,7 +190,82 @@ open class ArticleExtractor @Inject constructor() {
     private fun normalise(s: String): String =
         s.replace('\u00A0', ' ').replace(WHITESPACE, " ").trim()
 
+    /**
+     * [block] as one or more blocks of the same type, each short enough for a
+     * single speak request. The reader speaks one request per block, and the
+     * service would silently cut anything past [MAX_BLOCK_CHARS].
+     */
+    private fun splitOversized(block: ArticleBlock): List<ArticleBlock> {
+        if (block.text.length <= MAX_BLOCK_CHARS) return listOf(block)
+        return splitText(block.text, MAX_BLOCK_CHARS).map { part ->
+            when (block) {
+                is ArticleBlock.Heading -> block.copy(text = part)
+                is ArticleBlock.Paragraph -> block.copy(text = part)
+                is ArticleBlock.ListItem -> block.copy(text = part)
+                is ArticleBlock.Quote -> block.copy(text = part)
+            }
+        }
+    }
+
     companion object {
         private val WHITESPACE = Regex("\\s+")
+
+        /** Longest block text the extractor emits — one speak request's worth. */
+        internal const val MAX_BLOCK_CHARS = SpeakDispatcher.MAX_TEXT_LENGTH
+
+        /**
+         * A place a sentence ends: after `.!?…` (optionally followed by a
+         * closing quote or bracket) and before whitespace, or straight after
+         * CJK full-width terminators, which take no space.
+         */
+        private val SENTENCE_BREAK = Regex("""(?<=[.!?…]['"’”)\]]?)\s|(?<=[。！？])""")
+
+        /**
+         * Split [text] into pieces of at most [max] chars, preferring the last
+         * sentence end that fits, then the last space, and only as a last
+         * resort cutting mid-word. Pieces are trimmed; nothing else is lost.
+         */
+        internal fun splitText(text: String, max: Int): List<String> {
+            val pieces = mutableListOf<String>()
+            var rest = text
+            while (rest.length > max) {
+                // max + 1 so a break sitting right after a full-length piece
+                // (the space at index max) still counts.
+                val window = rest.substring(0, max + 1)
+                val cut = SENTENCE_BREAK.findAll(window)
+                    .map { it.range.first }
+                    .lastOrNull { it in 1..max }
+                    ?: window.lastIndexOf(' ').takeIf { it in 1..max }
+                    // Never leave half a surrogate pair on either side.
+                    ?: if (Character.isHighSurrogate(rest[max - 1])) max - 1 else max
+                pieces += rest.substring(0, cut).trim()
+                rest = rest.substring(cut).trim()
+            }
+            if (rest.isNotEmpty()) pieces += rest
+            return pieces
+        }
+
+        /**
+         * The `charset=` parameter of an HTTP Content-Type, or null when there
+         * isn't one or the JVM can't decode it (null lets jsoup fall back to
+         * the page's own `<meta charset>`).
+         */
+        internal fun charsetOf(contentType: String?): String? {
+            val name = contentType?.split(';')
+                ?.drop(1)
+                ?.map { it.trim() }
+                ?.firstOrNull { it.startsWith("charset=", ignoreCase = true) }
+                ?.substringAfter('=')
+                ?.trim()
+                ?.trim('"', '\'')
+                ?.takeIf { it.isNotEmpty() }
+                ?: return null
+            return try {
+                name.takeIf { Charset.isSupported(it) }
+            } catch (e: IllegalArgumentException) {
+                // IllegalCharsetNameException — a header full of junk.
+                null
+            }
+        }
     }
 }

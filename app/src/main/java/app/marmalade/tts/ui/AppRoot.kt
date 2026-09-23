@@ -42,6 +42,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.R
+import app.marmalade.tts.service.SpeakDispatcher
 import app.marmalade.tts.ui.onboarding.OnboardingScreen
 import app.marmalade.tts.ui.reader.ReaderScreen
 import app.marmalade.tts.ui.reader.ReaderViewModel
@@ -181,6 +182,13 @@ object Routes {
     const val Reader = "reader"
 
     /**
+     * The reader's route template, as declared in the nav graph. Also the
+     * popUpTo target when a new link replaces the article on screen.
+     */
+    const val ReaderPattern = "$Reader?${ReaderViewModel.ARG_URL}={${ReaderViewModel.ARG_URL}}" +
+        "&${ReaderViewModel.ARG_TEXT}={${ReaderViewModel.ARG_TEXT}}"
+
+    /**
      * Build the reader route for [url]. [sharedText] is the original share
      * payload, carried along so the failure screen can fall back to speaking
      * what the user actually shared.
@@ -236,7 +244,32 @@ private val NAV_TABS = listOf(
  * A link the user shared, waiting to be opened in reader mode.
  * [sharedText] is the whole share payload; [url] is the link found inside it.
  */
-data class ReaderRequest(val url: String, val sharedText: String)
+data class ReaderRequest(val url: String, val sharedText: String) {
+    companion object {
+        /**
+         * A request from intent extras, or null when there is no usable one.
+         *
+         * MainActivity is exported, so these extras can come from any app.
+         * Only an http(s) [url] is accepted — the fetcher can't read anything
+         * else, and "Open in browser" on a `file://` link would throw — and
+         * [sharedText] is capped like every other way text reaches the speak
+         * service.
+         */
+        fun of(url: String?, sharedText: String?): ReaderRequest? {
+            if (url == null) return null
+            val scheme = url.substringBefore("://", missingDelimiterValue = "")
+            if (!scheme.equals("http", ignoreCase = true) &&
+                !scheme.equals("https", ignoreCase = true)
+            ) {
+                return null
+            }
+            return ReaderRequest(
+                url = url,
+                sharedText = sharedText.orEmpty().take(SpeakDispatcher.MAX_TEXT_LENGTH),
+            )
+        }
+    }
+}
 
 /**
  * Top-level navigation root. Gates on onboarding state, then renders the
@@ -246,10 +279,13 @@ data class ReaderRequest(val url: String, val sharedText: String)
  * is never reachable via back navigation once dismissed.
  *
  * [readerRequest] is set when MainActivity was launched (or re-entered) by a
- * shared link; [onReaderRequestConsumed] clears it once we've navigated, so a
- * configuration change doesn't re-open the reader. A request that arrives
- * before onboarding finishes stays pending — the navigation happens on the
- * first composition that has a nav graph.
+ * shared link or the reader's notification; [onReaderRequestConsumed] clears
+ * it once handled. Recreations never re-raise it — MainActivity takes a
+ * request only from a fresh launch or onNewIntent, not from a configuration
+ * change, a process-death restore or a Recents relaunch. A request that
+ * arrives before onboarding finishes stays pending (MainActivity saves it
+ * across recreation) — the navigation happens on the first composition that
+ * has a nav graph.
  */
 @Composable
 fun AppRoot(
@@ -270,12 +306,19 @@ fun AppRoot(
 
     LaunchedEffect(readerRequest) {
         val request = readerRequest ?: return@LaunchedEffect
-        // launchSingleTop: tapping the playback notification reopens the
-        // article that is already on screen more often than not, and without
-        // this that would stack a second identical reader destination behind
-        // the first for the back button to walk through.
-        navController.navigate(Routes.reader(request.url, request.sharedText)) {
-            launchSingleTop = true
+        val top = navController.currentBackStackEntry
+        val showingThisArticle = top?.destination?.route == Routes.ReaderPattern &&
+            top.arguments?.getString(ReaderViewModel.ARG_URL) == request.url
+        // Tapping the playback notification usually reopens the article that
+        // is already on screen: leave that entry alone. Anything else gets a
+        // fresh entry — NOT launchSingleTop, which would reuse the old entry
+        // and its ViewModel, so a second link shared over an open reader would
+        // keep showing the first article. popUpTo drops any older reader so
+        // back never walks through a stack of them.
+        if (!showingThisArticle) {
+            navController.navigate(Routes.reader(request.url, request.sharedText)) {
+                popUpTo(Routes.ReaderPattern) { inclusive = true }
+            }
         }
         onReaderRequestConsumed()
     }
@@ -437,8 +480,7 @@ fun AppRoot(
                 EffectEditorScreen(onBack = { navController.popBackStack() })
             }
             composable(
-                route = "${Routes.Reader}?${ReaderViewModel.ARG_URL}={${ReaderViewModel.ARG_URL}}" +
-                    "&${ReaderViewModel.ARG_TEXT}={${ReaderViewModel.ARG_TEXT}}",
+                route = Routes.ReaderPattern,
                 arguments = listOf(
                     navArgument(ReaderViewModel.ARG_URL) { type = NavType.StringType },
                     navArgument(ReaderViewModel.ARG_TEXT) {

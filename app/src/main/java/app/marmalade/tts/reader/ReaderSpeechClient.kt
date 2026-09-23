@@ -61,6 +61,8 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         // of whatever the alias resolved to.
         val intent = Intent(context, MarmaladeSynthService::class.java).apply {
             action = MarmaladeSynthService.ACTION_SPEAK
+            // A backstop only: ArticleExtractor already splits any block
+            // longer than this, so real article text never reaches the cut.
             putExtra(
                 MarmaladeSynthService.EXTRA_TEXT,
                 text.take(SpeakDispatcher.MAX_TEXT_LENGTH),

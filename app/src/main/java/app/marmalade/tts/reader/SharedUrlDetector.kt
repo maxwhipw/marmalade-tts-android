@@ -22,8 +22,18 @@ object SharedUrlDetector {
      * character. Trailing sentence punctuation is glued on by this pattern
      * on purpose — [trimTrailingPunctuation] strips it afterwards, where
      * bracket balancing can be taken into account.
+     *
+     * "Whitespace" is Unicode's, not just ASCII `\s`: `\p{Z}` covers NBSP and
+     * the ideographic space. CJK prose never puts a space after a link either,
+     * so the CJK symbols-and-punctuation block (U+3000–U+303F: 。、「」) and the
+     * fullwidth forms (U+FF00–U+FFEF: ：（）) end a URL too — none of them is a
+     * legal unescaped URL character. CJK letters are NOT terminators: an IRI
+     * path like `/wiki/日本` is a real link.
      */
-    private val URL_PATTERN = Regex("""https?://[^\s<>"' ]+""", RegexOption.IGNORE_CASE)
+    private val URL_PATTERN = Regex(
+        """https?://[^\s\p{Z}<>"'\u3000-\u303F\uFF00-\uFFEF]+""",
+        RegexOption.IGNORE_CASE,
+    )
 
     /** Punctuation that is never meaningfully the last character of a URL. */
     private const val TRAILING_PUNCTUATION = ".,;:!?\"'…"

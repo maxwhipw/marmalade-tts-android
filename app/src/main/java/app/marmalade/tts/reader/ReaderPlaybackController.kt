@@ -89,6 +89,13 @@ data class ReaderPlaybackState(
      * skim one long post is not a preference about how the app speaks.
      */
     val speedMultiplier: Float = 1.0f,
+    /**
+     * Why playback last stopped on its own — a failed synthesis, a missing
+     * engine, or a service that refused to start — or null. Set alongside the
+     * fall back to Idle, cleared the next time playback starts. A Stop the
+     * user asked for is not an error and leaves this null.
+     */
+    val lastError: PreviewCompletions.ErrorKind? = null,
 ) {
     /** True while a block is the one being read — i.e. worth highlighting. */
     val isActive: Boolean
@@ -414,6 +421,7 @@ class ReaderPlaybackController internal constructor(
         _state.value = _state.value.copy(
             currentIndex = index,
             status = ReaderPlaybackStatus.Playing,
+            lastError = null,
         )
         topUpLocked()
     }
@@ -432,10 +440,13 @@ class ReaderPlaybackController internal constructor(
             if (!speech.speak(requestId, blocks[index], _state.value.speedMultiplier)) {
                 // The service wouldn't start, so this request will never
                 // complete and the pipeline would stall silently. Nothing is
-                // playable in that state — unwind to Idle.
+                // playable in that state — unwind to Idle, and say why.
                 cancelPendingLocked()
                 nextIndex = index
-                setStatusLocked(ReaderPlaybackStatus.Idle)
+                _state.value = _state.value.copy(
+                    status = ReaderPlaybackStatus.Idle,
+                    lastError = PreviewCompletions.ErrorKind.FAILED,
+                )
                 return
             }
         }
@@ -472,8 +483,13 @@ class ReaderPlaybackController internal constructor(
             if (completion.error != null) {
                 // A missing engine or a synthesis failure will hit the queued
                 // blocks too; stop rather than machine-gun the same error.
+                // The service posts no notification for in-app requests, so
+                // lastError is the only way the screen can tell the user.
                 cancelPendingLocked()
-                setStatusLocked(ReaderPlaybackStatus.Idle)
+                _state.value = _state.value.copy(
+                    status = ReaderPlaybackStatus.Idle,
+                    lastError = completion.error,
+                )
                 return
             }
 

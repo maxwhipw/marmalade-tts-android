@@ -3,7 +3,9 @@ package app.marmalade.tts.ui.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.reader.ArticleBlock
 import app.marmalade.tts.reader.ArticleExtractor
 import app.marmalade.tts.reader.ArticleFetcher
@@ -15,11 +17,14 @@ import app.marmalade.tts.perf.DeviceProbe
 import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.perf.EngineRecommender
 import app.marmalade.tts.perf.SpeedPerfWarning
+import app.marmalade.tts.reader.ReaderParseDispatcher
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
+import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URL
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +33,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
 //   ReaderViewModel
@@ -38,12 +44,16 @@ import kotlinx.coroutines.launch
 //     │            fall back to the plain "speak what you shared" behaviour
 //     │
 //     ├── init: ArticleFetcher.fetch(url) → ArticleExtractor.extract(bytes)
+//     │           │   (the extract runs on @ReaderParseDispatcher, off Main)
 //     │           └── on success: hand the blocks to ReaderPlaybackController
-//     │               and, if it's a new article, start reading
+//     │               and, if it's a new article, start reading — once per
+//     │               ViewModel: a SavedStateHandle flag stops a ViewModel
+//     │               restored after process death from autoplaying again
 //     │
 //     ├── state: ReaderUiState.Loading / Failed(reason) / Ready(blocks)
 //     │
-//     ├── playback / currentBlockIndex: projections of the controller's state
+//     ├── playback / currentBlockIndex / playbackError: projections of the
+//     │     controller's state
 //     │
 //     └── display: the reading surface's background / font / size, from
 //         SettingsRepository — app display settings, so these DO persist
@@ -97,6 +107,19 @@ sealed interface ReaderUiState {
     ) : ReaderUiState
 }
 
+/**
+ * Why reading stopped, for the inline error line. Only failures the user
+ * didn't cause — a Stop from the notification is not an error.
+ */
+sealed interface ReaderPlaybackError {
+
+    /** The voice's engine isn't installed. [engineLabel] names it for the user. */
+    data class EngineNotInstalled(val engineLabel: String) : ReaderPlaybackError
+
+    /** Synthesis failed, or the playback service wouldn't start. */
+    data object Failed : ReaderPlaybackError
+}
+
 /** The primary alias's engine + its own tuned speed, or a neutral default. */
 private data class PrimaryAlias(val engine: String, val speed: Float)
 
@@ -108,7 +131,8 @@ class ReaderViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val aliasDao: VoiceAliasDao,
     private val deviceProbe: DeviceProbeSource,
-    savedStateHandle: SavedStateHandle,
+    @ReaderParseDispatcher private val parseDispatcher: CoroutineDispatcher,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     /** The shared link. Non-null in practice — the route can't be built without it. */
@@ -197,6 +221,29 @@ class ReaderViewModel @Inject constructor(
         val predicted = probe?.let { EngineRecommender.predictedRtf(alias.engine, it) }
         SpeedPerfWarning.shouldWarn(measured, predicted, effectiveSpeed)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * Why reading last stopped on its own, or null. The service suppresses its
+     * error notification for in-app requests (the caller is expected to show
+     * the error), so without this a failed read would just go quiet.
+     *
+     * A missing engine is named after the primary alias's engine — the one the
+     * service routed to. With no primary alias the service fell back to an
+     * engine default we can't name, so that case reads as a plain failure.
+     */
+    val playbackError: StateFlow<ReaderPlaybackError?> =
+        combine(playback, primaryAlias) { pb, alias ->
+            when (pb.lastError) {
+                null -> null
+                PreviewCompletions.ErrorKind.MODEL_MISSING ->
+                    if (alias.engine.isEmpty()) {
+                        ReaderPlaybackError.Failed
+                    } else {
+                        ReaderPlaybackError.EngineNotInstalled(engineLabelOf(alias.engine))
+                    }
+                PreviewCompletions.ErrorKind.FAILED -> ReaderPlaybackError.Failed
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val shortExtractionNoticeDismissed = MutableStateFlow(false)
 
@@ -305,14 +352,22 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    private fun extractFrom(fetched: FetchResult.Success): ReaderUiState =
-        when (val extracted = extractor.extract(fetched.bytes, fetched.finalUrl)) {
+    private suspend fun extractFrom(fetched: FetchResult.Success): ReaderUiState {
+        val extracted = withContext(parseDispatcher) {
+            extractor.extract(fetched.bytes, fetched.finalUrl, fetched.contentType)
+        }
+        return when (extracted) {
             is ExtractionResult.Success -> {
                 // Sharing a link to a TTS app means "read me this", so a
                 // freshly-opened article starts speaking on its own. Coming
                 // back to an article that is already loaded does NOT restart
                 // it — open() reports that, and playback carries on wherever
                 // it had got to.
+                //
+                // Nor does a ViewModel that already autoplayed once: after
+                // process death the controller is empty again, so open()
+                // says "new", but the user never re-shared anything — they
+                // are returning to a screen, and it must not start talking.
                 val article = ReaderArticle(
                     url = url,
                     title = extracted.title,
@@ -320,7 +375,9 @@ class ReaderViewModel @Inject constructor(
                     blocks = extracted.blocks,
                     totalTextChars = extracted.totalTextChars,
                 )
-                if (playbackController.open(article)) {
+                val isNew = playbackController.open(article)
+                if (isNew && savedStateHandle.get<Boolean>(KEY_AUTOPLAYED) != true) {
+                    savedStateHandle[KEY_AUTOPLAYED] = true
                     playbackController.play()
                 }
                 ReaderUiState.Ready(
@@ -333,6 +390,7 @@ class ReaderViewModel @Inject constructor(
             ExtractionResult.ExtractionFailed ->
                 ReaderUiState.Failed(ReaderFailure.ExtractionFailed)
         }
+    }
 
     companion object {
         /**
@@ -350,6 +408,16 @@ class ReaderViewModel @Inject constructor(
         /** Nav argument names — see `Routes.reader`. */
         const val ARG_URL = "url"
         const val ARG_TEXT = "text"
+
+        /** Saved-state flag: this ViewModel has already started the article once. */
+        internal const val KEY_AUTOPLAYED = "reader_autoplayed"
+
+        /** User-facing name for [engine], as the engine list shows it. */
+        private fun engineLabelOf(engine: String): String = when (engine) {
+            // Not in EngineCatalog — hosted engine with no installable bundle.
+            CloudApiVoiceCatalog.ENGINE -> CloudApiVoiceCatalog.DISPLAY_NAME
+            else -> EngineCatalog.byName(engine)?.displayName ?: engine
+        }
 
         /** Host of [url], falling back to the raw string if it won't parse. */
         private fun hostOf(url: String): String = try {

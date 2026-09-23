@@ -21,6 +21,7 @@
     <string name="reader_previous_block">पिछला अनुच्छेद</string>
     <string name="reader_next_block">अगला अनुच्छेद</string>
     <string name="reader_progress">%2$d में से %1$d</string>
+    <string name="reader_read_from_here">यहाँ से पढ़ें</string>
 
     <!-- प्रदर्शन सेटिंग्स: पृष्ठभूमि, फ़ॉन्ट, टेक्स्ट का आकार -->
     <string name="reader_display_sample">Aa</string>

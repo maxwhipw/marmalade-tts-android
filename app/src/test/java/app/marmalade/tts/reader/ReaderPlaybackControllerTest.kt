@@ -118,6 +118,41 @@ class ReaderPlaybackControllerTest {
         assertTrue(outstanding.isEmpty())
     }
 
+    /** The service shows no error for in-app requests, so the state must carry it. */
+    @Test
+    fun `a failed block records why playback stopped`() = runTest {
+        val controller = playing()
+
+        finish(PreviewCompletions.ErrorKind.FAILED)
+        advanceUntilIdle()
+
+        assertEquals(PreviewCompletions.ErrorKind.FAILED, controller.state.value.lastError)
+    }
+
+    @Test
+    fun `playing again clears the error`() = runTest {
+        val controller = playing()
+        finish(PreviewCompletions.ErrorKind.MODEL_MISSING)
+        advanceUntilIdle()
+        assertEquals(PreviewCompletions.ErrorKind.MODEL_MISSING, controller.state.value.lastError)
+
+        controller.play()
+
+        assertNull(controller.state.value.lastError)
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+    }
+
+    /** A Stop the user asked for is not a failure worth reporting. */
+    @Test
+    fun `an outside stop is not recorded as an error`() = runTest {
+        val controller = playing()
+        completions.post(speech.spoken[1].requestId, null)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Idle, controller.state.value.status)
+        assertNull(controller.state.value.lastError)
+    }
+
     /**
      * The notification's Stop runs the service's `doStop`, which resolves the
      * queued requests before the playing one. Reading that as "a block
@@ -151,6 +186,7 @@ class ReaderPlaybackControllerTest {
 
         assertEquals(ReaderPlaybackStatus.Idle, controller.state.value.status)
         assertTrue(speech.spoken.isEmpty())
+        assertEquals(PreviewCompletions.ErrorKind.FAILED, controller.state.value.lastError)
     }
 
     // -- Seeking --------------------------------------------------------------
