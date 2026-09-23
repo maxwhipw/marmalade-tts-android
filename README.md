@@ -67,8 +67,7 @@ selection" action, or speak your clipboard from a Quick Settings tile.
 - **[F-Droid](https://f-droid.org/packages/app.marmalade.tts/)** — the
   recommended way to install: reproducible builds and automatic updates.
 - **[GitHub Releases](https://github.com/maxwhipw/marmalade-tts-android/releases)** —
-  grab the latest `fdroid`-flavor APK (every feature unlocked, no
-  billing code) and install it.
+  grab the latest `fdroid`-flavor APK and install it.
 - **[Obtainium](https://github.com/ImranR98/Obtainium)** — add
   `https://github.com/maxwhipw/marmalade-tts-android` as an app source
   and you'll get updates automatically as new versions are tagged.

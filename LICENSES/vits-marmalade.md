@@ -325,8 +325,11 @@ full `espeak-ng-data` tree in APK assets.
 
 - **Upstream:** https://github.com/espeak-ng/espeak-ng
 - **License:** GNU General Public License v3.0 or later
-- **Notice:** Copyright (c) The espeak-ng authors. Used in sentence mode
-  (`espeak_TextToPhonemes` with `phonememode = IPA`).
+- **Notice:** Copyright (C) 2005-2015 Jonathan Duddington;
+  Copyright (C) 2012-2021 Reece H. Dunn; Copyright (C) 2018-2022 Juho
+  Hiltunen; speechPlayer: Copyright 2014 NV Access Limited; and the other
+  espeak-ng contributors (see the source file headers). Used in sentence
+  mode (`espeak_TextToPhonemes` with `phonememode = IPA`).
 - **Source availability:** per GPL-3.0 §6, the corresponding source for
   the APK's `libespeak-ng.so` is the pinned submodule in this
   repository.

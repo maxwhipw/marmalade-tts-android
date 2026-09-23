@@ -1,6 +1,6 @@
 # Privacy Policy — Marmalade TTS
 
-_Last updated: 2026-08-27_
+_Last updated: 2026-09-22_
 
 Marmalade TTS is a **text-to-speech app that speaks entirely on your
 device by default** — offline, with no internet connection needed —
@@ -129,8 +129,10 @@ on-device engines are installed, they work fully offline.
 
 The app also fetches a small list of available cloud providers from the
 same repository, so a new provider can be offered without a full app
-update. That request carries no information about you, and happens
-whether or not you use cloud voices.
+update. That request carries no information about you. It is only made
+once you have opened **Engines → Cloud voices** and accepted its
+disclaimer, and after that each time you open that screen. Adding an API
+key is not required for it.
 
 GitHub's handling of that request (e.g. server logs) is governed by
 [GitHub's Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
@@ -162,6 +164,7 @@ nothing about you anywhere but on your own phone.
 | `POST_NOTIFICATIONS` (Android 13+) | To show the "speaking" / "keeping engine loaded" foreground notice Android requires when the app plays audio or runs a foreground service. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | To keep long-form speech playing reliably (including with the screen off) and to expose lock-screen / Bluetooth playback controls. |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | For the optional "keep engine loaded" service so the next speak request is instant. You opt into this in Settings → Performance. |
+| `WAKE_LOCK` | To keep the phone's processor awake while Marmalade is reading something aloud itself (the Speak screen, reader mode, shared or clipboard text), so speech doesn't freeze partway when the screen turns off. It is held only while something is speaking or waiting to speak, and let go as soon as speech finishes or you pause it. |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | To offer an in-app prompt asking Android not to pause the speech service mid-sentence when the screen sleeps. The prompt is optional and you can decline it. |
 
 The app does **not** request `QUERY_ALL_PACKAGES`. The "per-app voices"

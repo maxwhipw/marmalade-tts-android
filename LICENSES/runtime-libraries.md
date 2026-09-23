@@ -7,11 +7,22 @@ the other files in this folder). Versions are authoritative in
 
 ## 1. ONNX Runtime Mobile — com.microsoft.onnxruntime:onnxruntime-android
 
-- **Role:** Direct ONNX inference runtime used by the Pocket TTS engine
-  and the "-direct" Kitten / Kokoro engines.
+- **Role:** Direct ONNX inference runtime used by every on-device engine
+  (Kitten, Kokoro, Kokoro German, Pocket TTS and VITS Marmalade).
 - **Upstream:** https://github.com/microsoft/onnxruntime
 - **License:** MIT
 - **Notice:** Copyright (c) Microsoft Corporation.
+- **Third-party notices:** `libonnxruntime.so` statically links other
+  open-source libraries (XNNPACK, protobuf, Abseil, FlatBuffers, Eigen and
+  more). Microsoft's `ThirdPartyNotices.txt` for v1.26.0
+  (https://github.com/microsoft/onnxruntime/blob/v1.26.0/ThirdPartyNotices.txt)
+  is reproduced verbatim in the APK at
+  `assets/licenses/onnxruntime-third-party-notices.txt`; each entry names
+  its own license and holder.
+- **Eigen (MPL-2.0):** one of those libraries, Eigen, is under the Mozilla
+  Public License 2.0. Its source is available from
+  https://gitlab.com/libeigen/eigen; ONNX Runtime 1.26.0 builds commit
+  `1d8b82b0` on Eigen's 3.4 branch, pinned in its `cmake/deps.txt`.
 
 ## 2. Apache Commons Compress — org.apache.commons:commons-compress
 
@@ -44,6 +55,17 @@ The full Apache-2.0 body is in
 [`full-texts/Apache-2.0.txt`](full-texts/Apache-2.0.txt) and ships in the
 APK at `assets/licenses/Apache-2.0.txt`.
 
+### SLF4J API — org.slf4j:slf4j-api (dependency of Readability4J)
+
+- **Role:** Logging facade Readability4J calls into. Version 1.7.25; no
+  logging backend ships, so it falls back to its no-op logger.
+- **Upstream:** https://github.com/qos-ch/slf4j
+- **License:** MIT
+- **Notice:** Copyright (c) 2004-2017 QOS.ch
+
+The exact MIT text with QOS.ch's copyright ships in the APK at
+`assets/licenses/slf4j.txt`.
+
 ## 4. jsoup — org.jsoup:jsoup
 
 - **Role:** HTML parser. Readability4J parses with jsoup, and reader mode
@@ -70,10 +92,30 @@ espeak-ng is **GPL-3.0-or-later** and ships **in the APK** as
 zero espeak code. Because of this component the distributed APK is a
 GPL-3.0-or-later combined work — see `../NOTICE.md`.
 
+The full `espeak-ng-data` tree is also generated from that same pinned
+source at build time and ships in the APK. The Kitten and Kokoro engine
+bundles still carry a copy of `espeak-ng-data` too, built from the same
+commit since the v22 bundles; the app reads the APK's copy.
+
 - **Upstream / corresponding source:** https://github.com/espeak-ng/espeak-ng
   (exact source: the submodule pin in this repository)
 - **License:** GPL-3.0-or-later
-- **Notice:** Copyright (c) The espeak-ng authors.
+- **Notice:** Copyright (C) 2005-2015 Jonathan Duddington;
+  Copyright (C) 2012-2021 Reece H. Dunn; Copyright (C) 2018-2022 Juho
+  Hiltunen; speechPlayer: Copyright 2014 NV Access Limited; and the other
+  espeak-ng contributors (see the source file headers).
+
+### Unicode Character Database (via espeak-ng's ucd-tools)
+
+espeak-ng's `ucd-tools` library (itself GPL-3.0-or-later, part of
+espeak-ng) carries tables generated from the **Unicode Character
+Database**, so those tables are compiled into `libespeak-ng.so` too.
+
+- **License:** Unicode-DFS-2016 (the Unicode, Inc. License Agreement for
+  Data Files and Software)
+- **Notice:** Copyright © 1991-2018 Unicode, Inc.
+- **Text:** espeak-ng's `COPYING.UCD`, reproduced verbatim in the APK at
+  `assets/licenses/unicode.txt`.
 
 ## Android / Jetpack / Kotlin dependencies
 

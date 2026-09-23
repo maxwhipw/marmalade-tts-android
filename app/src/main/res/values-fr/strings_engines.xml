@@ -204,7 +204,7 @@
 
     <string name="engine_kokoro_tagline">La plus large couverture linguistique et les meilleures voix polyvalentes.</string>
     <string name="engine_kokoro_desc">La meilleure qualité générale avec la plus large prise en charge linguistique — 53 voix dans 9 langues, dont l\'anglais, l\'espagnol, le français, l\'italien, le hindi, le portugais, le japonais et le mandarin. Recommandé pour la plupart des gens. Fonctionne entièrement sur votre appareil&#160;; le japonais et le mandarin utilisent des données de prononciation intégrées, les autres langues passent par espeak-ng, le tout chargé à l\'exécution.</string>
-    <string name="engine_kokoro_license">Modèle Apache-2.0 + dictionnaire Open JTalk BSD-3 (japonais)&#160;; les langues européennes sont phonémisées par l\'espeak-ng intégré à l\'application (GPL-3.0-or-later).</string>
+    <string name="engine_kokoro_license">Modèle Apache-2.0 + dictionnaire Open JTalk BSD-3 (japonais) + lexique mandarin CC-BY-SA-4.0 (dérivé en partie de CC-CEDICT)&#160;; les langues européennes sont phonémisées par l\'espeak-ng intégré à l\'application (GPL-3.0-or-later).</string>
 
     <string name="engine_kokoro_de_tagline">Une voix allemande native, affinée à partir de Kokoro.</string>
     <string name="engine_kokoro_de_desc">Une voix allemande native — Thorsten, du projet ouvert Thorsten-Voice — affinée à partir de Kokoro sur ses propres enregistrements partagés librement. Allemand uniquement, une seule voix. À choisir quand vous voulez un allemand qui sonne allemand plutôt qu\'accentué. Fonctionne entièrement sur votre appareil, phonémisée par l\'espeak-ng intégré à l\'application.</string>

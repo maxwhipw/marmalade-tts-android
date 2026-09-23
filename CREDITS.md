@@ -79,7 +79,7 @@ Full detail, including the MIT notice for the weights:
   the **Thorsten-Voice dataset**, which he recorded and released
   **CC0** himself. **Apache-2.0**.
   https://huggingface.co/Thorsten-Voice/Kokoro
-- **KittenTTS** (nano / mini) — KittenML. Apache-2.0.
+- **KittenTTS** (nano) — KittenML. Apache-2.0.
 - **Pocket TTS** — Kyutai. Model/inference code MIT; voices per-license
   (above). https://github.com/kyutai-labs/pocket-tts
 - **rhasspy/piper-voices** — the VITS checkpoints the VITS Marmalade
@@ -96,15 +96,22 @@ Full detail, including the MIT notice for the weights:
 
 ## Phonemization
 
-- **espeak-ng** — multilingual G2P, used by the Kokoro and Kitten engines
-  (GPL-3.0-or-later; compiled from source into the APK, with its
-  dictionaries in the downloaded engine bundles — see NOTICE).
+- **espeak-ng** — multilingual G2P, used by the Kitten, Kokoro, Kokoro
+  German and VITS Marmalade engines (GPL-3.0-or-later). The library and
+  its full dictionaries are both built from source into the APK. Thanks
+  to Jonathan Duddington, Reece H. Dunn, Juho Hiltunen, NV Access
+  (speechPlayer) and every other espeak-ng contributor. See NOTICE.
+- **Unicode Character Database** — Unicode, Inc. (Unicode-DFS-2016).
+  espeak-ng's ucd-tools carries tables generated from it, compiled into
+  the APK.
 - **Open JTalk** + **MeCab** + **NAIST Japanese Dictionary** — Japanese
   text-analysis frontend, vendored from source and compiled in (BSD-3 /
   Modified BSD). The Kotlin G2P that drives it is informed by **r9y9**'s
   `pyopenjtalk` and the **misaki** Japanese frontend.
 - **misaki** / **cutlet** — Japanese G2P; our `CutletJaG2P` is a
-  clean-room Kotlin port of the cutlet/misaki approach (upstream MIT).
+  clean-room Kotlin port of misaki's `cutlet.py` (hexgrad, Apache-2.0),
+  which is itself adapted from **cutlet** by Paul O'Leary McCann
+  (polm/cutlet, MIT).
 - **misaki (German)** — the German G2P behind the native German Kokoro
   engine (text normalizer + pronunciation-override lexicon) is a
   clean-room Kotlin port of the DEG2P pipeline from
@@ -132,12 +139,15 @@ Full detail, including the MIT notice for the weights:
 ## Runtime & frameworks
 
 - **ONNX Runtime (Mobile)** — Microsoft. MIT. Inference runtime for every
-  engine.
+  engine. It builds in a number of other open-source libraries (XNNPACK,
+  protobuf, Abseil, FlatBuffers, Eigen and more), each credited in
+  Microsoft's third-party notices, which the app reproduces in full.
 - **Apache Commons Compress** — Apache-2.0. Engine-bundle extraction.
 - **Readability4J** (dankito) — Apache-2.0. Pulls the article out of a
   shared web page for reader mode. It is a Kotlin port of **Mozilla's
   Readability.js** (© 2010 Arc90 Inc; © 2010-2026 Mozilla and
   Contributors), the same extractor behind Firefox's Reader View.
+- **SLF4J** (QOS.ch) — MIT. The logging interface Readability4J uses.
 - **jsoup** (Jonathan Hedley) — MIT. The HTML parser reader mode hands
   fetched pages to.
 - **AndroidX, Jetpack Compose, Kotlin, Hilt, Room** — Apache-2.0.

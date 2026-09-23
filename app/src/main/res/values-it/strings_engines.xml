@@ -204,7 +204,7 @@
 
     <string name="engine_kokoro_tagline">La copertura linguistica più ampia e le migliori voci in assoluto.</string>
     <string name="engine_kokoro_desc">La migliore qualità complessiva con il supporto linguistico più ampio — 53 voci in 9 lingue, tra cui inglese, spagnolo, francese, italiano, hindi, portoghese, giapponese e cinese mandarino. Consigliato alla maggior parte delle persone. Funziona interamente sul dispositivo; giapponese e mandarino usano dati di pronuncia inclusi, le altre lingue usano espeak-ng, tutto caricato in fase di esecuzione.</string>
-    <string name="engine_kokoro_license">Modello Apache-2.0 + dizionario Open JTalk BSD-3 (giapponese); le lingue europee sono fonemizzate dall\'espeak-ng integrato nell\'app (GPL-3.0-or-later).</string>
+    <string name="engine_kokoro_license">Modello Apache-2.0 + dizionario Open JTalk BSD-3 (giapponese) + lessico mandarino CC-BY-SA-4.0 (derivato in parte da CC-CEDICT); le lingue europee sono fonemizzate dall\'espeak-ng integrato nell\'app (GPL-3.0-or-later).</string>
 
     <string name="engine_kokoro_de_tagline">Una voce tedesca nativa, perfezionata a partire da Kokoro.</string>
     <string name="engine_kokoro_de_desc">Una voce tedesca nativa — Thorsten, del progetto aperto Thorsten-Voice — perfezionata a partire da Kokoro sulle sue registrazioni condivise liberamente. Solo tedesco, una voce. Scegliila quando vuoi un tedesco che suoni tedesco anziché con accento. Funziona interamente sul dispositivo, fonemizzata dall\'espeak-ng integrato nell\'app.</string>

@@ -26,8 +26,9 @@ This engine depends on **espeak-ng (GPL-3.0-or-later)** for
 phonemization. The library (`libespeak-ng.so`) is compiled from source
 into the APK from the pinned `third_party/espeak-ng` submodule (tag
 commit 96f0dbfb: 1.52.0 plus determinism fix espeak-ng#2071) and `dlopen()`d at runtime by the JNI shim
-(`app/src/main/cpp/espeak_jni.c`); the bundle supplies the
-`espeak-ng-data` dictionaries.
+(`app/src/main/cpp/espeak_jni.c`). The full `espeak-ng-data` tree is
+generated from the same source at build time and ships in the APK; that
+is the copy the app reads, and the bundle's own copy is left unused.
 
 Because espeak-ng ships inside it, the distributed APK is a
 GPL-3.0-or-later combined work; Marmalade's own source files remain MIT.
@@ -42,7 +43,10 @@ the espeak corresponding-source pointer.
   ONNX export from https://github.com/thewh1teagle/kokoro-onnx
   (`model-files` release), as packaged for multilingual use by
   k2-fsa/sherpa-onnx (`kokoro-multi-lang-v1_0`).
-- **espeak-ng** — Copyright (c) eSpeak NG authors. GPL-3.0-or-later.
+- **espeak-ng** — Copyright (C) 2005-2015 Jonathan Duddington;
+  Copyright (C) 2012-2021 Reece H. Dunn; Copyright (C) 2018-2022 Juho
+  Hiltunen; speechPlayer: Copyright 2014 NV Access Limited; and the other
+  espeak-ng contributors (see the source file headers). GPL-3.0-or-later.
   Corresponding source: https://github.com/espeak-ng/espeak-ng (the
   exact version is pinned in [`../NOTICE.md`](../NOTICE.md)).
 - **Open JTalk dictionary** — Nagoya Institute of Technology; NAIST

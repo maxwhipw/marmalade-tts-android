@@ -97,10 +97,13 @@ object LicenseCatalog {
             "project is MIT-licensed."
         const val BINARY = "App binary — GPL-3.0-or-later. The APK " +
             "compiles in espeak-ng (GPL-3.0-or-later, built from source), " +
-            "so the app as distributed is a GPL combined work. Everything " +
-            "else in it is MIT-, Apache-2.0-, or BSD-licensed. Engine " +
-            "bundles you download contain models and pronunciation data, " +
-            "never executable code."
+            "so the app as distributed is a GPL combined work. Every other " +
+            "piece of code and data in it is under a GPL-3.0-compatible " +
+            "license (MIT, BSD, Apache-2.0, MPL-2.0, or the Unicode " +
+            "license), and the brand fonts are OFL-1.1. The MPL-2.0 part is " +
+            "Eigen, built into ONNX Runtime; its source is at " +
+            "gitlab.com/libeigen/eigen. Engine bundles you download contain " +
+            "models and pronunciation data, never executable code."
         const val CORRESPONDING_SOURCE_LABEL = "Source code"
         const val CORRESPONDING_SOURCE_URL =
             "https://github.com/maxwhipw/marmalade-tts-android"

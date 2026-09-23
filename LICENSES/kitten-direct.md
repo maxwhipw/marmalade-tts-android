@@ -38,14 +38,21 @@ the pinned `third_party/espeak-ng` submodule. See
 - **Library:** `libespeak-ng.so` — in the **APK**, compiled from source
   (submodule `third_party/espeak-ng`, commit 96f0dbfb: the 1.52.0 release plus upstream determinism fix espeak-ng#2071) by
   `app/src/main/cpp/espeak-ng/CMakeLists.txt`.
-- **Data:** `phonemizer/espeak-ng-data/` (full tree) — in the bundle;
-  derives from Debian package `espeak-ng-data 1.51+dfsg-12build1`.
+- **Data:** the full `espeak-ng-data` tree is generated at build time
+  from the same pinned submodule and ships in the **APK**, which is the
+  copy the app reads. The bundle still carries its own
+  `phonemizer/espeak-ng-data/`, built from that same commit since the v22
+  bundle (earlier bundles derived it from Debian's
+  `espeak-ng-data 1.51+dfsg-12build1`).
 - **Legacy:** bundles ≤v16 also carried `phonemizer/<abi>/libttsespeak.so`
   (lifted from espeak-ng's official 1.52.0 Android APK). The app no
   longer loads it; it remains covered by the same GPL terms.
 - **Upstream:** https://github.com/espeak-ng/espeak-ng
 - **License:** GNU General Public License v3.0 or later
-- **Notice:** Copyright (c) The espeak-ng authors. Used in sentence
+- **Notice:** Copyright (C) 2005-2015 Jonathan Duddington;
+  Copyright (C) 2012-2021 Reece H. Dunn; Copyright (C) 2018-2022 Juho
+  Hiltunen; speechPlayer: Copyright 2014 NV Access Limited; and the other
+  espeak-ng contributors (see the source file headers). Used in sentence
   mode (`espeak_TextToPhonemes` with `phonememode = IPA`).
 - **Source availability:** Per GPL-3.0 §6, corresponding source for the
   APK's libespeak-ng.so is the pinned submodule in this repository
@@ -62,8 +69,9 @@ the pinned `third_party/espeak-ng` submodule. See
 ## GPL-3.0 implications
 
 The distributed APK compiles in espeak-ng, so the APK as a whole is a
-GPL-3.0-or-later combined work; all other APK components are
-GPL-compatible (MIT/Apache-2.0/BSD) and Marmalade's own source files
-remain MIT. The Kitten bundle adds GPL-licensed espeak-ng-data; the
+GPL-3.0-or-later combined work. Every other piece of code and data in
+the APK is under a GPL-3.0-compatible license (MIT, BSD, Apache-2.0,
+MPL-2.0, or the Unicode license), the brand fonts are OFL-1.1, and
+Marmalade's own source files remain MIT. The Kitten bundle adds GPL-licensed espeak-ng-data; the
 install screen discloses this before download. See
 [`../NOTICE.md`](../NOTICE.md).

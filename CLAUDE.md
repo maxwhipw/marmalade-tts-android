@@ -115,52 +115,46 @@ investigation won't find what one `onnx.load(...).metadata_props` will.
 
 ## Distribution flavors — `play` vs `fdroid`
 
-The project has two product flavors sharing one signing config and one
-applicationId:
+Two product flavors share one applicationId, one signing config and one
+feature set. Every feature is free in both; there is no billing
+dependency and no paywall (the Pro IAP was removed in 1.0.0-beta.1).
+Neither flavor has its own source set. The only differences are driven
+by `BuildConfig.FLAVOR`:
 
-- **`fdroid`** — every feature unlocked, no billing dep, no Google
-  classes. What F-Droid's buildserver compiles.
-- **`play`** — same build PLUS `com.android.billingclient:billing-ktx`
-  (via `playImplementation`, so the dep never reaches the F-Droid
-  source set). Per-app voices and custom effect creation are gated
-  behind a one-time `marmalade_pro` IAP. Built-in effect presets,
-  primary alias, and every synth feature stay free.
+- **Engine catalog:** engines marked `fdroidOnly` (Pocket TTS and its
+  developer twin) are hidden from every user-facing list in the Play
+  build, so its catalog matches its store listing. Routing still
+  resolves them by name (`EngineCatalog.visibleTo` vs `byName`).
+- **Bug reports:** the Settings "Report a bug" link records the flavor.
 
-`ProEntitlement.isPro` is the single source of truth —
-`FdroidProEntitlement` returns `MutableStateFlow(true)`;
-`PlayProEntitlement` wraps `BillingClient`. UI trip-wires
-(`AppRoutingViewModel`, `EffectsScreen`) open the paywall sheet only
-when `!isPro`, so the paywall code path does not exist in the F-Droid
-APK.
-
-The CI workflow's `bundleRelease`/`assembleRelease` becomes
-`bundlePlayRelease`/`assemblePlayRelease`; fdroiddata's recipe needs
-`gradle: [fdroid]`.
+The release workflow builds `bundlePlayRelease`/`assemblePlayRelease`;
+fdroiddata's recipe needs `gradle: [fdroid]`.
 
 ## Engine bundle licensing
 
 The Marmalade **source repo is MIT**; the **distributed APK is
 GPL-3.0-or-later** because espeak-ng is compiled from source into it
-(pinned submodule `third_party/espeak-ng`, tag 1.52.0, built by
-`app/src/main/cpp/espeak-ng/CMakeLists.txt`). Play forbids
-runtime-downloading `.so` files, so the lib must live in the APK; the
-same from-source build satisfies F-Droid. One build serves both stores.
-**Engine bundles** (downloaded after user opt-in into
-`${filesDir}/engines/`) carry models + pronunciation data only —
-espeak-ng-data is the GPL piece there. See [NOTICE.md](NOTICE.md).
+(pinned submodule `third_party/espeak-ng`, commit 96f0dbfb: 1.52.0 plus
+upstream's determinism fix, built by
+`app/src/main/cpp/espeak-ng/CMakeLists.txt`). The full `espeak-ng-data`
+tree is generated from the same source at build time and ships in the
+APK too. Play forbids runtime-downloading `.so` files, so the lib must
+live in the APK; the same from-source build satisfies F-Droid. One build
+serves both stores. The MIT JNI shim (`app/src/main/cpp/espeak_jni.c`)
+`dlopen`s the APK's own `libespeak-ng.so` and contains no espeak code.
 
-The KittenDirect engine (alpha.9, May 2026) made this posture explicit:
-a tiny C JNI shim in the APK does `dlopen`/`dlsym` against
-`libttsespeak.so` shipped in the engine bundle, so the APK contains no
-espeak code. The user assembles the GPL combination on their device
-when they accept the engine install. This is the locked-in pattern for
-future direct-ORT engines (KokoroDirect will follow the same model).
+**Engine bundles and voice packs** (downloaded after user opt-in into
+`${filesDir}/engines/`) carry models and pronunciation data only, never
+executable code. The Kitten and Kokoro bundles still hold a copy of
+`espeak-ng-data` that the app no longer reads. [NOTICE.md](NOTICE.md) is
+the authority on the licensing posture; keep it, `LICENSES/`, CREDITS.md
+and the in-app catalog (`data/LicenseCatalog.kt`) in agreement.
 
 The dictionary-only phonemizer path (using BSD-3 OpenPhonemizer ONNX +
 a CMUDict-derived IPA dictionary, no espeak at all) was explored and
 deferred — phonemizer-side IPA convention mismatches with the trained
-Kitten model caused enough quality regression to make espeak-in-bundle
-the right call. Revisit if there's ever a no-GPL-anywhere requirement.
+Kitten model caused enough quality regression to make espeak the right
+call. Revisit if there's ever a no-GPL-anywhere requirement.
 
 
 ## Android app publishing — knowledge base TODO

@@ -16,9 +16,11 @@ anything below.
 The **store build** (the APK published to Google Play and F-Droid)
 includes **espeak-ng**, compiled from source into `libespeak-ng.so`.
 espeak-ng is **GPL-3.0-or-later**, so the APK as a whole is distributed
-under the terms of the **GPL-3.0-or-later**. Every other component in
-the APK is MIT-, Apache-2.0-, or BSD-licensed — all GPL-compatible — and
-the Marmalade source files themselves remain MIT (see above). Shipping
+under the terms of the **GPL-3.0-or-later**. Every other piece of code
+and data in the APK is under a GPL-3.0-compatible license (MIT, BSD,
+Apache-2.0, MPL-2.0, or the Unicode license). The brand fonts are
+OFL-1.1 and ride along as separate font files under their own terms. The
+Marmalade source files themselves remain MIT (see above). Shipping
 the lib in the APK is what Google Play requires (executable code must
 not be downloaded at runtime) and what F-Droid prefers (built from
 source on their buildserver).
@@ -41,6 +43,14 @@ upstream commit. (Bundles up to v21 carried data derived from Debian
 `1.51+dfsg` plus a legacy `libttsespeak.so` the app never loaded; both
 were removed in the v22 re-spin — see the engines repo's release notes.)
 
+### Eigen source (MPL-2.0)
+
+ONNX Runtime, which ships in the APK as `libonnxruntime.so`, compiles in
+the **Eigen** C++ library, which is **MPL-2.0**. Eigen's source is
+available from **https://gitlab.com/libeigen/eigen**. The exact revision
+ONNX Runtime 1.26.0 builds is commit `1d8b82b0` on Eigen's 3.4 branch,
+pinned in ONNX Runtime's `cmake/deps.txt` at tag `v1.26.0`.
+
 ## Full license texts
 
 Verbatim copies of the licenses referenced here are in
@@ -48,12 +58,20 @@ Verbatim copies of the licenses referenced here are in
 **BSD-3-Clause**, **CC-BY-4.0**, **CC-BY-SA-4.0**, **CC0-1.0**, and **OFL-1.1**. The running app surfaces a per-component
 breakdown under **Settings → About → Open-source licenses**, with the full
 license text reachable for each component. License texts that embed the
-licensor's copyright (MIT, BSD) ship **per component with the correct holder**
-— the verbatim Open JTalk / MeCab `COPYING`, and the standard MIT body with
-each project's own copyright line (Marmalade, ONNX Runtime / Microsoft, Pocket
-/ Kyutai, jsoup / Jonathan Hedley). The standalone bodies that carry no embedded licensor copyright
-(GPL-3.0, Apache-2.0, CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0) are shared, with
-attribution shown per component. All in-app texts are bundled in the APK under `assets/licenses/`.
+licensor's copyright (MIT, BSD, the Unicode license) ship **per component
+with the correct holder**: the verbatim Open JTalk / MeCab `COPYING` and
+open_jtalk dictionary notice, espeak-ng's verbatim `COPYING.UCD` (Unicode,
+Inc.), and the MIT text with each project's own copyright line (Marmalade,
+ONNX Runtime / Microsoft, Pocket / Kyutai, jsoup / Jonathan Hedley, SLF4J /
+QOS.ch, cutlet / Paul O'Leary McCann). ONNX Runtime 1.26.0's
+`ThirdPartyNotices.txt` is reproduced verbatim for the libraries linked
+into `libonnxruntime.so`; each entry names its own license and holder,
+including Eigen under MPL-2.0. The Jenny (Dioco) voice pack's two custom
+attribution licenses are quoted verbatim in a text of their own. The
+standalone bodies that carry no embedded licensor copyright (GPL-3.0,
+Apache-2.0, CC-BY-4.0, CC-BY-SA-4.0, CC0-1.0, OFL-1.1) are shared, with
+attribution shown per component. All in-app texts are bundled in the APK
+under `assets/licenses/`.
 
 ## Baked-in engine and on-demand engine bundles
 
@@ -76,15 +94,23 @@ folder.
 | Component | Role | Where it ships | License |
 |---|---|---|---|
 | Marmalade app code | The app | APK (source) | **MIT** |
-| espeak-ng | Phonemizer (English/multi) | APK (compiled from source; full `espeak-ng-data` generated at build time) | **GPL-3.0-or-later** |
+| espeak-ng | Phonemizer (English/multi) | APK (library and full `espeak-ng-data`, both built from source); Kitten and Kokoro engine bundles also carry a copy of `espeak-ng-data` | **GPL-3.0-or-later** |
+| Unicode Character Database (via espeak-ng's ucd-tools) | Unicode character tables compiled into espeak-ng | APK (compiled in) | Unicode-DFS-2016 |
 | ONNX Runtime Mobile | Inference runtime | APK | MIT |
+| ONNX Runtime third-party notices | Libraries statically linked into ONNX Runtime (XNNPACK, protobuf, Abseil, FlatBuffers, Eigen, …) | APK (inside `libonnxruntime.so`) | Per entry, as published with ONNX Runtime 1.26.0 (MIT, BSD, Apache-2.0, **MPL-2.0** for Eigen, …) |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
 | Readability4J | Reader-mode article extraction | APK | Apache-2.0 |
+| SLF4J API | Logging facade (dependency of Readability4J) | APK | MIT |
 | jsoup | HTML parser (reader mode) | APK | MIT |
 | Open JTalk + MeCab | Japanese phonemizer frontend | APK (compiled in) | BSD-3-Clause |
-| misaki / cutlet (port) | Japanese G2P tables (clean-room Kotlin port) | APK (source) | MIT |
-| Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 |
-| KittenTTS (nano/mini) | Neural voice model | APK (nano, baked-in seed); engine bundle (mini) | Apache-2.0 |
+| misaki / cutlet (Kotlin port) | Japanese G2P tables (clean-room Kotlin port of misaki's `cutlet.py`) | APK (source) | Apache-2.0 |
+| cutlet (polm/cutlet) | Origin of misaki's `cutlet.py`, credited through the port | APK (source) | MIT |
+| misaki (German G2P port) | German text normalizer + pronunciation-override lexicon (clean-room Kotlin port) | APK (source) | Apache-2.0 (see [`LICENSES/kokoro-de.md`](LICENSES/kokoro-de.md)) |
+| Kokoro-82M | Neural voice model | Engine bundle | Apache-2.0 (see [`LICENSES/kokoro-direct.md`](LICENSES/kokoro-direct.md)) |
+| Thorsten-Voice/Kokoro (German fine-tune) | Neural voice model (German) | Engine bundle | Apache-2.0 (see [`LICENSES/kokoro-de.md`](LICENSES/kokoro-de.md)) |
+| KittenTTS (nano) | Neural voice model | APK (baked-in) and engine bundle | Apache-2.0 |
+| Jenny (Dioco) | English VITS voice pack | Voice pack (downloaded) | Custom attribution licenses for the weights (Bryce Beattie) and the training data (Jenny, dioco-group); the voice must be credited "Jenny (Dioco)" (see [`LICENSES/vits-marmalade.md`](LICENSES/vits-marmalade.md)) |
+| Other VITS voice packs (developer mode only) | Ukrainian, Icelandic, Swedish, Kazakh and Norwegian voices | Voice pack (downloaded) | MIT weights; training data license per pack (see [`LICENSES/vits-marmalade.md`](LICENSES/vits-marmalade.md)) |
 | Pocket TTS (Kyutai) — model code | Neural voice model (English) | Engine bundle | **MIT** |
 | Pocket TTS predefined voices (6) | Reference voice prompts | Engine bundle | CC0 / CC-BY-4.0 (per voice — see [`LICENSES/pocket-tts.md`](LICENSES/pocket-tts.md)) |
 | open_jtalk dictionary | Japanese MeCab dictionary | Engine bundle | Modified BSD |

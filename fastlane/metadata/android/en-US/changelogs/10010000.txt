@@ -2,5 +2,5 @@ Marmalade TTS 1.1.0.
 - Reader mode: share a web page and it's read aloud paragraph by paragraph, fully on-device.
 - German: a native community-reviewed voice (Thorsten/Kokoro), plus accented German and Bulgarian on every Kokoro voice.
 - New VITS engine with the English voice Jenny (Dioco), great on slow devices.
-- Speed is now a true time-stretch on all engines; 2.0x really is twice as fast.
+- On-device speed is now a true time-stretch; 2.0x really is twice as fast.
 - Fixes: offline crashes on hardened Android, swallowed word endings, number/currency reading.

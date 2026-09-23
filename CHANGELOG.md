@@ -53,18 +53,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The **Sponsors** row in Settings now ships in both flavors.
 
 ### Changed
-- **Speed is now a true time-stretch on every engine.** Kokoro, Kitten
-  and Pocket used to feed your speed into the model (Pocket dropped it
-  entirely — issue #7); model-side speed audibly degraded articulation
+- **Speed is now a true time-stretch on every on-device engine.** Kokoro,
+  Kitten and Pocket used to feed your speed into the model (Pocket dropped
+  it entirely — issue #7); model-side speed audibly degraded articulation
   and silently saturated around 1.85–2.2× no matter what you asked for.
-  Every engine now renders at its natural pace and the requested speed
-  is applied as a tempo stage afterwards, so 2.0× actually plays in
+  Every on-device engine now renders at its natural pace and the requested
+  speed is applied as a tempo stage afterwards, so 2.0× actually plays in
   half the time — on the Speak screen, the reader, and system TTS
   (screen readers included). Sentence pauses scale with the speed too.
+  Cloud voices still pass your speed to the provider, which renders it.
 - **Speed-aware buffering**: at high speeds the app now pre-buffers
   enough synthesized audio to avoid mid-text stalls where playback
-  outruns synthesis, and the alias editor warns that speeds above
-  ~1.35× may stutter on slower devices.
+  outruns synthesis. The alias editor and the reader's speed sheet warn
+  you when a speed is likely to stutter, based on how fast the chosen
+  engine actually runs on your device.
 
 ### Fixed
 - **Offline / hardened-Android crashes** (issue #12): opening the Cloud
@@ -94,6 +96,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The reader recognizes sentence endings before CJK closing brackets.
 - The email preprocessing rule was accidentally quadratic — very long
   texts with many @-signs preprocessed slowly. Now linear.
+- The Quick Settings clipboard tile now reads your clipboard. On Android
+  10 and up it always said the clipboard was empty.
+- A cloud voice's offline fallback now actually takes over when the
+  provider can't be reached. Before, the fallback was never used and you
+  got an error instead of speech.
+- Very long sentences with little or no punctuation are no longer cut
+  off partway. They're split at a natural break instead.
 
 ## [1.0.0] - 2026-08-10
 

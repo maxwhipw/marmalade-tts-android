@@ -97,7 +97,7 @@
 
     <string name="engine_kokoro_tagline">The widest language coverage and the best all-round voices.</string>
     <string name="engine_kokoro_desc">Best all-round quality with the widest language support — 53 voices across 9 languages, including English, Spanish, French, Italian, Hindi, Portuguese, Japanese, and Mandarin. Recommended for most people. Runs fully on your device; Japanese and Mandarin use bundled pronunciation data and the other languages use espeak-ng, all loaded at runtime.</string>
-    <string name="engine_kokoro_license">Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese); European langs phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).</string>
+    <string name="engine_kokoro_license">Apache-2.0 model + BSD-3 Open JTalk dictionary (Japanese) + CC-BY-SA-4.0 Mandarin lexicon (partly derived from CC-CEDICT); European langs phonemized by the app’s built-in espeak-ng (GPL-3.0-or-later).</string>
 
     <string name="engine_kokoro_de_tagline">A native German voice, fine-tuned from Kokoro.</string>
     <string name="engine_kokoro_de_desc">A native German voice — Thorsten, from the open Thorsten-Voice project — fine-tuned from Kokoro on his own freely-shared recordings. German only, one voice. Pick it when you want German that sounds German rather than accented. Runs fully on your device, phonemized by the app’s built-in espeak-ng.</string>
@@ -117,7 +117,7 @@
          Pocket clean-reference engine above. -->
     <string name="engine_vits_tagline" translatable="false">A natural English voice on Marmalade\'s own VITS runtime.</string>
     <string name="engine_vits_desc" translatable="false">Marmalade\'s own runtime for Piper-class VITS voices. Ships the English voice Jenny (Dioco): a self-contained ~58 MB download with permissive weights and training data. Runs fully on your device, phonemized by the app\'s built-in espeak-ng.</string>
-    <string name="engine_vits_license" translatable="false">MIT weights + Apache-2.0 training data; phonemized by the app\'s built-in espeak-ng (GPL-3.0-or-later). No Piper runtime code.</string>
+    <string name="engine_vits_license" translatable="false">Voice packs carry their own licenses. The English Jenny (Dioco) pack uses custom attribution licenses for its weights (Bryce Beattie) and its training data (Jenny, dioco-group). Phonemized by the app\'s built-in espeak-ng (GPL-3.0-or-later). No Piper runtime code.</string>
 
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>
