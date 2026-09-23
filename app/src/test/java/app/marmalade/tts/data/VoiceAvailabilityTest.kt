@@ -152,4 +152,28 @@ class VoiceAvailabilityTest {
         assertNull(VitsVoiceCatalog.packVoiceOf("$vits:zz-retired-pack"))
         assertNull(VitsVoiceCatalog.packVoiceOf("kokoro-direct-v1_0:af_bella"))
     }
+
+    @Test
+    fun pickableVoicesGatesDeveloperEnginesAndUnreleasedPacksOnDeveloperMode() {
+        // One rule for all three pickers (full-screen picker, alias editor,
+        // onboarding): a diagnostic engine left installed and a staged VITS
+        // pack are visible only in developer mode; a voice not on disk never is.
+        val dev = PocketDevVoiceCatalog.ENGINE
+        val devVoice = row(dev, "$dev:alba")
+        val kokoro = row("kokoro-direct-v1_0", "kokoro-direct-v1_0:af_bella")
+        val jenny = vitsRow("en-jenny_dioco-medium")
+        val staged = vitsRow("uk-lada-x_low")
+        val absent = vitsRow("sv-nst-medium")
+        val assets = InstalledVoiceAssets(
+            engines = setOf(dev, "kokoro-direct-v1_0", vits),
+            packs = setOf("en-jenny_dioco-medium", "uk-lada-x_low"),
+        )
+        val all = listOf(devVoice, kokoro, jenny, staged, absent)
+
+        assertEquals(listOf(kokoro, jenny), all.pickableVoices(assets, showDeveloper = false))
+        assertEquals(
+            listOf(devVoice, kokoro, jenny, staged),
+            all.pickableVoices(assets, showDeveloper = true),
+        )
+    }
 }

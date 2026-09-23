@@ -13,6 +13,7 @@ import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VitsVoiceCatalog
+import app.marmalade.tts.data.pickableVoices
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMeta
@@ -26,7 +27,6 @@ import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.perf.EngineFit
 import app.marmalade.tts.perf.EngineRecommendation
 import app.marmalade.tts.perf.EngineRecommender
-import app.marmalade.tts.ui.screen.pickableVoices
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,6 +68,7 @@ import kotlinx.coroutines.launch
 //     │                              │ seedAliasDefaults on entering the step
 //     │
 //     └── actions ──► next() / back() / toggle(name) / installSelected()
+//                  retry(name) / removeDownload(name)
 //                  next()  + onAlias{Name,Engine,Voice,Speed,Effect}Change()
 //                  saveAliasAndContinue() / useDefaultsAndContinue() / finish()
 //
@@ -403,18 +404,26 @@ class OnboardingViewModel @Inject constructor(
             }
         }
         val result = installer.install(engineName) { /* state flow handles updates */ }
-        updateInstallState(
-            engineName,
-            result.fold(
-                onSuccess = { InstallState.Installed },
-                onFailure = { err ->
-                    // Blank reason → the screen substitutes its localized
-                    // generic-failure string (no Context in this VM).
-                    InstallState.Failed(err.message ?: "")
-                },
-            ),
-        )
+        updateInstallState(engineName, installOutcome(result, installer.state(engineName).value))
         stateJob.cancel()
+    }
+
+    /**
+     * "Remove download" on a failed row: delete the partial archive the failed
+     * install kept for resume. The row stays Failed (Retry still offered, and
+     * Continue stays enabled) — only the leftover-bytes count drops to zero,
+     * which hides the button.
+     */
+    fun removeDownload(engineName: String) {
+        viewModelScope.launch {
+            installer.discardDownload(engineName).onSuccess {
+                _installStates.update { current ->
+                    val failed = current[engineName] as? InstallState.Failed
+                        ?: return@update current
+                    current + (engineName to failed.copy(partialDownloadBytes = 0L))
+                }
+            }
+        }
     }
 
     // -- CreateAlias step state ------------------------------------------------
@@ -762,3 +771,16 @@ class OnboardingViewModel @Inject constructor(
         _installStates.update { current -> current + (engineName to state) }
     }
 }
+
+/**
+ * The row state an install [result] settles on. A failure prefers the
+ * installer's own [InstallState.Failed] ([live], published before `install`
+ * returns) because it carries the failure kind the screen localizes and the
+ * partial-download size behind "Remove download"; the exception is the
+ * fallback. A blank reason makes the screen use its generic failure string.
+ */
+internal fun installOutcome(result: Result<Unit>, live: InstallState): InstallState =
+    result.fold(
+        onSuccess = { InstallState.Installed },
+        onFailure = { err -> live as? InstallState.Failed ?: InstallState.Failed.from(err, "") },
+    )

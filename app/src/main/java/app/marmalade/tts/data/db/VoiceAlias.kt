@@ -110,8 +110,9 @@ data class VoiceAlias(
      */
     val effectId: String? = null,
     /**
-     * Name of another alias to speak with when this one's voice can't be
-     * reached. Null means "no fallback — fail".
+     * [id] of another alias to speak with when this one's voice can't be
+     * reached. Null means "no fallback — fail". Rows written before v1.1
+     * may hold the alias's name instead; the router tolerates both.
      *
      * Only meaningful for cloud voices, which are the one thing in the app
      * that can simply stop working: a dead network used to mean an error

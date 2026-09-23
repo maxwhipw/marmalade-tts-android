@@ -5,6 +5,9 @@
 > Last updated against v0.1.17 (commit e60ab4d). Specific file:line
 > refs may drift; the *shape* of the map is stable.
 >
+> - Entries touched by the v1.1.0 review pass (2026-09-22, commits
+>   `fc46ffa`..) are current: reader routing, synth service, clipboard
+>   tile, install failures, chunking, voice filtering, alias fallback.
 > - [ ] **TODO (2026-08-02): stale refresh needed** — still documents the
 >   sherpa-onnx engines (`SherpaEngine`, `KittenEngine`, `KokoroEngine`,
 >   `KittenVoiceCatalog`) removed in June, and Kitten Mini removed in
@@ -86,7 +89,11 @@ When investigating **{concern}**, start at **{files}**:
   apps call here); has `runBlocking` hot-path caches (v0.1.16) for
   voice→engine and rule lookup
 - `service/MarmaladeSynthService.kt` — foreground media-playback
-  service for long-form playback + transport controls
+  service for long-form playback + transport controls. Only
+  `ACTION_SPEAK` (the one action sent via `startForegroundService`)
+  promotes it to foreground; stops use `stopSelfResult(lastStartId)` so a
+  newer SPEAK in flight still reaches its `startForeground`; a partial
+  wake lock is held while a request plays or waits and isn't paused
 - Order of the canonical chain: emoji-detect → preprocess →
   strip-emoji → engine synth → ProsodyApplier → EffectChain
 
@@ -102,9 +109,17 @@ When investigating **{concern}**, start at **{files}**:
   language code from the upstream voice-key prefix (a=en-US, b=en-GB,
   e=es-ES, f=fr-FR, h=hi-IN, i=it-IT, j=ja-JP, p=pt-BR, z=zh-CN).
 
+- **Over-cap chunks**: `audio/TextChunker.splitToFit(text, fits)`
+  re-splits a chunk that still overflows an engine's cap (clause
+  punctuation → whitespace → hard cut, nothing dropped). Kokoro and
+  Kitten call it with a "phonemizes to ≤ cap tokens" predicate;
+  `TtsEngine.maxInputChars` is the per-engine character cap.
+
 ### Cloud API engine (hosted voices)
 - `engine/api/CloudApiEngine.kt` — OpenAI-compatible `/audio/speech`
   synthesis with true streaming (WAV header parse + chunked PCM emit).
+  Text over `maxInputChars` (1000) is sent as several requests:
+  sentence-packed chunks, `splitToFit` for a single oversize sentence.
   One engine for all providers; the voice id carries provider + model:
   `cloud-api-v1:<provider>:<model>:<voice>`.
 - `data/cloud/CloudProviders.kt` — provider descriptors as data
@@ -127,6 +142,15 @@ When investigating **{concern}**, start at **{files}**:
   tar.bz2 extract via Apache `commons-compress`, atomic rename. Per-
   engine `StateFlow<InstallState>` (Idle / Downloading / Extracting /
   Installed / Failed).
+  - Refuses up front (`InstallFailure.NO_SPACE`) when free space can't
+    hold the remaining download + unpacked size + margin; HTTP 404/410
+    maps to `InstallFailure.NOT_AVAILABLE`. `InstallState.Failed.failure`
+    carries the kind; `ui/screen/EnginesScreen.installFailureText(state)`
+    is the one localized rendering (engine cards, pack rows, onboarding).
+  - A failed download keeps its partial archive for resume
+    (`Failed.partialDownloadBytes`); "Remove download" →
+    `discardDownload` / `discardPackDownload` deletes it. Stale `*.tmp`
+    scratch dirs/archives are swept when the installer is constructed.
 
 ### Preprocessing
 - `preprocessing/Preprocessor.kt` — applies the rule set
@@ -151,7 +175,8 @@ When investigating **{concern}**, start at **{files}**:
 - `data/db/VoiceMeta.kt` + DAO — installed voices (engine, voice id,
   display name, gender, language, isInstalled flag)
 - `data/db/VoiceAlias.kt` + DAO — user "personas" (name + engine +
-  voiceId + speed + effectPreset)
+  voiceId + speed + effectPreset). `fallbackAliasId` holds another
+  alias's **id** (not a FK; the editor writes ids since v1.1.0)
 - `data/db/AppAliasMapping.kt` + DAO — per-app routing (packageName
   → aliasName)
 - `data/SettingsRepository.kt` — DataStore Prefs (theme preset, theme
@@ -164,12 +189,15 @@ When investigating **{concern}**, start at **{files}**:
   handles `onSynthesizeText`, `onIsLanguageAvailable`, `onLoadLanguage`,
   `onGetLanguage`, `onLoadVoice`
 - `service/CheckVoiceDataActivity.kt` — Android invokes this to
-  enumerate installed voices (BCP-47 → ISO-639-3 conversion)
+  enumerate installed voices (BCP-47 → ISO-639-3 conversion). Filters
+  through `MarmaladeTtsService.advertisableVoices`, the same rule the
+  service's voice list uses (VITS per pack + released only)
 - `service/GetSampleTextActivity.kt` — returns "Hello, this is
   Marmalade speaking." for the system picker's Play button
 - `service/TtsRouter.kt` — `@Singleton` that resolves
   `(callerPackage) → VoiceAlias?` via: per-app mapping → primary
-  alias → engine default
+  alias → engine default. `fallbackVoiceIdFor(alias)` resolves a cloud
+  alias's offline fallback by id, then by name (legacy rows stored a name)
 - `AndroidManifest.xml` — `TTS_SERVICE` intent-filter declares
   `DEFAULT` category, `CHECK_TTS_DATA` + `GET_SAMPLE_TEXT` + `CONFIGURE_ENGINE`
   filters are also wired. `xml/tts_engine.xml` declares
@@ -185,7 +213,10 @@ When investigating **{concern}**, start at **{files}**:
   share trampoline makes (ACTION_SEND carrying a URL → reader;
   everything else, PROCESS_TEXT included → speak). Unit-tested on the JVM.
 - `service/SpeakClipboardTileService.kt` — Quick Settings tile that
-  speaks the current clipboard
+  speaks the current clipboard. It never reads the clipboard itself
+  (since Android 10 only the focused app may): it launches
+  `service/SpeakClipboardActivity.kt`, an invisible trampoline that reads
+  on first window focus, dispatches, and finishes
 - `service/SpeakDispatcher.kt` — wraps the foreground-service start
   intent for in-app and external callers
 
@@ -198,19 +229,27 @@ When investigating **{concern}**, start at **{files}**:
   EngineDetailScreen). Other detail routes: EngineDetail/{name},
   CloudApi, Licenses, EffectEditor, Reader. Bottom bar hides on detail
   routes (`showBottomBar` predicate at the top of AppRoot).
-- **Reader mode** (`reader?url=…&text=…` → `ui/reader/ReaderScreen.kt`
-  + `ReaderViewModel.kt`): share a link → fetch + extract
-  (`reader/ArticleFetcher`, `reader/ArticleExtractor`) → article
-  rendered as native Compose text blocks. Entered only from
-  ShareIntentActivity, which starts MainActivity with
-  `EXTRA_READER_URL`; MainActivity holds it as state (so a second
-  share arriving at `onNewIntent` re-opens the reader) and AppRoot
-  navigates once. The article is in-memory only — never persisted.
+- **Reader mode** (`Routes.ReaderPattern` = `reader?url=…&text=…` →
+  `ui/reader/ReaderScreen.kt` + `ReaderViewModel.kt`): share a link →
+  fetch + extract (`reader/ArticleFetcher`, `reader/ArticleExtractor`,
+  parsed on the `@ReaderParseDispatcher` from
+  `reader/ReaderParseDispatcher.kt`, off Main) → article rendered as
+  native Compose text blocks. Entered from ShareIntentActivity (or the
+  playback notification), which starts MainActivity with
+  `EXTRA_READER_URL`. MainActivity takes a request only from a fresh
+  launch or `onNewIntent` — not a recreation or a Recents replay (a
+  request still pending when onboarding was up survives via saved
+  state). AppRoot navigates with `popUpTo(ReaderPattern) { inclusive }`
+  and no `launchSingleTop`, so each new link gets a fresh entry and
+  ViewModel; the same URL already on top is left alone. The article is
+  in-memory only — never persisted.
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —
   5-step flow: Welcome → EnginePick → Installing → CreateAlias →
-  SystemDefault. `finish()` flips the onboarded flag.
+  SystemDefault. `finish()` flips the onboarded flag. A failed install
+  row keeps the installer's own `Failed` (localized via
+  `installFailureText`) and offers Retry + "Remove download".
 - `MainActivity.kt` — decides between `OnboardingScreen` and `AppRoot`
   based on `onboarded` flag; sets theme via `MarmaladeTtsTheme`.
 
@@ -220,7 +259,9 @@ When investigating **{concern}**, start at **{files}**:
   - `SettingsRepository`
   - `EngineFilesDir` (typealias `() -> File`)
   - `KittenEngine`, `KokoroEngine` (both `@Singleton open`)
-  - `NativeEngineHandle` (`() -> Unit` that releases both)
+  - `NativeEngineHandle` — `release(engineName)` drops only that
+    engine's native handle (`NativeEngineHandle.routing`; an unknown name
+    releases all), so uninstalling one engine can't abort another's read
   - `EngineInstaller`
   - `TtsRouter`
 
@@ -346,11 +387,13 @@ write Marmalade code.
   only fire when an alias is active. `SpeakViewModel` auto-applies
   the primary alias on init (v0.1.18) so effects fire on first
   Speak without needing the user to tap the alias chip manually.
-- **Voice list filtering**: `VoicePickerViewModel` combines
-  `voiceDao.getAll()` with a per-engine `installer.verify()` probe
-  and filters to engines whose layout passes verification (v0.1.18).
-  Pre-fix this screen used `getByEngine("kitten")` and showed those
-  rows regardless of install state.
+- **Voice list filtering**: Room holds every catalog voice, so disk
+  state decides what's pickable. `data/VoiceAvailability.kt`:
+  `probeInstalledVoiceAssets` (engine `verify` + per-pack `verifyPack`)
+  → `pickableVoices(assets, showDeveloper)` — on disk (a VITS voice needs
+  its own pack) and, outside developer mode, not a developer-only engine
+  or unreleased pack. Shared by `VoicePickerViewModel`, the alias
+  editor and onboarding's alias step.
 - **`kokoro-int8-multi-lang-v1_0` is an unblessed power-user export**
   — added to sherpa-onnx releases by PR #2137 but never included in
   the team's own APK build script (`scripts/apk/generate-tts-apk-script.py`).

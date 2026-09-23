@@ -11,8 +11,7 @@ import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.SettingsRepository
-import app.marmalade.tts.data.filterAvailable
-import app.marmalade.tts.data.isVoiceReleased
+import app.marmalade.tts.data.pickableVoices
 import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
@@ -307,9 +306,10 @@ class AliasViewModel @Inject constructor(
     /**
      * Installed voices grouped into the drill-down tree.
      *
-     * Filtered through [pickableVoices] so a pack-based engine's voices need
-     * their own pack on disk, not just their engine, and an unreleased pack's
-     * voices are developer-only — the rules the full-screen picker applies.
+     * Filtered through [pickableVoices] — the full-screen picker's rules: a
+     * pack-based engine's voices need their own pack on disk, not just their
+     * engine, and a developer-only engine's or unreleased pack's voices show
+     * only in developer mode.
      */
     val voiceTree: StateFlow<List<VoiceSource>> = combine(
         voiceDao.getAll(),
@@ -721,21 +721,6 @@ class AliasViewModel @Inject constructor(
         else -> error
     }
 }
-
-/**
- * The voices an alias may be pointed at: on disk (a pack-based engine's voice
- * needs its own pack, see [filterAvailable]) and, unless [showDeveloper],
- * released — the same gate the full-screen picker applies, so an installed but
- * unreleased VITS pack's voices stay out of an ordinary user's list while a
- * developer still sees them.
- *
- * Shared by this editor and onboarding's alias step so the two can't disagree
- * about what is pickable.
- */
-internal fun List<VoiceMeta>.pickableVoices(
-    assets: InstalledVoiceAssets,
-    showDeveloper: Boolean,
-): List<VoiceMeta> = filterAvailable(assets).filter { showDeveloper || isVoiceReleased(it) }
 
 /**
  * Engine choice for the alias editor's picker — decoupled from

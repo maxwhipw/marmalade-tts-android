@@ -17,9 +17,10 @@ import app.marmalade.tts.install.isUsableOnDisk
 //     ▼
 //   InstalledVoiceAssets(engines, packs)
 //     │
-//     └── isVoiceAvailable(voiceMeta, assets)
-//            │   used by VoicePickerViewModel + AliasViewModel to filter the
-//            │   Room voice rows down to what can actually be spoken
+//     └── pickableVoices(assets, showDeveloper)
+//            │   isVoiceAvailable (on disk) + the developer gate; used by
+//            │   VoicePickerViewModel, AliasViewModel and OnboardingViewModel
+//            │   to filter the Room voice rows down to what can be picked
 //            ▼
 //         buildVoiceTree(...) → the picker's source › model › voice tree
 // -----------------------------------------------------------------------------
@@ -85,6 +86,23 @@ fun List<VoiceMeta>.filterAvailable(assets: InstalledVoiceAssets): List<VoiceMet
 fun isVoiceReleased(voice: VoiceMeta): Boolean {
     val packId = VitsVoiceCatalog.packIdOf(voice.id) ?: return true
     return VoicePackCatalog.byId(packId)?.released ?: true
+}
+
+/**
+ * The voices a user may pick: available on disk ([filterAvailable]) and, unless
+ * [showDeveloper], neither on a developer-only engine nor in an unreleased pack
+ * ([isVoiceReleased]) — so an installed-but-staged VITS pack, or a diagnostic
+ * engine left installed after developer mode was switched off, stays out of an
+ * ordinary user's list while a developer still sees it.
+ *
+ * Shared by the full-screen picker, the alias editor and onboarding's alias
+ * step so the three can't disagree about what is pickable.
+ */
+fun List<VoiceMeta>.pickableVoices(
+    assets: InstalledVoiceAssets,
+    showDeveloper: Boolean,
+): List<VoiceMeta> = filterAvailable(assets).filter { voice ->
+    showDeveloper || (voice.engine !in EngineCatalog.developerOnlyNames && isVoiceReleased(voice))
 }
 
 /**

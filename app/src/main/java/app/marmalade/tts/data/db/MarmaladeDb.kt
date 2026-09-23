@@ -184,8 +184,9 @@ val MIGRATION_7_8: Migration = object : Migration(7, 8) {
 }
 
 /**
- * v9: adds [VoiceAlias.fallbackAliasName] — the alias to speak with when a
- * cloud voice can't be reached.
+ * v9: adds `voice_alias.fallbackAliasName` — the alias to speak with when a
+ * cloud voice can't be reached. (v10's id re-key rebuilt the table with
+ * [VoiceAlias.fallbackAliasId] in its place.)
  *
  * Additive nullable column, so existing rows need no back-fill: null means
  * "no fallback", which is exactly the pre-v9 behaviour. Written explicitly

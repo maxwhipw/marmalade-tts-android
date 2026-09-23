@@ -86,6 +86,7 @@ import app.marmalade.tts.perf.EngineFit
 import app.marmalade.tts.ui.components.EngineSpecColumn
 import app.marmalade.tts.ui.components.JarMascot
 import app.marmalade.tts.ui.components.JarMascotState
+import app.marmalade.tts.ui.screen.installFailureText
 
 // -----------------------------------------------------------------------------
 // Data flow
@@ -105,7 +106,9 @@ import app.marmalade.tts.ui.components.JarMascotState
 //     │    ├── all engines reached terminal state (Installed/Failed)
 //     │    │      → "Continue" → vm.next() (advances to CreateAlias)
 //     │    │
-//     │    └── Failed engine row offers retry → vm.retry(name)
+//     │    └── Failed engine row offers retry → vm.retry(name), plus
+//     │        "Remove download" → vm.removeDownload(name) while a partial
+//     │        archive is kept for resume
 //     │
 //     └── CreateAlias step: inline alias editor
 //          │
@@ -178,6 +181,7 @@ fun OnboardingScreen(
                 allEngines = engines.map { it.descriptor },
                 selectedIds = selected,
                 onRetry = viewModel::retry,
+                onRemoveDownload = viewModel::removeDownload,
                 onContinue = {
                     // Advance to the CreateAlias step. The wizard can no
                     // longer be exited from here — the user must save an
@@ -564,6 +568,7 @@ private fun InstallingStep(
     allEngines: List<EngineDescriptor>,
     selectedIds: Set<String>,
     onRetry: (String) -> Unit,
+    onRemoveDownload: (String) -> Unit,
     onContinue: () -> Unit,
 ) {
     val rowsToShow = allEngines.filter { it.name in selectedIds }
@@ -618,6 +623,7 @@ private fun InstallingStep(
                         state = installStates[engine.name] ?: InstallState.NotInstalled,
                         isBuiltIn = engine.name == KittenDirectVoiceCatalog.ENGINE,
                         onRetry = { onRetry(engine.name) },
+                        onRemoveDownload = { onRemoveDownload(engine.name) },
                     )
                     HorizontalDivider()
                 }
@@ -651,6 +657,7 @@ private fun InstallRow(
     state: InstallState,
     isBuiltIn: Boolean,
     onRetry: () -> Unit,
+    onRemoveDownload: () -> Unit,
 ) {
     val builtInReady = isBuiltIn &&
         state !is InstallState.Downloading &&
@@ -731,18 +738,28 @@ private fun InstallRow(
             }
             is InstallState.Failed -> {
                 Text(
-                    text = state.reason.ifBlank {
+                    text = installFailureText(state).ifBlank {
                         stringResource(R.string.onboarding_install_failed)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.height(4.dp))
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = onRetry,
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                    ) {
+                // Same pairing as the Engines tab: a kept partial archive can
+                // be deleted rather than left holding space the user can't
+                // otherwise reclaim.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (state.partialDownloadBytes > 0L) {
+                        TextButton(onClick = onRemoveDownload) {
+                            Text(stringResource(R.string.engines_remove_download))
+                        }
+                        Spacer(Modifier.weight(1f))
+                    }
+                    OutlinedButton(onClick = onRetry) {
                         Text(stringResource(R.string.onboarding_retry))
                     }
                 }

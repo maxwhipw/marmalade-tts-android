@@ -13,12 +13,10 @@ import app.marmalade.tts.data.LatencyBucket
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
-import app.marmalade.tts.data.isVoiceAvailable
-import app.marmalade.tts.data.isVoiceReleased
+import app.marmalade.tts.data.pickableVoices
 import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -40,7 +38,7 @@ import kotlinx.coroutines.launch
 //     ├── voices ◄────────── VoicePickerViewModel.voices
 //     │                          ▲
 //     │                          │ combine(allVoices, installedAssets) { ... }
-//     │                          │   filtered by data/VoiceAvailability.kt
+//     │                          │   .pickableVoices() (data/VoiceAvailability.kt)
 //     │                          │
 //     │                  VoiceMetaDao.getAll() (Flow)
 //     │                  + probeInstalledVoiceAssets(): per-engine verify()
@@ -157,12 +155,8 @@ class VoicePickerViewModel @Inject constructor(
         _installedAssets,
         settings.showDeveloperEngines,
     ) { allVoices, assets, showDeveloper ->
-        allVoices.filter { voice ->
-            isVoiceAvailable(voice, assets) &&
-                (engineFilter == null || voice.engine == engineFilter) &&
-                (showDeveloper ||
-                    (voice.engine !in EngineCatalog.developerOnlyNames && isVoiceReleased(voice)))
-        }
+        allVoices.filter { engineFilter == null || it.engine == engineFilter }
+            .pickableVoices(assets, showDeveloper)
     }
         .stateIn(
             scope = viewModelScope,

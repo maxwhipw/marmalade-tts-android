@@ -10,6 +10,8 @@ import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineInstaller
+import app.marmalade.tts.install.InstallException
+import app.marmalade.tts.install.InstallFailure
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.perf.DeviceProbe
@@ -143,6 +145,67 @@ class OnboardingViewModelTest {
         val state = vm.installStates.value["kitten-direct-v0_8"]
         assertTrue("expected Failed, got $state", state is InstallState.Failed)
         assertEquals("net dropped", (state as InstallState.Failed).reason)
+    }
+
+    @Test
+    fun installFailureKeepsTheFailureKindForTheLocalizedMessage() = runTest {
+        // L9: the row used to rebuild Failed from the exception message alone,
+        // dropping the kind the screen maps to a translated sentence.
+        val installer = RecordingInstaller(behaviour = {
+            Result.failure(InstallException(InstallFailure.NOT_AVAILABLE, "not published"))
+        })
+        val vm = newViewModel(installer = installer)
+
+        vm.installSelected()
+
+        val state = vm.installStates.value[KITTEN] as InstallState.Failed
+        assertEquals(InstallFailure.NOT_AVAILABLE, state.failure)
+    }
+
+    @Test
+    fun installOutcomePrefersTheInstallersOwnFailedState() {
+        // The installer publishes its Failed (kind + kept partial bytes) before
+        // install() returns; that is what "Remove download" keys off.
+        val live = InstallState.Failed(
+            reason = "connection reset",
+            failure = null,
+            partialDownloadBytes = 1024L,
+        )
+        val err = java.io.IOException("connection reset")
+
+        assertEquals(live, installOutcome(Result.failure(err), live))
+        // No live Failed (a fake, or a collector that missed it) → built from
+        // the exception, kind preserved, blank reason when it has no message.
+        assertEquals(
+            InstallState.Failed("full", InstallFailure.NO_SPACE),
+            installOutcome(
+                Result.failure(InstallException(InstallFailure.NO_SPACE, "full")),
+                InstallState.NotInstalled,
+            ),
+        )
+        assertEquals(
+            InstallState.Failed(""),
+            installOutcome(Result.failure(RuntimeException()), InstallState.NotInstalled),
+        )
+        assertEquals(InstallState.Installed, installOutcome(Result.success(Unit), live))
+    }
+
+    @Test
+    fun removeDownloadDiscardsThePartialButLeavesTheRowFailed() = runTest {
+        val installer = RecordingInstaller(behaviour = {
+            Result.failure(java.io.IOException("net dropped"))
+        })
+        val vm = newViewModel(installer = installer)
+        vm.installSelected()
+
+        vm.removeDownload(KITTEN)
+
+        assertEquals(listOf(KITTEN), installer.discardCalls)
+        // Still Failed, so Retry stays offered and Continue stays enabled —
+        // flipping to NotInstalled would strand the Installing step.
+        val state = vm.installStates.value[KITTEN] as InstallState.Failed
+        assertEquals(0L, state.partialDownloadBytes)
+        assertEquals("net dropped", state.reason)
     }
 
     @Test
@@ -475,6 +538,12 @@ private class RecordingInstaller(
     httpFetcher = { _ -> throw java.io.IOException("not used") },
 ) {
     val installCalls = mutableListOf<String>()
+    val discardCalls = mutableListOf<String>()
+
+    override suspend fun discardDownload(engineName: String): Result<Unit> {
+        discardCalls += engineName
+        return Result.success(Unit)
+    }
 
     // Nothing on disk in these tests — a fresh onboarding. Overridden (rather
     // than inheriting the base disk check) so it resolves synchronously on the
