@@ -16,6 +16,7 @@
     <string name="engines_install">Installer</string>
     <string name="engines_uninstall">Désinstaller</string>
     <string name="engines_retry">Réessayer</string>
+    <string name="engines_remove_download">Supprimer le téléchargement</string>
     <string name="engines_reinstall">Réinstaller</string>
     <string name="engines_update">Mettre à jour</string>
     <string name="engines_cancel">Annuler</string>
@@ -26,6 +27,8 @@
     <string name="engines_uninstall_confirm_body">Les fichiers du moteur seront supprimés de votre appareil. Vous pourrez le réinstaller à tout moment.</string>
 
     <string name="engines_install_failed">Échec de l\'installation</string>
+    <string name="install_error_not_available">Ce téléchargement n\'est pas encore disponible. Réessayez plus tard.</string>
+    <string name="install_error_no_space">Espace de stockage insuffisant pour ce téléchargement. Libérez de l\'espace et réessayez.</string>
     <string name="engines_uninstall_failed">Échec de la désinstallation</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
@@ -172,9 +175,14 @@
     <string name="pack_quality_cd">Qualité audio : %1$s</string>
 
     <string name="engine_packs">Packs de voix</string>
-    <string name="engine_packs_summary">%1$s · %2$d langues</string>
+    <plurals name="engine_packs_language_count">
+        <item quantity="one">%1$d langue</item>
+        <item quantity="many">%1$d de langues</item>
+        <item quantity="other">%1$d langues</item>
+    </plurals>
     <plurals name="engine_packs_count">
         <item quantity="one">%1$d pack de voix</item>
+        <item quantity="many">%1$d de packs de voix</item>
         <item quantity="other">%1$d packs de voix</item>
     </plurals>
     <string name="engine_packs_installed_of">%1$d sur %2$d installés</string>
@@ -182,6 +190,7 @@
     <string name="engine_packs_intro">Chaque pack regroupe les voix d\'une langue et se télécharge séparément. N\'installez que les langues que vous parlez.</string>
     <plurals name="engine_pack_voice_count">
         <item quantity="one">%1$d voix</item>
+        <item quantity="many">%1$d de voix</item>
         <item quantity="other">%1$d voix</item>
     </plurals>
     <string name="engine_pack_row_summary">%1$s · %2$s à télécharger</string>

@@ -44,8 +44,7 @@ data class VoicePackRow(
     val voiceCount: Int get() = pack.voices.size
 
     /** True while a download/extract is in flight: no buttons, show progress. */
-    val isBusy: Boolean
-        get() = state is InstallState.Downloading || state is InstallState.Extracting
+    val isBusy: Boolean get() = state.isInFlight
 
     /** True when the pack's voices can actually be spoken right now. */
     val isUsable: Boolean get() = state.isUsableOnDisk
@@ -74,9 +73,17 @@ data class VoicePackRow(
             is InstallState.Downloading, is InstallState.Extracting -> null
         }
 
-    /** The failure text to show under the row, or null when there is none. */
-    val failureReason: String?
-        get() = (state as? InstallState.Failed)?.reason
+    /** The failure to explain under the row, or null when there is none. */
+    val failure: InstallState.Failed?
+        get() = state as? InstallState.Failed
+
+    /**
+     * True when a failed download left a partial archive on disk: the row
+     * then offers "Remove download" next to Retry, so the space isn't held
+     * hostage by a download the user has given up on.
+     */
+    val canRemoveDownload: Boolean
+        get() = (failure?.partialDownloadBytes ?: 0L) > 0L
 
     private fun fraction(done: Long, total: Long): Float? =
         if (total > 0L) (done.toFloat() / total.toFloat()).coerceIn(0f, 1f) else null

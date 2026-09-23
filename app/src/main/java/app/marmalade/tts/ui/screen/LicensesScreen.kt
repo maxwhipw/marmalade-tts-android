@@ -62,8 +62,8 @@ import app.marmalade.tts.data.LicenseCatalog
 /**
  * Settings → About → Open-source licenses. Lists every third-party component
  * Marmalade ships or downloads, grouped by license, each with its correct
- * copyright holder — and fronts the app's licensing posture: MIT source and
- * APK, with GPL espeak-ng only in opt-in downloaded engine bundles.
+ * copyright holder — and fronts the app's licensing posture: MIT source, and
+ * a GPL-3.0-or-later APK because espeak-ng is compiled into it.
  *
  * Detail screen; the bottom nav bar is hidden by [app.marmalade.tts.ui.AppRoot]
  * while this is the current destination.

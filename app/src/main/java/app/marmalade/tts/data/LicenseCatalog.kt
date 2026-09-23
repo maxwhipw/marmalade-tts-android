@@ -16,14 +16,19 @@ package app.marmalade.tts.data
  * "MIT" / "BSD" body would display the wrong copyright holder for every
  * component except the one it was written for. Therefore:
  *
- *  - **MIT / BSD components** each carry their own exact license text
- *    ([Component.textAsset]) with the correct holder — sourced verbatim where
- *    the repo vendors it (Open JTalk / MeCab `COPYING`) or from the canonical
- *    body + the authoritative copyright line (ONNX Runtime, Pocket).
+ *  - **MIT / BSD / Unicode components** each carry their own exact license
+ *    text ([Component.textAsset]) with the correct holder — sourced verbatim
+ *    where the repo vendors it (Open JTalk / MeCab `COPYING`, espeak-ng's
+ *    `COPYING.UCD`) or from upstream at the shipped tag (cutlet, slf4j, ONNX
+ *    Runtime's third-party notices), else the canonical body + the
+ *    authoritative copyright line (ONNX Runtime, Pocket).
  *  - **GPL-3.0 / Apache-2.0 / CC-BY-4.0** are standalone license bodies with
  *    no embedded licensor copyright (attribution lives in NOTICE files /
  *    source headers), so those share one body ([License.sharedAsset]) and the
- *    component's [Component.copyright] supplies the attribution.
+ *    component's [Component.copyright] supplies the attribution. Such a
+ *    component must NOT set [Component.textAsset] to the shared body: that
+ *    marks the body as embedding the copyright, and the attribution would
+ *    never be shown.
  *
  * Full texts for the [License.sharedAsset] / [Component.textAsset] entries
  * live in `app/src/main/assets/licenses/`. Components with neither a shared
@@ -107,6 +112,11 @@ object LicenseCatalog {
         License("MIT", null, "https://opensource.org/license/mit"),
         License("BSD-3-Clause", null, "https://opensource.org/license/bsd-3-clause"),
         License("Modified BSD", null, "https://open-jtalk.sourceforge.net/"),
+        // Embeds Unicode, Inc.'s copyright in the body, like MIT/BSD.
+        License(
+            "Unicode-DFS-2016", null,
+            "https://www.unicode.org/license.txt",
+        ),
         // Standalone bodies with no embedded licensor copyright — shared.
         License(
             "GPL-3.0-or-later", "GPL-3.0.txt",
@@ -145,6 +155,14 @@ object LicenseCatalog {
             "Custom attribution", null,
             "https://github.com/dioco-group/jenny-tts-dataset",
         ),
+        // Not one license: the notices file Microsoft publishes for the
+        // third-party code statically linked into libonnxruntime.so, each
+        // entry carrying its own license and holder (MIT, BSD, Apache-2.0,
+        // MPL-2.0 for Eigen, …). Reproduced verbatim as one text.
+        License(
+            "Third-party notices", null,
+            "https://github.com/microsoft/onnxruntime/blob/v1.26.0/ThirdPartyNotices.txt",
+        ),
     )
 
     /**
@@ -162,9 +180,32 @@ object LicenseCatalog {
         Component(
             key = "espeak-ng",
             name = "espeak-ng", role = "Phonemizer (English / multi-language)",
-            shipsIn = "APK (compiled from source); dictionaries in engine bundles",
+            shipsIn = "APK (library and full espeak-ng-data, both built from " +
+                "source); Kitten and Kokoro engine bundles also carry a copy " +
+                "of espeak-ng-data",
             licenseId = "GPL-3.0-or-later",
-            copyright = listOf("Copyright (c) The espeak-ng authors"),
+            // Holders and years as stated in the headers of the pinned
+            // third_party/espeak-ng sources the APK compiles.
+            copyright = listOf(
+                "Copyright (C) 2005-2015 Jonathan Duddington",
+                "Copyright (C) 2012-2021 Reece H. Dunn",
+                "Copyright (C) 2018-2022 Juho Hiltunen",
+                "speechPlayer: Copyright 2014 NV Access Limited",
+                "and the other espeak-ng contributors (see the source file headers)",
+            ),
+        ),
+        Component(
+            key = "unicode-ucd",
+            name = "Unicode Character Database (via ucd-tools)",
+            role = "Unicode character tables compiled into espeak-ng",
+            shipsIn = "APK (compiled in)",
+            licenseId = "Unicode-DFS-2016",
+            copyright = listOf("Copyright © 1991-2018 Unicode, Inc."),
+            textAsset = "unicode.txt",
+            note = "espeak-ng's ucd-tools library (itself GPL-3.0-or-later, " +
+                "part of espeak-ng) carries tables generated from the Unicode " +
+                "Character Database; espeak-ng's COPYING.UCD is reproduced " +
+                "verbatim.",
         ),
         Component(
             key = "onnxruntime",
@@ -173,6 +214,19 @@ object LicenseCatalog {
             licenseId = "MIT",
             copyright = listOf("Copyright (c) Microsoft Corporation"),
             textAsset = "onnxruntime.txt",
+        ),
+        Component(
+            key = "onnxruntime-notices",
+            name = "ONNX Runtime third-party notices",
+            role = "Libraries statically linked into ONNX Runtime " +
+                "(XNNPACK, protobuf, Abseil, FlatBuffers, Eigen, …)",
+            shipsIn = "APK (inside libonnxruntime.so)",
+            licenseId = "Third-party notices",
+            copyright = listOf(
+                "Notices as published by Microsoft with ONNX Runtime 1.26.0 " +
+                    "(ThirdPartyNotices.txt) — each entry names its own holder",
+            ),
+            textAsset = "onnxruntime-third-party-notices.txt",
         ),
         Component(
             key = "commons-compress",
@@ -194,6 +248,16 @@ object LicenseCatalog {
             note = "Pulls the article text out of a web page the user shared. " +
                 "Upstream's own NOTICE attribution for Readability.js is " +
                 "reproduced above (Apache-2.0 §4(d)).",
+        ),
+        Component(
+            key = "slf4j",
+            name = "SLF4J API", role = "Logging facade (dependency of Readability4J)",
+            shipsIn = "APK",
+            licenseId = "MIT",
+            copyright = listOf("Copyright (c) 2004-2017 QOS.ch"),
+            textAsset = "slf4j.txt",
+            note = "slf4j-api 1.7.25. No logging backend ships, so it " +
+                "falls back to its no-op logger.",
         ),
         Component(
             key = "jsoup",
@@ -229,17 +293,14 @@ object LicenseCatalog {
             textAsset = "mecab.txt",
         ),
         Component(
-            key = "misaki-cutlet",
-            name = "misaki / cutlet (Kotlin port)",
-            role = "Japanese G2P tables", shipsIn = "APK (source)",
+            key = "cutlet",
+            name = "cutlet", role = "Japanese G2P tables (via misaki's cutlet.py)",
+            shipsIn = "APK (source)",
             licenseId = "MIT",
-            copyright = listOf(
-                "Kotlin port: Copyright (c) 2026 marmalade-tts contributors",
-                "Ported from misaki — Copyright (c) hexgrad (MIT)",
-            ),
-            textAsset = "MIT.txt",
-            note = "Clean-room port — no upstream code copied; only the " +
-                "algorithm and mapping tables are reimplemented.",
+            copyright = listOf("Copyright (c) 2020 Paul O'Leary McCann"),
+            textAsset = "cutlet.txt",
+            note = "misaki's cutlet.py, which the Kotlin port of the Japanese " +
+                "G2P tables follows, is adapted from polm/cutlet.",
         ),
         Component(
             key = "kokoro",
@@ -247,7 +308,6 @@ object LicenseCatalog {
             shipsIn = "Engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) hexgrad and contributors"),
-            textAsset = "Apache-2.0.txt",
             note = "The shipped model is Marmalade's selectively int8-" +
                 "quantized build of the ONNX export from " +
                 "github.com/thewh1teagle/kokoro-onnx, as packaged for " +
@@ -265,13 +325,26 @@ object LicenseCatalog {
                 "Copyright (c) Thorsten Müller (Thorsten-Voice)",
                 "Base model: Copyright (c) hexgrad and contributors",
             ),
-            textAsset = "Apache-2.0.txt",
             note = "A German fine-tune of hexgrad/Kokoro-82M, released by the " +
                 "Thorsten-Voice project under Apache-2.0 \"consistent with the " +
                 "base Kokoro-82M model and the CC0-licensed Thorsten-Voice " +
                 "dataset used for fine-tuning\". The shipped model.onnx is " +
                 "Marmalade's static-QDQ int8 build of the k2-fsa/sherpa-onnx " +
                 "ONNX export of that checkpoint.",
+        ),
+        Component(
+            key = "misaki-cutlet",
+            name = "misaki / cutlet (Kotlin port)",
+            role = "Japanese G2P tables", shipsIn = "APK (source)",
+            licenseId = "Apache-2.0",
+            copyright = listOf(
+                "Kotlin port: Copyright (c) 2026 marmalade-tts contributors",
+                "Ported from misaki's cutlet.py — Copyright (c) hexgrad (Apache-2.0)",
+                "cutlet.py adapted from polm/cutlet — Copyright (c) 2020 " +
+                    "Paul O'Leary McCann (MIT)",
+            ),
+            note = "Clean-room port — no upstream code copied; only the " +
+                "algorithm and mapping tables are reimplemented.",
         ),
         Component(
             key = "misaki-de",
@@ -291,7 +364,7 @@ object LicenseCatalog {
         Component(
             key = "kittentts",
             name = "KittenTTS (nano)", role = "Neural voice model",
-            shipsIn = "Engine bundle",
+            shipsIn = "APK (baked-in) and engine bundle",
             licenseId = "Apache-2.0",
             copyright = listOf("Copyright (c) KittenML contributors"),
         ),
@@ -381,8 +454,8 @@ object LicenseCatalog {
                 "Copyright (c) The Android Open Source Project, JetBrains, and Google",
             ),
             note = "Includes their transitive dependencies (Okio, Guava, Commons " +
-                "IO/Codec — all Apache-2.0; plus permissive annotation libraries " +
-                "such as jsr305 (BSD) and jakarta.inject (EPL-2.0)).",
+                "IO/Codec, javax.inject / jakarta.inject — all Apache-2.0; plus " +
+                "the jsr305 annotations (BSD)).",
         ),
         Component(
             key = "manrope",

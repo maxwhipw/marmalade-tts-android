@@ -7,6 +7,8 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
@@ -187,6 +189,8 @@ class EngineInstallerTest {
         assertTrue("uninstall should succeed, got $result", result.isSuccess)
         assertFalse("engine dir should be removed", engineDir.exists())
         assertTrue("engineHandle.release() should have been called", fakeEngine.released)
+        // Only the engine being removed — every other engine keeps reading.
+        assertEquals(listOf("kitten-direct-v0_8"), fakeEngine.releasedEngines)
     }
 
     @Test
@@ -434,6 +438,7 @@ class EngineInstallerTest {
         assertFalse(File(filesDir, "engines/${pack.engine}/packs/${pack.id}").exists())
         assertTrue("sibling pack must survive", File(siblingDir, "model.onnx").isFile)
         assertTrue("native handle should be released before deleting", fakeEngine.released)
+        assertEquals(listOf(pack.engine), fakeEngine.releasedEngines)
         assertEquals(InstallState.NotInstalled, installer.verifyPackAgainst(pack))
     }
 
@@ -441,6 +446,187 @@ class EngineInstallerTest {
     fun uninstallingAnUnknownPackFailsRatherThanDeletingSomething() = runTest {
         val result = installer.uninstallPack("not-a-pack")
         assertTrue("unknown pack uninstall should fail", result.isFailure)
+    }
+
+    // -- targeted native release (E4) ------------------------------------
+
+    @Test
+    fun theRoutingHandleReleasesOnlyTheNamedEngine() {
+        val released = mutableListOf<String>()
+        val handle = NativeEngineHandle.routing(
+            mapOf(
+                "kokoro-direct-v1_0" to { released += "kokoro" },
+                "pocket-tts-en-v2026_04" to { released += "pocket" },
+            ),
+        )
+
+        handle.release("pocket-tts-en-v2026_04")
+        assertEquals(listOf("pocket"), released)
+
+        // A name nothing claims releases everything rather than deleting a
+        // mapped model out from under an unwired engine.
+        released.clear()
+        handle.release("some-future-engine")
+        assertEquals(listOf("kokoro", "pocket"), released)
+    }
+
+    @Test
+    fun anUpdateReleasesOnlyTheEngineBeingReplaced() = runTest {
+        val descriptor = stageBundle(KITTEN_LAYOUT)
+        assertTrue(installer.install(descriptor) {}.isSuccess)
+        // Fresh install: nothing to replace, so nothing released.
+        assertTrue(fakeEngine.releasedEngines.isEmpty())
+
+        assertTrue(installer.install(descriptor) {}.isSuccess)
+
+        assertEquals(listOf(descriptor.name), fakeEngine.releasedEngines)
+    }
+
+    // -- failure kinds, free space, leftovers (L7 / L9) -------------------
+
+    @Test
+    fun aMissingReleaseAssetFailsAsNotAvailable() = runTest {
+        val pack = voicePack(ByteArray(8))
+        fetcher.streams[pack.archive.url] = {
+            throw InstallException(InstallFailure.NOT_AVAILABLE, "This download isn't available yet.")
+        }
+
+        val result = installer.installPack(pack) {}
+
+        assertTrue(result.isFailure)
+        val state = installer.packState(pack.id).value as InstallState.Failed
+        assertEquals(InstallFailure.NOT_AVAILABLE, state.failure)
+        assertEquals(0L, state.partialDownloadBytes)
+    }
+
+    @Test
+    fun notEnoughFreeSpaceFailsBeforeFetchingAByte() = runTest {
+        val descriptor = stageBundle(KITTEN_LAYOUT)
+        // One byte short of download + unpacked size + margin.
+        installer.usableSpaceOverride = descriptor.archive.sizeBytes +
+            descriptor.installedSizeBytes + EngineInstaller.FREE_SPACE_MARGIN_BYTES - 1L
+
+        val result = installer.install(descriptor) {}
+
+        assertTrue(result.isFailure)
+        assertEquals(InstallFailure.NO_SPACE, (result.exceptionOrNull() as InstallException).failure)
+        val state = installer.state(descriptor.name).value as InstallState.Failed
+        assertEquals(InstallFailure.NO_SPACE, state.failure)
+        assertTrue("no request should be made", fetcher.requested.isEmpty())
+        assertFalse(File(filesDir, "engines/${descriptor.name}").exists())
+    }
+
+    @Test
+    fun exactlyEnoughFreeSpaceInstalls() = runTest {
+        val descriptor = stageBundle(KITTEN_LAYOUT)
+        installer.usableSpaceOverride = descriptor.archive.sizeBytes +
+            descriptor.installedSizeBytes + EngineInstaller.FREE_SPACE_MARGIN_BYTES
+
+        assertTrue(installer.install(descriptor) {}.isSuccess)
+    }
+
+    @Test
+    fun aResumedDownloadOnlyNeedsRoomForTheRest() = runTest {
+        // Half the archive is already on disk from an aborted attempt, so the
+        // check must not demand room for the whole archive again.
+        val descriptor = stageBundle(KITTEN_LAYOUT)
+        val archiveBytes = fetcher.payloads.getValue(descriptor.archive.url)
+        val half = archiveBytes.size / 2
+        val archiveTmp = File(filesDir, "engines/${descriptor.name}.archive.tmp")
+        archiveTmp.parentFile!!.mkdirs()
+        archiveTmp.writeBytes(archiveBytes.copyOf(half))
+        installer.usableSpaceOverride = (descriptor.archive.sizeBytes - half) +
+            descriptor.installedSizeBytes + EngineInstaller.FREE_SPACE_MARGIN_BYTES
+
+        // The fake doesn't honour Range, so the partial is discarded and the
+        // body re-fetched — what matters is that the check let it through.
+        assertTrue(installer.install(descriptor) {}.isSuccess)
+    }
+
+    @Test
+    fun aDiskFullFailureMidDownloadDeletesThePartialArchive() = runTest {
+        val pack = voicePack(ByteArray(4096))
+        fetcher.streams[pack.archive.url] = {
+            FailingAfterStream(1024, IOException("write failed: ENOSPC (No space left on device)"))
+        }
+
+        val result = installer.installPack(pack) {}
+
+        assertTrue(result.isFailure)
+        val state = installer.packState(pack.id).value as InstallState.Failed
+        assertEquals(InstallFailure.NO_SPACE, state.failure)
+        assertEquals(0L, state.partialDownloadBytes)
+        // The ENOSPC text stays out of the user-facing reason.
+        assertFalse(state.reason.contains("ENOSPC"))
+        val packsDir = File(filesDir, "engines/${pack.engine}/packs")
+        assertFalse(File(packsDir, "${pack.id}.archive.tmp").exists())
+    }
+
+    @Test
+    fun aDroppedConnectionKeepsThePartialAndRemoveDownloadDeletesIt() = runTest {
+        val pack = voicePack(ByteArray(4096))
+        fetcher.streams[pack.archive.url] = {
+            FailingAfterStream(1024, IOException("connection reset"))
+        }
+
+        assertTrue(installer.installPack(pack) {}.isFailure)
+        val failed = installer.packState(pack.id).value as InstallState.Failed
+        assertEquals(null, failed.failure)
+        assertEquals(1024L, failed.partialDownloadBytes)
+        val archiveTmp = File(filesDir, "engines/${pack.engine}/packs/${pack.id}.archive.tmp")
+        assertTrue("kept so a retry can resume", archiveTmp.isFile)
+
+        assertTrue(installer.discardPackDownload(pack.id).isSuccess)
+
+        assertFalse(archiveTmp.exists())
+        assertEquals(InstallState.NotInstalled, installer.packState(pack.id).value)
+    }
+
+    @Test
+    fun aProbeDuringADownloadLeavesTheProgressAlone() = runTest {
+        // U5: a screen re-probing mid-download used to publish NotInstalled
+        // over the progress (the new files aren't on disk yet).
+        val archive = buildArchive(VITS_PACK_LAYOUT, archiveRootName = VITS_PACK_ROOT)
+        val pack = voicePack(archive)
+        val gate = java.util.concurrent.CountDownLatch(1)
+        fetcher.streams[pack.archive.url] = {
+            gate.await()
+            ByteArrayInputStream(archive)
+        }
+
+        val install = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).async {
+            installer.installPack(pack) {}
+        }
+        installer.packState(pack.id).first { it is InstallState.Downloading }
+
+        val probed = installer.verifyPackAgainst(pack)
+
+        assertTrue("probe should report the live download, got $probed", probed.isInFlight)
+        assertTrue(installer.packState(pack.id).value.isInFlight)
+        gate.countDown()
+        assertTrue(install.await().isSuccess)
+        assertEquals(InstallState.Installed, installer.verifyPackAgainst(pack))
+    }
+
+    @Test
+    fun constructionSweepsStaleLeftoversButNotInstalls() {
+        val engines = File(filesDir, "engines")
+        val installed = File(engines, "kitten-direct-v0_8").apply { mkdirs() }
+        File(installed, "kitten.onnx").writeText("model")
+        val strayArchive = File(engines, "pocket-tts-en-v2026_04.archive.tmp").apply { writeText("partial") }
+        val strayScratch = File(engines, "pocket-tts-en-v2026_04.tmp").apply { mkdirs() }
+        File(strayScratch, "half.onnx").writeText("half")
+        val packs = File(engines, "${VoicePackCatalog.VITS_MARMALADE_ENGINE}/packs").apply { mkdirs() }
+        val installedPack = File(packs, "sv-nst-medium").apply { mkdirs() }
+        val strayPackArchive = File(packs, "sv-nst-medium.archive.tmp").apply { writeText("partial") }
+
+        TestInstaller(EngineFilesDir { filesDir }, FakeNativeEngineHandle(), FakeHttpFetcher())
+
+        assertFalse(strayArchive.exists())
+        assertFalse(strayScratch.exists())
+        assertFalse(strayPackArchive.exists())
+        assertTrue(File(installed, "kitten.onnx").isFile)
+        assertTrue(installedPack.isDirectory)
     }
 
     // -- fixture machinery -------------------------------------------------
@@ -599,15 +785,21 @@ internal class TestInstaller(
     ): Result<Unit> = installPackInternal(pack, onProgress)
 
     suspend fun verifyPackAgainst(pack: VoicePack): InstallState = verifyPackInternal(pack)
+
+    /** When set, what the free-space check sees instead of the real volume. */
+    var usableSpaceOverride: Long? = null
+
+    override fun usableSpaceBytes(dir: File): Long = usableSpaceOverride ?: super.usableSpaceBytes(dir)
 }
 
-/** Native-handle double that just records whether `release()` was called. */
+/** Native-handle double that records which engines were released. */
 internal class FakeNativeEngineHandle : NativeEngineHandle {
-    var released: Boolean = false
-        private set
+    val releasedEngines: MutableList<String> = mutableListOf()
 
-    override fun release() {
-        released = true
+    val released: Boolean get() = releasedEngines.isNotEmpty()
+
+    override fun release(engineName: String) {
+        releasedEngines += engineName
     }
 }
 
@@ -618,10 +810,40 @@ internal class FakeNativeEngineHandle : NativeEngineHandle {
 internal class FakeHttpFetcher : HttpFetcher {
     val payloads: MutableMap<String, ByteArray> = mutableMapOf()
 
+    /** Streams to hand out instead of [payloads] — for mid-download failures. */
+    val streams: MutableMap<String, () -> InputStream> = mutableMapOf()
+
+    /** Every URL requested, in order. */
+    val requested: MutableList<String> = mutableListOf()
+
     override fun open(url: String): InputStream {
+        requested += url
+        streams[url]?.let { return it() }
         val payload = payloads[url]
             ?: throw IOException("HTTP 404 fetching $url")
         return ByteArrayInputStream(payload)
+    }
+}
+
+/** Serves [prefixBytes] of zeros, then fails every read with [failure]. */
+internal class FailingAfterStream(
+    private val prefixBytes: Int,
+    private val failure: IOException,
+) : InputStream() {
+    private var served = 0
+
+    override fun read(): Int {
+        if (served >= prefixBytes) throw failure
+        served++
+        return 0
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (served >= prefixBytes) throw failure
+        val n = minOf(len, prefixBytes - served)
+        java.util.Arrays.fill(b, off, off + n, 0)
+        served += n
+        return n
     }
 }
 

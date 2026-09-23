@@ -16,6 +16,7 @@
     <string name="engines_install">インストール</string>
     <string name="engines_uninstall">アンインストール</string>
     <string name="engines_retry">再試行</string>
+    <string name="engines_remove_download">ダウンロードを削除</string>
     <string name="engines_reinstall">再インストール</string>
     <string name="engines_update">更新</string>
     <string name="engines_cancel">キャンセル</string>
@@ -26,6 +27,8 @@
     <string name="engines_uninstall_confirm_body">エンジンのファイルを端末から削除します。いつでも再インストールできます。</string>
 
     <string name="engines_install_failed">インストールに失敗しました</string>
+    <string name="install_error_not_available">このダウンロードはまだ利用できません。しばらくしてからもう一度お試しください。</string>
+    <string name="install_error_no_space">このダウンロードに必要な空き容量がありません。空き容量を増やしてから、もう一度お試しください。</string>
     <string name="engines_uninstall_failed">アンインストールに失敗しました</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
@@ -171,7 +174,9 @@
     <string name="pack_quality_cd">音質: %1$s</string>
 
     <string name="engine_packs">音声パック</string>
-    <string name="engine_packs_summary">%1$s · %2$d 言語</string>
+    <plurals name="engine_packs_language_count">
+        <item quantity="other">%1$d 言語</item>
+    </plurals>
     <plurals name="engine_packs_count">
         <item quantity="other">音声パック %1$d 個</item>
     </plurals>

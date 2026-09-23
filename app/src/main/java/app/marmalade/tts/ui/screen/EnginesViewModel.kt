@@ -12,6 +12,7 @@ import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.install.VoicePackSummary
+import app.marmalade.tts.install.isInFlight
 import app.marmalade.tts.install.voicePackSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,6 +42,7 @@ import kotlinx.coroutines.launch
 //     └── actions
 //          ├── install(name)   → installer.install(name, ::onProgress)
 //          ├── uninstall(name) → installer.uninstall(name)
+//          ├── removeDownload(name) → installer.discardDownload(name)
 //          └── refresh()       → installer.verify(name) for every engine
 // -----------------------------------------------------------------------------
 
@@ -78,6 +80,20 @@ class EnginesViewModel @Inject constructor(
 
     private val _installStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
     val installStates: StateFlow<Map<String, InstallState>> = _installStates.asStateFlow()
+
+    init {
+        // Mirror the installer's live state for every engine for as long as
+        // this VM lives, so a download started elsewhere (onboarding, the
+        // engine page) or by a previous instance of this VM still shows its
+        // progress here instead of a plain Install button.
+        for (engine in EngineCatalog.all) {
+            viewModelScope.launch {
+                installer.state(engine.name).collect { s ->
+                    _installStates.update { it + (engine.name to s) }
+                }
+            }
+        }
+    }
 
     /**
      * Per-engine, per-pack install state, keyed engine → packId → state. Only
@@ -134,7 +150,12 @@ class EnginesViewModel @Inject constructor(
         viewModelScope.launch {
             for (engine in EngineCatalog.all) {
                 val state = installer.verify(engine.name)
-                _installStates.update { current -> current + (engine.name to state) }
+                // An in-flight result is a snapshot of a running install the
+                // init collector already mirrors; written late, it could land
+                // after the install finished and park the card on a spinner.
+                if (!state.isInFlight) {
+                    _installStates.update { current -> current + (engine.name to state) }
+                }
                 if (!engine.isPackBased) continue
                 // Probe every catalog pack, released or not: developer mode
                 // needs the staged packs' states too, and voicePackSummary
@@ -149,36 +170,43 @@ class EnginesViewModel @Inject constructor(
     }
 
     /**
-     * Start an install for [engineName]. Subscribes to the installer's full
-     * state flow so every transition (Downloading → Extracting → Installed)
-     * reaches the UI map. The `onProgress` callback that `installer.install`
-     * accepts only fires for Downloading updates — relying on it alone left
-     * the Extracting phase invisible to the engines list (the 5–15 second
-     * tarball unpack looked like a frozen UI). The terminal state from
-     * `result.fold` is kept as a defensive fallback in case the state flow
-     * gets cancelled before the final emission lands.
+     * Start an install for [engineName]. Every transition (Downloading →
+     * Extracting → Installed) reaches the UI map through the [init]
+     * collector on the installer's state flow — the `onProgress` callback
+     * that `installer.install` accepts only fires for Downloading updates,
+     * and relying on it alone left the Extracting phase invisible (the 5–15
+     * second tarball unpack looked like a frozen UI). The terminal state from
+     * `result.fold` is a fallback for an installer whose flow didn't move —
+     * on failure the installer's own Failed wins, since it carries the
+     * failure kind and the partial-download size the card's actions key off.
      */
     fun install(engineName: String) {
         _installStates.update { it + (engineName to InstallState.Downloading(0L, 0L, "")) }
         viewModelScope.launch {
-            val stateJob = launch {
-                installer.state(engineName).collect { s ->
-                    _installStates.update { it + (engineName to s) }
-                }
-            }
             val result = installer.install(engineName) { /* state flow handles updates */ }
             _installStates.update {
                 it + (engineName to result.fold(
                     onSuccess = { InstallState.Installed },
                     onFailure = { err ->
-                        InstallState.Failed(
-                            err.message ?: appContext.getString(R.string.engines_install_failed),
-                        )
+                        installer.state(engineName).value as? InstallState.Failed
+                            ?: InstallState.Failed.from(
+                                err,
+                                appContext.getString(R.string.engines_install_failed),
+                            )
                     },
                 ))
             }
-            stateJob.cancel()
         }
+    }
+
+    /**
+     * "Remove download" on a failed card: delete the partial archive the
+     * failed install kept for resume. The installer re-probes, and the
+     * [init] collector carries the card to whatever it finds (Install again,
+     * or the old version when an update failed).
+     */
+    fun removeDownload(engineName: String) {
+        viewModelScope.launch { installer.discardDownload(engineName) }
     }
 
     /**

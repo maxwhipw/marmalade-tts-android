@@ -163,9 +163,19 @@ class VoicePackRowsTest {
         val pack = VoicePackCatalog.SV_NST_MEDIUM
         assertEquals(
             "sha256 mismatch",
-            VoicePackRow(pack, InstallState.Failed("sha256 mismatch")).failureReason,
+            VoicePackRow(pack, InstallState.Failed("sha256 mismatch")).failure?.reason,
         )
-        assertNull(VoicePackRow(pack, InstallState.Installed).failureReason)
+        assertNull(VoicePackRow(pack, InstallState.Installed).failure)
+    }
+
+    @Test
+    fun removeDownloadIsOfferedOnlyWhenAFailureLeftAPartialArchive() {
+        val pack = VoicePackCatalog.SV_NST_MEDIUM
+        assertTrue(
+            VoicePackRow(pack, InstallState.Failed("reset", partialDownloadBytes = 1L)).canRemoveDownload,
+        )
+        assertFalse(VoicePackRow(pack, InstallState.Failed("HTTP 500")).canRemoveDownload)
+        assertFalse(VoicePackRow(pack, InstallState.Installed).canRemoveDownload)
     }
 
     @Test

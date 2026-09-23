@@ -25,6 +25,7 @@ import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.PocketDevEngine
 import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.engine.PocketEngine
+import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
@@ -183,11 +184,12 @@ object AppModule {
 
     /**
      * Routes the installer's `NativeEngineHandle` to the live engine
-     * singletons so uninstalls can release JNI handles before deleting
-     * the model files. We release all engines — the installer doesn't
-     * tell us which engine is being uninstalled, and `release()` is
-     * idempotent on an unloaded engine, so releasing the wrong one is
-     * a harmless no-op. Unit tests substitute a no-op handle.
+     * singletons so installs, updates and uninstalls can release JNI handles
+     * before replacing or deleting model files. Only the engine being touched
+     * is released — releasing all of them aborted whatever unrelated engine
+     * was mid-read (and could pull a Pocket session out from under a running
+     * synthesis). See [NativeEngineHandle.routing] for the unknown-name
+     * fallback. Unit tests substitute a no-op.
      */
     @Provides
     @Singleton
@@ -198,13 +200,9 @@ object AppModule {
         pocket: PocketEngine,
         pocketDev: PocketDevEngine,
         vits: VitsDirectEngine,
-    ): NativeEngineHandle = NativeEngineHandle {
-        kittenDirect.release()
-        kokoroDirect.release()
-        kokoroGerman.release()
-        pocket.release()
-        pocketDev.release()
-        vits.release()
+    ): NativeEngineHandle {
+        val engines: List<TtsEngine> = listOf(kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev, vits)
+        return NativeEngineHandle.routing(engines.associate { it.engineName to it::release })
     }
 
     /**

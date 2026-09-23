@@ -62,8 +62,11 @@
 
     <!-- Voice packs section on a pack-based engine's Configure screen -->
     <string name="engine_packs">Voice packs</string>
-    <!-- %1$s = e.g. "9 voice packs", %2$d = number of languages -->
-    <string name="engine_packs_summary">%1$s · %2$d languages</string>
+    <!-- The pack section's "9 voice packs · 6 languages" counts, joined in code. -->
+    <plurals name="engine_packs_language_count">
+        <item quantity="one">%1$d language</item>
+        <item quantity="other">%1$d languages</item>
+    </plurals>
     <plurals name="engine_packs_count">
         <item quantity="one">%1$d voice pack</item>
         <item quantity="other">%1$d voice packs</item>
@@ -119,6 +122,9 @@
     <string name="engines_install">Install</string>
     <string name="engines_uninstall">Uninstall</string>
     <string name="engines_retry">Retry</string>
+    <!-- Failed card/row: deletes the partial download a failed install kept
+         so a retry could resume. -->
+    <string name="engines_remove_download">Remove download</string>
     <string name="engines_reinstall">Reinstall</string>
     <string name="engines_update">Update</string>
     <string name="engines_cancel">Cancel</string>
@@ -129,6 +135,11 @@
     <string name="engines_uninstall_confirm_body">This will delete the engine\'s files from your device. You can reinstall any time.</string>
 
     <string name="engines_install_failed">Install failed</string>
+    <!-- Install failures shown in place of the technical reason: the
+         release asset isn't published (HTTP 404/410), and the phone lacks
+         room for the download plus its unpacked files. -->
+    <string name="install_error_not_available">This download isn\'t available yet. Try again later.</string>
+    <string name="install_error_no_space">Not enough free storage for this download. Free up some space and try again.</string>
     <string name="engines_uninstall_failed">Uninstall failed</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->

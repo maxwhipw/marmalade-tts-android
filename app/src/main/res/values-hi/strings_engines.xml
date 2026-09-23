@@ -16,6 +16,7 @@
     <string name="engines_install">इंस्टॉल करें</string>
     <string name="engines_uninstall">अनइंस्टॉल करें</string>
     <string name="engines_retry">फिर से कोशिश करें</string>
+    <string name="engines_remove_download">डाउनलोड हटाएँ</string>
     <string name="engines_reinstall">दोबारा इंस्टॉल करें</string>
     <string name="engines_update">अपडेट करें</string>
     <string name="engines_cancel">रद्द करें</string>
@@ -26,6 +27,8 @@
     <string name="engines_uninstall_confirm_body">इससे इंजन की फ़ाइलें आपके डिवाइस से मिट जाएँगी। आप इसे कभी भी दोबारा इंस्टॉल कर सकते हैं।</string>
 
     <string name="engines_install_failed">इंस्टॉल नहीं हो सका</string>
+    <string name="install_error_not_available">यह डाउनलोड अभी उपलब्ध नहीं है। बाद में फिर से कोशिश करें।</string>
+    <string name="install_error_no_space">इस डाउनलोड के लिए पर्याप्त खाली स्टोरेज नहीं है। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
     <string name="engines_uninstall_failed">अनइंस्टॉल नहीं हो सका</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
@@ -172,7 +175,10 @@
     <string name="pack_quality_cd">ऑडियो गुणवत्ता: %1$s</string>
 
     <string name="engine_packs">आवाज़ पैक</string>
-    <string name="engine_packs_summary">%1$s · %2$d भाषाएँ</string>
+    <plurals name="engine_packs_language_count">
+        <item quantity="one">%1$d भाषा</item>
+        <item quantity="other">%1$d भाषाएँ</item>
+    </plurals>
     <plurals name="engine_packs_count">
         <item quantity="one">%1$d आवाज़ पैक</item>
         <item quantity="other">%1$d आवाज़ पैक</item>

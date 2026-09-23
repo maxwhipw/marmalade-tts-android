@@ -2,6 +2,7 @@ package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.SavedStateHandle
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
+import app.marmalade.tts.install.EngineFilesDir
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePackAction
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -211,7 +213,7 @@ class EngineDetailViewModelTest {
         val row = vm.packGroups
             .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == "is-ugla-medium" } }
             .first { it.state is InstallState.Failed }
-        assertEquals("sha256 mismatch", row.failureReason)
+        assertEquals("sha256 mismatch", row.failure?.reason)
         assertEquals(VoicePackAction.RETRY, row.action)
         assertFalse(row.isUsable)
     }
@@ -233,6 +235,34 @@ class EngineDetailViewModelTest {
             .first { it.state is InstallState.NotInstalled }
         assertEquals(VoicePackAction.INSTALL, row.action)
         assertFalse(installer.installedPacks.contains("sv-nst-medium"))
+    }
+
+    @Test
+    fun aDownloadStartedOnAnEarlierVisitStillShowsItsProgress() = runTest {
+        // U5: leave the page mid-download and come back. The download keeps
+        // running, so the new visit's row must show it (no Install button to
+        // queue a second download) — even after the screen re-probes the disk.
+        val gate = java.util.concurrent.CountDownLatch(1)
+        val installer = BlockedDownloadInstaller(gate)
+        val packId = "is-ugla-medium"
+        val firstVisit = newViewModel(VoicePackCatalog.VITS_MARMALADE_ENGINE, installer = installer)
+        firstVisit.installPack(packId)
+        installer.packState(packId).first { it is InstallState.Downloading }
+
+        val secondVisit = newViewModel(VoicePackCatalog.VITS_MARMALADE_ENGINE, installer = installer)
+        secondVisit.refreshPacks()
+
+        val busy = secondVisit.packGroups
+            .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == packId } }
+            .first { it.isBusy }
+        assertNull("no action while the download runs", busy.action)
+
+        // The download then fails; the second visit hears about it too.
+        gate.countDown()
+        val failed = secondVisit.packGroups
+            .map { groups -> groups.flatMap { it.rows }.first { it.pack.id == packId } }
+            .first { it.state is InstallState.Failed }
+        assertEquals(VoicePackAction.RETRY, failed.action)
     }
 
     @Test
@@ -301,6 +331,30 @@ class EngineDetailViewModelTest {
             savedStateHandle = savedState,
         )
     }
+}
+
+/**
+ * The real install pipeline over a fetcher that blocks until [gate] opens and
+ * then drops the connection — a download that's genuinely in flight in the
+ * installer, independent of any one ViewModel.
+ */
+private class BlockedDownloadInstaller(
+    gate: java.util.concurrent.CountDownLatch,
+) : EngineInstaller(
+    filesDir = java.io.File.createTempFile("engine-detail-dl-", "").let { temp ->
+        temp.delete()
+        temp.mkdirs()
+        EngineFilesDir { temp }
+    },
+    engineHandle = { /* no-op release */ },
+    httpFetcher = { _ ->
+        gate.await()
+        throw java.io.IOException("connection reset")
+    },
+) {
+    // The real pack is tens of MB; don't let the test machine's free space
+    // decide the outcome.
+    override fun usableSpaceBytes(dir: java.io.File): Long = Long.MAX_VALUE
 }
 
 /**

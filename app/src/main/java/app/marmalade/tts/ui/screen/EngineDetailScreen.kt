@@ -95,6 +95,7 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 //          ├── toggleRule(name, on)   → viewModel.toggleRule(name, on)
 //          ├── resetRules()           → viewModel.resetRules()
 //          ├── install pack           → viewModel.installPack(packId)
+//          ├── remove failed download → viewModel.removePackDownload(packId)
 //          ├── remove pack            → confirm dialog →
 //          │                            viewModel.uninstallPack(packId)
 //          └── back arrow             → onBack() (pops back stack)
@@ -199,6 +200,7 @@ fun EngineDetailScreen(
                     summary = packSummary,
                     onInstall = viewModel::installPack,
                     onUninstall = { pendingPackUninstall = it },
+                    onRemoveDownload = viewModel::removePackDownload,
                 )
 
                 HorizontalDivider()
@@ -257,6 +259,7 @@ private fun VoicePacksSection(
     summary: VoicePackSummary,
     onInstall: (String) -> Unit,
     onUninstall: (VoicePack) -> Unit,
+    onRemoveDownload: (String) -> Unit,
 ) {
     DetailSectionHeader(stringResource(R.string.engine_packs))
 
@@ -287,6 +290,7 @@ private fun VoicePacksSection(
                 row = row,
                 onInstall = { onInstall(row.pack.id) },
                 onUninstall = { onUninstall(row.pack) },
+                onRemoveDownload = { onRemoveDownload(row.pack.id) },
             )
         }
     }
@@ -304,7 +308,12 @@ fun packSummaryLine(summary: VoicePackSummary): String {
         summary.packCount,
         summary.packCount,
     )
-    val head = stringResource(R.string.engine_packs_summary, packs, summary.languageCount)
+    val languages = pluralStringResource(
+        R.plurals.engine_packs_language_count,
+        summary.languageCount,
+        summary.languageCount,
+    )
+    val head = "$packs · $languages"
     val installed = if (summary.installedCount == 0) {
         stringResource(R.string.engine_packs_none_installed)
     } else {
@@ -329,6 +338,7 @@ private fun VoicePackRowView(
     row: VoicePackRow,
     onInstall: () -> Unit,
     onUninstall: () -> Unit,
+    onRemoveDownload: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -390,16 +400,23 @@ private fun VoicePackRowView(
             )
         }
 
-        row.failureReason?.let { reason ->
+        row.failure?.let { failed ->
             Spacer(Modifier.height(4.dp))
             Text(
-                text = reason,
+                text = installFailureText(failed),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.semantics(mergeDescendants = true) {
                     liveRegion = LiveRegionMode.Polite
                 },
             )
+            // Retry is the row's action button; the leftover partial archive
+            // gets its own way out for a user who has given up on this pack.
+            if (row.canRemoveDownload) {
+                TextButton(onClick = onRemoveDownload) {
+                    Text(stringResource(R.string.engines_remove_download))
+                }
+            }
         }
     }
 }

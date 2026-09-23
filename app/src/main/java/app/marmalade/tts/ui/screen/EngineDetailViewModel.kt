@@ -11,6 +11,7 @@ import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.install.VoicePackLanguageGroup
 import app.marmalade.tts.install.VoicePackSummary
 import app.marmalade.tts.install.voicePackGroups
+import app.marmalade.tts.install.isInFlight
 import app.marmalade.tts.install.voicePackSummary
 import app.marmalade.tts.preprocessing.EngineProfiles
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,7 +48,8 @@ import kotlinx.coroutines.launch
 //     │                                │ map { voicePackGroups(engine, states) }
 //     │                          _packStates (Map<packId, InstallState>)
 //     │                                ▲
-//     │                          EngineInstaller.verifyPack / packState
+//     │                          EngineInstaller.packState (every pack, for the
+//     │                          VM's lifetime) + verifyPack probes
 //     │
 //     └── actions
 //          ├── toggleRule(rule, enabled) → settings.setEnabledRules(...)
@@ -55,6 +57,7 @@ import kotlinx.coroutines.launch
 //          ├── refreshPacks()            → installer.verifyPack(each pack)
 //          ├── installPack(packId)       → installer.installPack(packId)
 //          ├── uninstallPack(packId)     → installer.uninstallPack(packId)
+//          ├── removePackDownload(id)    → installer.discardPackDownload(id)
 //          └── install()                 → installer.install(engineName)
 //                                          (used by the in-page "Install"
 //                                          affordance when the user lands on
@@ -148,6 +151,22 @@ class EngineDetailViewModel @Inject constructor(
 
     private val _packStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
 
+    init {
+        // Mirror the installer's live state for every pack for as long as this
+        // VM lives. A download outlives the screen that started it (the
+        // installer's blocking I/O ignores viewModelScope's cancellation), so
+        // a user who leaves mid-download and comes back gets a fresh VM — and
+        // without this it would show a plain Install on a pack that is still
+        // downloading, and a tap would queue a second download behind it.
+        for (pack in VoicePackCatalog.forEngine(engineName)) {
+            viewModelScope.launch {
+                installer.packState(pack.id).collect { s ->
+                    _packStates.update { it + (pack.id to s) }
+                }
+            }
+        }
+    }
+
     /**
      * This engine's catalog packs grouped by language, each row carrying its
      * live install state. Derived by [voicePackGroups] so the grouping and the
@@ -184,15 +203,20 @@ class EngineDetailViewModel @Inject constructor(
         )
 
     /**
-     * Probe every pack of this engine. Called when the screen composes and
-     * after each install/uninstall, so a pack downloaded here and one removed
-     * elsewhere both land without an app restart.
+     * Probe every pack of this engine. Called when the screen composes, so a
+     * pack removed behind the app's back (Android's storage screen) doesn't
+     * keep reading as installed.
+     *
+     * An in-flight result is not written: the probe returned a snapshot of a
+     * running install, which the [init] collector is already mirroring — and
+     * writing that snapshot late could land after the install finished,
+     * parking the row on a stale progress bar.
      */
     fun refreshPacks() {
         viewModelScope.launch {
             for (pack in VoicePackCatalog.forEngine(engineName)) {
                 val state = installer.verifyPack(pack.id)
-                _packStates.update { it + (pack.id to state) }
+                if (!state.isInFlight) _packStates.update { it + (pack.id to state) }
             }
         }
     }
@@ -200,35 +224,36 @@ class EngineDetailViewModel @Inject constructor(
     /**
      * Download and install one voice pack.
      *
-     * Mirrors [EnginesViewModel.install] deliberately, including its two
-     * lessons: the optimistic `Downloading(0, 0)` closes the gap before the
-     * first progress callback, and collecting the installer's own state flow
-     * (rather than relying on the `onProgress` lambda, which only fires for
-     * downloads) is what makes the Extracting phase visible instead of looking
-     * like a frozen row.
+     * The optimistic `Downloading(0, 0)` closes the gap before the installer's
+     * first state emission; from there the [init] collector carries every
+     * transition, Extracting included. The terminal state from the result is
+     * a fallback for an installer whose flow didn't move — on failure the
+     * installer's own Failed wins, since it carries the failure kind and the
+     * partial-download size the row's actions key off.
      */
     fun installPack(packId: String) {
         _packStates.update { it + (packId to InstallState.Downloading(0L, 0L, "")) }
         viewModelScope.launch {
-            val stateJob = launch {
-                installer.packState(packId).collect { s ->
-                    _packStates.update { it + (packId to s) }
-                }
-            }
             val result = installer.installPack(packId) { /* state flow handles updates */ }
-            stateJob.cancel()
-            _packStates.update {
-                it + (packId to result.fold(
-                    onSuccess = { InstallState.Installed },
-                    onFailure = { err ->
-                        // toString(), not a resource: this VM is unit-tested on
-                        // a plain JVM, and the installer's failures always carry
-                        // a message — the fallback is for the impossible case,
-                        // where a class name beats an empty row.
-                        InstallState.Failed(err.message ?: err.toString())
-                    },
-                ))
-            }
+            val terminal = result.fold(
+                onSuccess = { InstallState.Installed },
+                onFailure = { err ->
+                    installer.packState(packId).value as? InstallState.Failed
+                        ?: InstallState.Failed.from(err)
+                },
+            )
+            _packStates.update { it + (packId to terminal) }
+        }
+    }
+
+    /**
+     * "Remove download" on a failed row: delete the partial archive kept for
+     * resume. The installer re-probes and the [init] collector carries the
+     * row back to its real state.
+     */
+    fun removePackDownload(packId: String) {
+        viewModelScope.launch {
+            installer.discardPackDownload(packId)
         }
     }
 
@@ -244,9 +269,7 @@ class EngineDetailViewModel @Inject constructor(
             _packStates.update {
                 it + (packId to result.fold(
                     onSuccess = { InstallState.NotInstalled },
-                    onFailure = { err ->
-                        InstallState.Failed(err.message ?: err.toString())
-                    },
+                    onFailure = { err -> InstallState.Failed.from(err) },
                 ))
             }
         }

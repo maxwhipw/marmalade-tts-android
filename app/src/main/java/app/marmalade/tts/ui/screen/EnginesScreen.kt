@@ -59,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.install.EngineDescriptor
+import app.marmalade.tts.install.InstallFailure
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePackSummary
 import app.marmalade.tts.ui.components.EngineSpecColumn
@@ -86,7 +87,8 @@ import app.marmalade.tts.ui.onboarding.formatBytes
 //     │                    Engine settings → onEngineSettings(engine) →
 //     │                                       AppRoot navigates to
 //     │                                       engine/<name>
-//     │     Failed       → "Retry" + reason text below
+//     │     Failed       → "Retry" + reason text below; "Remove download"
+//     │                    too when a partial archive was left on disk
 //     │     Corrupt      → "Reinstall"
 //     │
 //
@@ -180,6 +182,7 @@ fun EnginesScreen(
                             onInstallRequested = { pendingInstall = engine },
                             onUninstallRequested = { pendingUninstall = engine },
                             onRetry = { viewModel.install(engine.name) },
+                            onRemoveDownload = { viewModel.removeDownload(engine.name) },
                             onEngineSettings = { onEngineSettings(engine) },
                         )
                     }
@@ -287,6 +290,7 @@ private fun EngineCard(
     onInstallRequested: () -> Unit,
     onUninstallRequested: () -> Unit,
     onRetry: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onEngineSettings: () -> Unit,
 ) {
     // Resting card leads with the A3 spec column (Speed / Quality / Languages)
@@ -435,7 +439,7 @@ private fun EngineCard(
             if (state is InstallState.Failed) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = state.reason,
+                    text = installFailureText(state),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
@@ -453,6 +457,7 @@ private fun EngineCard(
                 onInstall = onInstallRequested,
                 onUninstall = onUninstallRequested,
                 onRetry = onRetry,
+                onRemoveDownload = onRemoveDownload,
                 onEngineSettings = onEngineSettings,
             )
         }
@@ -522,15 +527,18 @@ private fun ActionRow(
     onInstall: () -> Unit,
     onUninstall: () -> Unit,
     onRetry: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onEngineSettings: () -> Unit,
 ) {
+    val canRemoveDownload = state is InstallState.Failed && state.partialDownloadBytes > 0L
     Row(
         modifier = Modifier.fillMaxWidth(),
         // Two-button states anchor the secondary action left and the primary
         // right, so the destructive Uninstall isn't a thumb-width from Engine
         // settings. Single-button states keep the CTA in its usual right corner.
-        horizontalArrangement = when (state) {
-            InstallState.Installed, is InstallState.Outdated -> Arrangement.SpaceBetween
+        horizontalArrangement = when {
+            state is InstallState.Installed || state is InstallState.Outdated -> Arrangement.SpaceBetween
+            canRemoveDownload -> Arrangement.SpaceBetween
             else -> Arrangement.End
         },
         verticalAlignment = Alignment.CenterVertically,
@@ -562,6 +570,11 @@ private fun ActionRow(
                 Button(onClick = onEngineSettings) { Text(stringResource(R.string.engines_configure)) }
             }
             is InstallState.Failed -> {
+                if (canRemoveDownload) {
+                    OutlinedButton(onClick = onRemoveDownload) {
+                        Text(stringResource(R.string.engines_remove_download))
+                    }
+                }
                 Button(onClick = onRetry) { Text(stringResource(R.string.engines_retry)) }
             }
             InstallState.Corrupt -> {
@@ -577,6 +590,19 @@ private fun ActionRow(
             }
         }
     }
+}
+
+/**
+ * The text explaining [state] to the user: the localized message for a known
+ * [InstallFailure] (a missing release asset, a full disk), else the
+ * installer's own reason. Shared by the engine cards and the pack rows so the
+ * same failure reads the same everywhere.
+ */
+@Composable
+fun installFailureText(state: InstallState.Failed): String = when (state.failure) {
+    InstallFailure.NOT_AVAILABLE -> stringResource(R.string.install_error_not_available)
+    InstallFailure.NO_SPACE -> stringResource(R.string.install_error_no_space)
+    null -> state.reason
 }
 
 @Composable

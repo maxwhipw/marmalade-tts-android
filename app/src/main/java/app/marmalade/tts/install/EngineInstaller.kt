@@ -11,8 +11,8 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,15 +33,61 @@ fun interface EngineFilesDir {
 }
 
 /**
- * Just the bit of [app.marmalade.tts.engine.KittenEngine] that the
- * installer needs. Extracting an interface here lets unit tests run
- * without instantiating KittenEngine (which transitively needs an
- * Android `Context` we can't mint in a JVM test).
+ * Just the bit of the engines that the installer needs: dropping one
+ * engine's native handles before its files are replaced or deleted.
+ * Extracting an interface here lets unit tests run without instantiating
+ * the engines (which transitively need an Android `Context` we can't mint
+ * in a JVM test).
  */
 fun interface NativeEngineHandle {
-    /** Drop any cached native handle (mmap'd model bytes etc.). Idempotent. */
-    fun release()
+    /**
+     * Drop the cached native handle (mmap'd model bytes etc.) of the engine
+     * named [engineName] — the catalog name, which for a voice pack is the
+     * pack's engine. Only that engine: releasing every engine would abort an
+     * unrelated read in progress (Kokoro reading a shared article dies
+     * because Pocket was uninstalled). Idempotent.
+     */
+    fun release(engineName: String)
+
+    companion object {
+        /**
+         * A handle that releases only the engine whose catalog name is
+         * asked for, via [releasers] (catalog name → release). A name nothing
+         * claims releases every engine: an engine added to the catalog but
+         * not wired here must never have its files deleted while mapped.
+         */
+        fun routing(releasers: Map<String, () -> Unit>): NativeEngineHandle =
+            NativeEngineHandle { engineName ->
+                val release = releasers[engineName]
+                if (release != null) release() else releasers.values.forEach { it() }
+            }
+    }
 }
+
+/**
+ * Install failures the UI explains in the user's language instead of showing
+ * the raw technical message. Anything else surfaces [InstallState.Failed.reason]
+ * as-is.
+ */
+enum class InstallFailure {
+    /** HTTP 404/410: the bundle isn't published (yet) at its catalog URL. */
+    NOT_AVAILABLE,
+
+    /** The phone doesn't have room for the download plus its unpacked files. */
+    NO_SPACE,
+}
+
+/**
+ * An install failure with a known [failure] kind. [message] is a plain English
+ * sentence (never a URL or errno) so a surface that doesn't map the kind to a
+ * localized string still shows something a user can act on; the technical
+ * detail goes to logcat.
+ */
+class InstallException(
+    val failure: InstallFailure,
+    message: String,
+    cause: Throwable? = null,
+) : IOException(message, cause)
 
 /**
  * Abstraction over the HTTP fetch step. Production wires this to
@@ -103,6 +149,7 @@ data class RangeResult(
 
 /** Production implementation: stream from a remote URL via `HttpURLConnection`. */
 object UrlHttpFetcher : HttpFetcher {
+    private const val TAG = "UrlHttpFetcher"
     private const val CONNECT_TIMEOUT_MS = 15_000
     private const val READ_TIMEOUT_MS = 30_000
 
@@ -141,7 +188,14 @@ object UrlHttpFetcher : HttpFetcher {
         // are valid full-body responses. Anything non-2xx is a hard fail.
         if (code !in 200..299) {
             conn.disconnect()
-            throw IOException("HTTP $code fetching $url")
+            // The URL stays in logcat: on a card it's a wall of GitHub path
+            // that tells the user nothing.
+            Log.w(TAG, "HTTP $code fetching $url")
+            if (code == 404 || code == 410) {
+                // A catalog entry whose release asset isn't uploaded yet.
+                throw InstallException(InstallFailure.NOT_AVAILABLE, NOT_AVAILABLE_MESSAGE)
+            }
+            throw IOException("HTTP $code")
         }
         val startedAt = if (code == 206 && fromBytes > 0L) fromBytes else 0L
         val raw = conn.inputStream
@@ -195,9 +249,13 @@ object UrlHttpFetcher : HttpFetcher {
 //     └── _state["kitten"].value = Installed
 //
 //   On any failure:
-//     ├── _state["kitten"].value = Failed(reason)
-//     ├── delete archive.tmp + scratchDir (so a retry starts clean)
+//     ├── _state["kitten"].value = Failed(reason, failure kind, partial bytes)
+//     ├── delete scratchDir; KEEP archive.tmp so a retry resumes — unless
+//     │   the sha256 mismatched or the disk filled up (then delete it too)
 //     └── return Result.failure(IOException(reason))
+//
+//   Before the download: free-space check (rest of archive + unpacked size)
+//   fails fast with InstallFailure.NO_SPACE.
 //
 //   UI: subscribes via .state("kitten")
 //
@@ -271,8 +329,28 @@ sealed class InstallState {
     /** Engine is ready for use — `KittenEngine.isInstalled()` will return true. */
     object Installed : InstallState()
 
-    /** Install attempt failed mid-flight. UI shows a Retry affordance with the reason. */
-    data class Failed(val reason: String) : InstallState()
+    /**
+     * Install attempt failed mid-flight. UI shows a Retry affordance with the
+     * reason — localized via [failure] when the kind is known.
+     *
+     * [partialDownloadBytes] is how much of the archive is still on disk,
+     * kept so a retry can resume. Non-zero means the UI offers "Remove
+     * download", so a user who gives up isn't left with up to ~200 MB they
+     * have no way to reclaim.
+     */
+    data class Failed(
+        val reason: String,
+        val failure: InstallFailure? = null,
+        val partialDownloadBytes: Long = 0L,
+    ) : InstallState() {
+        companion object {
+            /** A Failed for [err], keeping its [InstallFailure] kind if it has one. */
+            fun from(err: Throwable, fallbackReason: String = err.toString()): Failed = Failed(
+                reason = err.message ?: fallbackReason,
+                failure = (err as? InstallException)?.failure,
+            )
+        }
+    }
 
     /**
      * Files are *present on disk* but the post-install sanity check
@@ -301,6 +379,10 @@ sealed class InstallState {
     ) : InstallState()
 }
 
+/** True while a download or extraction is running — the installer owns the state. */
+val InstallState.isInFlight: Boolean
+    get() = this is InstallState.Downloading || this is InstallState.Extracting
+
 /**
  * Engine-as-plugin installer.
  *
@@ -323,13 +405,18 @@ sealed class InstallState {
  *     extracted file's bytes are correct.
  *  3. **Zip-slip protection.** Each archive entry's normalized path is
  *     checked to make sure it stays inside the scratch directory.
- *  4. **Single concurrent install per engine.** Callers must serialise
- *     install/uninstall on the same engine name. v0.1 enforces this via UI
- *     state (the install button disables while in flight); a future Mutex
- *     can move the guarantee into this class.
+ *  4. **Single concurrent install per engine / pack.** A per-target
+ *     [Mutex] serialises install, pack uninstall, seeding and partial-
+ *     download removal. While it's held, that operation owns the target's
+ *     state flow: [verify]/[verifyPack] report the live state rather than
+ *     publishing a disk probe over an in-flight download.
  *  5. **No network use outside install/verify.** The single
  *     `<uses-permission android:name="android.permission.INTERNET" />`
  *     in the manifest documents that boundary.
+ *  6. **Room checked up front.** An install that can't fit (remaining
+ *     download + unpacked size) fails before fetching a byte, and a disk-full
+ *     failure mid-way deletes its partial archive instead of keeping it for
+ *     a resume that would only fail again.
  */
 @Singleton
 open class EngineInstaller @Inject constructor(
@@ -337,6 +424,10 @@ open class EngineInstaller @Inject constructor(
     private val engineHandle: NativeEngineHandle,
     private val httpFetcher: HttpFetcher,
 ) {
+
+    init {
+        sweepStaleScratch()
+    }
 
     /**
      * Per-engine state flows. Created lazily on first observation so the
@@ -359,7 +450,7 @@ open class EngineInstaller @Inject constructor(
     }
 
     /**
-     * Returns a hot [Flow] of [InstallState] for [engineName]. The initial
+     * Returns a hot [StateFlow] of [InstallState] for [engineName]. The initial
      * value is computed eagerly by inspecting the on-disk engine directory:
      *
      *  - directory absent → [InstallState.NotInstalled]
@@ -370,7 +461,7 @@ open class EngineInstaller @Inject constructor(
      * Onboarding screen and the Engines screen stay in sync if they're
      * both open (e.g. via system back).
      */
-    fun state(engineName: String): Flow<InstallState> = stateFlow(engineName).asStateFlow()
+    fun state(engineName: String): StateFlow<InstallState> = stateFlow(engineName).asStateFlow()
 
     /**
      * Install [engineName] from the catalog.
@@ -403,9 +494,12 @@ open class EngineInstaller @Inject constructor(
             stateFlow(engineName).value = if (result.isSuccess) {
                 InstallState.Installed
             } else {
-                InstallState.Failed(
-                    result.exceptionOrNull()?.message ?: "pack install failed: $packId",
-                )
+                // The pack's own Failed carries the failure kind and the
+                // partial-download size the card's actions key off.
+                stateFlow(packStateKey(packId)).value as? InstallState.Failed
+                    ?: InstallState.Failed.from(
+                        result.exceptionOrNull() ?: IOException("pack install failed: $packId"),
+                    )
             }
             return result
         }
@@ -415,11 +509,11 @@ open class EngineInstaller @Inject constructor(
     // -- voice packs ---------------------------------------------------------
 
     /**
-     * Returns a hot [Flow] of [InstallState] for the voice pack [packId].
+     * Returns a hot [StateFlow] of [InstallState] for the voice pack [packId].
      * Keyed separately from engine states (see [packStateKey]) so a pack and
      * its engine can never clobber each other's flow.
      */
-    fun packState(packId: String): Flow<InstallState> =
+    fun packState(packId: String): StateFlow<InstallState> =
         stateFlow(packStateKey(packId)).asStateFlow()
 
     /**
@@ -447,7 +541,7 @@ open class EngineInstaller @Inject constructor(
 
     /**
      * Remove the voice pack [packId] from disk, leaving the engine's other
-     * packs alone. Idempotent. Releases native handles first so we never
+     * packs alone. Idempotent. Releases the pack's engine first so we never
      * delete a model file ORT still has mapped.
      */
     open suspend fun uninstallPack(packId: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -456,7 +550,7 @@ open class EngineInstaller @Inject constructor(
         val key = packStateKey(packId)
         installMutex(key).withLock {
             try {
-                engineHandle.release()
+                engineHandle.release(pack.engine)
                 val dir = packDirFor(pack)
                 if (dir.exists() && !dir.deleteRecursively()) {
                     throw IOException("Could not delete ${dir.absolutePath}")
@@ -493,6 +587,7 @@ open class EngineInstaller @Inject constructor(
             packsRootFor(pack).mkdirs()
             runArchiveInstall(
                 stateKey = key,
+                engineName = pack.engine,
                 label = "pack ${pack.id}",
                 archive = pack.archive,
                 installedSizeBytes = pack.installedSizeBytes,
@@ -507,14 +602,30 @@ open class EngineInstaller @Inject constructor(
     /** [verifyPack] against a caller-supplied pack; see [installPackInternal]. */
     internal suspend fun verifyPackInternal(pack: VoicePack): InstallState =
         withContext(Dispatchers.IO) {
-            val dir = packDirFor(pack)
-            val computed = if (!dir.isDirectory) {
-                InstallState.NotInstalled
-            } else {
-                verifyPackLayout(pack, dir)
+            publishProbe(packStateKey(pack.id)) { probePack(pack) }
+        }
+
+    private fun probePack(pack: VoicePack): InstallState {
+        val dir = packDirFor(pack)
+        return if (!dir.isDirectory) InstallState.NotInstalled else verifyPackLayout(pack, dir)
+    }
+
+    /**
+     * Delete what a failed install of [packId] left behind — the partial
+     * archive kept for resume, and any scratch dir — then re-probe, so the row
+     * settles on its real state (NotInstalled, or the old pack's state when an
+     * update failed). The user-facing "Remove download" on a Failed row.
+     */
+    open suspend fun discardPackDownload(packId: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val pack = VoicePackCatalog.byId(packId)
+                ?: return@withContext Result.failure(IOException("Unknown voice pack: $packId"))
+            val key = packStateKey(packId)
+            installMutex(key).withLock {
+                discardLeftovers(packScratchDirFor(pack), packArchiveTmpFor(pack))
+                stateFlow(key).value = probePack(pack)
             }
-            stateFlow(packStateKey(pack.id)).value = computed
-            computed
+            Result.success(Unit)
         }
 
     /**
@@ -579,7 +690,7 @@ open class EngineInstaller @Inject constructor(
             copyAssetTree(assets, assetRoot, scratchDir)
 
             if (finalDir.exists()) {
-                runCatching { engineHandle.release() }
+                runCatching { engineHandle.release(engineName) }
                 finalDir.deleteRecursively()
             }
             if (!scratchDir.renameTo(finalDir)) {
@@ -643,6 +754,7 @@ open class EngineInstaller @Inject constructor(
         installMutex(descriptor.name).withLock {
             runArchiveInstall(
                 stateKey = descriptor.name,
+                engineName = descriptor.name,
                 label = descriptor.name,
                 archive = descriptor.archive,
                 installedSizeBytes = descriptor.installedSizeBytes,
@@ -665,6 +777,8 @@ open class EngineInstaller @Inject constructor(
      * can't drift.
      *
      * @param stateKey key into the per-target [InstallState] flows.
+     * @param engineName catalog engine whose native handle must be released
+     *        before an existing install is swapped out.
      * @param label human-readable target name for log lines.
      * @param verify post-extract layout check; [InstallState.Corrupt] tears
      *        the install down and fails.
@@ -673,6 +787,7 @@ open class EngineInstaller @Inject constructor(
      */
     private fun runArchiveInstall(
         stateKey: String,
+        engineName: String,
         label: String,
         archive: EngineArchive,
         installedSizeBytes: Long,
@@ -703,6 +818,14 @@ open class EngineInstaller @Inject constructor(
 
         return try {
             val totalBytes = archive.sizeBytes
+
+            // 0. Make sure it fits. Peak extra usage is the rest of the
+            // download (a resumed partial is already on disk) plus the
+            // unpacked files; the archive is deleted only after extraction,
+            // and an old install being updated stays until the swap — it's
+            // already counted as used. Failing here, before a byte is fetched,
+            // beats a raw ENOSPC halfway through a 200 MB download.
+            requireFreeSpace(label, archive, installedSizeBytes, archiveTmp)
 
             // 1. Download the archive while computing SHA-256 and emitting
             // throttled progress updates.
@@ -755,7 +878,7 @@ open class EngineInstaller @Inject constructor(
             // the engine could be holding open mmap'd model bytes.
             if (finalDir.exists()) {
                 try {
-                    engineHandle.release()
+                    engineHandle.release(engineName)
                 } catch (_: Throwable) {
                     // Best effort — release() should be idempotent and
                     // exception-free, but a faulty native build shouldn't
@@ -805,15 +928,89 @@ open class EngineInstaller @Inject constructor(
             // [downloadArchive] resume path re-hashes existing bytes, so
             // a mid-stream corruption can't slip through.
             //
-            // Exception: if the failure was a SHA-256 mismatch, the
-            // partial bytes are known-bad — wipe them. We detect that by
-            // the IOException message produced in step 2 above.
-            if (t is IOException && t.message?.contains("mismatch", ignoreCase = true) == true) {
+            // Exceptions: a SHA-256 mismatch means the partial bytes are
+            // known-bad (detected by the IOException message produced in
+            // step 2 above), and a full disk means every resume would fail
+            // the same way while the partial holds the space hostage — wipe
+            // the archive in both cases.
+            val outOfSpace = t.isOutOfSpace()
+            if (outOfSpace ||
+                (t is IOException && t.message?.contains("mismatch", ignoreCase = true) == true)
+            ) {
                 if (archiveTmp.exists()) archiveTmp.delete()
             }
             if (scratchDir.exists()) scratchDir.deleteRecursively()
-            sf.value = InstallState.Failed(t.message ?: t::class.java.simpleName)
-            Result.failure(if (t is IOException) t else IOException(t))
+            val error: IOException = when {
+                t is InstallException -> t
+                outOfSpace -> InstallException(InstallFailure.NO_SPACE, NO_SPACE_MESSAGE, t)
+                t is IOException -> t
+                else -> IOException(t)
+            }
+            sf.value = InstallState.Failed(
+                reason = error.message ?: t::class.java.simpleName,
+                failure = (error as? InstallException)?.failure,
+                partialDownloadBytes = if (archiveTmp.isFile) archiveTmp.length() else 0L,
+            )
+            Result.failure(error)
+        }
+    }
+
+    /**
+     * Throw [InstallFailure.NO_SPACE] unless the volume holding [archiveTmp]
+     * has room for the rest of [archive]'s download plus [installedSizeBytes]
+     * unpacked, with [FREE_SPACE_MARGIN_BYTES] left over for the app's own
+     * databases and caches.
+     */
+    private fun requireFreeSpace(
+        label: String,
+        archive: EngineArchive,
+        installedSizeBytes: Long,
+        archiveTmp: File,
+    ) {
+        val alreadyDownloaded = if (archiveTmp.isFile) archiveTmp.length() else 0L
+        val remaining = (archive.sizeBytes - alreadyDownloaded).coerceAtLeast(0L)
+        val needed = remaining + installedSizeBytes + FREE_SPACE_MARGIN_BYTES
+        val available = usableSpaceBytes(archiveTmp.parentFile ?: filesDir.get())
+        if (available < needed) {
+            Log.w(TAG, "Not enough space for $label: need $needed bytes, $available available")
+            throw InstallException(InstallFailure.NO_SPACE, NO_SPACE_MESSAGE)
+        }
+    }
+
+    /**
+     * Bytes this app may still write on [dir]'s volume. A seam so tests can
+     * simulate a full disk.
+     */
+    internal open fun usableSpaceBytes(dir: File): Long = dir.usableSpace
+
+    /** Delete a failed install's scratch dir and partial archive. */
+    private fun discardLeftovers(scratchDir: File, archiveTmp: File) {
+        if (scratchDir.exists()) scratchDir.deleteRecursively()
+        if (archiveTmp.exists()) archiveTmp.delete()
+    }
+
+    /**
+     * Construction-time cleanup of scratch dirs and partial archives
+     * (`*.tmp`, `*.archive.tmp`) under `engines/` and each engine's `packs/`.
+     *
+     * A partial archive only survives a failure so a retry *in this process*
+     * can resume. After a restart its Failed state — and with it the "Remove
+     * download" action — is gone, so without this sweep up to ~200 MB would
+     * sit invisible and unreclaimable until the user happened to retry that
+     * one engine. Safe because nothing can be installing yet: this is the
+     * process's only installer and it isn't constructed. Only lists two
+     * directory levels, so it's cheap on whichever thread Hilt builds us.
+     */
+    private fun sweepStaleScratch() {
+        val enginesRoot = File(filesDir.get(), "engines")
+        val engineDirs = enginesRoot.listFiles()?.filter { it.isDirectory } ?: return
+        val parents = listOf(enginesRoot) + engineDirs.map { File(it, PACKS_DIR_NAME) }
+        for (parent in parents) {
+            for (leftover in parent.listFiles().orEmpty()) {
+                if (!leftover.name.endsWith(".tmp")) continue
+                Log.i(TAG, "Removing stale install leftover ${leftover.absolutePath}")
+                leftover.deleteRecursively()
+            }
         }
     }
 
@@ -831,20 +1028,16 @@ open class EngineInstaller @Inject constructor(
         try {
             // Release first — deleting an mmap'd file can leak the mapping
             // on some Android versions, even though the file system entry
-            // disappears immediately. The injected NativeEngineHandle
-            // releases every loaded engine; release() is idempotent on
-            // engines that aren't currently loaded.
-            engineHandle.release()
+            // disappears immediately. Only this engine: release() is
+            // idempotent if it isn't loaded, and other engines keep reading.
+            engineHandle.release(engineName)
 
             val dir = engineDirFor(engineName)
             if (dir.exists() && !dir.deleteRecursively()) {
                 throw IOException("Could not delete ${dir.absolutePath}")
             }
             // Also clean any stale scratch dir + partial archive lying around.
-            val scratch = scratchDirFor(engineName)
-            if (scratch.exists()) scratch.deleteRecursively()
-            val archiveTmp = archiveTmpFor(engineName)
-            if (archiveTmp.exists()) archiveTmp.delete()
+            discardLeftovers(scratchDirFor(engineName), archiveTmpFor(engineName))
 
             stateFlow(engineName).value = InstallState.NotInstalled
             Result.success(Unit)
@@ -875,16 +1068,52 @@ open class EngineInstaller @Inject constructor(
      */
     internal suspend fun verifyDescriptor(descriptor: EngineDescriptor): InstallState =
         withContext(Dispatchers.IO) {
-            val engineName = descriptor.name
-            val dir = engineDirFor(engineName)
-            val computed = if (!dir.isDirectory) {
-                InstallState.NotInstalled
-            } else {
-                verifyLayout(descriptor, dir)
-            }
-            stateFlow(engineName).value = computed
-            computed
+            publishProbe(descriptor.name) { probeEngine(descriptor) }
         }
+
+    private fun probeEngine(descriptor: EngineDescriptor): InstallState {
+        val dir = engineDirFor(descriptor.name)
+        return if (!dir.isDirectory) InstallState.NotInstalled else verifyLayout(descriptor, dir)
+    }
+
+    /**
+     * Engine twin of [discardPackDownload]: delete a failed install's partial
+     * archive and scratch dir, then re-probe. A pack-based engine's card
+     * installs its default pack, so that's whose leftovers go.
+     */
+    open suspend fun discardDownload(engineName: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val descriptor = EngineCatalog.byName(engineName)
+                ?: return@withContext Result.failure(IOException("Unknown engine: $engineName"))
+            descriptor.defaultPackId?.let { packId ->
+                discardPackDownload(packId).onFailure { return@withContext Result.failure(it) }
+            }
+            installMutex(engineName).withLock {
+                discardLeftovers(scratchDirFor(engineName), archiveTmpFor(engineName))
+                stateFlow(engineName).value = probeEngine(descriptor)
+            }
+            Result.success(Unit)
+        }
+
+    /**
+     * Publish a disk probe to [key]'s state flow — unless an install, seed or
+     * uninstall of that target holds its lock. That operation owns the flow
+     * until it finishes: mid-download the new files aren't on disk yet, so a
+     * probe would read NotInstalled and wipe the progress off every screen
+     * showing it (and offer an Install that would queue a second download).
+     * In that case the live state is returned untouched.
+     */
+    private inline fun publishProbe(key: String, probe: () -> InstallState): InstallState {
+        val mutex = installMutex(key)
+        if (!mutex.tryLock()) return stateFlow(key).value
+        try {
+            val computed = probe()
+            stateFlow(key).value = computed
+            return computed
+        } finally {
+            mutex.unlock()
+        }
+    }
 
     // -- internals ---------------------------------------------------------
 
@@ -1461,8 +1690,35 @@ open class EngineInstaller @Inject constructor(
          * namespace, so a pack id equal to an engine name can't alias it.
          */
         private const val PACK_STATE_PREFIX: String = "pack:"
+
+        /**
+         * Headroom the free-space check leaves beyond the install itself, so
+         * a download that fits exactly doesn't leave the app unable to write
+         * its own settings and database.
+         */
+        internal const val FREE_SPACE_MARGIN_BYTES: Long = 16L * 1024L * 1024L
     }
 }
+
+/**
+ * English fallbacks for [InstallException]s. The UI shows the localized
+ * string for the [InstallFailure] kind; these reach only a surface that
+ * doesn't map it, and must match the English resources in spirit.
+ */
+private const val NOT_AVAILABLE_MESSAGE = "This download isn't available yet. Try again later."
+private const val NO_SPACE_MESSAGE =
+    "Not enough free storage for this download. Free up some space and try again."
+
+/**
+ * True when [this] or any cause is the filesystem reporting a full disk —
+ * Android's `ErrnoException` text is "write failed: ENOSPC (No space left on
+ * device)", the JVM's "No space left on device".
+ */
+private fun Throwable.isOutOfSpace(): Boolean =
+    generateSequence(this) { it.cause }.any { t ->
+        val message = t.message ?: return@any false
+        "ENOSPC" in message || "No space left on device" in message
+    }
 
 /** Lowercase hex encoding for SHA-256 output. */
 private fun ByteArray.toHex(): String {

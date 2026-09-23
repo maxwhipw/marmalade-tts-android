@@ -99,6 +99,40 @@ class LicenseCatalogTest {
         }
     }
 
+    /**
+     * Setting [LicenseCatalog.Component.textAsset] to a family's shared body
+     * (e.g. Kokoro pointing at `Apache-2.0.txt`) flags the body as embedding
+     * the copyright, so the text screen hides the component's attribution —
+     * the holder would appear nowhere in the license view.
+     */
+    @Test
+    fun noComponentClaimsASharedBodyAsItsOwnText() {
+        val sharedBodies = LicenseCatalog.licenses.mapNotNull { it.sharedAsset }.toSet()
+        for (component in LicenseCatalog.components) {
+            assertTrue(
+                "Component '${component.name}' sets textAsset to the shared body " +
+                    "'${component.textAsset}' — drop it so the attribution shows.",
+                component.textAsset !in sharedBodies,
+            )
+        }
+    }
+
+    /**
+     * Per-component texts embed one holder's copyright, so two components
+     * sharing one (misaki / cutlet once reused Marmalade's own MIT.txt) means
+     * at least one shows the wrong holder.
+     */
+    @Test
+    fun noTwoComponentsShareAPerComponentText() {
+        val texts = LicenseCatalog.components.mapNotNull { it.textAsset }
+        assertEquals(
+            "A per-component license text is reused: " +
+                texts.groupBy { it }.filterValues { it.size > 1 }.keys,
+            texts.distinct().size,
+            texts.size,
+        )
+    }
+
     @Test
     fun groupingCoversEveryComponent() {
         val grouped = LicenseCatalog.groupedByLicense()
