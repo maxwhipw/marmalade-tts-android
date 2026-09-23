@@ -486,11 +486,24 @@ private fun genderGlyph(gender: String?): String = when (gender) {
 private fun supportingText(voice: VoiceMeta): String {
     val base = stringResource(
         R.string.voices_row_subtitle,
-        voice.gender ?: stringResource(R.string.voices_gender_unknown),
+        genderLabel(voice.gender),
         languageDisplayName(voice.languageCode),
     )
     val quality = VitsVoiceCatalog.packVoiceOf(voice.id)?.quality ?: return base
     return "$base · ${stringResource(packQualityLabelRes(quality))}"
+}
+
+/**
+ * Localized gender word for a row subtitle. The catalogs store the English
+ * words `"female"` / `"male"`; anything else is shown as stored rather than
+ * hidden, and a missing value reads as a dash.
+ */
+@Composable
+private fun genderLabel(gender: String?): String = when (gender) {
+    "female" -> stringResource(R.string.voices_gender_female)
+    "male" -> stringResource(R.string.voices_gender_male)
+    null -> stringResource(R.string.voices_gender_unknown)
+    else -> gender
 }
 
 /**

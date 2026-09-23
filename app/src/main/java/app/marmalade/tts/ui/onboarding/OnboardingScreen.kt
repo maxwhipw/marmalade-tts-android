@@ -143,6 +143,7 @@ fun OnboardingScreen(
     val aliasCreated by viewModel.aliasCreated.collectAsStateWithLifecycle()
     val aliasEditor by viewModel.aliasEditorState.collectAsStateWithLifecycle()
     val installedVoices by viewModel.installedVoices.collectAsStateWithLifecycle()
+    val aliasEngines by viewModel.aliasEngines.collectAsStateWithLifecycle()
     val recommendation by viewModel.recommendation.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -187,6 +188,7 @@ fun OnboardingScreen(
             OnboardingStep.CreateAlias -> CreateAliasStep(
                 padding = padding,
                 editor = aliasEditor,
+                engines = aliasEngines,
                 voices = installedVoices,
                 aliasCreated = aliasCreated,
                 onSeedDefaults = viewModel::seedAliasDefaults,
@@ -772,6 +774,7 @@ private fun InstallRow(
 private fun CreateAliasStep(
     padding: PaddingValues,
     editor: OnboardingViewModel.AliasFields,
+    engines: List<EngineDescriptor>,
     voices: List<VoiceMeta>,
     aliasCreated: Boolean,
     onSeedDefaults: () -> Unit,
@@ -832,6 +835,7 @@ private fun CreateAliasStep(
 
         OnboardingEngineDropdown(
             selected = editor.engine,
+            engines = engines,
             onPick = onEngineChange,
         )
         Spacer(Modifier.height(12.dp))
@@ -905,16 +909,20 @@ private fun CreateAliasStep(
 @Composable
 private fun OnboardingEngineDropdown(
     selected: String,
+    /** Installed engines only — see [OnboardingViewModel.aliasEngines]. */
+    engines: List<EngineDescriptor>,
     onPick: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val engines = EngineCatalog.visibleTo(showDeveloper = false)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = engines.firstOrNull { it.name == selected }?.displayName
+            // Catalog lookup, not [engines]: the seeded default can be an
+            // engine that isn't installed (nothing is), and it should still
+            // read as its name rather than its id.
+            value = EngineCatalog.byName(selected)?.displayName
                 ?: if (selected.isBlank()) {
                     stringResource(R.string.onboarding_alias_engine_placeholder)
                 } else {
@@ -932,6 +940,13 @@ private fun OnboardingEngineDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
+            if (engines.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.onboarding_error_install_engine_first)) },
+                    onClick = { expanded = false },
+                    enabled = false,
+                )
+            }
             for (engine in engines) {
                 DropdownMenuItem(
                     text = { Text(engine.displayName) },
@@ -953,12 +968,10 @@ private fun OnboardingVoiceDropdown(
     onPick: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // Prefer installed voices; fall back to the full list (model not yet
-    // loaded, or engine install hasn't refreshed isInstalled). Matches
-    // AliasScreen.VoiceDropdown's behaviour.
-    val installed = voices.filter { it.isInstalled }
-    val choices = installed.ifEmpty { voices }
-    val selectedLabel = choices.firstOrNull { it.id == selected }?.displayName
+    // [voices] is already limited to what can speak (see
+    // OnboardingViewModel.installedVoices) — never widen it back to every
+    // seeded row, which is how unreleased, uninstalled VITS voices leaked in.
+    val selectedLabel = voices.firstOrNull { it.id == selected }?.displayName
         ?: if (selected.isBlank()) {
             stringResource(R.string.onboarding_alias_voice_placeholder)
         } else {
@@ -982,14 +995,14 @@ private fun OnboardingVoiceDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            if (choices.isEmpty()) {
+            if (voices.isEmpty()) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.onboarding_alias_no_voices)) },
                     onClick = { expanded = false },
                     enabled = false,
                 )
             } else {
-                for (voice in choices) {
+                for (voice in voices) {
                     DropdownMenuItem(
                         text = { Text(voice.displayName) },
                         onClick = {

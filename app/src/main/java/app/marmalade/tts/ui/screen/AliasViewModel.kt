@@ -75,10 +75,9 @@ import kotlinx.coroutines.launch
 //     │
 //     └── actions
 //          ├── save()    → validate → VoiceAliasDao.upsert(...)
-//          │                + auto-promote first alias to primary if none set,
-//          │                + retarget primary on rename of current primary.
+//          │                + auto-promote first alias to primary if none set.
 //          ├── delete(id) → VoiceAliasDao.delete(id) + promote a successor.
-//          └── setPrimary(n) → SettingsRepository.setPrimaryAliasId(n)
+//          └── setPrimary(id) → SettingsRepository.setPrimaryAliasId(id)
 // -----------------------------------------------------------------------------
 
 /** Why an attempted save was rejected. UI shows this inline under the name field. */
@@ -215,10 +214,10 @@ class AliasViewModel @Inject constructor(
         )
 
     /**
-     * The currently designated primary alias name (or null when none is
+     * The currently designated primary alias's id (or null when none is
      * set). Sourced verbatim from [SettingsRepository.primaryAliasId] —
      * callers that need a "resolved" primary (i.e. fall back to null when
-     * the named alias has been deleted) should cross-check against
+     * that alias has been deleted) should cross-check against
      * [aliases] before consuming.
      */
     val primaryAliasId: StateFlow<String?> = settings.primaryAliasId
@@ -308,22 +307,16 @@ class AliasViewModel @Inject constructor(
     /**
      * Installed voices grouped into the drill-down tree.
      *
-     * Filtered through the shared [isVoiceAvailable] so a pack-based engine's
-     * voices need their own pack on disk, not just their engine — the same rule
-     * the full-screen picker applies.
+     * Filtered through [pickableVoices] so a pack-based engine's voices need
+     * their own pack on disk, not just their engine, and an unreleased pack's
+     * voices are developer-only — the rules the full-screen picker applies.
      */
     val voiceTree: StateFlow<List<VoiceSource>> = combine(
         voiceDao.getAll(),
         _installedAssets,
         settings.showDeveloperEngines,
     ) { voices, assets, showDeveloper ->
-        // Same released gate the full-screen picker applies: an installed but
-        // unreleased VITS pack's voices stay out of an ordinary user's tree,
-        // and a developer still sees them. Uninstalled packs are already
-        // dropped by filterAvailable.
-        val available = voices.filterAvailable(assets)
-            .filter { showDeveloper || isVoiceReleased(it) }
-        buildVoiceTree(available, voicePaths)
+        buildVoiceTree(voices.pickableVoices(assets, showDeveloper), voicePaths)
     }
         .stateIn(
             scope = viewModelScope,
@@ -391,8 +384,13 @@ class AliasViewModel @Inject constructor(
         _pickerState.value = VoicePickerState()
     }
 
-    fun onEditorFallbackChange(aliasName: String?) {
-        _editorState.value = _editorState.value.copy(fallbackAliasId = aliasName)
+    /**
+     * [aliasId] is the chosen alias's [VoiceAlias.id], never its name — the
+     * router resolves the pointer with `findById`, so a name stored here
+     * silently disarms the fallback. Null = "Don't fall back".
+     */
+    fun onEditorFallbackChange(aliasId: String?) {
+        _editorState.value = _editorState.value.copy(fallbackAliasId = aliasId)
     }
 
     /**
@@ -401,18 +399,33 @@ class AliasViewModel @Inject constructor(
      * being edited.
      */
     fun fallbackCandidates(): List<VoiceAlias> {
-        val editing = _editorState.value.originalName
+        val editing = _editorState.value.editingId
         return aliases.value.filter {
-            it.name != editing && !voicePaths.resolve(it.voiceId, it.engine).isCloud
+            it.id != editing && !voicePaths.resolve(it.voiceId, it.engine).isCloud
         }
     }
 
-    /** Primary on-device alias if there is one, else any on-device alias. */
+    /** Id of the primary on-device alias if there is one, else of any on-device alias. */
     private fun defaultFallbackAlias(): String? {
         val candidates = fallbackCandidates()
         val primary = primaryAliasId.value
-        return candidates.firstOrNull { it.name == primary }?.name
-            ?: candidates.firstOrNull()?.name
+        return candidates.firstOrNull { it.id == primary }?.id
+            ?: candidates.firstOrNull()?.id
+    }
+
+    /**
+     * [VoiceAlias.fallbackAliasId] of [existing], upgraded to an id if an
+     * older build stored the fallback alias's name there. Opening the editor
+     * is where such a row gets rewritten, so a save converts it rather than
+     * carrying the name forward. A value matching neither is kept verbatim —
+     * it is not ours to discard, and the router already treats it as "no
+     * fallback".
+     */
+    private fun fallbackIdOf(existing: VoiceAlias): String? {
+        val stored = existing.fallbackAliasId ?: return null
+        val all = aliases.value
+        if (all.any { it.id == stored }) return stored
+        return all.firstOrNull { it.name == stored }?.id ?: stored
     }
 
     /**
@@ -491,6 +504,9 @@ class AliasViewModel @Inject constructor(
                 speed = existing.speed,
                 effectId = existing.effectId,
                 phonemizationLanguage = existing.phonemizationLanguage,
+                // Carried over so saving any other edit doesn't silently
+                // disarm a cloud alias's offline fallback.
+                fallbackAliasId = fallbackIdOf(existing),
             )
         }
     }
@@ -664,7 +680,7 @@ class AliasViewModel @Inject constructor(
 
     /**
      * Explicitly designate [id] as the primary alias. The caller is
-     * responsible for passing the name of an existing alias — this method
+     * responsible for passing the id of an existing alias — this method
      * does not cross-check against [aliases] (the UI only exposes the
      * action via context menus on already-rendered rows, so the row's
      * existence is implicit at call time).
@@ -676,7 +692,7 @@ class AliasViewModel @Inject constructor(
     }
 
     /**
-     * Point the primary at [name] and release any apps routed to it.
+     * Point the primary at [id] and release any apps routed to it.
      *
      * The release is not tidiness, it is the fix for a trap: the primary
      * is already the fallback for every caller without a rule of its own,
@@ -692,9 +708,6 @@ class AliasViewModel @Inject constructor(
 
     // -- internals -------------------------------------------------------------
 
-    private fun findExisting(name: String?): VoiceAlias? =
-        aliases.value.firstOrNull { it.name == name }
-
     // Field tags so a successful name edit clears a "name invalid" error
     // but not a "voice missing" error, and vice versa. Keeps the UI from
     // jumping if the user fixes one of two simultaneous problems.
@@ -708,6 +721,21 @@ class AliasViewModel @Inject constructor(
         else -> error
     }
 }
+
+/**
+ * The voices an alias may be pointed at: on disk (a pack-based engine's voice
+ * needs its own pack, see [filterAvailable]) and, unless [showDeveloper],
+ * released — the same gate the full-screen picker applies, so an installed but
+ * unreleased VITS pack's voices stay out of an ordinary user's list while a
+ * developer still sees them.
+ *
+ * Shared by this editor and onboarding's alias step so the two can't disagree
+ * about what is pickable.
+ */
+internal fun List<VoiceMeta>.pickableVoices(
+    assets: InstalledVoiceAssets,
+    showDeveloper: Boolean,
+): List<VoiceMeta> = filterAvailable(assets).filter { showDeveloper || isVoiceReleased(it) }
 
 /**
  * Engine choice for the alias editor's picker — decoupled from

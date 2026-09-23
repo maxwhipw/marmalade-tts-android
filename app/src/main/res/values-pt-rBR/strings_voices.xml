@@ -23,6 +23,8 @@
     <!-- Linhas -->
     <string name="voices_row_subtitle">%1$s · %2$s</string>
     <string name="voices_gender_unknown">—</string>
+    <string name="voices_gender_female">feminina</string>
+    <string name="voices_gender_male">masculina</string>
     <string name="voices_selected">Selecionada</string>
     <string name="voices_preview">Ouvir prévia de %1$s</string>
     <string name="voices_previewing">Tocando prévia de %1$s</string>

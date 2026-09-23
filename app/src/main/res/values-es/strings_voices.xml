@@ -23,6 +23,8 @@
     <!-- Filas -->
     <string name="voices_row_subtitle">%1$s · %2$s</string>
     <string name="voices_gender_unknown">—</string>
+    <string name="voices_gender_female">femenina</string>
+    <string name="voices_gender_male">masculina</string>
     <string name="voices_selected">Seleccionada</string>
     <string name="voices_preview">Escuchar %1$s</string>
     <string name="voices_previewing">Reproduciendo %1$s</string>

@@ -6,14 +6,18 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.data.BuiltinEffects
+import app.marmalade.tts.data.InstalledVoiceAssets
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceAliasDao
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
+import app.marmalade.tts.data.probeInstalledVoiceAssets
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.EngineInstaller
@@ -22,6 +26,7 @@ import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.perf.EngineFit
 import app.marmalade.tts.perf.EngineRecommendation
 import app.marmalade.tts.perf.EngineRecommender
+import app.marmalade.tts.ui.screen.pickableVoices
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +61,11 @@ import kotlinx.coroutines.launch
 //     │                              │ Flow
 //     │                       VoiceAliasDao.getAll().map { it.isNotEmpty() }
 //     ├── aliasEditor    ◄────── OnboardingViewModel.aliasEditorState
+//     ├── aliasEngines   ◄────── OnboardingViewModel.aliasEngines (installed only)
 //     ├── installedVoices ◄───── OnboardingViewModel.installedVoices (per current engine)
+//     │                              ▲
+//     │                              │ probeInstalledVoiceAssets, run by
+//     │                              │ seedAliasDefaults on entering the step
 //     │
 //     └── actions ──► next() / back() / toggle(name) / installSelected()
 //                  next()  + onAlias{Name,Engine,Voice,Speed,Effect}Change()
@@ -446,22 +455,44 @@ class OnboardingViewModel @Inject constructor(
     val aliasEditorState: StateFlow<AliasFields> = _aliasEditorState.asStateFlow()
 
     /**
-     * Voices for the engine currently selected in the alias editor,
-     * filtered to "installed = true" rows so the user can only pick
-     * voices that will actually synthesize.
-     *
-     * Falls back to the unfiltered list when nothing is installed yet —
-     * the editor needs *something* to show on a no-engine-installed run
-     * (e.g. the user skipped the engine-pick step) so they can still
-     * scrub through and hit "Use defaults".
+     * What is on disk, probed by [seedAliasDefaults] when the CreateAlias step
+     * opens (every install has settled by then). Room is seeded with every
+     * catalog voice and [VoiceMeta.isInstalled] is never flipped in
+     * production, so this is the only honest "can it speak" signal — the same
+     * one the alias editor uses.
      */
-    val installedVoices: StateFlow<List<app.marmalade.tts.data.db.VoiceMeta>> =
+    private val _installedAssets = MutableStateFlow(InstalledVoiceAssets())
+
+    /**
+     * Engines offered by the alias step's engine dropdown: production engines
+     * that are actually installed. An alias pointed at an engine that isn't on
+     * disk would fail the moment it speaks, system TTS included.
+     */
+    val aliasEngines: StateFlow<List<EngineDescriptor>> = _installedAssets
+        .map { assets ->
+            EngineCatalog.visibleTo(showDeveloper = false).filter { it.name in assets.engines }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
+
+    /**
+     * Voices for the engine currently selected in the alias editor, limited
+     * to ones that will actually synthesize: on disk (a VITS voice needs its
+     * own pack, not just the engine) and released — onboarding never shows
+     * developer-only voices, matching its engine cards. Empty when nothing
+     * usable is installed; the step then offers "Use defaults".
+     */
+    val installedVoices: StateFlow<List<VoiceMeta>> =
         combine(
             _aliasEditorState.map { it.engine },
             voiceDao.getAll(),
-        ) { engine, all ->
+            _installedAssets,
+        ) { engine, all, assets ->
             if (engine.isBlank()) emptyList()
-            else all.filter { it.engine == engine }
+            else all.filter { it.engine == engine }.pickableVoices(assets, showDeveloper = false)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -469,9 +500,9 @@ class OnboardingViewModel @Inject constructor(
         )
 
     /**
-     * Seed the editor with sensible defaults. Picks the first installed
-     * engine (preferring `kokoro` over `kitten` to match the catalog's
-     * recommended order) and the catalog's [DEFAULT_VOICE_ID] for it.
+     * Probe the disk for [aliasEngines] / [installedVoices], then seed the
+     * editor with sensible defaults: [defaultAliasEngine] and the catalog's
+     * default voice for it.
      *
      * Called by the CreateAlias step's UI on first composition. Idempotent —
      * re-seeding after the user has typed clears their edits, so the UI
@@ -479,14 +510,11 @@ class OnboardingViewModel @Inject constructor(
      */
     fun seedAliasDefaults() {
         viewModelScope.launch {
-            val installedEngines = _installStates.value
-                .filterValues { it is InstallState.Installed }
-                .keys
-            val engine = installedEngines.firstOrNull { it.startsWith("kokoro") }
-                ?: installedEngines.firstOrNull { it.startsWith("kitten") }
-                ?: installedEngines.firstOrNull()
-                ?: EngineCatalog.all.firstOrNull { it.isRecommended }?.name
-                ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
+            // Cloud stays out: onboarding offers catalog engines only, and a
+            // new user has no provider key anyway.
+            _installedAssets.value =
+                probeInstalledVoiceAssets(installer, anyCloudKeySet = false)
+            val engine = defaultAliasEngine()
             val voiceId = defaultVoiceIdFor(engine)
             _aliasEditorState.value = AliasFields(
                 name = "default",
@@ -609,14 +637,7 @@ class OnboardingViewModel @Inject constructor(
      */
     fun useDefaultsAndContinue() {
         viewModelScope.launch {
-            val installedEngines = _installStates.value
-                .filterValues { it is InstallState.Installed }
-                .keys
-            val engine = installedEngines.firstOrNull { it.startsWith("kokoro") }
-                ?: installedEngines.firstOrNull { it.startsWith("kitten") }
-                ?: installedEngines.firstOrNull()
-                ?: EngineCatalog.all.firstOrNull { it.isRecommended }?.name
-                ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
+            val engine = defaultAliasEngine()
             val voiceId = defaultVoiceIdFor(engine)
             // Refuse to create a malformed alias if there isn't any
             // engine to pull a default voice from — surface as an error
@@ -701,15 +722,39 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * Map an engine key to its catalog default voice ID, or `""` when
-     * the engine is unknown. Centralised so [seedAliasDefaults] and
+     * The engine a fresh alias defaults to: an installed one, preferring
+     * Kokoro over Kitten to match the catalog's recommended order. "Installed"
+     * is this session's finished installs plus whatever [seedAliasDefaults]
+     * found on disk (the baked Kitten after a skipped engine step). With
+     * nothing installed, the catalog's recommended engine stands in so the
+     * form isn't blank. Centralised so [seedAliasDefaults] and
      * [useDefaultsAndContinue] stay in sync.
+     */
+    private fun defaultAliasEngine(): String {
+        val onDisk = _installedAssets.value.engines
+        val installedEngines = _installStates.value
+            .filterValues { it is InstallState.Installed }
+            .keys + EngineCatalog.visibleTo(showDeveloper = false)
+            .map { it.name }
+            .filter { it in onDisk }
+        return installedEngines.firstOrNull { it.startsWith("kokoro") }
+            ?: installedEngines.firstOrNull { it.startsWith("kitten") }
+            ?: installedEngines.firstOrNull()
+            ?: EngineCatalog.all.firstOrNull { it.isRecommended }?.name
+            ?: EngineCatalog.visibleTo(false).firstOrNull()?.name.orEmpty()
+    }
+
+    /**
+     * Map an engine key to its catalog default voice ID, or `""` when
+     * the engine is unknown. Centralised so [seedAliasDefaults],
+     * [onAliasEngineChange] and [useDefaultsAndContinue] stay in sync.
      */
     private fun defaultVoiceIdFor(engine: String): String = when (engine) {
         KokoroDirectVoiceCatalog.ENGINE -> KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID
         KokoroGermanVoiceCatalog.ENGINE -> KokoroGermanVoiceCatalog.DEFAULT_VOICE_ID
         KittenDirectVoiceCatalog.ENGINE -> KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
         PocketVoiceCatalog.ENGINE -> PocketVoiceCatalog.DEFAULT_VOICE_ID
+        VitsVoiceCatalog.ENGINE -> VitsVoiceCatalog.DEFAULT_VOICE_ID
         else -> ""
     }
 

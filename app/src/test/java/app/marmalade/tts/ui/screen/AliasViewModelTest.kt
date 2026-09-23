@@ -1,11 +1,13 @@
 package app.marmalade.tts.ui.screen
 
 import app.marmalade.tts.data.BuiltinEffects
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.lang.LangDetector
@@ -782,6 +784,111 @@ class AliasViewModelTest {
         )
     }
 
+    // -- Cloud offline fallback (ids, not names) --------------------------------
+
+    @Test
+    fun pickingCloudVoice_defaultsFallbackToPrimaryAliasId_andRouterCanResolveIt() = runTest {
+        // The picker used to store the fallback's *name*, and the default
+        // compared names against the primary *id*, so the router's
+        // findById(fallbackAliasId) never found anything: the fallback
+        // silently never fired.
+        val backup = alias("backup")
+        val other = alias("other")
+        val dao = FakeAliasDao(initial = listOf(other, backup))
+        val settings = FakeSettings(
+            initialId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
+            initialOnboarded = true,
+        )
+        settings.setPrimaryAliasId(backup.id)
+        val vm = newViewModel(aliasDao = dao, settings = settings)
+        vm.aliases.first { it.size == 2 }
+        vm.primaryAliasId.first { it == backup.id }
+
+        vm.openEditor()
+        vm.onEditorNameChange("gradium")
+        vm.pickVoice(CLOUD_VOICE)
+
+        assertEquals(
+            "Choosing a cloud voice arms the fallback with the primary's id",
+            backup.id,
+            vm.editorState.first().fallbackAliasId,
+        )
+        assertTrue(vm.save())
+        val saved = dao.findByName("gradium")!!
+        assertEquals(
+            "The stored pointer resolves the way TtsRouter looks it up",
+            "backup",
+            dao.findById(saved.fallbackAliasId!!)?.name,
+        )
+    }
+
+    @Test
+    fun fallbackPickerChoice_isStoredAsTheCandidatesId() = runTest {
+        val backup = alias("backup")
+        val other = alias("other")
+        val dao = FakeAliasDao(initial = listOf(backup, other))
+        val vm = newViewModel(aliasDao = dao)
+        vm.aliases.first { it.size == 2 }
+
+        vm.openEditor()
+        vm.onEditorNameChange("gradium")
+        vm.pickVoice(CLOUD_VOICE)
+        // What FallbackPicker's menu item does for the chosen candidate.
+        val chosen = vm.fallbackCandidates().single { it.name == "other" }
+        vm.onEditorFallbackChange(chosen.id)
+        assertTrue(vm.save())
+
+        assertEquals(other.id, dao.findByName("gradium")!!.fallbackAliasId)
+    }
+
+    @Test
+    fun editingCloudAlias_keepsItsFallbackAcrossAnUnrelatedSave() = runTest {
+        // openEditor didn't copy the fallback, so saving any edit (here the
+        // speed) nulled it.
+        val backup = alias("backup")
+        val cloud = alias("gradium", engine = CLOUD_VOICE.engine, voiceId = CLOUD_VOICE.id)
+            .copy(fallbackAliasId = backup.id)
+        val dao = FakeAliasDao(initial = listOf(backup, cloud))
+        val vm = newViewModel(aliasDao = dao)
+        vm.aliases.first { it.size == 2 }
+
+        vm.openEditor(cloud)
+        vm.onEditorSpeedChange(1.2f)
+        assertTrue(vm.save())
+
+        assertEquals(backup.id, dao.findById(cloud.id)?.fallbackAliasId)
+    }
+
+    @Test
+    fun editingCloudAlias_upgradesALegacyNameValuedFallbackToAnId() = runTest {
+        // Rows saved by the name-storing picker hold "backup", not its id.
+        val backup = alias("backup")
+        val cloud = alias("gradium", engine = CLOUD_VOICE.engine, voiceId = CLOUD_VOICE.id)
+            .copy(fallbackAliasId = "backup")
+        val dao = FakeAliasDao(initial = listOf(backup, cloud))
+        val vm = newViewModel(aliasDao = dao)
+        vm.aliases.first { it.size == 2 }
+
+        vm.openEditor(cloud)
+        assertEquals(backup.id, vm.editorState.first().fallbackAliasId)
+        assertTrue(vm.save())
+
+        assertEquals(backup.id, dao.findById(cloud.id)?.fallbackAliasId)
+    }
+
+    @Test
+    fun fallbackCandidates_excludeTheAliasBeingEdited_evenMidRename() = runTest {
+        val backup = alias("backup")
+        val other = alias("other")
+        val vm = newViewModel(aliases = listOf(backup, other))
+        vm.aliases.first { it.size == 2 }
+
+        vm.openEditor(backup)
+        vm.onEditorNameChange("renamed")
+
+        assertEquals(listOf(other.id), vm.fallbackCandidates().map { it.id })
+    }
+
     // -- helpers --------------------------------------------------------------
 
     /**
@@ -898,6 +1005,16 @@ class AliasViewModelTest {
  * inert. Mirrors VoicePickerViewModelTest's PickerFakeInstaller (private to
  * that file, hence the duplicate).
  */
+/** A cloud voice row; [VoicePathResolver] recognises it from the id alone. */
+private val CLOUD_VOICE = VoiceMeta(
+    id = CloudApiVoiceCatalog.voiceId("venice", "tts-kokoro", "af_sky"),
+    engine = CloudApiVoiceCatalog.ENGINE,
+    displayName = "af_sky",
+    languageCode = "en-US",
+    sampleRate = 24_000,
+    gender = null,
+)
+
 private class AliasFakeInstaller(
     private val installedEngines: Set<String> = setOf("kitten-direct-v0_8", "kokoro-direct-v1_0"),
 ) : EngineInstaller(

@@ -6,7 +6,9 @@ import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
+import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePackCatalog
@@ -352,6 +354,61 @@ class OnboardingViewModelTest {
         )
     }
 
+    // -- alias step: only what can actually speak ---------------------------
+
+    @Test
+    fun aliasEnginesListOnlyInstalledEngines() = runTest {
+        val vm = newViewModel(
+            installer = DiskInstaller(engines = setOf(KITTEN, VITS), packs = setOf(RELEASED_PACK)),
+            voices = KittenDirectVoiceCatalog.voices + VitsVoiceCatalog.voices,
+        )
+
+        vm.seedAliasDefaults()
+
+        assertEquals(
+            "Catalog order, installed engines only — no Kokoro or Pocket",
+            listOf(KITTEN, VITS),
+            vm.aliasEngines.first { it.isNotEmpty() }.map { it.name },
+        )
+    }
+
+    @Test
+    fun aliasVoicesForVitsSkipUninstalledAndUnreleasedPacks() = runTest {
+        // Both a released and an unreleased pack are on disk; every other
+        // pack isn't. Production never flips VoiceMeta.isInstalled, so the
+        // old isInstalled filter fell back to all seeded VITS rows.
+        val vm = newViewModel(
+            installer = DiskInstaller(
+                engines = setOf(KITTEN, VITS),
+                packs = setOf(RELEASED_PACK, UNRELEASED_PACK),
+            ),
+            voices = KittenDirectVoiceCatalog.voices + VitsVoiceCatalog.voices,
+        )
+        vm.seedAliasDefaults()
+
+        vm.onAliasEngineChange(VITS)
+        val voices = vm.installedVoices.first { it.isNotEmpty() }
+
+        assertEquals(
+            setOf(RELEASED_PACK),
+            voices.map { VitsVoiceCatalog.packIdOf(it.id) }.toSet(),
+        )
+        assertTrue(
+            "The VITS default voice is one of the offered voices",
+            voices.any { it.id == vm.aliasEditorState.value.voiceId },
+        )
+    }
+
+    @Test
+    fun switchingToVitsPreselectsItsDefaultVoice() = runTest {
+        val vm = newViewModel()
+
+        vm.onAliasEngineChange(VITS)
+
+        assertEquals(VitsVoiceCatalog.DEFAULT_VOICE_ID, vm.aliasEditorState.value.voiceId)
+        assertTrue(VitsVoiceCatalog.DEFAULT_VOICE_ID.substringAfter(':').isNotEmpty())
+    }
+
     // -- helpers ----------------------------------------------------------
 
     private fun newViewModel(
@@ -362,8 +419,9 @@ class OnboardingViewModelTest {
         ),
         aliasDao: FakeAliasDao = FakeAliasDao(),
         deviceProbe: DeviceProbeSource = FakeDeviceProbe(DeviceProbe(null, null)),
+        voices: List<VoiceMeta> = KittenDirectVoiceCatalog.voices,
     ): OnboardingViewModel {
-        val voiceDao = FakeDao(voices = KittenDirectVoiceCatalog.voices)
+        val voiceDao = FakeDao(voices = voices)
         return OnboardingViewModel(installer, settings, aliasDao, voiceDao, deviceProbe)
     }
 
@@ -373,6 +431,12 @@ class OnboardingViewModelTest {
         const val KOKORO_DE = KokoroGermanVoiceCatalog.ENGINE
         const val POCKET = PocketVoiceCatalog.ENGINE
         const val VITS = VoicePackCatalog.VITS_MARMALADE_ENGINE
+
+        /** The engine's default pack — released for v1.1. */
+        val RELEASED_PACK: String = VoicePackCatalog.releasedForEngine(VITS).first().id
+
+        /** A staged pack that ordinary users must not be offered. */
+        val UNRELEASED_PACK: String = VoicePackCatalog.forEngine(VITS).first { !it.released }.id
 
         /**
          * The cards onboarding shows, in catalog order. The native German
@@ -428,3 +492,22 @@ private class RecordingInstaller(
     }
 }
 
+/**
+ * [EngineInstaller] reporting a fixed on-disk state: [engines] verify as
+ * installed, and so do [packs] of a pack-based engine. Both overrides resolve
+ * synchronously so the alias step's disk probe needs no real files.
+ */
+private class DiskInstaller(
+    private val engines: Set<String>,
+    private val packs: Set<String>,
+) : EngineInstaller(
+    filesDir = { java.io.File("/tmp/onboarding-test-unused") },
+    engineHandle = { /* no-op release */ },
+    httpFetcher = { _ -> throw java.io.IOException("not used") },
+) {
+    override suspend fun verify(engineName: String): InstallState =
+        if (engineName in engines) InstallState.Installed else InstallState.NotInstalled
+
+    override suspend fun verifyPack(packId: String): InstallState =
+        if (packId in packs) InstallState.Installed else InstallState.NotInstalled
+}

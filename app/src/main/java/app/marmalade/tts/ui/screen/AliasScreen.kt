@@ -84,7 +84,6 @@ import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VoicePath
 import app.marmalade.tts.data.db.VoiceMeta
@@ -273,7 +272,7 @@ fun AliasScreen(
             onEffectChange = viewModel::onEditorEffectChange,
             onPhonemizationLanguageChange = viewModel::onEditorPhonemizationLanguageChange,
             onDelete = {
-                pendingDelete = aliases.firstOrNull { it.name == editorState.originalName }
+                pendingDelete = aliases.firstOrNull { it.id == editorState.editingId }
             },
             onSave = { viewModel.save() },
             onDismiss = viewModel::dismissEditor,
@@ -781,7 +780,9 @@ private fun AliasEditorSheet(
             //
             // Cloud voices have no control at all: the provider does its
             // own text processing server-side, so there is no language of
-            // ours to state.
+            // ours to state. VITS Marmalade likewise: each voice pack fixes
+            // its own language (Jenny is en-GB, the other packs aren't
+            // English at all), so an "English only" note would be wrong.
             if (state.engine in PHONEMIZATION_ENGINES) {
                 val kokoro = state.engine == KokoroDirectVoiceCatalog.ENGINE
                 val kitten = state.engine == KittenDirectVoiceCatalog.ENGINE
@@ -1074,16 +1075,15 @@ private fun PhonemizationLanguageDropdown(
 }
 
 /**
- * Engines that get a phonemization-language field at all. Kokoro is the
- * only one that can act on it; the rest show it disabled at English.
- * Cloud is absent on purpose — see the call site.
+ * Engines that get a phonemization-language field at all. Kokoro and
+ * Kitten can act on it; Pocket shows it disabled at English. Cloud and
+ * VITS Marmalade are absent on purpose — see the call site.
  */
 private val PHONEMIZATION_ENGINES: Set<String> = setOf(
     KokoroDirectVoiceCatalog.ENGINE,
     KittenDirectVoiceCatalog.ENGINE,
     PocketVoiceCatalog.ENGINE,
     PocketDevVoiceCatalog.ENGINE,
-    VitsVoiceCatalog.ENGINE,
 )
 
 /**
@@ -1161,6 +1161,7 @@ private fun errorTextFor(error: SaveError?): Int? = when (error) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FallbackPicker(
+    /** [VoiceAlias.id] of the chosen fallback, or null for none. */
     selected: String?,
     candidates: List<VoiceAlias>,
     onPick: (String?) -> Unit,
@@ -1179,8 +1180,13 @@ private fun FallbackPicker(
             expanded = expanded,
             onExpandedChange = { expanded = it },
         ) {
+            // [selected] is an alias id; show that alias's name. An id that
+            // matches no candidate (its alias was deleted, or has since become
+            // a cloud alias) reads as "Don't fall back" — the router can't
+            // fall back to it either.
             OutlinedTextField(
-                value = selected ?: stringResource(R.string.alias_fallback_none),
+                value = candidates.firstOrNull { it.id == selected }?.name
+                    ?: stringResource(R.string.alias_fallback_none),
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(stringResource(R.string.alias_offline_fallback)) },
@@ -1193,7 +1199,7 @@ private fun FallbackPicker(
                 for (alias in candidates) {
                     DropdownMenuItem(
                         text = { Text(alias.name) },
-                        onClick = { onPick(alias.name); expanded = false },
+                        onClick = { onPick(alias.id); expanded = false },
                     )
                 }
                 DropdownMenuItem(

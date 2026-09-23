@@ -23,6 +23,8 @@
     <!-- Rows -->
     <string name="voices_row_subtitle">%1$s · %2$s</string>
     <string name="voices_gender_unknown">—</string>
+    <string name="voices_gender_female">女性</string>
+    <string name="voices_gender_male">男性</string>
     <string name="voices_selected">選択中</string>
     <string name="voices_preview">%1$s を試聴</string>
     <string name="voices_previewing">%1$s を試聴中</string>

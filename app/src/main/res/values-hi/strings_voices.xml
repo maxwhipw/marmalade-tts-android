@@ -23,6 +23,8 @@
     <!-- Rows -->
     <string name="voices_row_subtitle">%1$s · %2$s</string>
     <string name="voices_gender_unknown">—</string>
+    <string name="voices_gender_female">महिला</string>
+    <string name="voices_gender_male">पुरुष</string>
     <string name="voices_selected">चुनी गई</string>
     <string name="voices_preview">%1$s का प्रीव्यू सुनें</string>
     <string name="voices_previewing">%1$s का प्रीव्यू चल रहा है</string>
