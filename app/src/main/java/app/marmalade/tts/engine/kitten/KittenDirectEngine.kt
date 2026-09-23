@@ -172,10 +172,9 @@ open class KittenDirectEngine @Inject constructor(
     /**
      * Soft cap for per-chunk char count. Under the F rules chunks are
      * clause fragments (never word-split), so this cap only matters for
-     * a single over-long fragment, which is emitted whole; the
-     * [MAX_PHONEMES_PER_CHUNK] guard in [runInference] catches the
-     * pathological case where the IPA would blow past Kitten's BERT
-     * 512-position limit.
+     * a single over-long fragment, which is emitted whole; [runInference]
+     * re-splits one whose IPA would blow past Kitten's BERT 512-position
+     * limit ([MAX_PHONEMES_PER_CHUNK]).
      *
      * The per-sentence style row (text-length lookup on the PRE-SPLIT
      * sentence, [TextChunker.ClauseChunk.rowText]) is deliberate: short
@@ -260,9 +259,11 @@ open class KittenDirectEngine @Inject constructor(
         // concurrent caller skip the lock and reach runInference with
         // acousticSession still null ("acoustic session missing").
         val ort = OrtEnvironment.getEnvironment()
-        val opts = buildSessionOptions(intraOpThreads)
-
-        acousticSession = createSession(ort, opts, acousticModelFile)
+        // ORT copies the options into the native session; close them after
+        // so keepalive evict/reload cycles don't leak native memory.
+        acousticSession = buildSessionOptions(intraOpThreads).use {
+            createSession(ort, it, acousticModelFile)
+        }
 
         // libespeak-ng.so is compiled from source into the APK, and the data
         // is the app-level shared full-language tree — bundle-shipped espeak
@@ -369,10 +370,9 @@ open class KittenDirectEngine @Inject constructor(
      * inputs — without it, a paragraph would block on the full synth
      * before any audio plays.
      *
-     * The chunker's `maxChars` cap is conservative relative to the
-     * 512-position BERT limit; a per-chunk runtime guard inside
-     * [runInference] log-warns and truncates if a single sentence
-     * still phonemizes past [MAX_PHONEMES_PER_CHUNK].
+     * Chunks are never word-split, so a run-on sentence can phonemize
+     * past the 512-position BERT limit; [runInference] then re-splits it
+     * into pieces under [MAX_PHONEMES_PER_CHUNK] rather than truncating.
      */
     override fun synthesizeStream(
         text: String,
@@ -474,25 +474,48 @@ open class KittenDirectEngine @Inject constructor(
         rowText: String = text,
         espeakVoice: String = KITTEN_DEFAULT_ESPEAK_VOICE,
     ): ShortArray {
-        val ort = env ?: error("engine not loaded")
-        val session = acousticSession ?: error("acoustic session missing")
         val phon = phonemizer ?: error("phonemizer missing")
-
         val rawIpa = phon.phonemize(text, espeakVoice)
-        if (rawIpa.isEmpty()) return ShortArray(0)
+        if (rawIpa.length <= MAX_PHONEMES_PER_CHUNK) {
+            return inferIpa(text, rawIpa, voiceName, speed, rowText)
+        }
 
         // BERT position-embedding cap: any phoneme tail past this would
-        // trip an ORT_INVALID_ARGUMENT on `/bert/Expand`. The outer
-        // chunker already targets char-count, but Kitten's IPA expansion
-        // varies per phrase (stress marks, length marks), so we still
-        // need this guard on the phoneme side. Truncating drops the
-        // sentence's tail rather than the engine crashing on the chunk.
-        val ipa = if (rawIpa.length > MAX_PHONEMES_PER_CHUNK) {
-            Log.w(TAG, "phoneme count ${rawIpa.length} exceeds $MAX_PHONEMES_PER_CHUNK — truncating tail")
-            rawIpa.substring(0, MAX_PHONEMES_PER_CHUNK)
-        } else {
-            rawIpa
+        // trip an ORT_INVALID_ARGUMENT on `/bert/Expand`. The chunker never
+        // word-splits a sentence, and Kitten's IPA expansion varies per
+        // phrase, so a run-on can still overflow. Truncating used to drop
+        // the tail silently; re-split at clause marks → whitespace → hard
+        // cut instead and render the pieces back to back. Every piece keeps
+        // the sentence's [rowText] register.
+        val pieces = TextChunker.splitToFit(text) {
+            phon.phonemize(it, espeakVoice).length <= MAX_PHONEMES_PER_CHUNK
         }
+        Log.i(TAG, "phoneme count ${rawIpa.length} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
+        val parts = pieces.map { piece ->
+            // splitToFit leaves a piece oversize only if it's one character.
+            val ipa = phon.phonemize(piece, espeakVoice).take(MAX_PHONEMES_PER_CHUNK)
+            inferIpa(piece, ipa, voiceName, speed, rowText)
+        }
+        val out = ShortArray(parts.sumOf { it.size })
+        var pos = 0
+        for (p in parts) {
+            p.copyInto(out, pos)
+            pos += p.size
+        }
+        return out
+    }
+
+    /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] IPA characters of [text]. */
+    private fun inferIpa(
+        text: String,
+        ipa: String,
+        voiceName: String,
+        speed: Float,
+        rowText: String,
+    ): ShortArray {
+        if (ipa.isEmpty()) return ShortArray(0)
+        val ort = env ?: error("engine not loaded")
+        val session = acousticSession ?: error("acoustic session missing")
 
         val phonemeIds = encodePhonemes(ipa)
         val inputIds = wrapForKitten(phonemeIds)

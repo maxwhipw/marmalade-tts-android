@@ -13,14 +13,12 @@ package app.marmalade.tts.audio
 //   3. Sentence splits using lookbehind on `[.!?]` followed by
 //      whitespace (keeps punctuation attached to the sentence).
 //      Sentences greedily bin-packed up to `maxChars`.
-//   4. Last-resort word splits if a single sentence exceeds `maxChars`.
+//   4. Last-resort word splits if a single sentence exceeds `maxChars`
+//      (unless the caller forbids them — see `allowWordSplits`).
 //
-// Per-engine `maxChars` comes from `TtsEngine.maxInputChars`. Sherpa-
-// onnx-backed engines use a loose cap (~4000) — the underlying
-// `OfflineTts.generateWithCallback` already splits internally per
-// sentence and streams audio per sentence, so our chunker is mainly a
-// safety net for pathological inputs. Pocket uses ~120 (its bundle
-// caps at 50 tokens, ≈ 150 chars).
+// Per-engine `maxChars` comes from `TtsEngine.maxInputChars`; each
+// engine chunks its own input. `splitToFit` is the separate, model-aware
+// fallback an engine applies to a chunk that overflows its token cap.
 //
 // Designed from first principles + paraphrased from our MIT-licensed
 // CLI codebase. No GPL source consulted.
@@ -74,7 +72,8 @@ object TextChunker {
      * boundary. Gap sizing is the engine's job via [ClauseChunk.sentenceEnd].
      *
      * A sentence longer than [maxChars] is emitted whole (never
-     * word-split); the engine's phoneme-count guard handles pathology.
+     * word-split); an engine whose phoneme cap it overflows re-splits it
+     * via [splitToFit].
      */
     fun clauseChunks(text: String): List<ClauseChunk> {
         val out = ArrayList<ClauseChunk>()
@@ -173,6 +172,11 @@ object TextChunker {
     private val SENTENCE_TERMINAL = Regex("(?<=[.!?])\\s+|(?<=[。！？])|\\n+")
     private val PARAGRAPH_BREAK = Regex("\\n\\s*\\n")
     private val WHITESPACE = Regex("\\s+")
+    /**
+     * [splitToFit]'s first cut level. ASCII marks need trailing whitespace
+     * so "1,000" and "10:30" never cut; CJK marks (、 ， ； ：) take none.
+     */
+    private val SOFT_CLAUSE_CUT = Regex("[,;:]\\s+|[、，；：]\\s*")
 
     /**
      * Split [text] into chunks ≤ [maxChars] each. Returns an empty list
@@ -198,9 +202,9 @@ object TextChunker {
      *   the chunk's text length) matches upstream's register rule.
      * @param allowWordSplits When false, a single sentence that exceeds
      *   [maxChars] is emitted as one over-long chunk rather than
-     *   word-wrapped. The engine still has to cope (Kitten's
-     *   MAX_PHONEMES_PER_CHUNK truncates worst case), but the resulting
-     *   audio never has mid-word stutter.
+     *   word-wrapped. The engine still has to cope — Kokoro re-splits a
+     *   chunk that overflows its token cap via [splitToFit] — but a
+     *   sentence that fits the model is never broken up.
      * @param minChars When > 0 and [packSentences]=false, merges runs
      *   of adjacent sentence-chunks while the accumulator length is
      *   below this threshold. Once the accumulator reaches [minChars],
@@ -356,6 +360,103 @@ object TextChunker {
             }
         }
         if (cur.isNotEmpty()) out.add(cur)
+        return out
+    }
+
+    /**
+     * Split [text] into contiguous pieces that each satisfy [fits] — the
+     * engines' fallback for a chunk that would overflow the model's
+     * token cap (Kokoro/Kitten: 500 positions). Chunking itself stays
+     * char-based and sentence-only; only a chunk that actually overflows
+     * comes here, so normal sentences render exactly as chunked.
+     *
+     * Cascade, each level tried only on a piece the previous one left
+     * oversize: clause punctuation (`,` `;` `:` + whitespace, or CJK
+     * `、，；：` with none needed) → whitespace → a hard cut between
+     * characters (CJK prose with neither). Within a level, adjacent
+     * pieces are greedily re-packed while they still fit, so an overflow
+     * costs as few extra boundaries as possible. Nothing is dropped:
+     * the pieces concatenate back to [text] up to whitespace at the cuts.
+     * A piece fails [fits] only if it is a single character.
+     *
+     * [fits] is typically "phonemizes to ≤ cap tokens", so it's called
+     * O(pieces) times per level, plus O(log n) per hard cut — fine for
+     * the rare overflow, which is the only time this runs.
+     */
+    fun splitToFit(text: String, fits: (String) -> Boolean): List<String> =
+        splitToFit(text.trim(), fits, level = 0)
+
+    private fun splitToFit(text: String, fits: (String) -> Boolean, level: Int): List<String> {
+        if (text.isEmpty()) return emptyList()
+        if (fits(text)) return listOf(text)
+        val pieces = when (level) {
+            0 -> cutAfter(text, SOFT_CLAUSE_CUT)
+            1 -> cutAfter(text, WHITESPACE)
+            else -> return hardSplit(text, fits)
+        }
+        val out = ArrayList<String>()
+        var cur = ""
+        for (p in pieces) {
+            val candidate = cur + p
+            if (fits(candidate.trim())) {
+                cur = candidate
+                continue
+            }
+            if (cur.isNotBlank()) {
+                out.add(cur.trim())
+                if (fits(p.trim())) {
+                    cur = p
+                    continue
+                }
+            }
+            out.addAll(splitToFit(p.trim(), fits, level + 1))
+            cur = ""
+        }
+        if (cur.isNotBlank()) out.add(cur.trim())
+        return out
+    }
+
+    /** Contiguous pieces of [text], each ending just after a [boundary] match. */
+    private fun cutAfter(text: String, boundary: Regex): List<String> {
+        val out = ArrayList<String>()
+        var start = 0
+        for (m in boundary.findAll(text)) {
+            val cut = m.range.last + 1
+            if (cut < text.length) {
+                out.add(text.substring(start, cut))
+                start = cut
+            }
+        }
+        out.add(text.substring(start))
+        return out
+    }
+
+    /** Longest-fitting-prefix cuts (binary search), never inside a surrogate pair. */
+    private fun hardSplit(text: String, fits: (String) -> Boolean): List<String> {
+        val out = ArrayList<String>()
+        var rest = text
+        while (rest.isNotEmpty() && !fits(rest)) {
+            var lo = 1
+            var hi = rest.length - 1
+            var best = 0
+            while (lo <= hi) {
+                val mid = (lo + hi) ushr 1
+                if (fits(rest.substring(0, mid).trim())) {
+                    best = mid
+                    lo = mid + 1
+                } else {
+                    hi = mid - 1
+                }
+            }
+            var cut = if (best > 0) best else 1
+            if (Character.isHighSurrogate(rest[cut - 1]) && cut < rest.length) {
+                if (cut > 1) cut-- else cut++
+            }
+            val head = rest.substring(0, cut).trim()
+            if (head.isNotEmpty()) out.add(head)
+            rest = rest.substring(cut).trim()
+        }
+        if (rest.isNotEmpty()) out.add(rest)
         return out
     }
 

@@ -79,10 +79,12 @@ private class FakeHttp(private val response: () -> InputStream) : CloudSpeechHtt
     var lastUrl: String? = null
     var lastKey: String? = null
     var lastJson: String? = null
+    val allJson = mutableListOf<String>()
     override fun post(url: String, apiKey: String, json: String): InputStream {
         lastUrl = url
         lastKey = apiKey
         lastJson = json
+        allJson.add(json)
         return response()
     }
 }
@@ -93,6 +95,8 @@ private fun wavBytes(
     sampleRate: Int = 24000,
     channels: Int = 1,
     extraChunkBeforeData: Boolean = false,
+    bitsPerSample: Int = 16,
+    oddChunkBeforeData: Boolean = false,
 ): ByteArray {
     val out = ByteArrayOutputStream()
     fun le16(v: Int) { out.write(v and 0xFF); out.write((v ushr 8) and 0xFF) }
@@ -101,9 +105,13 @@ private fun wavBytes(
     out.write("WAVE".toByteArray())
     out.write("fmt ".toByteArray()); le32(16)
     le16(1); le16(channels); le32(sampleRate)
-    le32(sampleRate * channels * 2); le16(channels * 2); le16(16)
+    le32(sampleRate * channels * 2); le16(channels * 2); le16(bitsPerSample)
     if (extraChunkBeforeData) {
         out.write("LIST".toByteArray()); le32(4); out.write("INFO".toByteArray())
+    }
+    if (oddChunkBeforeData) {
+        // 3-byte chunk + the RIFF pad byte its size field doesn't count.
+        out.write("junk".toByteArray()); le32(3); out.write(byteArrayOf(1, 2, 3, 0))
     }
     out.write("data".toByteArray()); le32(samples.size * 2)
     for (s in samples) le16(s.toInt() and 0xFFFF)
@@ -224,6 +232,67 @@ class CloudApiEngineTest {
         }
         val audio = engine(http = http).synthesize("x", voiceId, 1.0f)
         assertTrue(audio.pcm.contentEquals(samples))
+    }
+
+    @Test
+    fun `odd-sized chunks skip their riff pad byte`() = runTest {
+        val samples = ShortArray(64) { (it * 5).toShort() }
+        val http = FakeHttp {
+            ByteArrayInputStream(wavBytes(samples, oddChunkBeforeData = true))
+        }
+        val audio = engine(http = http).synthesize("x", voiceId, 1.0f)
+        assertTrue(audio.pcm.contentEquals(samples))
+    }
+
+    @Test
+    fun `non-16-bit pcm fails loudly`() = runTest {
+        // 8-bit bytes read as PCM16 would play as loud noise at half length.
+        val http = FakeHttp { ByteArrayInputStream(wavBytes(ShortArray(8), bitsPerSample = 8)) }
+        try {
+            engine(http = http).synthesize("x", voiceId, 1.0f)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            assertTrue(e.message!!.contains("8-bit"))
+        }
+    }
+
+    @Test
+    fun `long text is split into capped requests whose audio streams in order`() = runTest {
+        // >4096 chars used to go out as ONE request, which providers reject
+        // outright — the whole utterance failed.
+        val sentence = "This sentence is about sixty characters long, give or take. "
+        val text = sentence.repeat(80).trim()
+        var n = 0
+        val http = FakeHttp {
+            n++
+            ByteArrayInputStream(wavBytes(ShortArray(4) { n.toShort() }))
+        }
+        val eng = engine(http = http)
+        val chunks = eng.synthesizeStream(text, voiceId, 1.0f).toList()
+
+        assertTrue("expected several requests, got ${http.allJson.size}", http.allJson.size > 4)
+        val inputs = http.allJson.map {
+            it.substringAfter("\"input\":\"").substringBefore("\",\"voice\"")
+        }
+        assertTrue(inputs.all { it.length <= eng.maxInputChars })
+        assertEquals(text, inputs.joinToString(" "))
+        // One emission per request, in request order.
+        assertEquals((1..http.allJson.size).toList(), chunks.map { it.pcm[0].toInt() })
+    }
+
+    @Test
+    fun `short text is still a single request`() {
+        assertEquals(listOf("Hello there. How are you?"), engine().requestChunks("Hello there. How are you?"))
+    }
+
+    @Test
+    fun `an unspaced oversize sentence is hard-split without dropping text`() {
+        val eng = engine()
+        val text = "中".repeat(2500) + "。"
+        val chunks = eng.requestChunks(text)
+        assertTrue(chunks.size >= 3)
+        assertTrue(chunks.all { it.length <= eng.maxInputChars })
+        assertEquals(text, chunks.joinToString(""))
     }
 
     @Test

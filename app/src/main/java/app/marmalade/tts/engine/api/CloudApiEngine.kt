@@ -1,5 +1,6 @@
 package app.marmalade.tts.engine.api
 
+import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.cloud.CloudProviderDirectory
@@ -16,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -76,9 +78,10 @@ class CloudApiEngine @Inject constructor(
     override val sampleRate: Int = CloudApiVoiceCatalog.SAMPLE_RATE
 
     /**
-     * Sentence-scale requests: the provider caps input at 4096 chars, but
-     * smaller chunks keep each HTTP request short and let the existing
-     * chunker/streaming pipeline interleave network and playback.
+     * Per-request ceiling. Providers cap input at 4096 chars and reject a
+     * longer request outright, so [synthesizeStream] splits the utterance
+     * into sentence-packed requests of at most this size; smaller requests
+     * also keep each round trip short.
      */
     override val maxInputChars: Int = 1000
 
@@ -145,70 +148,102 @@ class CloudApiEngine @Inject constructor(
         val expectedRate = provider.models.firstOrNull { it.id == ref.modelId }?.sampleRate
             ?: sampleRate
 
-        val body = requestJson(text, ref.modelId, ref.voice, speed)
-        http.post("$baseUrl/audio/speech", key, body).use { rawStream ->
-            // Sniff the body, never the content-type header. Three Venice
-            // models send `audio/mpeg` with a RIFF body and others send
-            // `audio/wav` with MP3 — the header is wrong in both directions,
-            // so the first four bytes are the only trustworthy signal.
-            val stream = java.io.BufferedInputStream(rawStream, SNIFF_BYTES * 2)
-            stream.mark(SNIFF_BYTES)
-            val magic = ByteArray(SNIFF_BYTES)
-            val read = stream.readNBytesCompat(magic)
-            stream.reset()
-
-            if (read >= SNIFF_BYTES && !isRiff(magic)) {
-                // Compressed payload (MP3). These models never stream, so
-                // the whole body is already waiting — buffer, decode, emit
-                // once. See CompressedAudioDecoder for why this is a seam.
-                val decoded = decoder.decode(stream.readBytes())
-                if (decoded.sampleRate != expectedRate) {
-                    throw IOException(
-                        "Cloud API decoded to unexpected rate: " +
-                            "${decoded.sampleRate} Hz " +
-                            "(expected $expectedRate Hz for ${ref.modelId})",
-                    )
-                }
-                emit(SynthAudio(decoded.pcm, decoded.sampleRate))
-                return@use
-            }
-
-            val header = WavStreamHeader.parse(stream)
-            // A mismatch means the descriptor's declared rate is wrong (the
-            // model changed, or someone guessed the field). Fail loudly: the
-            // committed rate can't be revised now, so degrading quietly would
-            // play the whole utterance at the wrong pitch.
-            if (header.sampleRate != expectedRate || header.channels != 1) {
-                throw IOException(
-                    "Cloud API returned unexpected format: " +
-                        "${header.sampleRate} Hz, ${header.channels} ch " +
-                        "(expected $expectedRate Hz mono for ${ref.modelId})",
-                )
-            }
-            val buf = ByteArray(CHUNK_BYTES)
-            var carry: Byte? = null
-            while (true) {
-                var filled = 0
-                if (carry != null) {
-                    buf[0] = carry
-                    filled = 1
-                    carry = null
-                }
-                while (filled < buf.size) {
-                    val n = stream.read(buf, filled, buf.size - filled)
-                    if (n < 0) break
-                    filled += n
-                }
-                if (filled == 0) break
-                if (filled % 2 != 0) {
-                    carry = buf[filled - 1]
-                    filled -= 1
-                }
-                if (filled > 0) emit(SynthAudio(pcm16ToShorts(buf, filled), header.sampleRate))
-                if (filled < buf.size) break // EOF reached mid-buffer
+        // One request per chunk, each streamed as it arrives, so a long
+        // read is never rejected whole. flowOn's buffer lets the next
+        // request start while the previous chunk's audio is still playing.
+        for (chunk in requestChunks(text)) {
+            val body = requestJson(chunk, ref.modelId, ref.voice, speed)
+            http.post("$baseUrl/audio/speech", key, body).use { rawStream ->
+                emitResponse(rawStream, expectedRate, ref.modelId)
             }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * [text] as provider requests: the whole text when it fits
+     * [maxInputChars] (the common case — one request, as before), else
+     * sentence-packed chunks. A single sentence over the limit splits at
+     * clause marks, then words, then a hard cut (unspaced CJK), so no
+     * request is ever over the cap and nothing is dropped.
+     */
+    internal fun requestChunks(text: String): List<String> =
+        TextChunker.chunk(
+            text = text,
+            maxChars = maxInputChars,
+            sentenceOnly = true,
+            allowWordSplits = false,
+        ).flatMap { chunk ->
+            if (chunk.length <= maxInputChars) listOf(chunk)
+            else TextChunker.splitToFit(chunk) { it.length <= maxInputChars }
+        }
+
+    /** Decode one `/audio/speech` response body and emit its PCM. */
+    private suspend fun FlowCollector<SynthAudio>.emitResponse(
+        rawStream: InputStream,
+        expectedRate: Int,
+        modelId: String,
+    ) {
+        // Sniff the body, never the content-type header. Three Venice
+        // models send `audio/mpeg` with a RIFF body and others send
+        // `audio/wav` with MP3 — the header is wrong in both directions,
+        // so the first four bytes are the only trustworthy signal.
+        val stream = java.io.BufferedInputStream(rawStream, SNIFF_BYTES * 2)
+        stream.mark(SNIFF_BYTES)
+        val magic = ByteArray(SNIFF_BYTES)
+        val read = stream.readNBytesCompat(magic)
+        stream.reset()
+
+        if (read >= SNIFF_BYTES && !isRiff(magic)) {
+            // Compressed payload (MP3). These models never stream, so
+            // the whole body is already waiting — buffer, decode, emit
+            // once. See CompressedAudioDecoder for why this is a seam.
+            val decoded = decoder.decode(stream.readBytes())
+            if (decoded.sampleRate != expectedRate) {
+                throw IOException(
+                    "Cloud API decoded to unexpected rate: " +
+                        "${decoded.sampleRate} Hz " +
+                        "(expected $expectedRate Hz for $modelId)",
+                )
+            }
+            emit(SynthAudio(decoded.pcm, decoded.sampleRate))
+            return
+        }
+
+        val header = WavStreamHeader.parse(stream)
+        // A mismatch means the descriptor's declared rate is wrong (the
+        // model changed, or someone guessed the field). Fail loudly: the
+        // committed rate can't be revised now, so degrading quietly would
+        // play the whole utterance at the wrong pitch.
+        if (header.sampleRate != expectedRate || header.channels != 1 || header.bitsPerSample != 16) {
+            throw IOException(
+                "Cloud API returned unexpected format: " +
+                    "${header.sampleRate} Hz, ${header.channels} ch, ${header.bitsPerSample}-bit " +
+                    "(expected $expectedRate Hz mono 16-bit for $modelId)",
+            )
+        }
+        val buf = ByteArray(CHUNK_BYTES)
+        var carry: Byte? = null
+        while (true) {
+            var filled = 0
+            if (carry != null) {
+                buf[0] = carry
+                filled = 1
+                carry = null
+            }
+            while (filled < buf.size) {
+                val n = stream.read(buf, filled, buf.size - filled)
+                if (n < 0) break
+                filled += n
+            }
+            if (filled == 0) break
+            if (filled % 2 != 0) {
+                carry = buf[filled - 1]
+                filled -= 1
+            }
+            if (filled > 0) emit(SynthAudio(pcm16ToShorts(buf, filled), header.sampleRate))
+            if (filled < buf.size) break // EOF reached mid-buffer
+        }
+    }
 
     /**
      * Hand-built JSON — org.json is a throwing stub in JVM unit tests
@@ -301,11 +336,19 @@ internal data class WavStreamHeader(
                     throw IOException("WAV stream ended before a data chunk", e)
                 }
                 val id = String(chunkHeader, 0, 4)
-                val size = leInt(chunkHeader, 4)
+                // Unsigned: a streamed placeholder size can have the top bit set.
+                val size = leInt(chunkHeader, 4).toLong() and 0xFFFF_FFFFL
+                // RIFF pads every odd-sized chunk with one byte that its
+                // size field doesn't count; the next header starts after it.
+                val pad = size and 1L
                 when (id) {
                     "fmt " -> {
-                        val body = ByteArray(size)
+                        if (size !in 16L..MAX_FMT_BYTES) {
+                            throw IOException("WAV fmt chunk has invalid size $size")
+                        }
+                        val body = ByteArray(size.toInt())
                         din.readFully(body)
+                        skipFully(din, pad, id)
                         val audioFormat = leShort(body, 0)
                         if (audioFormat != 1) {
                             throw IOException("WAV stream is not PCM (format $audioFormat)")
@@ -319,16 +362,21 @@ internal data class WavStreamHeader(
                     "data" -> {
                         return fmt ?: throw IOException("WAV data chunk before fmt chunk")
                     }
-                    else -> {
-                        // skipNBytes needs API 34 — loop skipBytes instead.
-                        var remaining = size
-                        while (remaining > 0) {
-                            val skipped = din.skipBytes(remaining)
-                            if (skipped <= 0) throw IOException("WAV stream truncated in chunk $id")
-                            remaining -= skipped
-                        }
-                    }
+                    else -> skipFully(din, size + pad, id)
                 }
+            }
+        }
+
+        /** Largest fmt chunk we accept (WAVE_FORMAT_EXTENSIBLE is 40). */
+        private const val MAX_FMT_BYTES = 64L
+
+        /** skipNBytes needs API 34 — loop skipBytes instead. */
+        private fun skipFully(din: DataInputStream, count: Long, chunkId: String) {
+            var remaining = count
+            while (remaining > 0) {
+                val skipped = din.skipBytes(minOf(remaining, Int.MAX_VALUE.toLong()).toInt())
+                if (skipped <= 0) throw IOException("WAV stream truncated in chunk $chunkId")
+                remaining -= skipped
             }
         }
 

@@ -208,11 +208,35 @@ class PreprocessorTest {
         assertEquals("twenty-third", only("ordinal", "23rd"))
     }
 
+    @Test
+    fun ordinal_trillionScaleSpellsInsteadOfThrowing() {
+        // ≥10^12 used to trip spellUnder1000's require through the ordinal
+        // rule (no catch there) and fail the whole utterance.
+        assertEquals(
+            "the one trillionth visitor",
+            only("ordinal", "the 1000000000000th visitor"),
+        )
+        assertEquals(
+            "two trillion three billion fourth",
+            only("ordinal", "2003000000004th"),
+        )
+    }
+
+    @Test
+    fun ordinal_beyondLongLeftUnchanged() {
+        assertEquals("99999999999999999999th", only("ordinal", "99999999999999999999th"))
+    }
+
     // ── number (with year protection) ───────────────────────────────
 
     @Test
     fun number_small_integer() {
         assertEquals("forty-two", only("number", "42"))
+    }
+
+    @Test
+    fun number_trillionScaleSpelledOut() {
+        assertEquals("five trillion one", only("number", "5000000000001"))
     }
 
     @Test

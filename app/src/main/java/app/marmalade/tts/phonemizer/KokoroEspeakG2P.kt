@@ -29,10 +29,9 @@ package app.marmalade.tts.phonemizer
 //    language mid-text (German "Update" → English) it emits a flag like
 //    "(^e^n)…(^d^e)" in the raw output; in tie mode the tie char lands
 //    inside the flag. misaki drops flags at the phonemizer backend
-//    (language_switch='remove-flags'); our raw JNI path must do the same
-//    or the flag's letters leak into the encoder as phonemes. espeak
-//    drops ordinary input parentheses itself, so any paren group in raw
-//    espeak output IS a flag. This was latent in the es/fr/it/pt path too.
+//    (language_switch='remove-flags'); EspeakPhonemizer.phonemize now does
+//    the same for every engine, so the flag's letters never leak into an
+//    encoder as phonemes.
 // -----------------------------------------------------------------------------
 
 internal object KokoroEspeakG2P {
@@ -57,18 +56,14 @@ internal object KokoroEspeakG2P {
     )
 
     /**
-     * espeak language-switch flags in raw output, e.g. `(^e^n)` / `(^d^e)`.
-     * Removed before tie mapping (the tie char lands inside the flag).
-     */
-    private val LANG_SWITCH_FLAG = Regex("""\([\^a-z0-9-]+\)""")
-
-    /**
      * Rewrite tied espeak IPA into Kokoro's trained token alphabet.
-     * Language-switch flags are stripped first, then any tie not covered
+     * Language-switch flags are stripped first (a no-op on
+     * [EspeakPhonemizer.phonemize] output, which already drops them; kept
+     * so this stays total over raw espeak IPA), then any tie not covered
      * by the map joins its characters (`^` deleted), matching misaki.
      */
     fun postprocess(tiedIpa: String): String {
-        var ps = LANG_SWITCH_FLAG.replace(tiedIpa, "")
+        var ps = EspeakPhonemizer.stripLanguageFlags(tiedIpa)
         for ((tied, token) in TIED_TO_TOKEN) ps = ps.replace(tied, token)
         return ps.replace("^", "").replace("-", "")
     }

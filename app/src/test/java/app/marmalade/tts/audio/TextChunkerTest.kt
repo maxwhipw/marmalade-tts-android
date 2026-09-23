@@ -219,4 +219,72 @@ class TextChunkerTest {
             chunks,
         )
     }
+
+    // -- splitToFit (engine token-cap fallback) --------------------------------
+
+    /** Stand-in for "phonemizes to ≤ cap tokens": a plain char budget. */
+    private fun fitsIn(n: Int): (String) -> Boolean = { it.length <= n }
+
+    @Test
+    fun splitToFitReturnsTextThatFitsUntouched() {
+        assertEquals(listOf("Short enough."), TextChunker.splitToFit("  Short enough. ", fitsIn(50)))
+    }
+
+    @Test
+    fun splitToFitPrefersCommasAndRepacksClauses() {
+        val text = "one two three, four five six, seven eight nine, ten eleven twelve."
+        val pieces = TextChunker.splitToFit(text, fitsIn(32))
+        // Clauses re-pack while they fit; every cut lands after a comma.
+        assertEquals(
+            listOf("one two three, four five six,", "seven eight nine,", "ten eleven twelve."),
+            pieces,
+        )
+    }
+
+    @Test
+    fun splitToFitDoesNotCutDigitCommasOrClockColons() {
+        val text = "It cost 1,000 dollars at 10:30 and nobody minded at all"
+        val pieces = TextChunker.splitToFit(text, fitsIn(30))
+        assertTrue(pieces.none { it.endsWith("1,") || it.endsWith("10:") })
+        assertEquals(text, pieces.joinToString(" "))
+    }
+
+    @Test
+    fun splitToFitCutsChineseAtFullwidthCommaWithoutWhitespace() {
+        val text = "今天天气很好，我们去公园散步，然后回家吃饭。"
+        val pieces = TextChunker.splitToFit(text, fitsIn(8))
+        assertEquals(listOf("今天天气很好，", "我们去公园散步，", "然后回家吃饭。"), pieces)
+    }
+
+    @Test
+    fun splitToFitCutsJapaneseAtIdeographicComma() {
+        val text = "雨が降っていたので、傘を持って出かけたが、途中で止んだ。"
+        val pieces = TextChunker.splitToFit(text, fitsIn(12))
+        assertEquals(listOf("雨が降っていたので、", "傘を持って出かけたが、", "途中で止んだ。"), pieces)
+    }
+
+    @Test
+    fun splitToFitHardSplitsUnpunctuatedCjkWithoutDroppingText() {
+        val text = "中文没有空格也没有标点的一段很长的句子需要硬切分才能放进模型"
+        val pieces = TextChunker.splitToFit(text, fitsIn(10))
+        assertTrue(pieces.all { it.length <= 10 })
+        assertEquals(text, pieces.joinToString(""))
+    }
+
+    @Test
+    fun splitToFitFallsBackToWordsForAnUnpunctuatedRunOn() {
+        val text = List(40) { "word$it" }.joinToString(" ")
+        val pieces = TextChunker.splitToFit(text, fitsIn(50))
+        assertTrue(pieces.size > 1)
+        assertTrue(pieces.all { it.length <= 50 })
+        assertEquals(text, pieces.joinToString(" "))
+    }
+
+    @Test
+    fun splitToFitNeverSplitsASurrogatePair() {
+        val text = "😀".repeat(9)
+        val pieces = TextChunker.splitToFit(text, fitsIn(5))
+        assertTrue(pieces.none { Character.isHighSurrogate(it.last()) || Character.isLowSurrogate(it.first()) })
+        assertEquals(text, pieces.joinToString(""))
+    }
 }

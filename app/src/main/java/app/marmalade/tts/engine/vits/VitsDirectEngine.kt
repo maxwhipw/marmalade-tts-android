@@ -353,11 +353,11 @@ open class VitsDirectEngine @Inject constructor(
     private fun loadPack(packId: String, packDir: File, intraOpThreads: Int): LoadedPack {
         val ort = OrtEnvironment.getEnvironment()
         val config = VitsPackConfig.load(File(packDir, CONFIG_FILE))
-        val session = createSession(
-            ort,
-            buildSessionOptions(intraOpThreads),
-            File(packDir, MODEL_FILE),
-        )
+        // ORT copies the options into the native session; close them after
+        // so pack evict/reload cycles don't leak native memory.
+        val session = buildSessionOptions(intraOpThreads).use {
+            createSession(ort, it, File(packDir, MODEL_FILE))
+        }
         // A grapheme pack never phonemizes, so loading it must not drag in
         // espeak (which unpacks the app-level shared data tree on first use).
         // A later espeak pack load still opens it — this is the same

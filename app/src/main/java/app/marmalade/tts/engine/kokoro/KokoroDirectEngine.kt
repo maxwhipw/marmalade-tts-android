@@ -148,8 +148,8 @@ open class KokoroDirectEngine @Inject constructor(
      * the chunker splits at every `.!?;:` + newline, then merges runs
      * of tiny adjacent sentences up to [MIN_CHARS_PER_CHUNK]. maxChars
      * only kicks in for pathological single-sentence inputs that
-     * exceed both thresholds, in which case we emit oversize and let
-     * the per-chunk phoneme cap inside [runInference] truncate.
+     * exceed both thresholds, in which case we emit oversize and
+     * [runInference] re-splits whatever overflows the token cap.
      */
     override val maxInputChars: Int = 255
 
@@ -313,9 +313,11 @@ open class KokoroDirectEngine @Inject constructor(
         // [env] field at the END (see [KittenDirectEngine.doLoad] for
         // the race rationale).
         val ort = OrtEnvironment.getEnvironment()
-        val opts = buildSessionOptions(intraOpThreads)
-
-        acousticSession = createSession(ort, opts, acousticModelFile)
+        // ORT copies the options into the native session; close them after
+        // so keepalive evict/reload cycles don't leak native memory.
+        acousticSession = buildSessionOptions(intraOpThreads).use {
+            createSession(ort, it, acousticModelFile)
+        }
         voicesFloatView = mmapVoicesAsFloatBuffer(voicesFile)
         Log.i(TAG, "mmap'd voices.bin (${voicesFloatView?.limit() ?: 0} floats)")
 
@@ -534,22 +536,38 @@ open class KokoroDirectEngine @Inject constructor(
     }.flowOn(Dispatchers.Default)
 
     private fun runInference(text: String, voiceName: String, speed: Float, lang: String): ShortArray {
+        val rawIds = encodeTextToTokens(text, lang)
+        if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return inferTokens(text, rawIds, voiceName, speed)
+
+        // Over the style table's position cap (the bound is on tokens, not
+        // IPA length — the encoder interleaves lexicon tokens with espeak
+        // phonemes). Truncating here used to drop the chunk's tail silently:
+        // English run-ons, comma-joined Chinese (≈5 tokens per Han char,
+        // split only at 。！？), 、-joined Japanese. Re-split at clause marks →
+        // whitespace → hard cut instead, and render the pieces back to back.
+        val pieces = TextChunker.splitToFit(text) {
+            encodeTextToTokens(it, lang).size <= MAX_PHONEMES_PER_CHUNK
+        }
+        Log.i(TAG, "token count ${rawIds.size} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
+        val parts = pieces.map { piece ->
+            val ids = encodeTextToTokens(piece, lang)
+            // splitToFit leaves a piece oversize only if it's one character.
+            inferTokens(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)), voiceName, speed)
+        }
+        val out = ShortArray(parts.sumOf { it.size })
+        var pos = 0
+        for (p in parts) {
+            p.copyInto(out, pos)
+            pos += p.size
+        }
+        return out
+    }
+
+    /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] tokens of [text]. */
+    private fun inferTokens(text: String, phonemeIds: IntArray, voiceName: String, speed: Float): ShortArray {
+        if (phonemeIds.isEmpty()) return ShortArray(0)
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
-
-        val rawIds = encodeTextToTokens(text, lang)
-        if (rawIds.isEmpty()) return ShortArray(0)
-
-        // Cap token count so the wrapped length stays under MAX_TOKEN_LEN.
-        // Bound is on tokens directly now (the encoder may interleave lexicon
-        // tokens with espeak phonemes, so an IPA-string length cap no longer
-        // maps cleanly).
-        val phonemeIds = if (rawIds.size > MAX_PHONEMES_PER_CHUNK) {
-            Log.w(TAG, "token count ${rawIds.size} exceeds $MAX_PHONEMES_PER_CHUNK — truncating tail")
-            rawIds.copyOf(MAX_PHONEMES_PER_CHUNK)
-        } else {
-            rawIds
-        }
         val inputIds = wrapForKokoro(phonemeIds)
 
         val sid = speakerIdFor(voiceName)

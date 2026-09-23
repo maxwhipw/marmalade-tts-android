@@ -121,16 +121,23 @@ class EspeakPhonemizer(
      * interleaved chunks and phonemized them with each other's language
      * rules. The voice switch is a cheap no-op when [voice] already
      * matches ([activeVoice] cache); a genuine switch costs ~50 ms.
+     *
+     * espeak's language-switch flags are removed here, for every caller:
+     * a French sentence with an English loanword comes back as
+     * `(en)ˈʌpdeɪt(fr)`, and no acoustic model has a phoneme for the
+     * flag's letters — Kitten encoded them as real vocab.
      */
     fun phonemize(text: String, voice: String, tie: Boolean = false): String {
         if (!opened.get()) {
             Log.w(TAG, "phonemize called on a closed phonemizer")
             return ""
         }
-        val raw = synchronized(nativeLock) {
-            applyVoiceLocked(voice)
-            nativePhonemize(text, tie) ?: ""
-        }
+        val raw = stripLanguageFlags(
+            synchronized(nativeLock) {
+                applyVoiceLocked(voice)
+                nativePhonemize(text, tie) ?: ""
+            },
+        )
         // espeak's English LTS gets some common informal words wrong
         // ("yeah" → /jɛh/); see EnPhonemeFixups. The replacement differs
         // per acoustic model, hence [fixupModel] on the constructor.
@@ -214,6 +221,18 @@ class EspeakPhonemizer(
          * in [init] — this string just gets dlopen a handle for dlsym.
          */
         const val APK_LIB_NAME: String = "libespeak-ng.so"
+
+        /**
+         * espeak language-switch flags in raw output: `(en)` / `(fr)`, or
+         * `(^e^n)` in tie mode (the tie char lands inside the flag). The JNI
+         * shim never re-injects parentheses and espeak drops input ones,
+         * so any paren group in the output IS a flag. misaki/piper remove
+         * them the same way (`language_switch='remove-flags'`).
+         */
+        private val LANG_SWITCH_FLAG = Regex("""\([\^a-z0-9-]+\)""")
+
+        /** Remove espeak language-switch flags; see [LANG_SWITCH_FLAG]. */
+        internal fun stripLanguageFlags(ipa: String): String = LANG_SWITCH_FLAG.replace(ipa, "")
 
         @Volatile private var libsLoaded: Boolean = false
 

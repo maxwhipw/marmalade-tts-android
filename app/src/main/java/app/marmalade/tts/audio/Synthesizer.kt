@@ -290,7 +290,7 @@ class Synthesizer @Inject constructor(
         // settings (e.g. ONNX thread count) that are only read at load time.
         cancel()
         listOf(
-            kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev,
+            kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev, vits,
         ).forEach { runCatching { it.release() } }
     }
 

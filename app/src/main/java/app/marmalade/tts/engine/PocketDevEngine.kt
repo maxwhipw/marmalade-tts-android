@@ -175,11 +175,14 @@ class PocketDevEngine @Inject constructor(
         }
 
         val files = bundle!!.onnxFiles
-        textCondSession = createSession(ort, opts, files.textConditioner)
-        mimiEncoderSession = createSession(ort, opts, files.mimiEncoder)
-        mimiDecoderSession = createSession(ort, opts, files.mimiDecoder)
-        flowLmMainSession = createSession(ort, opts, files.flowLmMain)
-        flowLmFlowSession = createSession(ort, opts, files.flowLmFlow)
+        // ORT copies the options into each native session; close them after.
+        opts.use {
+            textCondSession = createSession(ort, it, files.textConditioner)
+            mimiEncoderSession = createSession(ort, it, files.mimiEncoder)
+            mimiDecoderSession = createSession(ort, it, files.mimiDecoder)
+            flowLmMainSession = createSession(ort, it, files.flowLmMain)
+            flowLmFlowSession = createSession(ort, it, files.flowLmFlow)
+        }
     }
 
     private fun createSession(ort: OrtEnvironment, opts: OrtSession.SessionOptions, name: String): OrtSession {

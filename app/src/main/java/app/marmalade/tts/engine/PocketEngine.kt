@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
@@ -324,12 +325,21 @@ open class PocketEngine @Inject constructor(
             "text_cond=${files.textConditioner}, mimi_enc=${files.mimiEncoder}, " +
             "mimi_dec=${files.mimiDecoder}, flow_main=${files.flowLmMain}, " +
             "flow_flow=${files.flowLmFlow}")
-        textCondSession = createSession(ort, opts, files.textConditioner)
-        mimiEncoderSession = createSession(ort, opts, files.mimiEncoder)
-        mimiDecoderSession = createSession(ort, opts, files.mimiDecoder)
-        flowLmMainSession = createSession(ort, opts, files.flowLmMain)
-        introspectFlowMainOutputs(bundle!!, flowLmMainSession!!)
-        flowLmFlowSession = createSession(ort, flowFlowOpts, files.flowLmFlow)
+        // ORT copies the options into each native session at creation, so
+        // they're closed right after — otherwise every keepalive evict/reload
+        // leaked the native OrtSessionOptions.
+        try {
+            textCondSession = createSession(ort, opts, files.textConditioner)
+            mimiEncoderSession = createSession(ort, opts, files.mimiEncoder)
+            mimiDecoderSession = createSession(ort, opts, files.mimiDecoder)
+            flowLmMainSession = createSession(ort, opts, files.flowLmMain)
+            introspectFlowMainOutputs(bundle!!, flowLmMainSession!!)
+            flowLmFlowSession = createSession(ort, flowFlowOpts, files.flowLmFlow)
+        } finally {
+            opts.close()
+            // Same instance when the thread counts match; a second close throws.
+            if (flowFlowOpts !== opts) flowFlowOpts.close()
+        }
 
         // P-Y — engine-level mimi state map. Allocated once, reset per
         // synth. (flow_lm state is built fresh per chunk in
@@ -624,7 +634,6 @@ open class PocketEngine @Inject constructor(
         // The services time-stretch instead — see [supportsNativeSpeed].
 
         val voiceName = voiceId.substringAfter(':', voiceId)
-        val voiceEmb = embeddingForVoice(voiceName)
 
         // Chunking parity with KokoroDirect: sentence-only splits, never
         // mid-word, pack tiny adjacent sentences via `minChars` so a 5-char
@@ -662,7 +671,17 @@ open class PocketEngine @Inject constructor(
             Log.d(TAG, "  chunk[$i] (${c.length} chars): \"${c.take(80)}${if (c.length > 80) "…" else ""}\"")
         }
 
-        synthLock.withLock {
+        // Everything that touches an ORT session runs under synthLock, and the
+        // pipelined mimi decode below is a child of this inner coroutineScope
+        // rather than of the channelFlow's producer scope. That way, when the
+        // AR loop throws (Stop's ensureActive, the release check), the scope
+        // cancels and then WAITS for an in-flight decode before withLock
+        // releases — otherwise release() could close mimi_decoder mid-run()
+        // (native SIGSEGV), or a quick restart's resetStatesToInit would race
+        // the orphaned decode's writes into the shared [mimiState].
+        synthLock.withLock { coroutineScope {
+            // Under the lock: a first-use voice encodes through mimi_encoder.
+            val voiceEmb = embeddingForVoice(voiceName)
             var prerollChunks = 1
             val buffered = ArrayList<SynthAudio>(MAX_PREROLL_CHUNKS)
             // Pipelining: when sub-realtime (K > 1), kick off chunk N's mimi
@@ -708,7 +727,7 @@ open class PocketEngine @Inject constructor(
                             Log.d(PERF_TAG, "pocket TTFA=${ttfa}ms (loadWait=${loadWaitMs}ms + producePath=${ttfa - loadWaitMs}ms) K=$prerollChunks")
                             firstEmitted = true
                         }
-                        send(b)
+                        this@channelFlow.send(b)
                         prevSendNs = System.nanoTime()
                     }
                     buffered.clear()
@@ -720,7 +739,7 @@ open class PocketEngine @Inject constructor(
                         Log.d(PERF_TAG, "pocket TTFA=${ttfa}ms (loadWait=${loadWaitMs}ms + producePath=${ttfa - loadWaitMs}ms) K=$prerollChunks")
                         firstEmitted = true
                     }
-                    send(audio)
+                    this@channelFlow.send(audio)
                     prevSendNs = System.nanoTime()
                 }
             }
@@ -820,8 +839,8 @@ open class PocketEngine @Inject constructor(
                 emitOrBuffer(prevAudio, prevIdx)
             }
             // Defensive — buffered should be empty after the loop's flush logic.
-            for (b in buffered) send(b)
-        }
+            for (b in buffered) this@channelFlow.send(b)
+        } }
     }.flowOn(Dispatchers.Default)
 
     /**
@@ -918,12 +937,12 @@ open class PocketEngine @Inject constructor(
      * Run the mimi decoder on a flat latent buffer and convert to PCM16.
      * `null` input → empty audio (caller filters empty chunks).
      *
-     * Safe to invoke from a background coroutine — the mimi_decoder
-     * `OrtSession` is thread-safe for concurrent `run()` calls, and
-     * `runMimiDecoder` initialises a fresh mimi state internally per
-     * call so there's no cross-chunk dependency. This enables the
-     * streaming-path pipeline that overlaps chunk N's mimi decode with
-     * chunk N+1's AR loop.
+     * Safe to invoke from a background coroutine while the AR loop runs
+     * on disjoint sessions — this is the streaming-path pipeline that
+     * overlaps chunk N's mimi decode with chunk N+1's AR loop. It mutates
+     * the engine-level [mimiState], though, so at most one decode may be
+     * in flight, and it must finish before [synthLock] is released (see
+     * the coroutineScope in [synthesizeStream]).
      */
     private fun decodeChunkAudio(
         bundle: PocketBundle,

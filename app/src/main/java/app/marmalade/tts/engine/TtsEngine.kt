@@ -30,18 +30,19 @@ interface TtsEngine {
     val sampleRate: Int
 
     /**
-     * Maximum input characters the engine handles in a single
-     * [synthesize] / [synthesizeStream] call without quality
-     * degradation or stalling. Callers ([app.marmalade.tts.audio.Synthesizer]
-     * + the TTS services) split longer inputs into ≤ this size before
-     * dispatching, then concatenate the audio.
+     * The engine's own per-chunk character ceiling. Callers hand
+     * [synthesize] / [synthesizeStream] the whole utterance; each engine
+     * splits it internally (via [app.marmalade.tts.audio.TextChunker])
+     * into chunks of about this size and streams audio per chunk. No
+     * caller reads this to pre-split.
      *
-     * Reasonable bounds:
-     *  - Kokoro Direct / Kitten Direct: around 400 chars. Larger inputs
-     *    stress buffer allocation and risk hitting the Android TTS
-     *    service's 10-second synth watchdog on long sentences.
-     *  - Pocket TTS: ~120 chars, mapping to its ~50-token-per-chunk
-     *    bundle constraint. Beyond this the model skips words.
+     * Current values:
+     *  - Kokoro Direct / Kitten Direct: 255 — sentence-only chunks; one
+     *    that still overflows the model's token cap is re-split in the
+     *    engine rather than truncated.
+     *  - VITS: 400.
+     *  - Cloud API: 1000 per HTTP request (providers cap at 4096).
+     *  - Pocket TTS: unlimited here — it chunks by tokenizer count itself.
      *
      * Default is unlimited — engines opt in by overriding this.
      */

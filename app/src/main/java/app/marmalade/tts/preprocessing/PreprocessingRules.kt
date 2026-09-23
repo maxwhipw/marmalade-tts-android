@@ -114,26 +114,26 @@ object PreprocessingRules {
         else "${ONES[h]} hundred ${spellUnder1000(rest)}"
     }
 
-    /** Spell out a non-negative integer as English words. */
+    // Short-scale names, largest first. Quintillion covers all of Long
+    // (max ≈ 9.2 quintillion), so every value the digit regexes can parse
+    // spells out — a bigger number used to trip spellUnder1000's require and
+    // fail the whole utterance through the ordinal rule, which has no catch.
+    private val SCALES = listOf(
+        1_000_000_000_000_000_000L to "quintillion",
+        1_000_000_000_000_000L to "quadrillion",
+        1_000_000_000_000L to "trillion",
+        1_000_000_000L to "billion",
+        1_000_000L to "million",
+        1_000L to "thousand",
+    )
+
+    /** Spell out an integer as English words. */
     private fun spellCardinal(n: Long): String {
         if (n < 0L) return "minus ${spellCardinal(-n)}"
         if (n < 1000L) return spellUnder1000(n)
-        if (n < 1_000_000L) {
-            val thousands = n / 1000L
-            val rest = n % 1000L
-            val prefix = "${spellUnder1000(thousands)} thousand"
-            return if (rest == 0L) prefix else "$prefix ${spellUnder1000(rest)}"
-        }
-        if (n < 1_000_000_000L) {
-            val millions = n / 1_000_000L
-            val rest = n % 1_000_000L
-            val prefix = "${spellUnder1000(millions)} million"
-            return if (rest == 0L) prefix else "$prefix ${spellCardinal(rest)}"
-        }
-        // Up to one less than a trillion — plenty for TTS use cases.
-        val billions = n / 1_000_000_000L
-        val rest = n % 1_000_000_000L
-        val prefix = "${spellUnder1000(billions)} billion"
+        val (size, name) = SCALES.first { n >= it.first }
+        val rest = n % size
+        val prefix = "${spellUnder1000(n / size)} $name"
         return if (rest == 0L) prefix else "$prefix ${spellCardinal(rest)}"
     }
 
