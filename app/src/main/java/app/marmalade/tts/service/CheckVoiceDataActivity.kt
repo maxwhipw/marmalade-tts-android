@@ -17,6 +17,7 @@ import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
 import app.marmalade.tts.engine.api.CloudApiEngine
+import app.marmalade.tts.engine.vits.VitsDirectEngine
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -32,10 +33,12 @@ import kotlinx.coroutines.runBlocking
  * [onCreate]. We report each catalog voice's language in the engine's
  * `lang-COUNTRY-VARIANT` ISO-639-3 form (Android's
  * `Locale.getISO3Language()` shape, the same convention every published
- * TTS engine uses), classifying by the owning engine's real on-disk
- * install state ([app.marmalade.tts.engine.TtsEngine.isInstalled] — the
- * same signal the rest of the app trusts; `VoiceMeta.isInstalled` is
- * never flipped in production). Settings gates its Play-example button
+ * TTS engine uses). A voice is available exactly when
+ * [MarmaladeTtsService.advertisableVoices] says so — the filter the
+ * service's own negotiation callbacks use, so this report and
+ * `onGetVoices` can't disagree (they did: VITS was missing here, so a
+ * device whose only engine was a VITS pack reported nothing available).
+ * Settings gates its Play-example button
  * and Language picker on the default locale appearing in
  * `EXTRA_AVAILABLE_VOICES`, so an empty available list greys both out.
  * When no engine is installed we still return `CHECK_VOICE_DATA_PASS`
@@ -51,6 +54,7 @@ class CheckVoiceDataActivity : ComponentActivity() {
     @Inject lateinit var kokoroDirect: KokoroDirectEngine
     @Inject lateinit var kokoroGerman: KokoroGermanEngine
     @Inject lateinit var pocket: PocketEngine
+    @Inject lateinit var vits: VitsDirectEngine
     @Inject lateinit var cloudApi: CloudApiEngine
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,19 +63,13 @@ class CheckVoiceDataActivity : ComponentActivity() {
         // Runs blocking on the main thread because the contract requires
         // a synchronous setResult+finish. The DAO read is a single
         // indexed query against a tiny table (≤ ~80 rows) and each
-        // isInstalled() is a handful of stat calls, so the cost is well
+        // install probe is a handful of stat calls, so the cost is well
         // under the ANR threshold.
         // Single snapshot of the Flow is sufficient — we're firing once
         // per CHECK_TTS_DATA dispatch, not subscribing.
         val voices = runBlocking { voiceDao.getAll().first() }
-        val installedEngines = buildSet {
-            if (kokoroDirect.isInstalled()) add(KokoroDirectVoiceCatalog.ENGINE)
-            if (kokoroGerman.isInstalled()) add(KokoroGermanVoiceCatalog.ENGINE)
-            if (kittenDirect.isInstalled()) add(KittenDirectVoiceCatalog.ENGINE)
-            if (pocket.isInstalled()) add(PocketVoiceCatalog.ENGINE)
-            if (cloudApi.isInstalled()) add(CloudApiVoiceCatalog.ENGINE)
-        }
-        val (available, unavailable) = classifyVoices(voices, installedEngines)
+        val (available, unavailable) =
+            classifyVoices(voices, ::isEngineInstalled) { vits.installedPackIds() }
 
         val data = Intent().apply {
             putStringArrayListExtra(
@@ -93,25 +91,44 @@ class CheckVoiceDataActivity : ComponentActivity() {
         finish()
     }
 
+    /**
+     * On-disk install state per engine. VITS is absent on purpose: its
+     * voices are judged per pack by [MarmaladeTtsService.advertisableVoices].
+     * Developer-only rows (Pocket dev) and unknown engines are never
+     * advertised.
+     */
+    private fun isEngineInstalled(engineName: String): Boolean = when (engineName) {
+        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.isInstalled()
+        KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.isInstalled()
+        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.isInstalled()
+        PocketVoiceCatalog.ENGINE -> pocket.isInstalled()
+        CloudApiVoiceCatalog.ENGINE -> cloudApi.isInstalled()
+        else -> false
+    }
+
     companion object {
         private const val TAG = "MarmaladeTts.CheckData"
 
         /**
          * Split the catalog into available/unavailable language tags by
-         * whether each voice's engine is in [installedEngines]. Voices
-         * whose engine isn't in the known-engine set (e.g. developer-only
-         * Pocket dev rows) count as unavailable. Pure so the classification
-         * is unit-testable without Robolectric.
+         * whether [MarmaladeTtsService.advertisableVoices] lets each voice
+         * through; everything else (engine or pack not installed, an
+         * unreleased pack, developer-only rows) counts as unavailable. Pure
+         * so the classification is unit-testable without Robolectric.
          */
         internal fun classifyVoices(
             voices: List<VoiceMeta>,
-            installedEngines: Set<String>,
+            isEngineInstalled: (String) -> Boolean,
+            installedVitsPacks: () -> Collection<String>,
         ): Pair<ArrayList<String>, ArrayList<String>> {
+            val advertised = MarmaladeTtsService
+                .advertisableVoices(voices, isEngineInstalled, installedVitsPacks)
+                .mapTo(HashSet()) { it.id }
             val available = ArrayList<String>()
             val unavailable = ArrayList<String>()
             for (v in voices) {
                 val tag = TtsLocales.bcp47ToTtsTag(v.languageCode) ?: continue
-                if (v.engine in installedEngines) {
+                if (v.id in advertised) {
                     if (!available.contains(tag)) available.add(tag)
                 } else {
                     if (!unavailable.contains(tag) && !available.contains(tag)) {

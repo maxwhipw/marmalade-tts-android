@@ -380,10 +380,16 @@ class MarmaladeTtsServiceTest {
         )
     }
 
+    /**
+     * Wire a primary alias into the service's router. [fallbackTo], when
+     * given, is stored alongside it and named as the primary's offline
+     * fallback.
+     */
     private fun installPrimary(
         engine: String,
         voiceId: String,
         phonemizationLanguage: String?,
+        fallbackTo: app.marmalade.tts.data.db.VoiceAlias? = null,
     ) {
         val alias = app.marmalade.tts.data.db.VoiceAlias(
             name = "kitty",
@@ -394,12 +400,14 @@ class MarmaladeTtsServiceTest {
             effectPreset = "NONE",
             createdAt = 0L,
             phonemizationLanguage = phonemizationLanguage,
+            fallbackAliasId = fallbackTo?.id,
         )
+        val rows = listOfNotNull(alias, fallbackTo)
         val aliasDao = object : app.marmalade.tts.data.db.VoiceAliasDao {
             override fun getAll(): kotlinx.coroutines.flow.Flow<List<app.marmalade.tts.data.db.VoiceAlias>> =
-                kotlinx.coroutines.flow.flowOf(listOf(alias))
-            override suspend fun findById(id: String) = alias.takeIf { it.id == id }
-            override suspend fun findByName(name: String) = alias.takeIf { it.name == name }
+                kotlinx.coroutines.flow.flowOf(rows)
+            override suspend fun findById(id: String) = rows.firstOrNull { it.id == id }
+            override suspend fun findByName(name: String) = rows.firstOrNull { it.name == name }
             override suspend fun upsert(alias: app.marmalade.tts.data.db.VoiceAlias) = Unit
             override suspend fun delete(id: String) = Unit
             override suspend fun repointEngine(fromEngine: String, toEngine: String) = Unit
@@ -1053,6 +1061,65 @@ class MarmaladeTtsServiceTest {
         assertNull(fakeEngine.languages.single())
     }
 
+    // -- alias offline fallback ---------------------------------------------
+    //
+    // A primary whose voice fails is retried in its fallback alias's voice —
+    // but only while nothing has been heard yet. The fallback can only
+    // re-speak the whole utterance, so after a partial stream it would
+    // repeat the opening to a screen-reader user.
+
+    private val kittenFallback = app.marmalade.tts.data.db.VoiceAlias(
+        id = "id-fallback",
+        name = "offline",
+        engine = "kitten-direct-v0_8",
+        voiceId = "kitten-direct-v0_8:Bella",
+        speed = 1f,
+        effectPreset = "NONE",
+        createdAt = 0L,
+    )
+
+    @Test
+    fun onSynthesizeText_primaryFailsBeforeAnyAudio_fallbackVoiceSpeaks() {
+        installKokoroPrimaryWithKittenFallback()
+        fakeKokoroDirectEngine.synthesizeException = IllegalStateException("network down")
+        fakeEngine.nextPcm = ShortArray(1024) { 0 }
+
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(SynthesisRequest("hello world", Bundle()), callback)
+
+        assertEquals("kitten-direct-v0_8:Bella", fakeEngine.calls.single().second)
+        assertEquals(0, callback.events.count { it is FakeSynthesisCallback.Event.Error })
+        assertEquals(FakeSynthesisCallback.Event.Done, callback.events.last())
+    }
+
+    @Test
+    fun onSynthesizeText_primaryFailsMidStream_errorsInsteadOfRespeakingInFallback() {
+        installKokoroPrimaryWithKittenFallback()
+        fakeKokoroDirectEngine.nextPcm = ShortArray(1024) { 0 }
+        fakeKokoroDirectEngine.failAfterFirstChunk = IllegalStateException("connection reset")
+        fakeEngine.nextPcm = ShortArray(1024) { 0 }
+
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(SynthesisRequest("hello world", Bundle()), callback)
+
+        assertTrue(
+            "the primary's first chunk was delivered",
+            callback.events.any { it is FakeSynthesisCallback.Event.AudioAvailable },
+        )
+        assertEquals("fallback must not re-speak a partly heard utterance", 0, fakeEngine.calls.size)
+        assertEquals(1, callback.events.count { it is FakeSynthesisCallback.Event.Error })
+        assertEquals(0, callback.events.count { it == FakeSynthesisCallback.Event.Done })
+    }
+
+    private fun installKokoroPrimaryWithKittenFallback() {
+        installPrimary(
+            engine = KokoroDirectVoiceCatalog.ENGINE,
+            voiceId = "kokoro-direct-v1_0:af_bella",
+            phonemizationLanguage = null,
+            fallbackTo = kittenFallback,
+        )
+    }
+
     // -- VITS Marmalade wiring (Letter C) -----------------------------------
     //
     // The pack-based VITS engine had no arms in this service — engineHandleFor
@@ -1093,6 +1160,30 @@ class MarmaladeTtsServiceTest {
 
         val callback = FakeSynthesisCallback()
         service.onSynthesizeText(newRequestWithVoice("hi", ukLadaVoiceId), callback)
+
+        assertEquals(1, fakeVits.calls.size)
+        val start = callback.events.first() as FakeSynthesisCallback.Event.Start
+        assertEquals(16_000, start.sampleRate)
+    }
+
+    @Test
+    fun onSynthesizeText_vitsPrimaryOnAColdCache_commitsThePacksRate() {
+        // The alias path hands back a voice id without touching the routing
+        // cache, and in a cold process the onCreate collector hasn't filled
+        // it yet (here it never runs). The committed rate must still be the
+        // row's, not the engine constant — the fake engine reports 22.05 kHz,
+        // so a Start of 16 kHz for the x_low pack proves the row was read.
+        // (On device the constant is 16 kHz until a pack loads, which is how
+        // a 22.05 kHz Jenny primary spoke slow and low on first use.)
+        installPrimary(
+            engine = VitsVoiceCatalog.ENGINE,
+            voiceId = VitsVoiceCatalog.voiceId("uk-lada-x_low"),
+            phonemizationLanguage = null,
+        )
+        fakeVits.nextPcm = ShortArray(1024) { 0 }
+
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(SynthesisRequest("hello", Bundle()), callback)
 
         assertEquals(1, fakeVits.calls.size)
         val start = callback.events.first() as FakeSynthesisCallback.Event.Start
@@ -1364,6 +1455,12 @@ internal class FakeKokoroDirectEngine(
      */
     var streamForever: Boolean = false
 
+    /**
+     * If non-null, synthesizeStream emits [nextPcm] as one chunk and THEN
+     * throws this — a cloud voice dropping mid-utterance.
+     */
+    var failAfterFirstChunk: Throwable? = null
+
     // See FakeKittenDirectEngine.synthesizeStream.
     override fun synthesizeStream(
         text: String,
@@ -1382,6 +1479,7 @@ internal class FakeKokoroDirectEngine(
             }
         }
         emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
+        failAfterFirstChunk?.let { throw it }
     }
 }
 

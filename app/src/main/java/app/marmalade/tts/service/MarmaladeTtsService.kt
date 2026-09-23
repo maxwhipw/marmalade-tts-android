@@ -246,6 +246,15 @@ class MarmaladeTtsService : TextToSpeechService() {
     @Volatile
     private var synthJob: Job? = null
 
+    /**
+     * Whether the current request has handed the framework any audio yet —
+     * set by [streamPcm], reset per [onSynthesizeText]. [speakFallback]
+     * reads it: once the primary voice has been heard, re-speaking the
+     * whole utterance in the fallback voice would repeat its opening.
+     */
+    @Volatile
+    private var audioDelivered = false
+
     override fun onCreate() {
         super.onCreate()
         // Mirror voice catalog into the engine-routing cache. Collection runs
@@ -541,6 +550,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             return
         }
 
+        audioDelivered = false
         try {
             // Streaming eligibility mirrors Synthesizer.speak: effects run
             // on the streaming path (StreamingEffectChain carries DSP state
@@ -556,7 +566,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                 synthJob = coroutineContext[Job]
                 try {
                     if (emotion == Emotion.Neutral) {
-                        streamingSynthesis(callback, rawText, engineName, params, enabled)
+                        streamingSynthesis(callback, rawText, engineName, params, enabled, activeSampleRate)
                     } else {
                         batchedSynthesis(callback, rawText, engineName, params, enabled)
                     }
@@ -600,6 +610,13 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Retry [params]'s utterance with its fallback voice. Returns true when
      * the fallback spoke and the callback is closed.
      *
+     * **Only retries when the primary voice delivered no audio.** The
+     * fallback can only re-speak the whole utterance — the framework has no
+     * notion of "resume from here", and chunk boundaries don't map back to
+     * text offsets — so a cloud voice that dropped mid-sentence would have a
+     * screen-reader user hear the opening twice. A truncated utterance with
+     * an error is the lesser harm; the client moves on to the next one.
+     *
      * **Only retries when the fallback's rate matches what was already
      * committed** in `callback.start()`. The framework gives no way to
      * revise that rate mid-request, so speaking 24 kHz audio into a stream
@@ -619,6 +636,10 @@ class MarmaladeTtsService : TextToSpeechService() {
         cause: Exception,
     ): Boolean {
         val fallbackVoiceId = params.fallbackVoiceId ?: return false
+        if (audioDelivered) {
+            Log.w(TAG, "primary voice failed mid-utterance — not re-speaking it with $fallbackVoiceId")
+            return false
+        }
         val fallbackEngine = engineNameFor(fallbackVoiceId)
         val fallbackRate = sampleRateFor(fallbackVoiceId, fallbackEngine)
         if (fallbackRate != activeSampleRate) {
@@ -641,6 +662,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                         fallbackEngine,
                         params.copy(voiceId = fallbackVoiceId, fallbackVoiceId = null),
                         enabled,
+                        activeSampleRate,
                     )
                 } finally {
                     synthJob = null
@@ -663,6 +685,10 @@ class MarmaladeTtsService : TextToSpeechService() {
      * inference instead of after the whole utterance, the utterance never
      * sits on the heap in full, and [onStop] gets a real cancellation
      * point between chunks (per AR frame on Pocket).
+     *
+     * [committedRate] is what `callback.start()` declared. Chunks are
+     * written raw whatever their own rate, so a mismatch is only logged —
+     * it is a [sampleRateFor] bug, audible as a pitch/tempo shift.
      */
     private suspend fun streamingSynthesis(
         callback: SynthesisCallback,
@@ -670,6 +696,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         engineName: String,
         params: SynthParams,
         enabledRules: Set<String>,
+        committedRate: Int,
     ) {
         val preprocessed = preprocessor.apply(rawText, enabledRules)
         val stripped = EmojiProsody.stripEmojis(preprocessed)
@@ -681,7 +708,6 @@ class MarmaladeTtsService : TextToSpeechService() {
         // The chain is built lazily on the first chunk (its filter
         // coefficients need the sample rate). Empty chain = pass-through.
         var chain: StreamingEffectChain? = null
-        var sr = 0
         val plan = applySpeedFallback(engineHandleFor(engineName), params.speed, params.effectBlocks)
         streamForEngine(
             engineName,
@@ -691,8 +717,16 @@ class MarmaladeTtsService : TextToSpeechService() {
             params.phonemizationLanguage,
             plan.playbackRate,
         ).collect { audio ->
-                val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
-                    .also { chain = it; sr = audio.sampleRate }
+                val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate).also {
+                    chain = it
+                    if (audio.sampleRate != committedRate) {
+                        Log.w(
+                            TAG,
+                            "${params.voiceId} emits ${audio.sampleRate}Hz but the stream " +
+                                "committed ${committedRate}Hz — playback will be pitch-shifted",
+                        )
+                    }
+                }
                 val shaped = c.process(audio.pcm)
                 if (shaped.isNotEmpty()) streamPcm(callback, shaped)
             }
@@ -764,7 +798,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         val phonemizationLanguage: String? = null,
         /**
          * Voice to retry with if [voiceId] fails — resolved from the alias's
-         * [app.marmalade.tts.data.db.VoiceAlias.fallbackAliasName]. Null when
+         * [app.marmalade.tts.data.db.VoiceAlias.fallbackAliasId]. Null when
          * the alias has no fallback, or when the request didn't come from an
          * alias at all.
          */
@@ -1008,12 +1042,8 @@ class MarmaladeTtsService : TextToSpeechService() {
     }
 
     /**
-     * Catalog rows whose engine is really on disk.
-     *
-     * `isInstalled()` on the engine — the same signal
-     * [CheckVoiceDataActivity] classifies with, and the one the rest of
-     * the app trusts; `VoiceMeta.isInstalled` is never flipped in
-     * production.
+     * Catalog rows the system may be offered — see [advertisableVoices],
+     * which [CheckVoiceDataActivity] shares so the two surfaces agree.
      *
      * Negotiation callbacks can arrive on a binder thread before the
      * onCreate collector has filled [voiceSnapshot], so an empty snapshot
@@ -1024,34 +1054,19 @@ class MarmaladeTtsService : TextToSpeechService() {
         val all = voiceSnapshot.ifEmpty {
             runBlocking { voiceDao.getAll().first() }.also { voiceSnapshot = it }
         }
-        // Pack-based VITS needs per-pack granularity here: isEngineInstalled is
-        // true as soon as ANY pack is on disk, so an engine-level filter would
-        // advertise every VITS voice to the system the moment one pack landed —
-        // the same over-listing VoiceAvailability fixed for the in-app picker.
-        // Probe the installed pack set once and require each VITS voice's own
-        // pack to be present AND released: the system-TTS surface is user-facing
-        // and has no developer toggle, so it only ever exposes released voices.
-        val installedVitsPacks =
-            if (isEngineInstalled(VitsVoiceCatalog.ENGINE)) vits.installedPackIds().toSet() else emptySet()
-        return all.filter { meta ->
-            if (!isEngineInstalled(meta.engine)) return@filter false
-            if (meta.engine != VitsVoiceCatalog.ENGINE) return@filter true
-            val packId = VitsVoiceCatalog.packIdOf(meta.id) ?: return@filter false
-            isVoiceReleased(meta) && packId in installedVitsPacks
-        }
+        return advertisableVoices(all, ::isEngineInstalled) { vits.installedPackIds() }
     }
 
-    /** On-disk install state of the engine named [engineName]. */
+    /**
+     * On-disk install state of the engine named [engineName]. VITS is
+     * absent on purpose: its voices are judged per pack by
+     * [advertisableVoices].
+     */
     private fun isEngineInstalled(engineName: String): Boolean = when (engineName) {
         KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.isInstalled()
         KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.isInstalled()
         KittenDirectVoiceCatalog.ENGINE -> kittenDirect.isInstalled()
         PocketVoiceCatalog.ENGINE -> pocket.isInstalled()
-        // Pack-based: installed once at least one pack is on disk. The picker's
-        // per-pack VoiceAvailability filter still gates which pack's voices are
-        // offered — this only decides whether the engine surfaces to the system
-        // at all (see installedVoices / onGetVoices).
-        VitsVoiceCatalog.ENGINE -> vits.isInstalled()
         CloudApiVoiceCatalog.ENGINE -> cloudApi.isInstalled()
         // Developer-only rows (Pocket dev) and anything else unknown are
         // never advertised to the system.
@@ -1113,11 +1128,20 @@ class MarmaladeTtsService : TextToSpeechService() {
      * is therefore self-correcting, which means a bug here is invisible
      * there and only audible through system TTS.)
      *
-     * The per-engine constant remains the fallback for a voice that isn't
-     * in the cache yet.
+     * A cache miss reads the row (the same defensive runBlocking
+     * [onLoadVoice] and [resolveSynthParams] use): the cache fills
+     * asynchronously from onCreate, and the alias paths hand back a voice id
+     * without touching it, so a cold process's first utterance used to miss
+     * here. For VITS that meant the engine constant — the last-loaded pack's
+     * rate, 16 kHz before any has loaded — under a 22.05 kHz Jenny. The
+     * per-engine constant is left for a voice with no catalog row at all.
      */
-    private fun sampleRateFor(voiceId: String, engineName: String): Int =
-        voiceEngineCache[voiceId]?.sampleRate ?: engineDefaultSampleRate(engineName)
+    private fun sampleRateFor(voiceId: String, engineName: String): Int {
+        voiceEngineCache[voiceId]?.let { return it.sampleRate }
+        val row = runBlocking { voiceDao.findById(voiceId) } ?: return engineDefaultSampleRate(engineName)
+        voiceEngineCache[row.id] = VoiceRouting(row.engine, row.sampleRate)
+        return row.sampleRate
+    }
 
     /** Per-engine default rate, used when the voice row isn't cached. */
     private fun engineDefaultSampleRate(engineName: String): Int = when (engineName) {
@@ -1239,6 +1263,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             if (written != TextToSpeech.SUCCESS) {
                 throw ChunkRejectedException(written)
             }
+            audioDelivered = true
             offset += n
         }
     }
@@ -1255,6 +1280,40 @@ class MarmaladeTtsService : TextToSpeechService() {
 
     companion object {
         private const val TAG = "MarmaladeTtsService"
+
+        /**
+         * The rows of [voices] the system TTS surfaces may advertise — both
+         * this service's negotiation callbacks and [CheckVoiceDataActivity]'s
+         * CHECK_TTS_DATA report, which must agree or the system's picker
+         * contradicts what synthesis will accept.
+         *
+         * Install state comes from the engines themselves ([isEngineInstalled]),
+         * never `VoiceMeta.isInstalled`, which production never flips. VITS is
+         * per pack instead: the engine counts as installed once ANY pack is on
+         * disk, so an engine-level check would advertise every VITS voice the
+         * moment one pack landed (the over-listing `filterAvailable` fixed
+         * for the in-app picker). Each VITS voice needs its own pack in
+         * [installedVitsPacks] AND released — the system surface is
+         * user-facing with no developer toggle. [installedVitsPacks] is a
+         * directory scan, so it runs at most once and only if a VITS row is
+         * present.
+         */
+        internal fun advertisableVoices(
+            voices: List<VoiceMeta>,
+            isEngineInstalled: (String) -> Boolean,
+            installedVitsPacks: () -> Collection<String>,
+        ): List<VoiceMeta> {
+            val vitsPacks by lazy { installedVitsPacks().toSet() }
+            val engineInstalled = HashMap<String, Boolean>()
+            return voices.filter { meta ->
+                if (meta.engine == VitsVoiceCatalog.ENGINE) {
+                    val packId = VitsVoiceCatalog.packIdOf(meta.id) ?: return@filter false
+                    isVoiceReleased(meta) && packId in vitsPacks
+                } else {
+                    engineInstalled.getOrPut(meta.engine) { isEngineInstalled(meta.engine) }
+                }
+            }
+        }
 
         /** What [onGetLanguage] reports until a language is loaded. */
         private val DEFAULT_LANGUAGE = arrayOf("eng", "USA", "")
