@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.reader
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -58,6 +59,52 @@ class ReaderDisplayTest {
                 palette.highlight,
             )
         }
+    }
+
+    @Test
+    fun `every preset's text and muted colors clear WCAG AA on page and highlight`() {
+        // Body text and muted text (quotes, byline) both land on the plain
+        // page and, for the block being read, on the highlight.
+        for (background in ReaderBackground.entries) {
+            val palette = background.palette()
+            for ((name, fg) in listOf("text" to palette.text, "muted" to palette.muted)) {
+                for ((surfaceName, bg) in listOf(
+                    "background" to palette.background,
+                    "highlight" to palette.highlight,
+                )) {
+                    val ratio = contrastRatio(fg, bg)
+                    assertTrue(
+                        "$background $name on $surfaceName is %.2f:1, needs 4.5:1"
+                            .format(ratio),
+                        ratio >= 4.5,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `contrast helper matches the WCAG reference extremes`() {
+        assertEquals(21.0, contrastRatio(Color.Black, Color.White), 0.01)
+        assertEquals(1.0, contrastRatio(Color.White, Color.White), 0.001)
+    }
+
+    /** WCAG 2.x contrast ratio, (L1 + 0.05) / (L2 + 0.05). */
+    private fun contrastRatio(a: Color, b: Color): Double {
+        val la = relativeLuminance(a)
+        val lb = relativeLuminance(b)
+        return (maxOf(la, lb) + 0.05) / (minOf(la, lb) + 0.05)
+    }
+
+    /** WCAG 2.x relative luminance of an sRGB color. */
+    private fun relativeLuminance(color: Color): Double {
+        fun linear(channel: Float): Double {
+            val c = channel.toDouble()
+            return if (c <= 0.03928) c / 12.92 else Math.pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(color.red) +
+            0.7152 * linear(color.green) +
+            0.0722 * linear(color.blue)
     }
 
     @Test

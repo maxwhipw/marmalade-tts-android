@@ -99,7 +99,9 @@ fun ReaderBackground.palette(): ReaderPalette = when (this) {
     ReaderBackground.Paper -> ReaderPalette(
         background = Color(0xFFF4ECD8),
         text = Color(0xFF3B3226),
-        muted = Color(0xFF6E6152),
+        // The lightest shade of this brown that clears WCAG AA (4.5:1) on both
+        // the page and the highlight — a quote being read sits on the latter.
+        muted = Color(0xFF65594C),
         highlight = Color(0xFFE3D2AA),
     )
 }
