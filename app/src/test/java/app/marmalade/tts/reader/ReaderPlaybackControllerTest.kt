@@ -380,6 +380,34 @@ class ReaderPlaybackControllerTest {
     }
 
     @Test
+    fun `tapping a block while paused plays from its start`() = runTest {
+        val controller = playing()
+        val held = speech.spoken.map { it.requestId }
+        controller.pause()
+        speech.spoken.clear()
+
+        controller.playFrom(4)
+
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(4, controller.state.value.currentIndex)
+        assertEquals(held, speech.stopped)
+        assertEquals(listOf("Block 4.", "Block 5."), speech.spokenTexts)
+        assertEquals(false, speech.spoken.first().continuation)
+    }
+
+    @Test
+    fun `tapping a block after the end plays from it`() = runTest {
+        val controller = playing()
+        controller.next(); controller.next(); controller.next(); controller.next(); controller.next(); controller.next()
+        assertEquals(ReaderPlaybackStatus.Finished, controller.state.value.status)
+
+        controller.playFrom(2)
+
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(2, controller.state.value.currentIndex)
+    }
+
+    @Test
     fun `seeking while paused stays paused and enqueues nothing until resume`() = runTest {
         val controller = playing()
         controller.pause()

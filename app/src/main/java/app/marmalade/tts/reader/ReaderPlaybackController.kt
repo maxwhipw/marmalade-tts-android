@@ -233,7 +233,24 @@ class ReaderPlaybackController internal constructor(
         }
     }
 
-    /** Move playback to [index] — the tap-a-block action. */
+    /**
+     * Read from [index] now — the tap-a-block (and contents-pick) action.
+     * Unlike [seekTo] this plays even from Paused: tapping a paragraph is the
+     * user asking to hear it, so a tap-then-press-play would be a step too
+     * many (Max, 2026-09-26). Any paused block still held by the service is
+     * cancelled by the restart.
+     */
+    fun playFrom(index: Int) {
+        synchronized(lock) {
+            if (index !in blocks.indices) return
+            startAtLocked(index)
+        }
+    }
+
+    /**
+     * Move playback to [index], keeping Paused paused — the transport's
+     * forward/back and speed changes. Taps use [playFrom].
+     */
     fun seekTo(index: Int) {
         synchronized(lock) {
             if (index !in blocks.indices) return
@@ -295,8 +312,7 @@ class ReaderPlaybackController internal constructor(
      *
      * Blocks already handed to the service are already synthesised (or being
      * synthesised) at the old speed and cannot be re-speeded, so a change that
-     * lands mid-article re-enqueues from the current block. That is exactly
-     * what tapping the current block does, so it goes through [seekTo]:
+     * lands mid-article re-enqueues from the current block, through [seekTo]:
      * playing restarts the block at the new speed, paused stays paused and
      * drops the queue for the resume to re-enqueue. Idle/Finished only store
      * it — the next play picks it up.

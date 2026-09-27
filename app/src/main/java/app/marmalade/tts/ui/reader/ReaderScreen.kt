@@ -292,7 +292,7 @@ fun ReaderScreen(
             // it is rather than nothing.
             currentBlockIndex = currentBlockIndex ?: playback.currentIndex,
             onEntryTapped = { index ->
-                // Exactly the tap-a-block action, so seeking and auto-scroll
+                // Exactly the tap-a-block action (plays even from Paused), so seeking and auto-scroll
                 // have one implementation between them. The jump is recorded
                 // only for when TalkBack has auto-scroll off (FollowSpokenBlock).
                 viewModel.onBlockTapped(index)

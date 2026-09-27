@@ -301,8 +301,8 @@ class ReaderViewModel @Inject constructor(
     fun onSpeedMultiplierChange(multiplier: Float) =
         playbackController.setSpeedMultiplier(multiplier)
 
-    /** Move playback to the tapped block (design point 9's tap-to-seek). */
-    fun onBlockTapped(index: Int) = playbackController.seekTo(index)
+    /** Read from the tapped block — plays even when paused (design point 9's tap-to-seek). */
+    fun onBlockTapped(index: Int) = playbackController.playFrom(index)
 
     fun onPlayPause() = playbackController.togglePlayPause()
 
