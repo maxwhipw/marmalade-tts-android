@@ -68,8 +68,8 @@ next.
 Bump `versionCode` + `versionName` in `app/build.gradle.kts` per
 release, following the scheme in its comment
 (`MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI`; 1.1.0 = `10010000`).
-Debug builds install as `app.marmalade.tts.debug`, release candidates as
-`app.marmalade.tts.rc`. Commits of the form `vX.Y.Z: ...` mark a version
+Debug builds install as `app.marmalade.tts.debug`; R8 smoke builds
+(`-PsmokeRelease`) as `app.marmalade.tts.rc`, never distributed. Commits of the form `vX.Y.Z: ...` mark a version
 bump.
 
 When working on a batch of changes that would warrant separate
