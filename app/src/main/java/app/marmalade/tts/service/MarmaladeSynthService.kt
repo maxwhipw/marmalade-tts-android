@@ -116,7 +116,9 @@ import kotlinx.coroutines.withContext
 //     ▼
 //   onStartCommand ──► parseRequest ──► enqueue ──► startNextLocked
 //     │                 (foreground notification + MediaSession ensured;
-//     │                  a busy service queues the request)
+//     │                  a busy service queues the request — unless its
+//     │                  work is paused: then the new request replaces
+//     │                  it, see replacesPausedWork)
 //     ▼
 //   Synthesis and playback are two halves that overlap ACROSS requests —
 //   the queue handover is otherwise a full time-to-first-audio of silence,
@@ -167,7 +169,8 @@ import kotlinx.coroutines.withContext
  * Use [ACTION_SPEAK] with [EXTRA_TEXT] (and optionally [EXTRA_ENGINE],
  * [EXTRA_VOICE], [EXTRA_SPEED]) to enqueue a synthesis. The service is
  * idempotent: starting it again while already speaking appends to the
- * queue.
+ * queue. Starting it while playback is paused drops the paused work and
+ * speaks the new text instead.
  *
  * Returns `START_NOT_STICKY` so the system does not restart the service
  * if it is killed between jobs — there is nothing useful to do without
@@ -459,6 +462,7 @@ class MarmaladeSynthService : Service() {
             voiceExplicit = explicitVoice != null,
             phonemizationLanguage = intent.getStringExtra(EXTRA_LANG)?.takeIf { it.isNotBlank() },
             requestId = intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
+            continuation = intent.getBooleanExtra(EXTRA_CONTINUATION, false),
         )
     }
 
@@ -494,10 +498,25 @@ class MarmaladeSynthService : Service() {
     }
 
     private fun enqueue(req: SpeakRequest) {
-        synchronized(lock) {
+        val replacedTrack = synchronized(lock) {
+            val replacing = replacesPausedWork(
+                paused = paused,
+                hasActive = activeJob != null,
+                stopping = cancelled,
+                continuation = req.continuation,
+            )
+            // The paused read goes; the playing request's finally then starts
+            // this one (startNextLocked clears `paused` and `cancelled`).
+            if (replacing) {
+                Log.d(TAG, "New request replaces paused work")
+                cancelAllLocked()
+            }
             queue.addLast(req)
             if (activeJob == null) {
                 startNextLocked()
+            } else if (replacing) {
+                updateNotification(getString(R.string.service_synth_state_preparing))
+                prefetchLocked()
             } else {
                 Log.d(TAG, "Queued request (queue size = ${queue.size})")
                 updateNotification(
@@ -508,7 +527,11 @@ class MarmaladeSynthService : Service() {
                 // one rather than waiting for the handover.
                 prefetchLocked()
             }
+            // Captured under the lock so the halt below can only ever reach
+            // the paused request's track, never the new request's.
+            if (replacing) currentTrack else null
         }
+        replacedTrack?.let(::haltTrack)
     }
 
     /** Caller must hold `lock`. */
@@ -555,7 +578,7 @@ class MarmaladeSynthService : Service() {
         // resolved is harmless — the awaiting speak() collected the first.
         job.invokeOnCompletion { cause ->
             if (cause is kotlinx.coroutines.CancellationException) {
-                completions.post(next.requestId, null)
+                completions.post(next.requestId, null, stopped = true)
             }
         }
         activeJob = job
@@ -813,7 +836,12 @@ class MarmaladeSynthService : Service() {
             // pre-focus routing suspension — so the awaiting in-app
             // speak() call always resolves. (The never-dispatched case is
             // covered by the invokeOnCompletion net in startNextLocked.)
-            completions.post(req.requestId, outcome, outcomeMessage)
+            completions.post(
+                req.requestId,
+                outcome,
+                outcomeMessage,
+                stopped = outcome == null && cancelled,
+            )
         }
     }
 
@@ -1115,7 +1143,7 @@ class MarmaladeSynthService : Service() {
                 // new head gets one instead.
                 if (queued === queue.firstOrNull()) dropPreparedHeadLocked()
                 queue.remove(queued)
-                completions.post(requestId, null)
+                completions.post(requestId, null, stopped = true)
                 prefetchLocked()
                 return
             }
@@ -1123,47 +1151,48 @@ class MarmaladeSynthService : Service() {
             cancelled = true
             activePrepared?.cancel()
         }
-        val track = currentTrack
-        if (track != null) {
-            try {
-                if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
-                    track.pause()
-                    track.flush()
-                    track.stop()
-                }
-            } catch (_: IllegalStateException) { /* already stopped */ }
-        }
+        currentTrack?.let(::haltTrack)
     }
 
     private fun doStop() {
-        cancelled = true
         synchronized(lock) {
-            // Queued in-app requests will never reach runOne — complete
-            // them now (as cancels) or their awaiting speak() calls hang.
-            // They post before the active one (which posts from runOne's
-            // finally) — ReaderPlaybackController reads that order as Stop.
-            queue.forEach { completions.post(it.requestId, null) }
-            queue.clear()
-            dropPreparedHeadLocked()
-            // Wake the playing request's consumer now, as doStopRequest does
-            // — the service may outlive this stop (a newer start in flight).
-            activePrepared?.cancel()
+            cancelAllLocked()
             releaseWakeLock()
         }
-        val track = currentTrack
-        if (track != null) {
-            try {
-                if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
-                    track.pause()
-                    track.flush()
-                    track.stop()
-                }
-            } catch (_: IllegalStateException) { /* already stopped */ }
-        }
+        currentTrack?.let(::haltTrack)
         releaseFocus()
         updateMediaState(PlaybackStateCompat.STATE_STOPPED)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelfResult(lastStartId)
+    }
+
+    /**
+     * Cancel every request, queued and playing — [doStop], and a new speak
+     * replacing paused work. Queued in-app requests will never reach runOne,
+     * so they are resolved here (as stops) or their awaiting speak() calls
+     * hang; they post before the active one, which posts from runOne's
+     * finally. Cancelling the playing request's [Prepared] wakes a consumer
+     * parked on a slow chunk, as in [doStopRequest].
+     *
+     * Caller must hold `lock`.
+     */
+    private fun cancelAllLocked() {
+        cancelled = true
+        queue.forEach { completions.post(it.requestId, null, stopped = true) }
+        queue.clear()
+        dropPreparedHeadLocked()
+        activePrepared?.cancel()
+    }
+
+    /** Silence [track] at once, dropping what it still buffers. */
+    private fun haltTrack(track: AudioTrack) {
+        try {
+            if (track.playState != AudioTrack.PLAYSTATE_STOPPED) {
+                track.pause()
+                track.flush()
+                track.stop()
+            }
+        } catch (_: IllegalStateException) { /* already stopped */ }
     }
 
     private fun stopIfIdle() {
@@ -1602,6 +1631,8 @@ class MarmaladeSynthService : Service() {
          * caller (share sheet, Tasker), nothing is posted.
          */
         val requestId: Long = 0L,
+        /** Sent with [EXTRA_CONTINUATION]: never replaces paused work. */
+        val continuation: Boolean = false,
     )
 
     companion object {
@@ -1653,6 +1684,27 @@ class MarmaladeSynthService : Service() {
                 AudioManager.AUDIOFOCUS_LOSS -> FocusAction.STOP
                 else -> FocusAction.NONE
             }
+
+        /**
+         * Whether a new speak request replaces the service's work instead of
+         * queueing behind it: yes when that work is paused. A paused read is
+         * one the user stepped away from; queueing behind it meant the new
+         * text stayed silent until they found and resumed the old one and it
+         * played to the end. Playing work still queues as before, and so does
+         * a [continuation] (the reader's next block).
+         *
+         * Not while [stopping] (the `cancelled` flag) either: the paused work
+         * is already on its way out — a stop, or an earlier request replacing
+         * it — and `paused` stays set until the next request starts, so a
+         * second new speak right behind the first must queue behind it rather
+         * than knock it out too.
+         */
+        internal fun replacesPausedWork(
+            paused: Boolean,
+            hasActive: Boolean,
+            stopping: Boolean,
+            continuation: Boolean,
+        ): Boolean = paused && hasActive && !stopping && !continuation
 
         /** Wake-lock tag, `app:component` as PowerManager recommends. */
         private const val WAKE_LOCK_TAG = "marmalade:synth"
@@ -1748,6 +1800,14 @@ class MarmaladeSynthService : Service() {
          * off is exactly the behaviour every other caller had before it existed.
          */
         const val EXTRA_SPEED_MULTIPLIER: String = "app.marmalade.tts.extra.SPEED_MULTIPLIER"
+        /**
+         * Boolean, default false. True marks a request that continues work
+         * already in the service — the reader's next blocks — rather than a
+         * new speak: it queues even behind paused work instead of replacing
+         * it (see [replacesPausedWork]). Otherwise a block topped up just as
+         * the user paused would throw out the article they paused.
+         */
+        const val EXTRA_CONTINUATION: String = "app.marmalade.tts.extra.CONTINUATION"
         /**
          * Path (inside our own cacheDir) holding the text, used instead of
          * [EXTRA_TEXT] when the text is too large for a binder transaction.

@@ -27,11 +27,18 @@ class PreviewCompletions @Inject constructor() {
 
     enum class ErrorKind { MODEL_MISSING, FAILED }
 
-    /** [error] null = played to completion or was cancelled — both "done". */
+    /**
+     * [error] null = played to completion or was cancelled — both "done".
+     * [stopped] tells those two apart: true when a stop cut the request
+     * short (the user's Stop, a permanent audio-focus loss, or a new speak
+     * replacing paused work). The Speak screen treats both alike; the reader
+     * needs the difference, or a stopped block reads as a finished one.
+     */
     data class Completion(
         val requestId: Long,
         val error: ErrorKind?,
         val message: String? = null,
+        val stopped: Boolean = false,
     )
 
     private val ids = AtomicLong(0)
@@ -43,8 +50,13 @@ class PreviewCompletions @Inject constructor() {
 
     fun newRequestId(): Long = ids.incrementAndGet()
 
-    fun post(requestId: Long, error: ErrorKind?, message: String? = null) {
+    fun post(
+        requestId: Long,
+        error: ErrorKind?,
+        message: String? = null,
+        stopped: Boolean = false,
+    ) {
         if (requestId == 0L) return
-        _events.tryEmit(Completion(requestId, error, message))
+        _events.tryEmit(Completion(requestId, error, message, stopped))
     }
 }

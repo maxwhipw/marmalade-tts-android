@@ -10,7 +10,9 @@ import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -90,6 +92,60 @@ class MarmaladeSynthServiceTest {
                 putExtra(MarmaladeSynthService.EXTRA_SPEED_MULTIPLIER, it)
             }
         }
+
+    // -- A new speak vs paused work ---------------------------------------------
+
+    /**
+     * The approved P14 behaviour: a new speak while a read is paused drops
+     * that read and plays the new text now, instead of queueing silently
+     * behind a read the user may never resume.
+     */
+    @Test
+    fun `a new speak replaces paused work`() {
+        assertTrue(replaces(paused = true))
+    }
+
+    @Test
+    fun `a new speak queues behind playing work`() {
+        assertFalse(replaces(paused = false))
+    }
+
+    /** Nothing active: the request starts at once either way. */
+    @Test
+    fun `an idle service has nothing to replace`() {
+        assertFalse(replaces(paused = true, hasActive = false))
+    }
+
+    /**
+     * Paused work already being stopped — by a stop, or by the request that
+     * replaced it — is gone; a second new speak right behind the first must
+     * queue behind it, not knock it out too.
+     */
+    @Test
+    fun `a speak behind a replacement queues`() {
+        assertFalse(replaces(paused = true, stopping = true))
+    }
+
+    /** The reader's next block must not throw out the article it continues. */
+    @Test
+    fun `a continuation never replaces paused work`() {
+        assertFalse(replaces(paused = true, continuation = true))
+    }
+
+    @Test
+    fun `the continuation flag is carried and defaults off`() {
+        assertFalse(service.parseRequest(speakIntent(multiplier = null))!!.continuation)
+        val continued = speakIntent(multiplier = null)
+            .putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, true)
+        assertTrue(service.parseRequest(continued)!!.continuation)
+    }
+
+    private fun replaces(
+        paused: Boolean,
+        hasActive: Boolean = true,
+        stopping: Boolean = false,
+        continuation: Boolean = false,
+    ) = MarmaladeSynthService.replacesPausedWork(paused, hasActive, stopping, continuation)
 
     // -- Rolling engine RTF -----------------------------------------------------
 

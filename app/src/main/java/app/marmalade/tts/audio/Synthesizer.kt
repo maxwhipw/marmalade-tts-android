@@ -148,8 +148,9 @@ interface SpeechPlayer {
  *
  * One playback at a time from the UI's perspective: the Speak screen
  * gates its button, and [cancel] stops the service's current job and
- * queue. (A speak issued while the share-sheet reader is mid-article
- * queues behind it — same transport, same queue.)
+ * queue. (A speak issued while a share-sheet or reader read is playing
+ * queues behind it — same transport, same queue; while that read is
+ * paused, the speak replaces it.)
  */
 @Singleton
 class Synthesizer @Inject constructor(

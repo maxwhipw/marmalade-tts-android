@@ -423,7 +423,7 @@ class ReaderPlaybackController internal constructor(
             status = ReaderPlaybackStatus.Playing,
             lastError = null,
         )
-        topUpLocked()
+        topUpLocked(fresh = true)
     }
 
     private fun cancelPendingLocked() {
@@ -431,13 +431,21 @@ class ReaderPlaybackController internal constructor(
         pending.clear()
     }
 
-    private fun topUpLocked() {
+    /**
+     * [fresh] is true when this starts a play (as opposed to replacing a
+     * finished block). Only that first request may replace paused playback in
+     * the service — a new play is the user asking for the article now; a
+     * top-up landing just after the user paused must not stop what they
+     * paused.
+     */
+    private fun topUpLocked(fresh: Boolean) {
         while (pending.size < LOOKAHEAD && nextIndex < blocks.size) {
             val requestId = completions.newRequestId()
             val index = nextIndex
             nextIndex++
+            val continuation = !fresh || pending.isNotEmpty()
             pending.addLast(Pending(requestId, index))
-            if (!speech.speak(requestId, blocks[index], _state.value.speedMultiplier)) {
+            if (!speech.speak(requestId, blocks[index], _state.value.speedMultiplier, continuation)) {
                 // The service wouldn't start, so this request will never
                 // complete and the pipeline would stall silently. Nothing is
                 // playable in that state — unwind to Idle, and say why.
@@ -463,17 +471,17 @@ class ReaderPlaybackController internal constructor(
             // exactly the ones still in `pending`.
             val entry = pending.firstOrNull { it.requestId == completion.requestId } ?: return
 
-            if (entry !== pending.first()) {
-                // A request of ours retiring before the one that is playing
-                // means something outside cancelled our queue — in practice
-                // the notification's Stop (or a permanent audio-focus loss),
-                // both of which run the service's doStop: it resolves every
-                // queued request first, then the active one. The service
-                // reports a cancel and a played-through block identically
-                // (PreviewCompletions.error is null for both), so this
-                // ordering is the only signal we get, and without honouring
-                // it the reader would treat Stop as "block finished" and
-                // enqueue the rest of the article right back.
+            if (completion.stopped || entry !== pending.first()) {
+                // Something outside cancelled our queue: the notification's
+                // Stop, a permanent audio-focus loss, or a new speak (Speak
+                // screen, share, clipboard tile) replacing our paused read.
+                // Without honouring it the reader would treat the stop as
+                // "block finished" and enqueue the rest of the article right
+                // back — or, after a replace, sit on Paused with nothing
+                // left to resume. The service flags these completions as
+                // stopped; it also resolves queued requests before the
+                // playing one, so one of ours retiring out of order means
+                // the same thing.
                 cancelPendingLocked()
                 setStatusLocked(ReaderPlaybackStatus.Idle)
                 return
@@ -503,7 +511,7 @@ class ReaderPlaybackController internal constructor(
             }
             blockStartedAt = clock()
             _state.value = _state.value.copy(currentIndex = nextBlock)
-            topUpLocked()
+            topUpLocked(fresh = false)
         }
     }
 

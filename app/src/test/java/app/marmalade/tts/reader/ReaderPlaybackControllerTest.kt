@@ -177,6 +177,67 @@ class ReaderPlaybackControllerTest {
         assertEquals(3, speech.spoken.size)
     }
 
+    /**
+     * A new speak (Speak screen, share, clipboard tile) replaces a paused
+     * read; the service resolves the reader's requests as stopped. The
+     * reader must fall back to stopped — not sit on Paused with nothing left
+     * in the service to resume.
+     */
+    @Test
+    fun `a paused read replaced by a new speak shows stopped`() = runTest {
+        val controller = playing()
+        controller.pause()
+        val (head, queued) = outstanding.map { it.requestId }.let { it.first() to it.drop(1) }
+
+        // The service's order: queued requests first, the playing one last.
+        queued.forEach { completions.post(it, null, stopped = true) }
+        completions.post(head, null, stopped = true)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Idle, controller.state.value.status)
+        assertNull(controller.state.value.lastError)
+        assertEquals(3, speech.spoken.size)
+    }
+
+    /**
+     * On the last block only the playing request is left, so there is no
+     * out-of-order completion to go on — the stopped flag is the only thing
+     * telling a replaced block from a finished one.
+     */
+    @Test
+    fun `a stopped last block is not read as the end of the article`() = runTest {
+        val controller = playing()
+        controller.seekTo(blocks.lastIndex)
+        controller.pause()
+
+        completions.post(outstanding.single().requestId, null, stopped = true)
+        advanceUntilIdle()
+
+        assertEquals(ReaderPlaybackStatus.Idle, controller.state.value.status)
+        assertEquals(blocks.lastIndex, controller.state.value.currentIndex)
+    }
+
+    /**
+     * Only the request that starts a play may replace paused playback in the
+     * service; the blocks behind it, and every top-up, are continuations — a
+     * top-up landing just after the user paused must not stop their read.
+     */
+    @Test
+    fun `only the first block of a play is a new speak`() = runTest {
+        val controller = playing()
+        assertEquals(listOf(false, true, true), speech.spoken.map { it.continuation })
+
+        finish()
+        advanceUntilIdle()
+        assertTrue(speech.spoken.last().continuation)
+
+        controller.seekTo(4)
+        assertEquals(
+            listOf(false, true),
+            speech.spoken.takeLast(2).map { it.continuation },
+        )
+    }
+
     @Test
     fun `a service that refuses to start unwinds to idle`() = runTest {
         val controller = newController()

@@ -11,6 +11,8 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         val text: String,
         /** The session speed the controller asked for — 1.0 unless it was set. */
         val speedMultiplier: Float = 1.0f,
+        /** False only for the request that starts a play — see [ReaderSpeechClient.speak]. */
+        val continuation: Boolean = false,
     )
 
     val spoken = mutableListOf<Spoken>()
@@ -23,9 +25,14 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
     /** Set false to simulate the service refusing a background start. */
     var startAllowed = true
 
-    override fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean {
+    override fun speak(
+        requestId: Long,
+        text: String,
+        speedMultiplier: Float,
+        continuation: Boolean,
+    ): Boolean {
         if (!startAllowed) return false
-        spoken += Spoken(requestId, text, speedMultiplier)
+        spoken += Spoken(requestId, text, speedMultiplier, continuation)
         return true
     }
 

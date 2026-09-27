@@ -32,7 +32,7 @@ import androidx.core.content.ContextCompat
 //           │
 //           ▼
 //         MarmaladeSynthService picks up the request (queues if busy,
-//         starts immediately if idle).
+//         starts immediately if idle, replaces a paused read).
 //
 //   Returns DispatchResult so callers can render an appropriate Toast
 //   (or otherwise react) without each caller re-implementing the

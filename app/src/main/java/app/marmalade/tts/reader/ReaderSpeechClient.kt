@@ -31,8 +31,18 @@ interface ReaderSpeechClient {
      * speed the user's alias resolves to. Returns false if the service refused
      * to start (a background start with no foreground-service exemption), in
      * which case no completion will ever arrive for [requestId].
+     *
+     * [continuation] marks a block that follows one already handed over. It
+     * queues even behind paused playback; a non-continuation request (the
+     * first block of a play) replaces paused playback, the reader's own
+     * included — see [MarmaladeSynthService.EXTRA_CONTINUATION].
      */
-    fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean
+    fun speak(
+        requestId: Long,
+        text: String,
+        speedMultiplier: Float,
+        continuation: Boolean,
+    ): Boolean
 
     /** Cancel one request — queued or playing — leaving the rest alone. */
     fun stopRequest(requestId: Long)
@@ -49,7 +59,12 @@ class SynthServiceReaderSpeechClient @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ReaderSpeechClient {
 
-    override fun speak(requestId: Long, text: String, speedMultiplier: Float): Boolean {
+    override fun speak(
+        requestId: Long,
+        text: String,
+        speedMultiplier: Float,
+        continuation: Boolean,
+    ): Boolean {
         // No EXTRA_VOICE on purpose: leaving it off is what makes the service
         // resolve the user's primary alias (voice, speed, effect, language),
         // which is exactly the voice the share-sheet path already reads in.
@@ -69,6 +84,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
             )
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
             putExtra(MarmaladeSynthService.EXTRA_SPEED_MULTIPLIER, speedMultiplier)
+            putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, continuation)
             setPackage(context.packageName)
         }
         return runCatching { ContextCompat.startForegroundService(context, intent) }
