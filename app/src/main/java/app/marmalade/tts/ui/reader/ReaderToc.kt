@@ -36,6 +36,8 @@ import app.marmalade.tts.reader.ArticleBlock
 //
 //   Tapping an entry is tapping that block in the article: same seek, same
 //   auto-scroll, so the ToC adds a way in and no second behaviour to maintain.
+//   (One exception: with TalkBack on there is no auto-scroll, so a ToC pick
+//   scrolls explicitly — see FollowSpokenBlock.)
 //
 // The two functions are plain Kotlin so the visibility rule and the
 // current-section arithmetic are unit-testable off-UI.

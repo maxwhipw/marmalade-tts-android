@@ -248,7 +248,11 @@ When investigating **{concern}**, start at **{files}**:
   state). AppRoot navigates with `popUpTo(ReaderPattern) { inclusive }`
   and no `launchSingleTop`, so each new link gets a fresh entry and
   ViewModel; the same URL already on top is left alone. The article is
-  in-memory only — never persisted.
+  in-memory only — never persisted. The list follows the spoken block
+  (`ReaderAutoScroll`) except after a user drag, and never while
+  TalkBack's touch exploration is on (watched live via
+  `AccessibilityManager`) — it would steal accessibility focus; then only
+  a ToC pick scrolls.
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

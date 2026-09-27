@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -50,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -101,7 +103,8 @@ import app.marmalade.tts.service.SpeakDispatcher
 //
 //   Ready also carries the transport bar ("Aa" | transport | "N of M") and
 //   follows the spoken block with a smooth scroll. The scroll defers to the
-//   user: a recent drag suppresses it (ReaderAutoScroll). When reading stops
+//   user: a recent drag suppresses it, and TalkBack switches it off
+//   (ReaderAutoScroll) — only a ToC jump moves the view then. When reading stops
 //   on an error, a line above the transport bar says why.
 //
 //   The reading surface is painted from ReaderDisplayPrefs, NOT the app theme:
@@ -160,6 +163,7 @@ fun ReaderScreen(
     var showDisplaySheet by remember { mutableStateOf(false) }
     var showSpeedSheet by remember { mutableStateOf(false) }
     var showTocSheet by remember { mutableStateOf(false) }
+    var tocJump by remember { mutableStateOf<TocJump?>(null) }
 
     // Leaving the reader by an explicit back gesture pauses playback; switching
     // to another app does not (that path never reaches here — the FGS keeps it
@@ -249,6 +253,7 @@ fun ReaderScreen(
                 is ReaderUiState.Ready -> ArticleBody(
                     article = current,
                     currentBlockIndex = currentBlockIndex,
+                    tocJump = tocJump,
                     surface = surface,
                     showShortExtractionNotice = showShortExtractionNotice,
                     onOpenInBrowser = { openUrl(context, viewModel.url) },
@@ -288,8 +293,10 @@ fun ReaderScreen(
             currentBlockIndex = currentBlockIndex ?: playback.currentIndex,
             onEntryTapped = { index ->
                 // Exactly the tap-a-block action, so seeking and auto-scroll
-                // have one implementation between them.
+                // have one implementation between them. The jump is recorded
+                // only for when TalkBack has auto-scroll off (FollowSpokenBlock).
                 viewModel.onBlockTapped(index)
+                tocJump = TocJump(index)
                 showTocSheet = false
             },
             onDismiss = { showTocSheet = false },
@@ -369,6 +376,7 @@ private fun FailedBody(
 private fun ArticleBody(
     article: ReaderUiState.Ready,
     currentBlockIndex: Int?,
+    tocJump: TocJump?,
     surface: ReaderSurface,
     showShortExtractionNotice: Boolean,
     onOpenInBrowser: () -> Unit,
@@ -376,7 +384,11 @@ private fun ArticleBody(
     onBlockTapped: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    FollowSpokenBlock(listState = listState, currentBlockIndex = currentBlockIndex)
+    FollowSpokenBlock(
+        listState = listState,
+        currentBlockIndex = currentBlockIndex,
+        tocJump = tocJump,
+    )
 
     LazyColumn(
         state = listState,
@@ -419,15 +431,31 @@ private fun ArticleBody(
 }
 
 /**
+ * A table-of-contents pick. A plain class, not a data class, on purpose: every
+ * pick is a new instance, so picking the same heading twice still re-fires
+ * the effect keyed on it.
+ */
+private class TocJump(val blockIndex: Int)
+
+/**
  * Smooth-scroll the list to the block being spoken, unless the user has just
- * been scrolling (see [ReaderAutoScroll]).
+ * been scrolling or TalkBack is on (see [ReaderAutoScroll]).
+ *
+ * With TalkBack on, a ToC pick is the one thing that still moves the view: it
+ * is the user asking to go somewhere, not the list wandering off on its own,
+ * and without it the ToC would seek audio to a section the screen never shows.
  *
  * The `+ 1` is the header item: the article's own blocks start at list index 1
  * whether or not the header has a title to draw.
  */
 @Composable
-private fun FollowSpokenBlock(listState: LazyListState, currentBlockIndex: Int?) {
+private fun FollowSpokenBlock(
+    listState: LazyListState,
+    currentBlockIndex: Int?,
+    tocJump: TocJump?,
+) {
     var lastUserScrollAt by remember { mutableLongStateOf(0L) }
+    val touchExplorationEnabled = rememberTouchExplorationEnabled()
 
     LaunchedEffect(listState) {
         // Only drags reach the list's own interaction source — a tap on a
@@ -449,9 +477,40 @@ private fun FollowSpokenBlock(listState: LazyListState, currentBlockIndex: Int?)
             nowMillis = SystemClock.elapsedRealtime(),
             lastUserScrollMillis = lastUserScrollAt,
             userIsScrolling = listState.isScrollInProgress,
+            touchExplorationEnabled = touchExplorationEnabled,
         )
         if (allowed) listState.animateScrollToItem(index + 1)
     }
+
+    LaunchedEffect(tocJump) {
+        // Sighted users already get the ToC scroll from the effect above.
+        if (tocJump != null && touchExplorationEnabled) {
+            listState.scrollToItem(tocJump.blockIndex + 1)
+        }
+    }
+}
+
+/**
+ * Whether a touch-exploration service (TalkBack) is running, kept live: the
+ * listener flips it when the user toggles TalkBack with the reader open.
+ */
+@Composable
+private fun rememberTouchExplorationEnabled(): Boolean {
+    val context = LocalContext.current
+    val manager = remember(context) {
+        context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+    }
+    var enabled by remember(manager) { mutableStateOf(manager.isTouchExplorationEnabled) }
+    DisposableEffect(manager) {
+        val listener = AccessibilityManager.TouchExplorationStateChangeListener {
+            enabled = it
+        }
+        manager.addTouchExplorationStateChangeListener(listener)
+        // Catch a toggle that landed between the first read and registering.
+        enabled = manager.isTouchExplorationEnabled
+        onDispose { manager.removeTouchExplorationStateChangeListener(listener) }
+    }
+    return enabled
 }
 
 /**

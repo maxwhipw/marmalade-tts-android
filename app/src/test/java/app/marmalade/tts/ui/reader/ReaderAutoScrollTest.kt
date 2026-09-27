@@ -15,6 +15,7 @@ class ReaderAutoScrollTest {
                 nowMillis = 10_000,
                 lastUserScrollMillis = 0,
                 userIsScrolling = false,
+                touchExplorationEnabled = false,
             ),
         )
     }
@@ -26,6 +27,7 @@ class ReaderAutoScrollTest {
                 nowMillis = 10_000,
                 lastUserScrollMillis = 0,
                 userIsScrolling = true,
+                touchExplorationEnabled = false,
             ),
         )
     }
@@ -37,6 +39,7 @@ class ReaderAutoScrollTest {
                 nowMillis = 10_000,
                 lastUserScrollMillis = 10_000 - (USER_SCROLL_GRACE_MS - 1),
                 userIsScrolling = false,
+                touchExplorationEnabled = false,
             ),
         )
     }
@@ -48,6 +51,31 @@ class ReaderAutoScrollTest {
                 nowMillis = 10_000,
                 lastUserScrollMillis = 10_000 - USER_SCROLL_GRACE_MS,
                 userIsScrolling = false,
+                touchExplorationEnabled = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `never scrolls while TalkBack is exploring, even with no recent drag`() {
+        assertFalse(
+            ReaderAutoScroll.shouldAutoScroll(
+                nowMillis = 10_000,
+                lastUserScrollMillis = 0,
+                userIsScrolling = false,
+                touchExplorationEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `stays off under TalkBack after the grace period too`() {
+        assertFalse(
+            ReaderAutoScroll.shouldAutoScroll(
+                nowMillis = 10_000,
+                lastUserScrollMillis = 10_000 - USER_SCROLL_GRACE_MS,
+                userIsScrolling = false,
+                touchExplorationEnabled = true,
             ),
         )
     }
