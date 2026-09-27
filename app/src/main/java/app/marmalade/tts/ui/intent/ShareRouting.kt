@@ -11,11 +11,12 @@ import app.marmalade.tts.service.SpeakDispatcher
 // activity itself is a trampoline whose only other job is talking to the
 // Android framework.
 //
-// The rule is deliberately narrow. ACTION_SEND carrying a link is a "here's a
-// page" share, which is what reader mode is for. Everything else — a share
-// with no link, and every ACTION_PROCESS_TEXT selection (that's prose the user
-// highlighted, not a link share, even on the rare occasion it contains a URL)
-// — keeps the original speak-it-now behaviour exactly.
+// The rule is deliberately narrow. ACTION_SEND whose text is essentially just
+// a link (SharedUrlDetector.findLinkShare: a URL, optionally with a short
+// title) is a "here's a page" share, which is what reader mode is for.
+// Everything else — a share with no link, prose or a post that merely
+// contains one, and every ACTION_PROCESS_TEXT selection (that's text the user
+// highlighted, not a link share) — keeps the original speak-it-now behaviour.
 // -----------------------------------------------------------------------------
 
 /** Where an incoming share intent should go. */
@@ -36,7 +37,7 @@ internal object ShareRouting {
      */
     fun routeFor(action: String?, text: String?): ShareRoute {
         if (action == Intent.ACTION_SEND) {
-            val url = SharedUrlDetector.findUrl(text)
+            val url = SharedUrlDetector.findLinkShare(text)
             if (url != null) {
                 return ShareRoute.Reader(
                     url = url,

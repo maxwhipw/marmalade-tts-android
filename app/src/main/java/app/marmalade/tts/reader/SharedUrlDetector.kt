@@ -3,19 +3,60 @@ package app.marmalade.tts.reader
 // -----------------------------------------------------------------------------
 // SharedUrlDetector — pull the article URL out of ACTION_SEND text/plain.
 //
-// Browsers are wildly inconsistent about what they put in EXTRA_TEXT: some
-// share the bare URL, some share "Page title\nhttps://…", some paste a
-// sentence with the link embedded. All three land in ShareIntentActivity as
-// one plain string, so the reader entry point needs a single "is there an
-// article link in here?" answer.
+// Apps are wildly inconsistent about what they put in EXTRA_TEXT. Chrome and
+// Firefox share the bare URL (the page title goes in EXTRA_SUBJECT, which we
+// don't read); others share "Page title\nhttps://…", "Page title https://…"
+// or "Title https://… via @app"; and a post, message or paragraph shared as
+// text may just happen to contain a link. All of them land in
+// ShareIntentActivity as one plain string.
 //
-// Deliberately conservative: only http/https counts (a mailto:/ftp:/intent:
-// string is not something the reader can fetch), and the FIRST such URL wins
-// — for a title+URL share the title never contains a link, and for prose the
-// first link is the one the user was talking about.
+// Two questions, two functions:
+//  - findUrl: is there an article link in here at all? Only http/https counts
+//    (a mailto:/ftp:/intent: string is not something the reader can fetch),
+//    and the FIRST such URL wins — a title never contains a link, and in
+//    prose the first link is the one the user was talking about.
+//  - findLinkShare: is this share essentially just a link? That, and only
+//    that, is what opens the reader; prose that contains a link is read aloud
+//    as text. See findLinkShare for the rule.
 // -----------------------------------------------------------------------------
 
 object SharedUrlDetector {
+
+    /**
+     * The most text a link share may carry besides its URL — room for a page
+     * title (with a " | Site name" or " - Site" suffix) and a short "via @app"
+     * tag. News headlines run well under this; a post or paragraph that
+     * happens to contain a link runs over it.
+     */
+    internal const val MAX_LABEL_CHARS = 120
+
+    /**
+     * The URL to open in the reader when [sharedText] is essentially a link,
+     * or `null` when it isn't (no link at all, or prose with a link in it).
+     *
+     * The rule: take the first URL ([findUrl]); what is left on either side of
+     * it is the label. The share is a link share when that label is
+     *  - empty (a bare URL, whitespace allowed), or
+     *  - short: at most [MAX_LABEL_CHARS] characters in all, and no line
+     *    break inside the text before the URL nor inside the text after it.
+     *
+     * So "https://…", "Title\nhttps://…", "Title https://…" and
+     * "Title\nhttps://…\nvia @app" all open the reader, while a paragraph, a
+     * multi-line message, or a long post with a link in it is spoken.
+     */
+    fun findLinkShare(sharedText: String?): String? {
+        val url = findUrl(sharedText) ?: return null
+        val text = sharedText.orEmpty()
+        val start = text.indexOf(url)
+        val before = text.substring(0, start).trim()
+        val after = text.substring(start + url.length).trim()
+        val isLabel = before.length + after.length <= MAX_LABEL_CHARS &&
+            before.none(::isLineBreak) &&
+            after.none(::isLineBreak)
+        return url.takeIf { isLabel }
+    }
+
+    private fun isLineBreak(c: Char) = c == '\n' || c == '\r' || c == ' ' || c == ' '
 
     /**
      * Matches an http(s) URL up to the first whitespace or bracketing

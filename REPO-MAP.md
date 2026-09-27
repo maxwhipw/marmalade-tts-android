@@ -214,8 +214,10 @@ When investigating **{concern}**, start at **{files}**:
   `PROCESS_TEXT` selection action; dispatches to MarmaladeSynthService,
   or hands a shared link to reader mode
 - `ui/intent/ShareRouting.kt` — the pure "reader or speak?" decision the
-  share trampoline makes (ACTION_SEND carrying a URL → reader;
-  everything else, PROCESS_TEXT included → speak). Unit-tested on the JVM.
+  share trampoline makes (ACTION_SEND that is essentially just a link —
+  `reader/SharedUrlDetector.findLinkShare`: a URL plus at most a short
+  one-line title — → reader; everything else, prose containing a link and
+  PROCESS_TEXT included → speak). Unit-tested on the JVM.
 - `service/SpeakClipboardTileService.kt` — Quick Settings tile that
   speaks the current clipboard. It never reads the clipboard itself
   (since Android 10 only the focused app may): it launches

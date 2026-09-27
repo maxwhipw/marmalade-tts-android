@@ -130,6 +130,65 @@ class SharedUrlDetectorTest {
         )
     }
 
+    // -- findLinkShare: is the share essentially just a link? -----------------
+
+    @Test
+    fun `a bare url is a link share`() {
+        assertEquals("https://example.com/a", SharedUrlDetector.findLinkShare("https://example.com/a"))
+        assertEquals("https://example.com/a", SharedUrlDetector.findLinkShare("\n https://example.com/a \n"))
+    }
+
+    @Test
+    fun `title and url shapes are link shares`() {
+        val url = "https://arstechnica.com/why-kotlin-won"
+        for (shared in listOf(
+            "Why Kotlin Won — Ars Technica\n$url",
+            "Why Kotlin Won — Ars Technica $url",
+            "Why Kotlin Won\n\n$url",
+            "$url\nWhy Kotlin Won",
+            "Why Kotlin Won $url via @feedly",
+            "Why Kotlin Won\n$url\nShared via Some App",
+        )) {
+            assertEquals(shared, url, SharedUrlDetector.findLinkShare(shared))
+        }
+    }
+
+    /** The R16 case: a post or paragraph that happens to contain a link. */
+    @Test
+    fun `prose containing a link is not a link share`() {
+        val paragraph = "We spent the whole weekend testing the new release and honestly it is " +
+            "a big step up from the last one. Full write-up here: https://example.com/review " +
+            "— let me know what you think."
+        assertNull(SharedUrlDetector.findLinkShare(paragraph))
+    }
+
+    @Test
+    fun `a multi-line message with a link is not a link share`() {
+        val message = "Saw this and thought of you\nhttps://example.com/a\nCall me later?\nx"
+        assertNull(SharedUrlDetector.findLinkShare("Line one\nline two https://example.com/a"))
+        assertNull(SharedUrlDetector.findLinkShare(message))
+    }
+
+    @Test
+    fun `the label limit is inclusive`() {
+        val url = "https://example.com/a"
+        val atLimit = "t".repeat(SharedUrlDetector.MAX_LABEL_CHARS)
+        assertEquals(url, SharedUrlDetector.findLinkShare("$atLimit $url"))
+        assertNull(SharedUrlDetector.findLinkShare("${atLimit}t $url"))
+    }
+
+    @Test
+    fun `no link means no link share`() {
+        assertNull(SharedUrlDetector.findLinkShare("Just words."))
+        assertNull(SharedUrlDetector.findLinkShare(null))
+    }
+
+    /** Punctuation trimmed off the URL is part of the label, not lost. */
+    @Test
+    fun `a link share returns the trimmed url`() {
+        assertEquals("https://example.com/a", SharedUrlDetector.findLinkShare("Read this: https://example.com/a."))
+    }
+
     @Test
     fun `cjk letters in an iri path are kept`() {
         assertEquals(

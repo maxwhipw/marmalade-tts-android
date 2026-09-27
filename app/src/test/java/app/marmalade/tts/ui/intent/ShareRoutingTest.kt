@@ -68,9 +68,19 @@ class ShareRoutingTest {
         assertEquals(ShareRoute.Speak("text"), ShareRouting.routeFor(Intent.ACTION_VIEW, "text"))
     }
 
+    /** R16: a post or paragraph that merely contains a link is read aloud. */
+    @Test
+    fun `send with prose around a link keeps the speak behaviour`() {
+        val post = "Finally finished the long read everyone was talking about. It is worth " +
+            "the hour, even the footnotes: https://example.com/article. The section on " +
+            "night trains alone changed how I plan trips. Thoughts?"
+
+        assertEquals(ShareRoute.Speak(post), ShareRouting.routeFor(Intent.ACTION_SEND, post))
+    }
+
     @Test
     fun `reader shared text is capped at the dispatcher's limit`() {
-        val long = "https://example.com/a " + "word ".repeat(SpeakDispatcher.MAX_TEXT_LENGTH)
+        val long = "https://example.com/" + "a".repeat(SpeakDispatcher.MAX_TEXT_LENGTH)
 
         val route = ShareRouting.routeFor(Intent.ACTION_SEND, long)
 
