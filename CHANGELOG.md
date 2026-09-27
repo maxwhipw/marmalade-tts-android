@@ -3,6 +3,12 @@
 All notable changes to **marmalade-tts-android** will be documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- The themed (single-colour) app icon on Android 13+ is now a plain jar
+  silhouette with the sound waves, without the cut-out face.
+
 ## [1.1.0] - 2026-09-20
 
 ### Added
