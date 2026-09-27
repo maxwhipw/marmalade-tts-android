@@ -67,7 +67,7 @@ class MarmaladeSynthServiceTest {
     }
 
     /**
-     * Every non-reader caller — share sheet, tile, Tasker, the Speak screen —
+     * Every non-reader caller — share sheet, Tasker, the Speak screen —
      * omits the extra, and must be spoken exactly as before: 1.0 is the
      * identity for the multiply in `runOne`.
      */

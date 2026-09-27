@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Serviço em primeiro plano de reprodução (compartilhamento / bloco da área de transferência) -->
+    <!-- Serviço em primeiro plano de reprodução (compartilhamento) -->
     <string name="service_synth_channel_name">Reprodução do Marmalade TTS</string>
     <string name="service_synth_channel_description">Aparece enquanto o Marmalade TTS está lendo em voz alta</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -27,9 +27,6 @@
         <item quantity="one">O motor fica carregado pelo próximo %1$d minuto.</item>
         <item quantity="other">O motor fica carregado pelos próximos %1$d minutos.</item>
     </plurals>
-
-    <!-- Bloco das Configurações Rápidas -->
-    <string name="service_clipboard_empty">A área de transferência está vazia</string>
 
     <!-- Amostra falada para Configurações → Idiomas → TTS → \"Ouvir um exemplo\" -->
     <string name="service_sample_text">Olá, aqui é o Marmalade falando.</string>

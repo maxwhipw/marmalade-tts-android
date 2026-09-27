@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <!-- Playback (share-sheet) foreground service -->
     <string name="service_synth_channel_name">Marmalade TTS の再生</string>
     <string name="service_synth_channel_description">Marmalade TTS が読み上げている間に表示されます</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -26,9 +26,6 @@
     <plurals name="service_keepalive_text_smart">
         <item quantity="other">あと %1$d 分間、エンジンを保持します。</item>
     </plurals>
-
-    <!-- Quick Settings tile -->
-    <string name="service_clipboard_empty">クリップボードが空です</string>
 
     <!-- Spoken sample for Settings → Languages → TTS → "Listen to an example" -->
     <string name="service_sample_text">こんにちは。マーマレードがお話ししています。</string>

@@ -73,8 +73,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   voices screen with the Network permission revoked (GrapheneOS's
   per-app toggle) crashed the app — network errors now surface
   gracefully. Sharing a URL while offline no longer crashes the reader,
-  and a share or Quick Settings speak request that the system refuses
-  to start now shows an error toast instead of failing silently.
+  and a share speak request that the system refuses to start now
+  shows an error toast instead of failing silently.
 - **Word endings are no longer swallowed at high speeds** (issue #8):
   Kokoro and Kitten trimmed a fixed slice off each chunk's tail, which
   ate final consonants at 2×. The trim is now amplitude-aware — it only
@@ -96,13 +96,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The reader recognizes sentence endings before CJK closing brackets.
 - The email preprocessing rule was accidentally quadratic — very long
   texts with many @-signs preprocessed slowly. Now linear.
-- The Quick Settings clipboard tile now reads your clipboard. On Android
-  10 and up it always said the clipboard was empty.
 - A cloud voice's offline fallback now actually takes over when the
   provider can't be reached. Before, the fallback was never used and you
   got an error instead of speech.
 - Very long sentences with little or no punctuation are no longer cut
   off partway. They're split at a natural break instead.
+
+### Removed
+- The Quick Settings "Speak clipboard" tile, for now. Share text to
+  Marmalade or use the system "read selection" action instead.
 
 ## [1.0.0] - 2026-08-10
 

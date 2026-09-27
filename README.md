@@ -51,8 +51,8 @@ drop-in replacement for Google or Samsung TTS. Aliases tie a voice to speed
 and effect settings; route apps to aliases and your e-reader can speak in one
 voice while your chat app uses another. A foreground playback service reads
 long text reliably with the screen off, with lock-screen and Bluetooth
-controls, and you can share text from any app, use the system "read
-selection" action, or speak your clipboard from a Quick Settings tile.
+controls, and you can share text from any app or use the system "read
+selection" action.
 
 ## Screenshots
 

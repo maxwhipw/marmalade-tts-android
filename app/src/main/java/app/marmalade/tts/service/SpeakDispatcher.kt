@@ -9,7 +9,7 @@ import androidx.core.content.ContextCompat
 // Data flow
 // -----------------------------------------------------------------------------
 //
-//   System trigger (share-sheet target / Quick Settings tile / future hooks)
+//   System trigger (share-sheet target / future hooks)
 //     │
 //     │  raw text (may be null, blank, or arbitrarily long)
 //     ▼
@@ -41,8 +41,7 @@ import androidx.core.content.ContextCompat
 
 /**
  * Centralised dispatch helper for "speak this text" callers that aren't
- * inside the main app UI — share-sheet, Quick Settings tile, future Tasker
- * integration, etc.
+ * inside the main app UI — share-sheet, future Tasker integration, etc.
  *
  * Keeping validation here means every entry point applies the same rules:
  * blank rejection, length clamp, and the exact intent shape that
@@ -90,8 +89,8 @@ internal object SpeakDispatcher {
         } catch (t: Throwable) {
             // The OS can refuse the FGS start (background-start restrictions,
             // hardened builds throwing SecurityException). The in-app path
-            // guards the identical call in Synthesizer; these external entry
-            // points (share sheet, QS tile) must survive it too.
+            // guards the identical call in Synthesizer; this external entry
+            // point (the share sheet) must survive it too.
             Log.e(TAG, "startForegroundService refused; dropping speak request", t)
             return DispatchResult.Failed(t)
         }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Servizio in primo piano per la riproduzione (condivisione / riquadro appunti) -->
+    <!-- Servizio in primo piano per la riproduzione (condivisione) -->
     <string name="service_synth_channel_name">Riproduzione di Marmalade TTS</string>
     <string name="service_synth_channel_description">Visibile mentre Marmalade TTS legge ad alta voce</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -27,9 +27,6 @@
         <item quantity="one">Il motore resta caricato per %1$d minuto.</item>
         <item quantity="other">Il motore resta caricato per altri %1$d minuti.</item>
     </plurals>
-
-    <!-- Riquadro delle Impostazioni rapide -->
-    <string name="service_clipboard_empty">Gli appunti sono vuoti</string>
 
     <!-- Frase di esempio per Impostazioni → Lingue → Sintesi vocale → Ascolta un esempio -->
     <string name="service_sample_text">Ciao, sono Marmalade e ti sto parlando.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Notification / Quick-Settings tile icon (HAPPY face).
+  Notification icon (HAPPY face).
 
   These surfaces flatten a drawable to its alpha and tint it, so the in-app
   mascot's gloss gradient would be invisible here and its drop shadow would

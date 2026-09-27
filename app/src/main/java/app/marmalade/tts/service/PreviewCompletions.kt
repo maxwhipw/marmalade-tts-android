@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.SharedFlow
  * [app.marmalade.tts.audio.Synthesizer.speak] keep its suspend-until-done
  * contract for the ViewModels.
  *
- * External callers (share sheet, Tasker, clipboard tile) carry no request
+ * External callers (share sheet, Tasker) carry no request
  * id; the service posts nothing for them.
  */
 @Singleton

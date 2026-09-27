@@ -34,7 +34,7 @@
 <p>22 préréglages d'effets intégrés comme 8-bit, cyborg, megaphone et vintage radio donnent du caractère à la voix. Ou créez vos propres chaînes d'effets dans l'éditeur.</p>
 
 <p><b>LIT LES TEXTES LONGS</b></p>
-<p>Un service de lecture en premier plan lit les textes longs de façon fiable, écran éteint, avec des commandes sur l'écran de verrouillage et en Bluetooth. Partagez du texte depuis n'importe quelle appli, utilisez l'action système « Lire la sélection » ou faites lire votre presse-papiers depuis une tuile de réglages rapides.</p>
+<p>Un service de lecture en premier plan lit les textes longs de façon fiable, écran éteint, avec des commandes sur l'écran de verrouillage et en Bluetooth. Partagez du texte depuis n'importe quelle appli ou utilisez l'action système « Lire la sélection ».</p>
 
 <p><b>OPEN SOURCE</b></p>
 <p>Le code source de Marmalade est sous licence MIT et son dépôt ne contient aucun code GPL. L'appli publiée contient aussi le phonémiseur espeak-ng, compilé depuis les sources au moment de la compilation, donc l'appli que vous installez est distribuée sous GPL-3.0-or-later. La version exacte d'espeak-ng utilisée est figée à partir du dépôt du projet, et les détails de licence de chaque composant sont affichés dans l'appli.</p>

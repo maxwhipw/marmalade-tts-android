@@ -490,7 +490,7 @@ class ReaderPlaybackController internal constructor(
             if (completion.stopped || entry !== pending.first()) {
                 // Something outside cancelled our queue: the notification's
                 // Stop, a permanent audio-focus loss, or a new speak (Speak
-                // screen, share, clipboard tile) replacing our paused read.
+                // screen, share sheet) replacing our paused read.
                 // Without honouring it the reader would treat the stop as
                 // "block finished" and enqueue the rest of the article right
                 // back — or, after a replace, sit on Paused with nothing

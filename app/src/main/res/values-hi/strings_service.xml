@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <!-- Playback (share-sheet) foreground service -->
     <string name="service_synth_channel_name">Marmalade TTS प्लेबैक</string>
     <string name="service_synth_channel_description">जब Marmalade TTS पढ़कर सुना रहा हो, तब दिखती है</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -27,9 +27,6 @@
         <item quantity="one">इंजन अगले %1$d मिनट तक लोड रहेगा।</item>
         <item quantity="other">इंजन अगले %1$d मिनट तक लोड रहेगा।</item>
     </plurals>
-
-    <!-- Quick Settings tile -->
-    <string name="service_clipboard_empty">क्लिपबोर्ड खाली है</string>
 
     <!-- Spoken sample for Settings → Languages → TTS → "Listen to an example" -->
     <string name="service_sample_text">नमस्ते, यह Marmalade बोल रहा है।</string>

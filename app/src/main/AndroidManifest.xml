@@ -219,47 +219,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-          Clipboard-reading trampoline for the Quick Settings tile below.
-          Android 10+ lets only the focused app (or the default IME) read
-          the clipboard, so the tile opens this invisible activity, which
-          reads once it has window focus, dispatches, and finishes. Empty
-          taskAffinity + NEW_TASK give it a task of its own, so the app's
-          main screen never comes up behind it; not exported — only our own
-          tile launches it.
-        -->
-        <activity
-            android:name="app.marmalade.tts.service.SpeakClipboardActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:taskAffinity=""
-            android:excludeFromRecents="true"
-            android:noHistory="true" />
-
-        <!--
-          Quick Settings tile that speaks the current clipboard. Declared
-          as an ACTIVE_TILE so we can refresh icon/label as state changes.
-          A tile can't read the clipboard itself (it never has focus), so a
-          click opens SpeakClipboardActivity above — behind unlockAndRun
-          when the lock screen is showing.
-        -->
-        <service
-            android:name="app.marmalade.tts.service.SpeakClipboardTileService"
-            android:exported="true"
-            android:icon="@drawable/mascot_happy"
-            android:label="@string/quick_tile_label"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.quicksettings.ACTIVE_TILE"
-                android:value="true" />
-            <meta-data
-                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                android:value="false" />
-        </service>
-
     </application>
 
 </manifest>

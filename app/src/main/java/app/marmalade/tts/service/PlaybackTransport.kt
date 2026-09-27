@@ -21,8 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *  - [reader] is written by the controller, read by the service. It is what
  *    lets the notification grow next/previous-block actions (and a tap target
  *    that reopens the article) only while an article is actually being read;
- *    share-sheet and clipboard playback see exactly the notification they
- *    always did.
+ *    share-sheet playback sees exactly the notification it always did.
  *
  * A @Singleton like [PreviewCompletions], injected into both sides, rather
  * than a service binding: the service comes and goes with every utterance,

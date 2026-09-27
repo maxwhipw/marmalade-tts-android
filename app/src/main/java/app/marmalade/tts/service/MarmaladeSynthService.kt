@@ -545,7 +545,7 @@ class MarmaladeSynthService : Service() {
         pausedByFocus = false
         setPaused(false)
         holdWakeLock()
-        // P-K — share-sheet / Tasker / clipboard tile path. This service
+        // P-K — share-sheet / Tasker path. This service
         // is already foregrounded, so starting the keepalive service from
         // here is FGS-from-FGS, which is always allowed.
         keepaliveCoordinator.onSynthCompleted()
@@ -682,7 +682,7 @@ class MarmaladeSynthService : Service() {
     private suspend fun resolveRequest(req: SpeakRequest): SpeakRequest {
         // Per-app routing: when the caller didn't specify a voice, ask
         // TtsRouter for the user's primary alias and inject voice + speed
-        // + effect from it. Share-sheet and clipboard-tile callers never
+        // + effect from it. Share-sheet callers never
         // pass EXTRA_VOICE, so this is where the user's primary persona
         // lands. Caller-package is null on this path — the trampoline
         // activity runs in our own process and there's no callerUid to
@@ -1469,8 +1469,8 @@ class MarmaladeSynthService : Service() {
     /**
      * The foreground notification.
      *
-     * Two shapes. For ordinary speech — share sheet, clipboard tile, Speak
-     * screen — it is what it has always been: pause/resume and stop, both in
+     * Two shapes. For ordinary speech — share sheet, Speak screen —
+     * it is what it has always been: pause/resume and stop, both in
      * the compact view, and no tap target. While the reader is mid-article it
      * additionally grows previous/next-block buttons around the pause, and
      * tapping it reopens the article (reader-mode design point 7).
@@ -1618,7 +1618,7 @@ class MarmaladeSynthService : Service() {
         /**
          * True iff the caller passed [EXTRA_VOICE] on the intent. When
          * false, [runOne] consults [TtsRouter] to apply the user's
-         * primary alias (the share-sheet / clipboard-tile path doesn't
+         * primary alias (the share-sheet path doesn't
          * specify a voice, so this is where the user's persona kicks in).
          */
         val voiceExplicit: Boolean,

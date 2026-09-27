@@ -6,8 +6,8 @@
 > refs may drift; the *shape* of the map is stable.
 >
 > - Entries touched by the v1.1.0 review pass (2026-09-22, commits
->   `fc46ffa`..) are current: reader routing, synth service, clipboard
->   tile, install failures, chunking, voice filtering, alias fallback.
+>   `fc46ffa`..) are current: reader routing, synth service, install
+>   failures, chunking, voice filtering, alias fallback.
 > - [ ] **TODO (2026-08-02): stale refresh needed** — still documents the
 >   sherpa-onnx engines (`SherpaEngine`, `KittenEngine`, `KokoroEngine`,
 >   `KittenVoiceCatalog`) removed in June, and Kitten Mini removed in
@@ -48,7 +48,7 @@ app/src/main/
     engine/           SherpaEngine base + Kitten/Kokoro subclasses
     install/          EngineCatalog + EngineInstaller (HTTP + tar.bz2)
     preprocessing/    Text rules + emoji prosody + ProsodyApplier
-    service/          TTS service, foreground synth, quick tile, helpers
+    service/          TTS service, foreground synth, helpers
     ui/               Compose screens, ViewModels, navigation, theme
   res/
     drawable/         9 mascot vectors (3 used: happy, speaking, focused)
@@ -226,11 +226,6 @@ When investigating **{concern}**, start at **{files}**:
   `reader/SharedUrlDetector.findLinkShare`: a URL plus at most a short
   one-line title — → reader; everything else, prose containing a link and
   PROCESS_TEXT included → speak). Unit-tested on the JVM.
-- `service/SpeakClipboardTileService.kt` — Quick Settings tile that
-  speaks the current clipboard. It never reads the clipboard itself
-  (since Android 10 only the focused app may): it launches
-  `service/SpeakClipboardActivity.kt`, an invisible trampoline that reads
-  on first window focus, dispatches, and finishes
 - `service/SpeakDispatcher.kt` — wraps the foreground-service start
   intent for in-app and external callers
 
@@ -372,6 +367,12 @@ write Marmalade code.
 
 ## Known quirks / recent gotchas
 
+- **No Quick Settings tile (removed 2026-09-27, before 1.1.0 shipped)**:
+  the "Speak clipboard" tile was pulled rather than debugged. If it comes
+  back: a `TileService` can't read the clipboard on Android 10+ (only the
+  focused app or default IME can), so it needs a focus-holding trampoline
+  activity. The last (still buggy) attempt is in commit `2c6ffb7`
+  (`SpeakClipboardTileService` + `SpeakClipboardActivity`).
 - **User `speed` is a time-stretch, not a model parameter**: Pocket's
   ONNX graphs are autoregressive with no speed input, and Kokoro's and
   Kitten's `speed` tensors saturate (Kokoro ~2.2x for a requested 3.0x;

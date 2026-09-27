@@ -4,7 +4,7 @@
   In-app mascot (happy): gloss-gradient body + drop shadow, no sticker
   outline. 108x108 viewport, same geometry as the launcher icon.
 
-  NOT for notifications or the QS tile — those tint by alpha and would render
+  NOT for notifications — those tint by alpha and would render
   the drop shadow as a ghost. Use @drawable/ic_stat_marmalade* there.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"

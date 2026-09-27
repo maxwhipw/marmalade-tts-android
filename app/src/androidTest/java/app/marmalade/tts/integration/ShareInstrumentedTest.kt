@@ -1,7 +1,5 @@
 package app.marmalade.tts.integration
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,12 +8,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import app.marmalade.tts.service.SpeakClipboardTileService
 import app.marmalade.tts.ui.intent.ShareIntentActivity
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume
@@ -24,13 +20,12 @@ import org.junit.runner.RunWith
 
 /**
  * End-to-end instrumented tests for the share-sheet trampoline
- * ([ShareIntentActivity]) and the clipboard Quick Settings tile
- * ([SpeakClipboardTileService]).
+ * ([ShareIntentActivity]).
  *
  * # How to run
  *
  * ```
- * ./gradlew :app:connectedDebugAndroidTest --tests '*ShareAndTileInstrumentedTest*'
+ * ./gradlew :app:connectedDebugAndroidTest --tests '*ShareInstrumentedTest*'
  * ```
  *
  * Requires a connected Android device (or emulator) with `adb` access. The
@@ -41,7 +36,7 @@ import org.junit.runner.RunWith
  *
  * # Prerequisites — engine bundle on device
  *
- * Three things make these tests "real":
+ * Two things make these tests "real":
  *
  *  1. The APK is installed (`./gradlew :app:installDebug`).
  *  2. The user has walked through onboarding once and tapped
@@ -49,19 +44,12 @@ import org.junit.runner.RunWith
  *     exists. The audible-output tests use [Assume.assumeTrue] on
  *     [engineInstalled] so they *skip* (not fail) when this is absent —
  *     CI without an installed bundle will simply have fewer green ticks.
- *  3. For tile interaction, the user has long-pressed the Quick Settings
- *     drawer and dragged the Marmalade tile into the active set. There
- *     is no programmatic way to add the tile to the user's chosen
- *     layout from instrumentation, so all tile-tap assertions are
- *     `Assume.assumeTrue(false, ...)`-gated and documented as manual
- *     checklist items below.
  *
  * # Manual verification steps (what these tests can't prove on their own)
  *
  * The programmatic assertions below catch manifest regressions, intent
  * extraction bugs, and dispatcher wiring problems. They cannot prove the
- * device actually emits sound or that the tile appears on the lock screen.
- * A human tester must verify:
+ * device actually emits sound. A human tester must verify:
  *
  *  - **Audible speech via share sheet:** While [shareSheetActivity_launchesAndDispatchesAndFinishes]
  *    is running, listen for "hello world" from the device speaker. No
@@ -71,15 +59,6 @@ import org.junit.runner.RunWith
  *    MarmaladeSynthService` while [shareSheetActivity_blankTextShowsToastAndFinishes]
  *    runs. You should see *no* `onStartCommand` line — the dispatcher's
  *    blank-input guard should reject before any service intent is sent.
- *  - **Tile visible on lock screen:** Lock the device. Swipe down from
- *    the lock-screen status bar. The Marmalade tile must be present and
- *    tappable without unlocking. (Manifest declares `BIND_QUICK_SETTINGS_TILE`
- *    but Android also honours the per-tile `unlock-required` flag —
- *    re-verify after any manifest edit.)
- *  - **Tile speaks clipboard text:** With "hello world" copied to the
- *    clipboard, tap the tile. Audible playback must start. Then clear
- *    the clipboard, tap again — a "Clipboard is empty" Toast must
- *    appear and no playback must start.
  *
  * # Why JVM unit tests don't cover this
  *
@@ -87,12 +66,11 @@ import org.junit.runner.RunWith
  * (Hilt) — both require a real Android lifecycle to bind. The dispatcher's
  * pure-validation half is already exercised in
  * `SpeakDispatcherTest` (JVM); what's left is the manifest plumbing
- * (intent filters, exported flags, tile permission) and the
- * Activity → Service handoff, neither of which Robolectric can simulate
- * faithfully.
+ * (intent filters, exported flags) and the Activity → Service handoff,
+ * neither of which Robolectric can simulate faithfully.
  */
 @RunWith(AndroidJUnit4::class)
-class ShareAndTileInstrumentedTest {
+class ShareInstrumentedTest {
 
     private val context: Context
         get() = InstrumentationRegistry.getInstrumentation().targetContext
@@ -236,110 +214,6 @@ class ShareAndTileInstrumentedTest {
                 reachedDestroyed,
             )
         }
-    }
-
-    /**
-     * The tile service must be exported, gated by
-     * `BIND_QUICK_SETTINGS_TILE`, and respond to the QS_TILE action.
-     * Without all three the tile silently disappears from the Quick
-     * Settings drawer — another regression that wouldn't crash anything.
-     */
-    @Test
-    fun tileService_isExportedAndDeclared() {
-        val pm = context.packageManager
-        val intent = Intent("android.service.quicksettings.action.QS_TILE").apply {
-            setPackage(context.packageName)
-        }
-        val resolved = pm.queryIntentServices(intent, pmFlags())
-        val match = resolved.firstOrNull {
-            it.serviceInfo.name == SpeakClipboardTileService::class.java.name
-        }
-        assertNotNull(
-            "SpeakClipboardTileService did not resolve for QS_TILE action. " +
-                "Got: ${resolved.map { it.serviceInfo.name }}",
-            match,
-        )
-        assertTrue(
-            "SpeakClipboardTileService must be exported so SystemUI can bind to it",
-            match!!.serviceInfo.exported,
-        )
-        assertEquals(
-            "SpeakClipboardTileService must be gated by BIND_QUICK_SETTINGS_TILE",
-            "android.permission.BIND_QUICK_SETTINGS_TILE",
-            match.serviceInfo.permission,
-        )
-    }
-
-    /**
-     * Tile-tap → audible speech. This test is **manual-only** for v0.1.
-     *
-     * Why not automated: `TileService.onClick` only fires when SystemUI
-     * has bound the service via the platform tile-host machinery. We
-     * cannot construct a `SpeakClipboardTileService` instance and call
-     * `onClick()` directly — `qsTile` and `getSystemService` rely on the
-     * service having gone through `attachBaseContext` / `onCreate` under
-     * SystemUI's binding, neither of which instrumentation can fake.
-     *
-     * The clean way to automate this would be UiAutomator:
-     *
-     *  1. `UiDevice.openQuickSettings()` (swipe down from the top).
-     *  2. `device.findObject(By.text("Speak clipboard"))` (label from
-     *     `R.string.quick_tile_label`).
-     *  3. `tile.click()`.
-     *  4. Assert audible playback — which still requires a human ear,
-     *     so we'd be back to a partly-manual test anyway.
-     *
-     * That setup is beyond v0.1 scope (we'd need
-     * `androidx.test.uiautomator:uiautomator` on the androidTest
-     * classpath; not currently declared). For now: assume-skip with a
-     * documented procedure below.
-     *
-     * **Manual procedure:**
-     *  1. Drag the Marmalade tile into the active Quick Settings layout.
-     *  2. Copy "hello world" to the clipboard from any app.
-     *  3. Pull down the QS drawer, tap the Marmalade tile.
-     *  4. Listen — the device should speak "hello world".
-     */
-    @Test
-    fun tileService_dispatchesWhenClipboardHasText() {
-        Assume.assumeTrue(
-            "Tile interaction requires UiAutomator setup + a human ear — " +
-                "follow the manual procedure in this test's KDoc instead.",
-            false,
-        )
-
-        // Unreachable, kept as documentation of the intended assertion
-        // shape if/when UiAutomator gets wired in for v0.2.
-        val cm = context.getSystemService(ClipboardManager::class.java)
-        cm.setPrimaryClip(ClipData.newPlainText("test", "hello world"))
-    }
-
-    /**
-     * Empty-clipboard tile-tap → "Clipboard is empty" Toast, no service
-     * start. Same automation blockers as
-     * [tileService_dispatchesWhenClipboardHasText]; same manual gate.
-     *
-     * **Manual procedure:**
-     *  1. Drag the Marmalade tile into the active Quick Settings layout.
-     *  2. Clear the clipboard (`adb shell service call clipboard 2` on
-     *     a rooted device, or copy an empty string from a text field).
-     *  3. Pull down the QS drawer, tap the Marmalade tile.
-     *  4. A Toast must appear reading "Clipboard is empty".
-     *  5. No audible speech must occur.
-     *  6. Verify `adb logcat | grep MarmaladeSynthService` shows no
-     *     `onStartCommand` from the tap.
-     */
-    @Test
-    fun tileService_emptyClipboard_doesNotStartService() {
-        Assume.assumeTrue(
-            "Tile interaction requires UiAutomator setup — follow the " +
-                "manual procedure in this test's KDoc instead.",
-            false,
-        )
-
-        // Unreachable; documents the precondition the manual tester sets up.
-        val cm = context.getSystemService(ClipboardManager::class.java)
-        cm.setPrimaryClip(ClipData.newPlainText("test", ""))
     }
 
     // ----------------------------------------------------------------------

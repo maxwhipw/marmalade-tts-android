@@ -37,7 +37,7 @@
 <p>22 built-in effect presets like 8-bit, cyborg, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor.</p>
 
 <p><b>READS THE LONG STUFF</b></p>
-<p>A foreground playback service reads long text reliably with the screen off, with lock-screen and Bluetooth controls. Share text from any app, use the system "read selection" action, or speak your clipboard from a Quick Settings tile.</p>
+<p>A foreground playback service reads long text reliably with the screen off, with lock-screen and Bluetooth controls. Share text from any app or use the system "read selection" action.</p>
 
 <p><b>OPEN SOURCE</b></p>
 <p>Marmalade's own source code is MIT licensed and its repository contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source at build time, so the app you install is distributed under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the project repository, and license details for every component are shown inside the app.</p>

@@ -2,5 +2,4 @@
 <resources>
     <string name="app_name">Marmalade TTS</string>
     <string name="share_to_marmalade_tts">Marmalade で読み上げ</string>
-    <string name="quick_tile_label">クリップボードを読み上げ</string>
 </resources>

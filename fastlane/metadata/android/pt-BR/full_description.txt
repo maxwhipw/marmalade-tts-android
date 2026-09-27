@@ -34,7 +34,7 @@
 <p>22 predefinições de efeito integradas, como 8-bit, cyborg, megaphone e vintage radio, dão personalidade ao texto falado. Ou monte as suas próprias cadeias de efeito no editor.</p>
 
 <p><b>LÊ OS TEXTOS LONGOS</b></p>
-<p>Um serviço de reprodução em primeiro plano lê textos longos com segurança e a tela desligada, com controles na tela de bloqueio e no Bluetooth. Compartilhe texto de qualquer app, use a ação "ler seleção" do sistema ou fale a sua área de transferência a partir de um bloco de Configurações rápidas.</p>
+<p>Um serviço de reprodução em primeiro plano lê textos longos com segurança e a tela desligada, com controles na tela de bloqueio e no Bluetooth. Compartilhe texto de qualquer app ou use a ação "ler seleção" do sistema.</p>
 
 <p><b>CÓDIGO ABERTO</b></p>
 <p>O código-fonte do próprio Marmalade é licenciado sob MIT e o repositório dele não contém nenhum código GPL. O app publicado também inclui o fonemizador espeak-ng, compilado a partir do código-fonte no momento do build, então o app que você instala é distribuído sob GPL-3.0-or-later. A versão exata do espeak-ng usada é fixada a partir do repositório do projeto, e os detalhes de licença de cada componente são exibidos dentro do app.</p>

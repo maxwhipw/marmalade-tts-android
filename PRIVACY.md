@@ -164,7 +164,7 @@ nothing about you anywhere but on your own phone.
 | `POST_NOTIFICATIONS` (Android 13+) | To show the "speaking" / "keeping engine loaded" foreground notice Android requires when the app plays audio or runs a foreground service. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | To keep long-form speech playing reliably (including with the screen off) and to expose lock-screen / Bluetooth playback controls. |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | For the optional "keep engine loaded" service so the next speak request is instant. You opt into this in Settings → Performance. |
-| `WAKE_LOCK` | To keep the phone's processor awake while Marmalade is reading something aloud itself (the Speak screen, reader mode, shared or clipboard text), so speech doesn't freeze partway when the screen turns off. It is held only while something is speaking or waiting to speak, and let go as soon as speech finishes or you pause it. |
+| `WAKE_LOCK` | To keep the phone's processor awake while Marmalade is reading something aloud itself (the Speak screen, reader mode, shared text), so speech doesn't freeze partway when the screen turns off. It is held only while something is speaking or waiting to speak, and let go as soon as speech finishes or you pause it. |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | To offer an in-app prompt asking Android not to pause the speech service mid-sentence when the screen sleeps. The prompt is optional and you can decline it. |
 
 The app does **not** request `QUERY_ALL_PACKAGES`. The "per-app voices"

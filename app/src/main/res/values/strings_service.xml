@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Playback (share-sheet / clipboard tile) foreground service -->
+    <!-- Playback (share-sheet) foreground service -->
     <string name="service_synth_channel_name">Marmalade TTS Playback</string>
     <string name="service_synth_channel_description">Shows while Marmalade TTS is reading aloud</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -27,9 +27,6 @@
         <item quantity="one">Engine stays loaded for the next %1$d minute.</item>
         <item quantity="other">Engine stays loaded for the next %1$d minutes.</item>
     </plurals>
-
-    <!-- Quick Settings tile -->
-    <string name="service_clipboard_empty">Clipboard is empty</string>
 
     <!-- Spoken sample for Settings → Languages → TTS → \"Listen to an example\" -->
     <string name="service_sample_text">Hello, this is Marmalade speaking.</string>

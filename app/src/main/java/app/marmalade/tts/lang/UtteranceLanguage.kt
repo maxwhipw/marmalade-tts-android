@@ -7,7 +7,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
  * Per-engine rules for turning an alias's stored phonemization language
  * into the espeak code one utterance is actually phonemized with.
  *
- * The three synthesis routes (system TTS service, the share/clipboard
+ * The three synthesis routes (system TTS service, the share-sheet
  * foreground service, the Speak screen) each resolve this once per
  * utterance before any chunking, and they must agree — hence one place
  * that decides, rather than the same `if` written three times.

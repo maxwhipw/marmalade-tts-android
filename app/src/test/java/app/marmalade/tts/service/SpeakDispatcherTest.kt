@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * Tests for [SpeakDispatcher.prepare] — the pure validation/clamp step
- * shared by the share-sheet trampoline and the Quick Settings tile.
+ * used by the share-sheet trampoline.
  *
  * The dispatch() path also calls ContextCompat.startForegroundService,
  * which needs a real Android Context; that's covered by manual testing

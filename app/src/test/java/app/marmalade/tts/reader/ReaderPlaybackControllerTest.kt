@@ -178,7 +178,7 @@ class ReaderPlaybackControllerTest {
     }
 
     /**
-     * A new speak (Speak screen, share, clipboard tile) replaces a paused
+     * A new speak (Speak screen, share sheet) replaces a paused
      * read; the service resolves the reader's requests as stopped. The
      * reader must fall back to stopped — not sit on Paused with nothing left
      * in the service to resume.

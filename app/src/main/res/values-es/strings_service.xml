@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Servicio en primer plano de reproducción (compartir / mosaico del portapapeles) -->
+    <!-- Servicio en primer plano de reproducción (compartir) -->
     <string name="service_synth_channel_name">Reproducción de Marmalade TTS</string>
     <string name="service_synth_channel_description">Se muestra mientras Marmalade TTS lee en voz alta</string>
     <string name="service_synth_notification_title">Marmalade TTS</string>
@@ -27,9 +27,6 @@
         <item quantity="one">El motor seguirá cargado durante %1$d minuto más.</item>
         <item quantity="other">El motor seguirá cargado durante %1$d minutos más.</item>
     </plurals>
-
-    <!-- Mosaico de ajustes rápidos -->
-    <string name="service_clipboard_empty">El portapapeles está vacío</string>
 
     <!-- Muestra hablada para Ajustes → Idiomas → TTS → \"Escuchar un ejemplo\" -->
     <string name="service_sample_text">Hola, te habla Marmalade.</string>
