@@ -17,6 +17,33 @@ Keep `REPO-MAP.md` current — when you discover a new gotcha or
 architectural choice a future agent should know, update the map in
 the same commit as the change.
 
+## Sessions: one head per workspace
+
+This repo has its own workspace and runs the `head-session` pattern: one
+head session talks to Max and spawns child sessions in their own
+worktrees; its recovery record is the `## Head ledger` section of
+HANDOFF.md (gitignored). CLI work belongs in the marmalade-tts-cli repo
+and its own sessions, not here.
+
+## Guardrails that have bitten before
+
+- **Never run `connectedAndroidTest` against the daily phone.** It
+  uninstalls the app under test and wipes Max's data. Before any device
+  install, snapshot the app's DB and datastore, and install with
+  `adb install -r` (keeps data).
+- **Reproducible-build inputs are frozen** unless Max says otherwise:
+  `app/build.gradle.kts` dependency/version/signing blocks, `gradle/`,
+  `third_party/` submodules, the CMake files, and the release workflow.
+  F-Droid verifies our signed APK against its own rebuild.
+- **Planning docs stay local.** HANDOFF.md, `*-PLAN.md`, labs and design
+  notes are gitignored; never add them to the tracked tree.
+- **All public text needs Max's sign-off in final form**: CHANGELOG,
+  fastlane metadata, README, NOTICE/LICENSES/PRIVACY, in-app copy.
+- **New user-visible strings go in all 8 locales** (`values`, `-es`,
+  `-fr`, `-hi`, `-it`, `-ja`, `-pt-rBR`, `-zh-rCN`).
+- **All in-app playback goes through `MarmaladeSynthService`.** Android
+  16 mutes a bare activity's AudioTrack.
+
 ## Remotes
 
 **github is authoritative — and PUBLIC.** The repo is live at
@@ -39,9 +66,11 @@ next.
 ## Versioning
 
 Bump `versionCode` + `versionName` in `app/build.gradle.kts` per
-release. v0.1.x is debug-signed only — `applicationIdSuffix = ".debug"`,
-so the installed package on devices is `app.marmalade.tts.debug`.
-Commits of the form `vX.Y.Z: ...` mark a version bump.
+release, following the scheme in its comment
+(`MAJOR*10_000_000 + MINOR*10_000 + PATCH*10 + ABI`; 1.1.0 = `10010000`).
+Debug builds install as `app.marmalade.tts.debug`, release candidates as
+`app.marmalade.tts.rc`. Commits of the form `vX.Y.Z: ...` mark a version
+bump.
 
 When working on a batch of changes that would warrant separate
 logical commits, split them — even if the work was done in one
@@ -69,8 +98,9 @@ Always keep the letter assignments in your task tracker.
 
 Land each lettered atom *individually* on the device before moving to
 the next. Each step is small enough that:
-- Compile-check via `./gradlew :app:compileDebugKotlin` (10s) catches
-  trivially-bad refactors before the longer `assembleDebug` (1-2 min).
+- Compile-check via `./gradlew :app:compileFdroidDebugKotlin` catches
+  trivially-bad refactors before the longer `assembleFdroidDebug`; the
+  unit suite is `testFdroidDebugUnitTest`.
 - Per-change logcat traces let you attribute deltas correctly. Bundling
   A+B+C into one APK and seeing a 40% speedup tells you nothing about
   *which* change earned it.
