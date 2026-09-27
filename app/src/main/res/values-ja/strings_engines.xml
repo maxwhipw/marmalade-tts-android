@@ -32,10 +32,6 @@
     <string name="engines_uninstall_failed">アンインストールに失敗しました</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
-    <string name="engines_cloud_title">クラウドボイス</string>
-    <string name="engines_cloud_card_desc">ネットワーク経由で利用するホスト型のボイスです。ダウンロードは不要ですが、リクエストのたびにテキストが、設定したプロバイダ（Venice、OpenAI など）へ送信され、そのプロバイダの API キーが必要になります。すぐに読み上げを始められ、プロバイダのボイスをひととおり使えます。</string>
-    <string name="engines_cloud_configured">設定済み — クラウドボイスを利用できます。</string>
-    <string name="engines_cloud_not_configured">未設定 — プロバイダの API キーを追加すると使えます。</string>
     <string name="engines_configure">設定</string>
     <string name="engines_voices">ボイス</string>
 

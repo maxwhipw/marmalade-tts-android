@@ -32,10 +32,6 @@
     <string name="engines_uninstall_failed">Falló la desinstalación</string>
 
     <!-- Tarjeta del motor de API en la nube (EnginesScreen) -->
-    <string name="engines_cloud_title">Voces en la nube</string>
-    <string name="engines_cloud_card_desc">Voces alojadas en la red: no hay nada que descargar, pero cada petición envía tu texto al proveedor que configures (Venice, OpenAI…) y requiere su clave de API. Empiezan a hablar enseguida y te dan acceso a todo el catálogo de voces del proveedor.</string>
-    <string name="engines_cloud_configured">Configurado: las voces en la nube están disponibles.</string>
-    <string name="engines_cloud_not_configured">Sin configurar: añade la clave de API de un proveedor para activarlo.</string>
     <string name="engines_configure">Configurar</string>
     <string name="engines_voices">Voces</string>
 

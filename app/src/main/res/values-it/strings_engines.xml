@@ -32,10 +32,6 @@
     <string name="engines_uninstall_failed">Disinstallazione non riuscita</string>
 
     <!-- Scheda del motore cloud (EnginesScreen) -->
-    <string name="engines_cloud_title">Voci cloud</string>
-    <string name="engines_cloud_card_desc">Voci ospitate in rete: non c\'è niente da scaricare, ma ogni richiesta invia il tuo testo al fornitore che configuri (Venice, OpenAI, …) e richiede la sua chiave API. Si inizia a leggere subito e hai a disposizione l\'intera gamma di voci del fornitore.</string>
-    <string name="engines_cloud_configured">Configurato — le voci cloud sono disponibili.</string>
-    <string name="engines_cloud_not_configured">Non configurato — aggiungi la chiave API di un fornitore per abilitarlo.</string>
     <string name="engines_configure">Configura</string>
     <string name="engines_voices">Voci</string>
 

@@ -32,10 +32,6 @@
     <string name="engines_uninstall_failed">अनइंस्टॉल नहीं हो सका</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
-    <string name="engines_cloud_title">क्लाउड वॉइस</string>
-    <string name="engines_cloud_card_desc">नेटवर्क पर चलने वाली वॉइस — डाउनलोड करने के लिए कुछ नहीं, लेकिन हर बार आपका टेक्स्ट उस प्रोवाइडर को भेजा जाता है जिसे आप चुनते हैं (Venice, OpenAI, …), और उस प्रोवाइडर की API कुंजी ज़रूरी होती है। बोलना तुरंत शुरू हो जाता है, और प्रोवाइडर की पूरी वॉइस लाइनअप आपके पास होती है।</string>
-    <string name="engines_cloud_configured">सेट हो चुका है — क्लाउड वॉइस उपलब्ध हैं।</string>
-    <string name="engines_cloud_not_configured">सेट नहीं है — चालू करने के लिए किसी प्रोवाइडर की API कुंजी जोड़ें।</string>
     <string name="engines_configure">सेट करें</string>
     <string name="engines_voices">वॉइस</string>
 

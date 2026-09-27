@@ -32,10 +32,6 @@
     <string name="engines_uninstall_failed">卸载失败</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
-    <string name="engines_cloud_title">云端语音</string>
-    <string name="engines_cloud_card_desc">通过网络使用托管语音 — 无需下载，但每次请求都会把你的文本发送给你配置的服务商（Venice、OpenAI 等），并需要该服务商的 API 密钥。上手极快，服务商的全部语音阵容触手可及。</string>
-    <string name="engines_cloud_configured">已配置 — 云端语音可用。</string>
-    <string name="engines_cloud_not_configured">未配置 — 添加服务商 API 密钥即可启用。</string>
     <string name="engines_configure">配置</string>
     <string name="engines_voices">语音</string>
 

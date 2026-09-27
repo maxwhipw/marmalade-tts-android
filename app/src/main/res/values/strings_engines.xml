@@ -143,10 +143,6 @@
     <string name="engines_uninstall_failed">Uninstall failed</string>
 
     <!-- Cloud API engine card (EnginesScreen) -->
-    <string name="engines_cloud_title">Cloud voices</string>
-    <string name="engines_cloud_card_desc">Hosted voices over the network — nothing to download, but each request sends your text to the provider you configure (Venice, OpenAI, …) and needs that provider\'s API key. Fast to start speaking; the provider\'s full voice lineup at your fingertips.</string>
-    <string name="engines_cloud_configured">Configured — cloud voices are available.</string>
-    <string name="engines_cloud_not_configured">Not configured — add a provider API key to enable.</string>
     <string name="engines_configure">Configure</string>
     <string name="engines_voices">Voices</string>
 
