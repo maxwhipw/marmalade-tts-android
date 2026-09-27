@@ -74,4 +74,9 @@ class EnPhonemeFixupsTest {
         assertEquals("jˈɛs jˈeɪ hɚɹˈɑː", EnPhonemeFixups.apply("jˈɛs jˈeɪ hɚɹˈɑː", KITTEN))
         assertEquals("jˈɛs jˈeɪ hɚɹˈɑː", EnPhonemeFixups.apply("jˈɛs jˈeɪ hɚɹˈɑː", KOKORO))
     }
+
+    @Test
+    fun `VITS keeps espeak's raw yeah`() {
+        assertEquals("jˈɛh , ʃˈʊɹ . ", EnPhonemeFixups.apply("jˈɛh , ʃˈʊɹ . ", EnPhonemeFixups.Model.VITS))
+    }
 }

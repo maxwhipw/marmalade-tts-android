@@ -16,6 +16,10 @@ package app.marmalade.tts.phonemizer
 //   - Kitten renders /jɛə/ poorly (15M params; the ɛ→ə glide comes
 //     out mangled on every model size), so it gets flat /jæ/ ("ya"),
 //     which won the listening test bar none.
+//   - VITS (Jenny (Dioco)) gets NO rewrite: its pack phonemizes with
+//     espeak `en`, which never emits æ or ɛə, so both replacements feed
+//     it phonemes it barely saw in training. Raw /jɛh/ won the 2026-09-26
+//     A/B (4 of 6 sentences; the rest went to /ja/).
 //
 // This table is expected to grow: pronunciation bug reports (Settings →
 // Report a bug) get diagnosed the same way — espeak IPA vs a reference
@@ -31,7 +35,7 @@ package app.marmalade.tts.phonemizer
 object EnPhonemeFixups {
 
     /** Which acoustic model the phonemes are destined for. */
-    enum class Model { KITTEN, KOKORO }
+    enum class Model { KITTEN, KOKORO, VITS }
 
     // $1 preserves espeak's stress mark (primary ˈ, secondary ˌ, or
     // none), which precedes the vowel.
@@ -43,6 +47,8 @@ object EnPhonemeFixups {
     )
 
     /** Apply all fixups to an espeak IPA string produced with an English voice. */
-    fun apply(phonemes: String, model: Model): String =
-        YEAH.replace(phonemes, YEAH_REPLACEMENT.getValue(model))
+    fun apply(phonemes: String, model: Model): String {
+        val yeah = YEAH_REPLACEMENT[model] ?: return phonemes
+        return YEAH.replace(phonemes, yeah)
+    }
 }

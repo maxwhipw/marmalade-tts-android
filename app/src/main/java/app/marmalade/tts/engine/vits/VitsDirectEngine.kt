@@ -370,10 +370,9 @@ open class VitsDirectEngine @Inject constructor(
                 libPath = EspeakPhonemizer.APK_LIB_NAME,
                 dataPath = sharedEspeak.ensure().absolutePath,
                 voice = config.espeakVoice,
-                // Only fires for English voices (no VITS pack ships English
-                // yet). When one does, its fixup replacement wants an A/B of
-                // its own — see EnPhonemeFixups.
-                fixupModel = EnPhonemeFixups.Model.KOKORO,
+                // English packs (Jenny) keep espeak's raw output — chosen
+                // by ear; see EnPhonemeFixups.
+                fixupModel = EnPhonemeFixups.Model.VITS,
             )
             val rate = espeak.open()
             if (rate < 0) {
