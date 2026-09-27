@@ -25,7 +25,7 @@
 
     <string name="settings_advanced">詳細設定</string>
     <string name="settings_advanced_row">詳細設定</string>
-    <string name="settings_advanced_row_desc">合成スレッド数、開発者向けエンジンなど、ほとんどの方には不要な項目です。</string>
+    <string name="settings_advanced_row_desc">合成スレッド数など、ほとんどの方には不要な項目です。</string>
 
     <string name="settings_support">支援</string>
     <string name="settings_about">このアプリについて</string>
@@ -50,7 +50,7 @@
 
     <string name="settings_developer">開発者向け</string>
     <string name="settings_show_developer_engines">開発者向けエンジンを表示</string>
-    <string name="settings_show_developer_engines_desc">診断用エンジンを表示します。現在は Pocket TTS のクリーンリファレンス版で、通常の Pocket エンジンとの比較用に残してあります。</string>
+    <string name="settings_show_developer_engines_desc">診断用エンジンと未公開の音声パックを表示します。</string>
 
     <string name="settings_debug">デバッグ</string>
     <string name="settings_benchmark">ベンチマーク</string>

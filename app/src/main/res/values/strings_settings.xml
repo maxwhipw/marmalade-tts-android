@@ -25,7 +25,7 @@
 
     <string name="settings_advanced">Advanced</string>
     <string name="settings_advanced_row">Advanced settings</string>
-    <string name="settings_advanced_row_desc">Synthesis threads, developer engines, and other knobs most people never need.</string>
+    <string name="settings_advanced_row_desc">Synthesis threads and other knobs most people never need.</string>
 
     <string name="settings_support">Support</string>
     <string name="settings_about">About</string>
@@ -50,7 +50,7 @@
 
     <string name="settings_developer">Developer</string>
     <string name="settings_show_developer_engines">Show developer engines</string>
-    <string name="settings_show_developer_engines_desc">Reveal diagnostic developer engines — currently the Pocket TTS clean-reference build, kept for comparison with the regular Pocket engine.</string>
+    <string name="settings_show_developer_engines_desc">Show diagnostic engines and unreleased voice packs.</string>
 
     <string name="settings_debug">Debug</string>
     <string name="settings_benchmark">Benchmark</string>

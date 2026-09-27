@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
+import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
@@ -89,12 +90,16 @@ fun AdvancedSettingsScreen(
                 onThreadsSelected = viewModel::setIntraOpThreads,
             )
 
-            HorizontalDivider()
+            // Nothing for it to reveal in the Play build — see
+            // EngineCatalog.developerModeRevealsAnything.
+            if (EngineCatalog.developerModeRevealsAnything()) {
+                HorizontalDivider()
 
-            DeveloperEnginesSection(
-                checked = showDeveloperEngines,
-                onCheckedChange = viewModel::setShowDeveloperEngines,
-            )
+                DeveloperEnginesSection(
+                    checked = showDeveloperEngines,
+                    onCheckedChange = viewModel::setShowDeveloperEngines,
+                )
+            }
 
             if (onNavigateToBenchmark != null) {
                 HorizontalDivider()
@@ -169,12 +174,12 @@ private fun PerformanceSection(
 }
 
 /**
- * Opt-in toggle for the legacy sherpa engines (Kokoro v1.0/v1.1, Kitten
- * Nano/Mini). The direct-ORT engines superseded them; they stay installable
- * for A/B comparison but are hidden by default in release builds. Shown in
- * both build types so an interested user can reveal them — the default value
- * differs (on in debug, off in release), wired through
- * [app.marmalade.tts.data.SettingsRepository.showDeveloperEngines].
+ * Opt-in toggle for developer-only engines (the Pocket TTS clean-reference
+ * build) and unreleased voice packs. Shown in debug and release builds alike
+ * so an interested user can reveal them — the default differs (on in debug,
+ * off in release), wired through
+ * [app.marmalade.tts.data.SettingsRepository.showDeveloperEngines]. Not shown
+ * at all in the Play build, where it would reveal nothing.
  */
 @Composable
 private fun DeveloperEnginesSection(

@@ -115,15 +115,16 @@ class EnginesViewModel @Inject constructor(
      * Derived reactively from [_packStates] and the "show developer engines"
      * setting so the counts reflect exactly the packs the current mode exposes:
      * the released set for ordinary users, the whole staged catalog in
-     * developer mode. Toggling the setting refreshes the line without a reload,
-     * matching [engines].
+     * developer mode on F-Droid (see [VoicePackCatalog.showsUnreleased]).
+     * Toggling the setting refreshes the line without a reload, matching
+     * [engines].
      */
     val packSummaries: StateFlow<Map<String, VoicePackSummary>> = combine(
         _packStates,
         settings.showDeveloperEngines,
     ) { states, showDeveloper ->
         states.mapValues { (engineName, packStates) ->
-            voicePackSummary(engineName, packStates, includeUnreleased = showDeveloper)
+            voicePackSummary(engineName, packStates, VoicePackCatalog.showsUnreleased(showDeveloper))
         }
     }
         .stateIn(
@@ -132,7 +133,11 @@ class EnginesViewModel @Inject constructor(
             initialValue = EngineCatalog.all
                 .filter { it.isPackBased }
                 .associate {
-                    it.name to voicePackSummary(it.name, emptyMap(), includeUnreleased = BuildConfig.DEBUG)
+                    it.name to voicePackSummary(
+                        it.name,
+                        emptyMap(),
+                        VoicePackCatalog.showsUnreleased(BuildConfig.DEBUG),
+                    )
                 },
         )
 

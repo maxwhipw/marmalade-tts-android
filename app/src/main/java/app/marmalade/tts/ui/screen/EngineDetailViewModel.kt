@@ -181,12 +181,16 @@ class EngineDetailViewModel @Inject constructor(
         _packStates,
         settings.showDeveloperEngines,
     ) { states, showDeveloper ->
-        voicePackGroups(engineName, states, includeUnreleased = showDeveloper)
+        voicePackGroups(engineName, states, VoicePackCatalog.showsUnreleased(showDeveloper))
     }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = voicePackGroups(engineName, emptyMap(), includeUnreleased = BuildConfig.DEBUG),
+            initialValue = voicePackGroups(
+                engineName,
+                emptyMap(),
+                VoicePackCatalog.showsUnreleased(BuildConfig.DEBUG),
+            ),
         )
 
     /** Counts for the pack section's "N packs · M languages · K installed" line. */
@@ -194,12 +198,16 @@ class EngineDetailViewModel @Inject constructor(
         _packStates,
         settings.showDeveloperEngines,
     ) { states, showDeveloper ->
-        voicePackSummary(engineName, states, includeUnreleased = showDeveloper)
+        voicePackSummary(engineName, states, VoicePackCatalog.showsUnreleased(showDeveloper))
     }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-            initialValue = voicePackSummary(engineName, emptyMap(), includeUnreleased = BuildConfig.DEBUG),
+            initialValue = voicePackSummary(
+                engineName,
+                emptyMap(),
+                VoicePackCatalog.showsUnreleased(BuildConfig.DEBUG),
+            ),
         )
 
     /**

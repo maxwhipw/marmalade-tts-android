@@ -1,5 +1,6 @@
 package app.marmalade.tts.data
 
+import app.marmalade.tts.BuildConfig
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.install.EngineInstaller
@@ -80,8 +81,8 @@ fun List<VoiceMeta>.filterAvailable(assets: InstalledVoiceAssets): List<VoiceMet
  * pack (side-loaded or dev-installed) follows the developer-engines precedent —
  * visible only in developer mode. Every non-VITS voice, and any VITS id whose
  * pack the catalog no longer lists, is released (the latter is filtered out by
- * [isVoiceAvailable] anyway). The picker ORs this with the developer flag, so a
- * developer still sees the staged packs' voices.
+ * [isVoiceAvailable] anyway). The picker waives this in developer mode outside
+ * the Play build, so a developer still sees the staged packs' voices there.
  */
 fun isVoiceReleased(voice: VoiceMeta): Boolean {
     val packId = VitsVoiceCatalog.packIdOf(voice.id) ?: return true
@@ -93,7 +94,9 @@ fun isVoiceReleased(voice: VoiceMeta): Boolean {
  * [showDeveloper], neither on a developer-only engine nor in an unreleased pack
  * ([isVoiceReleased]) — so an installed-but-staged VITS pack, or a diagnostic
  * engine left installed after developer mode was switched off, stays out of an
- * ordinary user's list while a developer still sees it.
+ * ordinary user's list while a developer still sees it. The Play [flavor]
+ * keeps unreleased packs out even in developer mode
+ * ([VoicePackCatalog.showsUnreleased]).
  *
  * Shared by the full-screen picker, the alias editor and onboarding's alias
  * step so the three can't disagree about what is pickable.
@@ -101,8 +104,13 @@ fun isVoiceReleased(voice: VoiceMeta): Boolean {
 fun List<VoiceMeta>.pickableVoices(
     assets: InstalledVoiceAssets,
     showDeveloper: Boolean,
-): List<VoiceMeta> = filterAvailable(assets).filter { voice ->
-    showDeveloper || (voice.engine !in EngineCatalog.developerOnlyNames && isVoiceReleased(voice))
+    flavor: String = BuildConfig.FLAVOR,
+): List<VoiceMeta> {
+    val showUnreleased = VoicePackCatalog.showsUnreleased(showDeveloper, flavor)
+    return filterAvailable(assets).filter { voice ->
+        (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames) &&
+            (showUnreleased || isVoiceReleased(voice))
+    }
 }
 
 /**

@@ -170,10 +170,35 @@ class VoiceAvailabilityTest {
         )
         val all = listOf(devVoice, kokoro, jenny, staged, absent)
 
-        assertEquals(listOf(kokoro, jenny), all.pickableVoices(assets, showDeveloper = false))
+        assertEquals(
+            listOf(kokoro, jenny),
+            all.pickableVoices(assets, showDeveloper = false, flavor = "fdroid"),
+        )
         assertEquals(
             listOf(devVoice, kokoro, jenny, staged),
-            all.pickableVoices(assets, showDeveloper = true),
+            all.pickableVoices(assets, showDeveloper = true, flavor = "fdroid"),
         )
+    }
+
+    @Test
+    fun playNeverOffersAnUnreleasedPackEvenInDeveloperMode() {
+        // L8 (Max, 2026-09-26): the Play build lists only what its store
+        // listing covers — a staged pack left on disk stays out of the picker
+        // there whatever the developer setting says.
+        val kokoro = row("kokoro-direct-v1_0", "kokoro-direct-v1_0:af_bella")
+        val jenny = vitsRow("en-jenny_dioco-medium")
+        val staged = vitsRow("uk-lada-x_low")
+        val assets = InstalledVoiceAssets(
+            engines = setOf("kokoro-direct-v1_0", vits),
+            packs = setOf("en-jenny_dioco-medium", "uk-lada-x_low"),
+        )
+        val all = listOf(kokoro, jenny, staged)
+
+        for (showDeveloper in listOf(false, true)) {
+            assertEquals(
+                listOf(kokoro, jenny),
+                all.pickableVoices(assets, showDeveloper, flavor = "play"),
+            )
+        }
     }
 }

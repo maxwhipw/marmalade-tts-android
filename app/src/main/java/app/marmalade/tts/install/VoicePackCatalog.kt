@@ -1,5 +1,7 @@
 package app.marmalade.tts.install
 
+import app.marmalade.tts.BuildConfig
+
 // -----------------------------------------------------------------------------
 // Data flow
 // -----------------------------------------------------------------------------
@@ -655,6 +657,17 @@ object VoicePackCatalog {
      */
     fun releasedForEngine(engineName: String): List<VoicePack> =
         forEngine(engineName).filter { it.released }
+
+    /**
+     * Whether user-facing lists include unreleased packs (and their voices):
+     * only in developer mode, and never in the Play [flavor] — even there —
+     * so the Play build only ever offers what its store listing covers. The
+     * same rule [EngineCatalog.visibleTo] applies to fdroidOnly engines.
+     */
+    fun showsUnreleased(
+        showDeveloper: Boolean,
+        flavor: String = BuildConfig.FLAVOR,
+    ): Boolean = showDeveloper && flavor != "play"
 
     /**
      * Every selectable voice of [engineName]'s packs, pack order then declared

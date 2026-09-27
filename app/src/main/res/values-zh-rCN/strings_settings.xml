@@ -25,7 +25,7 @@
 
     <string name="settings_advanced">高级</string>
     <string name="settings_advanced_row">高级设置</string>
-    <string name="settings_advanced_row_desc">合成线程数、开发者引擎，以及大多数人用不上的其他选项。</string>
+    <string name="settings_advanced_row_desc">合成线程数，以及大多数人用不上的其他选项。</string>
 
     <string name="settings_support">支持</string>
     <string name="settings_about">关于</string>
@@ -50,7 +50,7 @@
 
     <string name="settings_developer">开发者</string>
     <string name="settings_show_developer_engines">显示开发者引擎</string>
-    <string name="settings_show_developer_engines_desc">显示诊断用引擎——目前为 Pocket TTS 的纯净参考版本，保留用于与常规 Pocket 引擎对比。</string>
+    <string name="settings_show_developer_engines_desc">显示诊断用引擎和尚未发布的语音包。</string>
 
     <string name="settings_debug">调试</string>
     <string name="settings_benchmark">性能测试</string>

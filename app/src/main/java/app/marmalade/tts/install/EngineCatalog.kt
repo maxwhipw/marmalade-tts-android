@@ -563,4 +563,15 @@ object EngineCatalog {
         (if (showDeveloper) all else all.filter { !it.developerOnly })
             .filter { flavor != "play" || !it.fdroidOnly }
             .sortedBy { it.developerOnly }
+
+    /**
+     * Whether the developer-mode setting reveals anything in [flavor]: a
+     * developer-only engine that [visibleTo] shows there, or unreleased voice
+     * packs ([VoicePackCatalog.showsUnreleased]). In the Play build neither
+     * applies (the only developer engine is fdroidOnly), so Settings hides a
+     * toggle that would do nothing.
+     */
+    fun developerModeRevealsAnything(flavor: String = BuildConfig.FLAVOR): Boolean =
+        visibleTo(showDeveloper = true, flavor).any { it.developerOnly } ||
+            VoicePackCatalog.showsUnreleased(showDeveloper = true, flavor)
 }

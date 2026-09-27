@@ -25,7 +25,7 @@
 
     <string name="settings_advanced">Avanzate</string>
     <string name="settings_advanced_row">Impostazioni avanzate</string>
-    <string name="settings_advanced_row_desc">Thread di sintesi, motori per sviluppatori e altri parametri che quasi nessuno deve toccare.</string>
+    <string name="settings_advanced_row_desc">Thread di sintesi e altri parametri che quasi nessuno deve toccare.</string>
 
     <string name="settings_support">Sostegno</string>
     <string name="settings_about">Informazioni</string>
@@ -50,7 +50,7 @@
 
     <string name="settings_developer">Sviluppatore</string>
     <string name="settings_show_developer_engines">Mostra i motori per sviluppatori</string>
-    <string name="settings_show_developer_engines_desc">Mostra i motori di diagnostica — attualmente la build di riferimento di Pocket TTS, mantenuta per il confronto con il motore Pocket normale.</string>
+    <string name="settings_show_developer_engines_desc">Mostra i motori di diagnostica e i pacchetti di voci non ancora pubblicati.</string>
 
     <string name="settings_debug">Debug</string>
     <string name="settings_benchmark">Benchmark</string>

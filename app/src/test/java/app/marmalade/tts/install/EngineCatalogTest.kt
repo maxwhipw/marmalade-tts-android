@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.marmalade.tts.R
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -131,6 +132,23 @@ class EngineCatalogTest {
             EngineCatalog.visibleTo(showDeveloper = false, flavor = "fdroid")
                 .any { it.name == "pocket-tts-en-v2026_04" },
         )
+    }
+
+    @Test
+    fun unreleasedPacksShowOnlyInFdroidDeveloperMode() {
+        // L8: Play hides unreleased packs even in developer mode, the way it
+        // hides fdroidOnly engines; F-Droid developer mode shows them.
+        assertTrue(VoicePackCatalog.showsUnreleased(showDeveloper = true, flavor = "fdroid"))
+        assertFalse(VoicePackCatalog.showsUnreleased(showDeveloper = false, flavor = "fdroid"))
+        assertFalse(VoicePackCatalog.showsUnreleased(showDeveloper = true, flavor = "play"))
+        assertFalse(VoicePackCatalog.showsUnreleased(showDeveloper = false, flavor = "play"))
+    }
+
+    @Test
+    fun developerModeRevealsNothingOnPlay() {
+        // The Settings toggle is hidden where it would be a no-op.
+        assertTrue(EngineCatalog.developerModeRevealsAnything(flavor = "fdroid"))
+        assertFalse(EngineCatalog.developerModeRevealsAnything(flavor = "play"))
     }
 
     @Test

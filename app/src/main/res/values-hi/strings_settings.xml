@@ -25,7 +25,7 @@
 
     <string name="settings_advanced">बेहतर</string>
     <string name="settings_advanced_row">बेहतर सेटिंग</string>
-    <string name="settings_advanced_row_desc">सिंथेसिस थ्रेड, डेवलपर इंजन और ऐसे दूसरे विकल्प जिनकी ज़रूरत ज़्यादातर लोगों को कभी नहीं पड़ती।</string>
+    <string name="settings_advanced_row_desc">सिंथेसिस थ्रेड और ऐसे दूसरे विकल्प जिनकी ज़रूरत ज़्यादातर लोगों को कभी नहीं पड़ती।</string>
 
     <string name="settings_support">सहयोग</string>
     <string name="settings_about">ऐप के बारे में</string>
@@ -50,7 +50,7 @@
 
     <string name="settings_developer">डेवलपर</string>
     <string name="settings_show_developer_engines">डेवलपर इंजन दिखाएँ</string>
-    <string name="settings_show_developer_engines_desc">डायग्नोस्टिक इंजन दिखाएँ — फ़िलहाल Pocket TTS का क्लीन-रेफ़रेंस बिल्ड, जिसे सामान्य Pocket इंजन से तुलना के लिए रखा गया है।</string>
+    <string name="settings_show_developer_engines_desc">डायग्नोस्टिक इंजन और अभी तक रिलीज़ न हुए आवाज़ पैक दिखाएँ।</string>
 
     <string name="settings_debug">डीबग</string>
     <string name="settings_benchmark">बेंचमार्क</string>
