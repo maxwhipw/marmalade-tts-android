@@ -277,9 +277,9 @@ fun ReaderScreen(
 
     if (showSpeedSheet) {
         ReaderSpeedSheet(
-            speedMultiplier = playback.speedMultiplier,
+            speed = playback.speed,
             showPerfWarning = showSpeedWarning,
-            onSpeedChange = viewModel::onSpeedMultiplierChange,
+            onSpeedChange = viewModel::onSpeedChange,
             onDismiss = { showSpeedSheet = false },
         )
     }

@@ -50,48 +50,68 @@ class MarmaladeSynthServiceTest {
         }
     }
 
-    // -- Session speed multiplier ---------------------------------------------
+    // -- Session speed override -----------------------------------------------
 
     /**
-     * The reader's per-article speed rides its own extra so it can *scale* the
-     * speed the primary alias resolves to instead of replacing it (EXTRA_SPEED
-     * is an override, and on the alias route the alias wins over it anyway).
-     * These cover the parse; the multiply itself is one line in `runOne`, past
-     * where a JVM test can reach.
+     * The reader's per-article speed rides its own extra so it survives alias
+     * routing and *replaces* the speed the primary alias resolves to
+     * (EXTRA_SPEED can't: on the alias route the alias's speed replaces it).
      */
     @Test
-    fun `the speed multiplier is carried when the caller sends it`() {
+    fun `the session speed is carried when the caller sends it`() {
         val request = service.parseRequest(speakIntent(0.75f))
 
-        assertEquals(0.75f, request!!.speedMultiplier, 0f)
+        assertEquals(0.75f, request!!.sessionSpeed!!, 0f)
     }
 
     /**
-     * Every non-reader caller — share sheet, Tasker, the Speak screen —
-     * omits the extra, and must be spoken exactly as before: 1.0 is the
-     * identity for the multiply in `runOne`.
+     * Every non-reader caller — share sheet, Tasker, the Speak screen — omits
+     * the extra, and must be spoken exactly as before.
      */
     @Test
-    fun `a request without the extra is unaffected`() {
-        val request = service.parseRequest(speakIntent(multiplier = null))
+    fun `a request without the extra carries no session speed`() {
+        val request = service.parseRequest(speakIntent(sessionSpeed = null))
 
-        assertEquals(1.0f, request!!.speedMultiplier, 0f)
+        assertNull(request!!.sessionSpeed)
     }
 
-    /** A zero or negative factor would silence the engine; degrade, don't fail. */
+    /** A zero, negative or NaN speed would silence the engine; ignore it, don't fail. */
     @Test
-    fun `a nonsense multiplier degrades to no change`() {
-        assertEquals(1.0f, service.parseRequest(speakIntent(0f))!!.speedMultiplier, 0f)
-        assertEquals(1.0f, service.parseRequest(speakIntent(-2f))!!.speedMultiplier, 0f)
+    fun `a nonsense session speed is ignored`() {
+        assertNull(service.parseRequest(speakIntent(0f))!!.sessionSpeed)
+        assertNull(service.parseRequest(speakIntent(-2f))!!.sessionSpeed)
+        assertNull(service.parseRequest(speakIntent(Float.NaN))!!.sessionSpeed)
     }
 
-    private fun speakIntent(multiplier: Float?) =
+    /**
+     * The bug Max hit: a 2x alias read at the reader's 1x chip came out at 2x,
+     * because the chip multiplied the alias's speed. It must replace it.
+     */
+    @Test
+    fun `the session speed replaces the alias-routed speed rather than scaling it`() {
+        val routed = routedRequest(aliasSpeed = 2.0f, sessionSpeed = 1.0f)
+
+        assertEquals(1.0f, service.effectiveSpeed(routed), 0f)
+    }
+
+    @Test
+    fun `without a session speed the routed speed is unchanged`() {
+        val routed = routedRequest(aliasSpeed = 2.0f, sessionSpeed = null)
+
+        assertEquals(2.0f, service.effectiveSpeed(routed), 0f)
+    }
+
+    private fun speakIntent(sessionSpeed: Float?) =
         Intent(MarmaladeSynthService.ACTION_SPEAK).apply {
             putExtra(MarmaladeSynthService.EXTRA_TEXT, "Hello.")
-            multiplier?.let {
-                putExtra(MarmaladeSynthService.EXTRA_SPEED_MULTIPLIER, it)
+            sessionSpeed?.let {
+                putExtra(MarmaladeSynthService.EXTRA_SESSION_SPEED, it)
             }
         }
+
+    /** A request as it stands after alias routing put the alias's speed on it. */
+    private fun routedRequest(aliasSpeed: Float, sessionSpeed: Float?) =
+        service.parseRequest(speakIntent(sessionSpeed))!!.copy(speed = aliasSpeed)
 
     // -- A new speak vs paused work ---------------------------------------------
 
@@ -134,8 +154,8 @@ class MarmaladeSynthServiceTest {
 
     @Test
     fun `the continuation flag is carried and defaults off`() {
-        assertFalse(service.parseRequest(speakIntent(multiplier = null))!!.continuation)
-        val continued = speakIntent(multiplier = null)
+        assertFalse(service.parseRequest(speakIntent(sessionSpeed = null))!!.continuation)
+        val continued = speakIntent(sessionSpeed = null)
             .putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, true)
         assertTrue(service.parseRequest(continued)!!.continuation)
     }

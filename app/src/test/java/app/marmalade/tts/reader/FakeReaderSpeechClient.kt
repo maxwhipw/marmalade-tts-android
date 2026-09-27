@@ -9,8 +9,8 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
     data class Spoken(
         val requestId: Long,
         val text: String,
-        /** The session speed the controller asked for — 1.0 unless it was set. */
-        val speedMultiplier: Float = 1.0f,
+        /** The session speed the controller asked for — the article's starting speed unless it was changed. */
+        val speed: Float = 1.0f,
         /** False only for the request that starts a play — see [ReaderSpeechClient.speak]. */
         val continuation: Boolean = false,
     )
@@ -28,11 +28,11 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
     override fun speak(
         requestId: Long,
         text: String,
-        speedMultiplier: Float,
+        speed: Float,
         continuation: Boolean,
     ): Boolean {
         if (!startAllowed) return false
-        spoken += Spoken(requestId, text, speedMultiplier, continuation)
+        spoken += Spoken(requestId, text, speed, continuation)
         return true
     }
 

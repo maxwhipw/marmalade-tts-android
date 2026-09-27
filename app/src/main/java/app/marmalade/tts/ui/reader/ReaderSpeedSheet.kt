@@ -2,7 +2,8 @@ package app.marmalade.tts.ui.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -21,12 +22,14 @@ import app.marmalade.tts.R
 import app.marmalade.tts.ui.MarmaladeFilterChip
 
 // -----------------------------------------------------------------------------
-// Reading-speed sheet — one row of chips, and a line saying it won't stick.
+// Reading-speed sheet — a row of chips, and a line saying it won't stick.
 //
-// The values are FACTORS on the voice's own speed, not absolute rates: the
-// user's primary alias carries a speed tuned for that voice (several of the
-// bundled voices want 0.84 or so), and "1.25×" has to mean a quarter faster
-// than that voice normally is. See ReaderPlaybackController.setSpeedMultiplier.
+// The values are ABSOLUTE speeds that override the primary alias's own speed
+// for this article (voice, effect and language still come from the alias).
+// Reading starts at the alias's speed; when that isn't one of the curated
+// chips (an alias tuned to 1.1, say) it gets a chip of its own, in sorted
+// position, so the current speed is always visibly selected. See
+// ReaderPlaybackController.setSpeed.
 //
 // Session-scoped by design (Max's second UX pass): this is how fast you want
 // THIS article read, not a setting. Nothing here touches SettingsRepository.
@@ -35,10 +38,18 @@ import app.marmalade.tts.ui.MarmaladeFilterChip
 /** The offered speeds. Curated — the controller clamps a wider range. */
 private val SPEED_CHOICES = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The chips to show while reading at [current]: the curated set, plus
+ * [current] in sorted position when it isn't one of them (it came from the
+ * alias's own speed), so the selected chip always exists.
+ */
+internal fun readerSpeedChoices(current: Float): List<Float> =
+    if (current in SPEED_CHOICES) SPEED_CHOICES else (SPEED_CHOICES + current).sorted()
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ReaderSpeedSheet(
-    speedMultiplier: Float,
+    speed: Float,
     showPerfWarning: Boolean,
     onSpeedChange: (Float) -> Unit,
     onDismiss: () -> Unit,
@@ -58,16 +69,19 @@ fun ReaderSpeedSheet(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() },
             )
-            Row(
+            // FlowRow, not Row: the alias's own speed can add a sixth chip,
+            // which must wrap on a narrow phone rather than be clipped.
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                for (speed in SPEED_CHOICES) {
+                for (choice in readerSpeedChoices(speed)) {
                     MarmaladeFilterChip(
-                        selected = speed == speedMultiplier,
-                        onClick = { onSpeedChange(speed) },
+                        selected = choice == speed,
+                        onClick = { onSpeedChange(choice) },
                         label = {
-                            Text(stringResource(R.string.reader_speed_value, formatSpeed(speed)))
+                            Text(stringResource(R.string.reader_speed_value, formatSpeed(choice)))
                         },
                     )
                 }
@@ -78,11 +92,10 @@ fun ReaderSpeedSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
             )
-            // The chips are FACTORS on the alias's own speed, so the perf
-            // warning fires on the EFFECTIVE speed (chip × alias) against the
-            // engine's measured/predicted RTF — the ViewModel does that
-            // resolution (see ReaderViewModel.showSpeedWarning). Same copy as
-            // the alias editor's slider warning.
+            // The perf warning fires when the chosen speed outruns the
+            // primary alias engine's measured/predicted RTF — the ViewModel
+            // does that resolution (see ReaderViewModel.showSpeedWarning).
+            // Same copy as the alias editor's slider warning.
             if (showPerfWarning) {
                 // ⚠️ prefix composed here, not in the shared string, so the
                 // eight translations of alias_speed_perf_warning stay untouched.

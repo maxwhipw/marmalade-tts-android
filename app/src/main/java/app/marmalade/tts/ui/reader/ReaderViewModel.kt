@@ -24,12 +24,14 @@ import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URL
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,8 +47,9 @@ import kotlinx.coroutines.withContext
 //     │
 //     ├── init: ArticleFetcher.fetch(url) → ArticleExtractor.extract(bytes)
 //     │           │   (the extract runs on @ReaderParseDispatcher, off Main)
-//     │           └── on success: hand the blocks to ReaderPlaybackController
-//     │               and, if it's a new article, start reading — once per
+//     │           └── on success: hand the blocks to ReaderPlaybackController,
+//     │               its session speed seeded from the primary alias's
+//     │               speed, and, if it's a new article, start reading — once per
 //     │               ViewModel: a SavedStateHandle flag stops a ViewModel
 //     │               restored after process death from autoplaying again
 //     │
@@ -120,8 +123,8 @@ sealed interface ReaderPlaybackError {
     data object Failed : ReaderPlaybackError
 }
 
-/** The primary alias's engine + its own tuned speed, or a neutral default. */
-private data class PrimaryAlias(val engine: String, val speed: Float)
+/** The primary alias's engine, or a neutral default. */
+private data class PrimaryAlias(val engine: String)
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
@@ -180,22 +183,18 @@ class ReaderViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderDisplayPrefs())
 
     /**
-     * The primary alias's engine and its own tuned speed — the two inputs the
-     * effective-speed perf warning needs. The service multiplies the reader's
-     * chip against this speed (see
-     * [app.marmalade.tts.service.TtsRouter.resolveAlias] and MarmaladeSynthService's
-     * `speed * speedMultiplier`), and it routes to this engine. Falls back to
-     * an empty engine + 1.0 speed when no primary alias is set (or it has been
-     * deleted), mirroring the service falling through to the engine's default.
+     * The primary alias's engine — the one the service routes the reader to
+     * (see [app.marmalade.tts.service.TtsRouter.resolveAlias]), and so the
+     * one whose RTF the perf warning checks. Falls back to an empty engine
+     * when no primary alias is set (or it has been deleted), mirroring the
+     * service falling through to the engine's default.
      */
     private val primaryAlias: StateFlow<PrimaryAlias> = combine(
         settings.primaryAliasId,
         aliasDao.getAll(),
     ) { primaryId, aliases ->
-        aliases.firstOrNull { it.id == primaryId }
-            ?.let { PrimaryAlias(engine = it.engine, speed = it.speed) }
-            ?: PrimaryAlias(engine = "", speed = 1.0f)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, PrimaryAlias(engine = "", speed = 1.0f))
+        PrimaryAlias(engine = aliases.firstOrNull { it.id == primaryId }?.engine ?: "")
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, PrimaryAlias(engine = ""))
 
     /**
      * This device's synthesis-capability probe, resolved once. Feeds the
@@ -206,9 +205,10 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * Whether to show the speed-up performance warning for the current chip
-     * selection. Effective speed is chip × the primary alias's own speed; the
-     * warning fires when that outruns the engine's measured (or, cold,
-     * predicted) RTF. See [SpeedPerfWarning].
+     * selection. The chip is the absolute speed the service synthesises at
+     * (it replaces the alias's own speed), so the warning fires when it
+     * outruns the engine's measured (or, cold, predicted) RTF. See
+     * [SpeedPerfWarning].
      */
     val showSpeedWarning: StateFlow<Boolean> = combine(
         playback,
@@ -216,10 +216,9 @@ class ReaderViewModel @Inject constructor(
         deviceProbeState,
         settings.engineRtf,
     ) { pb, alias, probe, rtfByEngine ->
-        val effectiveSpeed = pb.speedMultiplier * alias.speed
         val measured = rtfByEngine[alias.engine]
         val predicted = probe?.let { EngineRecommender.predictedRtf(alias.engine, it) }
-        SpeedPerfWarning.shouldWarn(measured, predicted, effectiveSpeed)
+        SpeedPerfWarning.shouldWarn(measured, predicted, pb.speed)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
@@ -292,14 +291,12 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
-     * Set how fast this article is read — session-only, and a factor on the
-     * alias's own speed rather than an absolute rate. It goes straight to the
-     * controller and nowhere near [settings]: unlike the display prefs above,
-     * this one is deliberately not persisted (see
-     * [ReaderPlaybackState.speedMultiplier]).
+     * Set how fast this article is read — session-only, and an absolute speed
+     * that overrides the alias's own. It goes straight to the controller and
+     * nowhere near [settings]: unlike the display prefs above, this one is
+     * deliberately not persisted (see [ReaderPlaybackState.speed]).
      */
-    fun onSpeedMultiplierChange(multiplier: Float) =
-        playbackController.setSpeedMultiplier(multiplier)
+    fun onSpeedChange(speed: Float) = playbackController.setSpeed(speed)
 
     /** Read from the tapped block — plays even when paused (design point 9's tap-to-seek). */
     fun onBlockTapped(index: Int) = playbackController.playFrom(index)
@@ -375,7 +372,7 @@ class ReaderViewModel @Inject constructor(
                     blocks = extracted.blocks,
                     totalTextChars = extracted.totalTextChars,
                 )
-                val isNew = playbackController.open(article)
+                val isNew = playbackController.open(article, primaryAliasSpeed())
                 if (isNew && savedStateHandle.get<Boolean>(KEY_AUTOPLAYED) != true) {
                     savedStateHandle[KEY_AUTOPLAYED] = true
                     playbackController.play()
@@ -390,6 +387,27 @@ class ReaderViewModel @Inject constructor(
             ExtractionResult.ExtractionFailed ->
                 ReaderUiState.Failed(ReaderFailure.ExtractionFailed)
         }
+    }
+
+    /**
+     * The speed the reader starts an article at: the primary alias's own, so
+     * reading begins exactly as fast as the voice the service routes to
+     * (the same primary-alias lookup as
+     * [app.marmalade.tts.service.TtsRouter.resolveAlias] with no caller
+     * package). 1.0 when there is no primary alias. Read directly rather
+     * than from [primaryAlias], whose first value may still be the
+     * placeholder when a fast load gets here.
+     *
+     * Rounded to hundredths: the alias slider stores values like 1.1000001f,
+     * which would otherwise match no chip and label the extra chip with
+     * float noise. The difference is far below anything audible.
+     */
+    private suspend fun primaryAliasSpeed(): Float {
+        val speed = settings.primaryAliasId.first()
+            ?.let { aliasDao.findById(it) }
+            ?.speed
+            ?: return 1.0f
+        return (speed * 100).roundToInt() / 100f
     }
 
     companion object {

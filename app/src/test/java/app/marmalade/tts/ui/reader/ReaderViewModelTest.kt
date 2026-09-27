@@ -335,10 +335,48 @@ class ReaderViewModelTest {
         val vm = newViewModel(extraction = threeBlocks())
         vm.state.first()
 
-        vm.onSpeedMultiplierChange(1.5f)
+        vm.onSpeedChange(1.5f)
 
-        assertEquals(1.5f, vm.playback.first().speedMultiplier, 0f)
-        assertEquals(1.5f, speech.spoken.last().speedMultiplier, 0f)
+        assertEquals(1.5f, vm.playback.first().speed, 0f)
+        assertEquals(1.5f, speech.spoken.last().speed, 0f)
+    }
+
+    /**
+     * The reader's speed overrides the alias's, so it has to START at the
+     * alias's — otherwise opening an article would silently undo the speed
+     * the user tuned that voice to (Max, 2026-09-27).
+     */
+    @Test
+    fun `a new article starts at the primary alias's speed`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-fast")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 2.0f)))
+        val vm = newViewModel(extraction = threeBlocks(), settings = settings, aliasDao = aliasDao)
+        vm.state.first()
+
+        assertEquals(2.0f, vm.playback.first().speed, 0f)
+        assertTrue(speech.spoken.isNotEmpty())
+        assertTrue(speech.spoken.all { it.speed == 2.0f })
+    }
+
+    /** The alias slider stores float noise; the chip must match a clean value. */
+    @Test
+    fun `the starting speed drops the alias slider's float noise`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-noisy")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-noisy", speed = 1.1000001f)))
+        val vm = newViewModel(extraction = threeBlocks(), settings = settings, aliasDao = aliasDao)
+        vm.state.first()
+
+        assertEquals(1.1f, vm.playback.first().speed, 0f)
+    }
+
+    @Test
+    fun `with no primary alias a new article starts at 1x`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks())
+        vm.state.first()
+
+        assertEquals(1.0f, vm.playback.first().speed, 0f)
     }
 
     // -- Rebinding to an article already being read ---------------------------
@@ -507,17 +545,17 @@ class ReaderViewModelTest {
         assertEquals(ReaderDisplayPrefs.MIN_FONT_SIZE_SP, vm.display.first().fontSizeSp)
     }
 
-    // -- Speed-up perf warning (RTF-aware, chip × primary alias speed) --------
+    // -- Speed-up perf warning (RTF-aware, on the chosen absolute speed) ------
 
     @Test
     fun `speed warning uses the static fallback with no RTF signal`() = runTest {
-        // Primary alias speed 1.5, chip default 1.0 → effective 1.5, past the
+        // Primary alias speed 1.5, so the article starts at 1.5, past the
         // 1.35 static threshold. No probe and no measured RTF, so the warning
         // falls back to that static rule.
         val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
         settings.setPrimaryAliasId("id-fast")
         val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 1.5f)))
-        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+        val vm = newViewModel(extraction = threeBlocks(), settings = settings, aliasDao = aliasDao)
 
         assertTrue(vm.showSpeedWarning.first())
     }
@@ -527,7 +565,26 @@ class ReaderViewModelTest {
         val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
         settings.setPrimaryAliasId("id-slow")
         val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-slow", speed = 1.2f)))
-        val vm = newViewModel(settings = settings, aliasDao = aliasDao)
+        val vm = newViewModel(extraction = threeBlocks(), settings = settings, aliasDao = aliasDao)
+
+        assertFalse(vm.showSpeedWarning.first())
+    }
+
+    /**
+     * The chip replaces the alias's speed rather than scaling it: a 2x alias
+     * read at the 1x chip is spoken at 1.0, well under the static threshold.
+     * Under the old multiplier this was 2.0 and warned.
+     */
+    @Test
+    fun `speed warning follows the chosen speed, not the alias's`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-fast")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 2.0f)))
+        val vm = newViewModel(extraction = threeBlocks(), settings = settings, aliasDao = aliasDao)
+        vm.state.first()
+        assertTrue(vm.showSpeedWarning.first())
+
+        vm.onSpeedChange(1.0f)
 
         assertFalse(vm.showSpeedWarning.first())
     }

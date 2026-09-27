@@ -255,7 +255,14 @@ When investigating **{concern}**, start at **{files}**:
   (`ReaderAutoScroll`) except after a user drag, and never while
   TalkBack's touch exploration is on (watched live via
   `AccessibilityManager`) — it would steal accessibility focus; then only
-  a ToC pick scrolls.
+  a ToC pick scrolls. The reading speed (`ReaderSpeedSheet`) is
+  session-only and an **absolute override** of the primary alias's speed,
+  not a factor on it: each new article starts at the alias's own speed
+  (`ReaderViewModel.primaryAliasSpeed` → `ReaderPlaybackController.open`),
+  and the reader sends it as `EXTRA_SESSION_SPEED`, which
+  MarmaladeSynthService applies *after* alias routing (voice, effect and
+  language still come from the alias). A non-chip alias speed gets its
+  own chip (`readerSpeedChoices`).
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

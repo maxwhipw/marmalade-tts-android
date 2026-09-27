@@ -27,8 +27,9 @@ import javax.inject.Singleton
 interface ReaderSpeechClient {
 
     /**
-     * Enqueue [text] under [requestId], spoken at [speedMultiplier] times the
-     * speed the user's alias resolves to. Returns false if the service refused
+     * Enqueue [text] under [requestId], spoken at [speed] — an absolute speed
+     * that replaces the one the user's alias resolves to (the alias still
+     * supplies voice, effect and language). Returns false if the service refused
      * to start (a background start with no foreground-service exemption), in
      * which case no completion will ever arrive for [requestId].
      *
@@ -40,7 +41,7 @@ interface ReaderSpeechClient {
     fun speak(
         requestId: Long,
         text: String,
-        speedMultiplier: Float,
+        speed: Float,
         continuation: Boolean,
     ): Boolean
 
@@ -62,7 +63,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
     override fun speak(
         requestId: Long,
         text: String,
-        speedMultiplier: Float,
+        speed: Float,
         continuation: Boolean,
     ): Boolean {
         // No EXTRA_VOICE on purpose: leaving it off is what makes the service
@@ -70,10 +71,10 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         // which is exactly the voice the share-sheet path already reads in.
         // The reader has no voice picker of its own by design.
         //
-        // EXTRA_SPEED would fight that resolution (it is an override, and the
-        // alias's speed wins over it on this route anyway), so the session
-        // speed rides EXTRA_SPEED_MULTIPLIER, which the service applies on top
-        // of whatever the alias resolved to.
+        // EXTRA_SPEED can't carry the session speed: on this route the
+        // alias's speed replaces it. EXTRA_SESSION_SPEED is applied AFTER
+        // alias routing instead, so it replaces the alias's speed and leaves
+        // the rest of the alias alone.
         val intent = Intent(context, MarmaladeSynthService::class.java).apply {
             action = MarmaladeSynthService.ACTION_SPEAK
             // A backstop only: ArticleExtractor already splits any block
@@ -83,7 +84,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
                 text.take(SpeakDispatcher.MAX_TEXT_LENGTH),
             )
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
-            putExtra(MarmaladeSynthService.EXTRA_SPEED_MULTIPLIER, speedMultiplier)
+            putExtra(MarmaladeSynthService.EXTRA_SESSION_SPEED, speed)
             putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, continuation)
             setPackage(context.packageName)
         }

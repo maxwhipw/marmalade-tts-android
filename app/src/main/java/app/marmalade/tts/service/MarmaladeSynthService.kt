@@ -130,7 +130,8 @@ import kotlinx.coroutines.withContext
 //     │                  while the request in front of it still plays.
 //     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
 //     │     voice/speed/effect/lang (share-sheet path only)
-//     ├── speed *= req.speedMultiplier (reader session speed; 1.0 elsewhere)
+//     ├── speed = req.sessionSpeed, if sent (reader session speed; replaces
+//     │     the alias's speed — absent for every other caller)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
 //     ├── settings.enabledRules → Preprocessor.apply → stripEmojis
 //     └── neutral emotion → produceAudio (engine synthesizeStream →
@@ -425,14 +426,17 @@ class MarmaladeSynthService : Service() {
         } else {
             1.0f
         }
-        // Multiplier, not an override: it is applied on top of whatever speed
-        // the request ends up with, alias-resolved or explicit (see runOne).
-        // Absent (every path but the reader) means 1.0, i.e. no change at all.
-        // A non-positive value would silence or reverse the engine, so garbage
-        // degrades to 1.0 rather than failing the request.
-        val speedMultiplier = intent.getFloatExtra(EXTRA_SPEED_MULTIPLIER, 1.0f)
-            .takeIf { it > 0f && it.isFinite() }
-            ?: 1.0f
+        // Unlike EXTRA_SPEED this survives alias routing: it replaces whatever
+        // speed the request ends up with, alias-resolved or explicit (see
+        // resolveRequest). Absent (every path but the reader) means null, i.e.
+        // no change at all. A non-positive value would silence or reverse the
+        // engine, so garbage is ignored rather than failing the request.
+        val sessionSpeed = if (intent.hasExtra(EXTRA_SESSION_SPEED)) {
+            intent.getFloatExtra(EXTRA_SESSION_SPEED, 1.0f)
+                .takeIf { it > 0f && it.isFinite() }
+        } else {
+            null
+        }
         val effectPreset = intent.getStringExtra(EXTRA_EFFECT)
             ?.let { name ->
                 // Unknown values fall back to NONE — safer than throwing on a
@@ -457,7 +461,7 @@ class MarmaladeSynthService : Service() {
             engine = engineName,
             voice = voice,
             speed = speed,
-            speedMultiplier = speedMultiplier,
+            sessionSpeed = sessionSpeed,
             effectBlocks = effectBlocks,
             voiceExplicit = explicitVoice != null,
             phonemizationLanguage = intent.getStringExtra(EXTRA_LANG)?.takeIf { it.isNotBlank() },
@@ -711,13 +715,12 @@ class MarmaladeSynthService : Service() {
         // detection only ever moves the phonemizer. See
         // [UtteranceLanguage] for the per-engine rules.
         //
-        // The session speed multiplier lands here, after routing, because the
-        // alias's own speed is the voice's tuned baseline: the reader asks for
-        // "1.25× of whatever this voice normally runs at", not for an absolute
-        // 1.25. Every other caller leaves the multiplier at 1.0, so this is an
-        // identity for them.
+        // The session speed lands here, after routing, so it replaces the
+        // alias's speed while the rest of the alias (voice, effect, language)
+        // still applies — the reader's speed control is an override. Every
+        // other caller leaves it unset, so this is an identity for them.
         return routed.copy(
-            speed = routed.speed * routed.speedMultiplier,
+            speed = effectiveSpeed(routed),
             phonemizationLanguage = UtteranceLanguage.resolve(
                 detector = langDetector,
                 engineName = routed.engine,
@@ -727,6 +730,12 @@ class MarmaladeSynthService : Service() {
             ),
         )
     }
+
+    /**
+     * The speed [routed] (already alias-resolved) is synthesised at: the
+     * caller's session speed when it sent one, the routed speed otherwise.
+     */
+    internal fun effectiveSpeed(routed: SpeakRequest): Float = routed.sessionSpeed ?: routed.speed
 
     private suspend fun runOne(prepared: Prepared) {
         val req = prepared.req
@@ -1608,12 +1617,12 @@ class MarmaladeSynthService : Service() {
         val voice: String,
         val speed: Float,
         /**
-         * Applied on top of [speed] *after* alias resolution — see [runOne].
-         * 1.0 for every caller but the reader, whose per-article session speed
-         * has to compose with the primary alias's tuned speed rather than
-         * replace it.
+         * Replaces [speed] *after* alias resolution — see [resolveRequest].
+         * Null for every caller but the reader, whose per-article session
+         * speed has to override the primary alias's speed, which on the alias
+         * route would otherwise replace [speed].
          */
-        val speedMultiplier: Float = 1.0f,
+        val sessionSpeed: Float? = null,
         val effectBlocks: List<EffectBlock>,
         /**
          * True iff the caller passed [EXTRA_VOICE] on the intent. When
@@ -1794,12 +1803,14 @@ class MarmaladeSynthService : Service() {
         /** [PreviewCompletions] request id (Long). */
         const val EXTRA_REQUEST_ID: String = "app.marmalade.tts.extra.REQUEST_ID"
         /**
-         * Factor applied to the resolved speed (Float, default 1.0) — unlike
-         * [EXTRA_SPEED] this does NOT replace the primary alias's speed, it
-         * scales it. The reader's session speed is the only sender; leaving it
-         * off is exactly the behaviour every other caller had before it existed.
+         * Absolute speed (Float) that replaces the resolved speed AFTER alias
+         * routing — unlike [EXTRA_SPEED], which the primary alias's speed
+         * overrides, this one wins over the alias while its voice, effect and
+         * language still apply. The reader's session speed is the only
+         * sender; leaving it off is exactly the behaviour every other caller
+         * had before it existed.
          */
-        const val EXTRA_SPEED_MULTIPLIER: String = "app.marmalade.tts.extra.SPEED_MULTIPLIER"
+        const val EXTRA_SESSION_SPEED: String = "app.marmalade.tts.extra.SESSION_SPEED"
         /**
          * Boolean, default false. True marks a request that continues work
          * already in the service — the reader's next blocks — rather than a

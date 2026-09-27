@@ -80,15 +80,17 @@ data class ReaderPlaybackState(
     val currentIndex: Int = 0,
     val status: ReaderPlaybackStatus = ReaderPlaybackStatus.Idle,
     /**
-     * The reading session's speed, as a factor on the speed the user's alias
-     * resolves to (see [ReaderPlaybackController.setSpeedMultiplier]).
+     * The reading session's speed — the absolute speed the voice is spoken
+     * at, replacing the alias's own speed (voice, effect and language still
+     * come from the alias). See [ReaderPlaybackController.setSpeed].
      *
      * Lives in this in-memory state and nowhere else — not in DataStore, not
-     * in settings. It is a property of *this reading* of *this article*: a new
-     * article (or a new process) starts back at 1.0, because a speed picked to
-     * skim one long post is not a preference about how the app speaks.
+     * in settings. It is a property of *this reading* of *this article*: each
+     * new article starts back at the primary alias's own speed (passed to
+     * [ReaderPlaybackController.open]), because a speed picked to skim one
+     * long post is not a preference about how the app speaks.
      */
-    val speedMultiplier: Float = 1.0f,
+    val speed: Float = 1.0f,
     /**
      * Why playback last stopped on its own — a failed synthesis, a missing
      * engine, or a service that refused to start — or null. Set alongside the
@@ -177,20 +179,28 @@ class ReaderPlaybackController internal constructor(
      * is still going (or paused) from a previous visit to the screen and must
      * be left exactly as it is.
      */
-    fun open(article: ReaderArticle): Boolean = synchronized(lock) {
+    /**
+     * Load [article] for reading, its session speed starting at
+     * [initialSpeed] — the caller passes the primary alias's own speed, so
+     * the reader begins exactly as fast as that voice is tuned to speak.
+     * Returns false (and changes nothing, speed included) when [article] is
+     * already the one held: that is a rebind, not a new reading.
+     */
+    fun open(article: ReaderArticle, initialSpeed: Float = 1.0f): Boolean = synchronized(lock) {
         if (article.url == _state.value.articleKey && this.blocks.isNotEmpty()) return false
         cancelPendingLocked()
         this.article = article
         this.blocks = article.blocks.map { it.text }
         nextIndex = 0
-        // A whole new state value, so the session speed resets to 1.0 with it
-        // — deliberate: the multiplier belongs to the article being read, and
-        // the same-key rebind above returns before ever getting here.
+        // A whole new state value, so the session speed resets to the
+        // alias's with it — deliberate: the speed belongs to the article being
+        // read, and the same-key rebind above returns before ever getting here.
         _state.value = ReaderPlaybackState(
             articleKey = article.url,
             blockCount = blocks.size,
             currentIndex = 0,
             status = ReaderPlaybackStatus.Idle,
+            speed = initialSpeed.coerceIn(MIN_SPEED, MAX_SPEED),
         )
         return true
     }
@@ -307,8 +317,8 @@ class ReaderPlaybackController internal constructor(
     }
 
     /**
-     * Set the session's speed — a factor on the alias's own speed, not an
-     * absolute rate (see [ReaderPlaybackState.speedMultiplier]).
+     * Set the session's speed — absolute, replacing the alias's own speed
+     * rather than scaling it (see [ReaderPlaybackState.speed]).
      *
      * Blocks already handed to the service are already synthesised (or being
      * synthesised) at the old speed and cannot be re-speeded, so a change that
@@ -317,11 +327,11 @@ class ReaderPlaybackController internal constructor(
      * drops the queue for the resume to re-enqueue. Idle/Finished only store
      * it — the next play picks it up.
      */
-    fun setSpeedMultiplier(multiplier: Float) {
+    fun setSpeed(speed: Float) {
         synchronized(lock) {
-            val clamped = multiplier.coerceIn(MIN_SPEED_MULTIPLIER, MAX_SPEED_MULTIPLIER)
-            if (clamped == _state.value.speedMultiplier) return
-            _state.value = _state.value.copy(speedMultiplier = clamped)
+            val clamped = speed.coerceIn(MIN_SPEED, MAX_SPEED)
+            if (clamped == _state.value.speed) return
+            _state.value = _state.value.copy(speed = clamped)
             if (_state.value.isActive) seekTo(_state.value.currentIndex)
         }
     }
@@ -461,7 +471,7 @@ class ReaderPlaybackController internal constructor(
             nextIndex++
             val continuation = !fresh || pending.isNotEmpty()
             pending.addLast(Pending(requestId, index))
-            if (!speech.speak(requestId, blocks[index], _state.value.speedMultiplier, continuation)) {
+            if (!speech.speak(requestId, blocks[index], _state.value.speed, continuation)) {
                 // The service wouldn't start, so this request will never
                 // complete and the pipeline would stall silently. Nothing is
                 // playable in that state — unwind to Idle, and say why.
@@ -551,9 +561,11 @@ class ReaderPlaybackController internal constructor(
         /**
          * Bounds on the session speed. Wider than the sheet offers on purpose
          * — the sheet's chips are the curated set, these are the limits past
-         * which the engines stop producing anything worth listening to.
+         * which the engines stop producing anything worth listening to. The
+         * alias editor's range (0.5–2.0) sits inside them, so an alias's own
+         * speed always survives [open] unclamped.
          */
-        internal const val MIN_SPEED_MULTIPLIER = 0.5f
-        internal const val MAX_SPEED_MULTIPLIER = 3.0f
+        internal const val MIN_SPEED = 0.5f
+        internal const val MAX_SPEED = 3.0f
     }
 }
