@@ -71,7 +71,7 @@
     <string name="engines_cloud_voice_summary">%1$d voci · %2$s</string>
     <string name="engines_cloud_syncing">Chiave configurata — sincronizzazione delle voci…</string>
     <string name="engines_cloud_key_hint">Chiave API: %1$s</string>
-    <string name="engines_cloud_provider_moved">%1$s si è spostato. Aggiorna Marmalade per continuare a usarlo.</string>
+    <string name="engines_cloud_provider_moved">L\'API di %1$s è stata aggiornata. Aggiorna l\'app per continuare a usarla.</string>
     <string name="engines_cloud_refresh_voices">Aggiorna le voci</string>
     <string name="engines_cloud_change_key">Cambia chiave</string>
     <string name="engines_cloud_set_key">Imposta chiave</string>

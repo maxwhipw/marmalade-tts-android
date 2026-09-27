@@ -183,7 +183,7 @@
     <string name="engines_cloud_syncing">Key configured — syncing voices…</string>
     <string name="engines_cloud_key_hint">API key: %1$s</string>
     <!-- %1$s = provider display name (e.g. Venice). Shown when the downloaded provider list moved the provider's endpoint to another site and the app refused it. -->
-    <string name="engines_cloud_provider_moved">%1$s has moved. Update Marmalade to keep using it.</string>
+    <string name="engines_cloud_provider_moved">%1$s API has updated. Update the app to keep using it.</string>
     <string name="engines_cloud_refresh_voices">Refresh voices</string>
     <string name="engines_cloud_change_key">Change key</string>
     <string name="engines_cloud_set_key">Set key</string>
