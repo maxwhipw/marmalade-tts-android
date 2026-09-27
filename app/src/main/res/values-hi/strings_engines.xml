@@ -71,6 +71,7 @@
     <string name="engines_cloud_voice_summary">%1$d वॉइस · %2$s</string>
     <string name="engines_cloud_syncing">कुंजी सेट हो गई — वॉइस सिंक हो रही हैं…</string>
     <string name="engines_cloud_key_hint">API कुंजी: %1$s</string>
+    <string name="engines_cloud_provider_moved">%1$s का पता बदल गया है। इसे इस्तेमाल करते रहने के लिए Marmalade अपडेट करें।</string>
     <string name="engines_cloud_refresh_voices">वॉइस रीफ़्रेश करें</string>
     <string name="engines_cloud_change_key">कुंजी बदलें</string>
     <string name="engines_cloud_set_key">कुंजी सेट करें</string>

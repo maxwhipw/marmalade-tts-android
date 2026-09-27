@@ -71,6 +71,7 @@
     <string name="engines_cloud_voice_summary">%1$d 个语音 · %2$s</string>
     <string name="engines_cloud_syncing">密钥已配置 — 正在同步语音…</string>
     <string name="engines_cloud_key_hint">API 密钥：%1$s</string>
+    <string name="engines_cloud_provider_moved">%1$s 已迁移。请更新 Marmalade 以继续使用。</string>
     <string name="engines_cloud_refresh_voices">刷新语音</string>
     <string name="engines_cloud_change_key">更换密钥</string>
     <string name="engines_cloud_set_key">设置密钥</string>

@@ -257,6 +257,115 @@ class CloudProvidersTest {
         assertEquals(LatencyBucket.SLOW, seed("tts-gemini-3-1-flash"))
     }
 
+    // --- L2: the remote list may only move a built-in provider within its site ---
+
+    private fun provider(id: String, baseUrl: String, models: List<CloudModel> = emptyList()) =
+        CloudProvider(
+            id = id,
+            displayName = id,
+            baseUrl = baseUrl,
+            keyHint = "",
+            discoverVoices = false,
+            models = models,
+        )
+
+    private val bundledVenice = provider("venice", "https://api.venice.ai/api/v1")
+
+    private fun pinnedVenice(remoteUrl: String, models: List<CloudModel> = emptyList()): CloudProvider =
+        CloudProviders.pinBuiltInSites(
+            bundled = listOf(bundledVenice),
+            remote = listOf(provider("venice", remoteUrl, models)),
+        ).single()
+
+    @Test
+    fun `remote may keep the same host`() {
+        val p = pinnedVenice("https://api.venice.ai/api/v1")
+        assertEquals("https://api.venice.ai/api/v1", p.baseUrl)
+        assertFalse(p.movedOffSite)
+    }
+
+    @Test
+    fun `remote may move a built-in provider to another subdomain or the apex`() {
+        for (url in listOf("https://api2.venice.ai/api/v1", "https://venice.ai/v2", "https://a.b.venice.ai")) {
+            val p = pinnedVenice(url)
+            assertEquals(url, p.baseUrl)
+            assertFalse(url, p.movedOffSite)
+        }
+    }
+
+    @Test
+    fun `remote may change path and port on the same site`() {
+        for (url in listOf("https://api.venice.ai/api/v2", "https://api.venice.ai:8443/api/v1")) {
+            val p = pinnedVenice(url)
+            assertEquals(url, p.baseUrl)
+            assertFalse(url, p.movedOffSite)
+        }
+    }
+
+    @Test
+    fun `off-site move keeps the bundled url, applies other fields, and flags the provider`() {
+        val remoteModels = listOf(CloudModel("tts-new", "New", listOf("v1")))
+        for (url in listOf(
+            "https://evil.example/api/v1",
+            "https://api.venice.ai.evil.example/api/v1",
+            "https://evilvenice.ai/api/v1",
+            // userinfo trick: the real host is evil.example
+            "https://api.venice.ai@evil.example/api/v1",
+        )) {
+            val p = pinnedVenice(url, remoteModels)
+            assertEquals(url, "https://api.venice.ai/api/v1", p.baseUrl)
+            assertTrue(url, p.movedOffSite)
+            assertEquals(remoteModels, p.models)
+        }
+    }
+
+    @Test
+    fun `a cleartext move is refused even on the same host`() {
+        // parseDocument already rejects a whole document with an http
+        // baseUrl; the site check refuses it on its own too.
+        assertFalse(CloudProviders.sameSite("https://api.venice.ai/v1", "http://api.venice.ai/v1"))
+        assertFalse(CloudProviders.sameSite("https://api.venice.ai/v1", "not a url"))
+        val p = pinnedVenice("http://api.venice.ai/api/v1")
+        assertEquals("https://api.venice.ai/api/v1", p.baseUrl)
+        assertTrue(p.movedOffSite)
+    }
+
+    @Test
+    fun `remote-only providers are accepted as-is and order follows the remote list`() {
+        val remote = listOf(
+            provider("newco", "https://tts.newco.example/v1"),
+            provider("venice", "https://api.venice.ai/api/v1"),
+        )
+        val pinned = CloudProviders.pinBuiltInSites(listOf(bundledVenice), remote)
+        assertEquals(remote, pinned)
+    }
+
+    @Test
+    fun `country-code second-level domains compare three labels`() {
+        // example.co.uk is the site, not co.uk.
+        assertTrue(CloudProviders.sameSite("https://api.example.co.uk/v1", "https://tts.example.co.uk/v1"))
+        assertFalse(CloudProviders.sameSite("https://api.example.co.uk/v1", "https://evil.co.uk/v1"))
+        assertFalse(CloudProviders.sameSite("https://api.example.com.au/v1", "https://evil.com.au/v1"))
+        // A plain ccTLD registration still compares two labels.
+        assertTrue(CloudProviders.sameSite("https://api.venice.ai/v1", "https://tts.venice.ai/v1"))
+        // Known over-match, fails closed: x.ai reads as a registry, so a
+        // sibling subdomain is refused while the same host still passes.
+        assertFalse(CloudProviders.sameSite("https://api.x.ai/v1", "https://tts.x.ai/v1"))
+        assertTrue(CloudProviders.sameSite("https://api.x.ai/v1", "https://api.x.ai/v2"))
+    }
+
+    @Test
+    fun `host comparison ignores case and a trailing dot`() {
+        assertTrue(CloudProviders.sameSite("https://api.venice.ai/v1", "https://API.Venice.AI./v1"))
+    }
+
+    @Test
+    fun `bundled asset passes its own site check`() {
+        val bundled = CloudProviders.parse(bundledAssetJson())
+        val pinned = CloudProviders.pinBuiltInSites(bundled, bundled)
+        assertEquals(bundled, pinned)
+    }
+
     /** Robolectric merges src/main/assets onto the test classpath. */
     private fun bundledAssetJson(): String =
         javaClass.classLoader!!

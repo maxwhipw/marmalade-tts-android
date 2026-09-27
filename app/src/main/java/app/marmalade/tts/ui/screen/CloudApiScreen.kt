@@ -59,7 +59,9 @@ import app.marmalade.tts.data.cloud.CloudProvider
 //   otherwise → engines_cloud_intro + one ProviderCard per
 //     CloudApiViewModel.providers entry: key status + synced voice/model
 //     counts, "Set key"/"Change key" → key dialog → vm.setKey(...),
-//     "Refresh voices" (keyed discovering providers) → vm.refreshVoices.
+//     "Refresh voices" (keyed discovering providers) → vm.refreshVoices,
+//     and an "update the app" warning when a keyed provider is
+//     CloudProvider.movedOffSite.
 //     The provider list refreshes from the engines repo on open
 //     (CloudApiViewModel.init) — adding a provider is a JSON change.
 // -----------------------------------------------------------------------------
@@ -289,6 +291,18 @@ private fun ProviderCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // The downloaded provider list tried to move this provider's
+            // endpoint to another site and was refused (the bundled URL is
+            // still in use). Only a user with a saved key needs to act.
+            if (keyed && provider.movedOffSite) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.engines_cloud_provider_moved, provider.displayName),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             if (error != null) {
                 Spacer(Modifier.height(4.dp))

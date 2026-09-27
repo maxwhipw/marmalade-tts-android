@@ -20,7 +20,8 @@ import org.json.JSONException
 // -----------------------------------------------------------------------------
 //   providers()  ◄── memory cache
 //     │              ◄── filesDir/cloud/providers.json   (remote copy, if fetched)
-//     │              ◄── assets/cloud-providers.json     (bundled fallback)
+//     │              ◄── assets/cloud-providers.json     (bundled fallback; also
+//     │                   pins each built-in provider's baseUrl to its site)
 //     │              + per-provider discovery overlay
 //     │                 (filesDir/cloud/voices-<id>.json, written by
 //     │                  discoverVoices() from GET {baseUrl}/models?type=tts)
@@ -44,6 +45,13 @@ import org.json.JSONException
  * providers that support it come from live discovery against the
  * provider's `/models?type=tts`; both fetches are cached under
  * `filesDir/cloud/` so the app works offline with the last-known state.
+ *
+ * The remote list is trusted input with a limit: it may add providers and
+ * change a built-in provider's models, but may only move a built-in
+ * provider's `baseUrl` (which receives the user's saved API key) within
+ * that provider's own site — [CloudProviders.pinBuiltInSites]. Process
+ * rule (Max): any change to `cloud-providers.json` in the engines repo
+ * needs Max's manual review; agents never merge it.
  */
 @Singleton
 class CloudProviderStore @Inject constructor(
@@ -193,6 +201,9 @@ class CloudProviderStore @Inject constructor(
      * update did nothing, and a new build's capability fields would be read
      * from an old schema that never had them. Ties go to the cache so a
      * same-version remote can still deliver new models between releases.
+     *
+     * A winning remote copy still can't move a built-in provider's
+     * `baseUrl` off its site — see [CloudProviders.pinBuiltInSites].
      */
     private fun loadBaseProviders(): List<CloudProvider> {
         val bundled = context.assets.open(BUNDLED_ASSET).use {
@@ -208,7 +219,16 @@ class CloudProviderStore @Inject constructor(
         } ?: return bundledDoc.providers
 
         return if (cachedDoc.version >= bundledDoc.version) {
-            cachedDoc.providers
+            CloudProviders.pinBuiltInSites(bundledDoc.providers, cachedDoc.providers).onEach {
+                if (it.movedOffSite) {
+                    val moved = cachedDoc.providers.first { remote -> remote.id == it.id }
+                    Log.w(
+                        TAG,
+                        "remote provider list moves ${it.id} off-site to ${moved.baseUrl}; " +
+                            "refused, keeping bundled ${it.baseUrl} (app update needed)",
+                    )
+                }
+            }
         } else {
             Log.i(
                 TAG,
@@ -223,7 +243,14 @@ class CloudProviderStore @Inject constructor(
         private const val TAG = "CloudProviderStore"
         private const val BUNDLED_ASSET = "cloud-providers.json"
 
-        /** Same document as the bundled asset, updatable without a release. */
+        /**
+         * Same document as the bundled asset, updatable without a release.
+         *
+         * Process rule (Max): every change to `cloud-providers.json` in the
+         * engines repo needs Max's manual review — agents never merge it.
+         * What ships here reaches every installed app, and a provider's
+         * `baseUrl` is where users' saved API keys are sent.
+         */
         const val REMOTE_PROVIDERS_URL =
             "https://raw.githubusercontent.com/maxwhipw/marmalade-tts-android-engines/main/cloud-providers.json"
     }

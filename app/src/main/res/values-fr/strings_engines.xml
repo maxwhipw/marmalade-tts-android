@@ -71,6 +71,7 @@
     <string name="engines_cloud_voice_summary">%1$d voix · %2$s</string>
     <string name="engines_cloud_syncing">Clé configurée — synchronisation des voix…</string>
     <string name="engines_cloud_key_hint">Clé d\'API&#160;: %1$s</string>
+    <string name="engines_cloud_provider_moved">%1$s a changé d\'adresse. Mettez à jour Marmalade pour continuer à l\'utiliser.</string>
     <string name="engines_cloud_refresh_voices">Actualiser les voix</string>
     <string name="engines_cloud_change_key">Changer de clé</string>
     <string name="engines_cloud_set_key">Définir la clé</string>

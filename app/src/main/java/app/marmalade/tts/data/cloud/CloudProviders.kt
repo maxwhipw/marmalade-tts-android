@@ -1,6 +1,7 @@
 package app.marmalade.tts.data.cloud
 
 import app.marmalade.tts.data.LatencyBucket
+import java.net.URI
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -9,7 +10,8 @@ import org.json.JSONObject
 // Data flow
 // -----------------------------------------------------------------------------
 //   cloud-providers.json (bundled asset; a cached remote copy wins only if
-//   its `version` is >= the bundled one — see CloudProviderStore)
+//   its `version` is >= the bundled one, and even then it may only move a
+//   built-in provider's baseUrl within the same site — pinBuiltInSites())
 //     │
 //     ▼
 //   CloudProviders.parseDocument(json) ──► CloudProvidersDocument
@@ -62,6 +64,12 @@ import org.json.JSONObject
  *                         introduce a model that isn't already listed.
  * @property models        The allowlist: every model this app will speak
  *                         through, with its verified capabilities.
+ * @property movedOffSite  Not part of the JSON. True when the downloaded
+ *                         provider list moved this built-in provider to a
+ *                         different site and the move was refused
+ *                         ([CloudProviders.pinBuiltInSites]); [baseUrl] is
+ *                         then still the bundled one, and the UI tells a
+ *                         user with a saved key to update the app.
  */
 data class CloudProvider(
     val id: String,
@@ -70,6 +78,7 @@ data class CloudProvider(
     val keyHint: String,
     val discoverVoices: Boolean,
     val models: List<CloudModel>,
+    val movedOffSite: Boolean = false,
 )
 
 /**
@@ -174,6 +183,103 @@ object CloudProviders {
         }
         return url
     }
+
+    /**
+     * Apply a downloaded provider list on top of the bundled one without
+     * letting it move a built-in provider's endpoint to another site.
+     *
+     * Every provider's `baseUrl` receives the user's saved API key as
+     * `Authorization: Bearer`, and the remote list is fetched from GitHub.
+     * A tampered or mistaken remote file could otherwise send every user's
+     * saved key to a host nobody reviewed. So, for a provider id the
+     * bundled list also has, the remote `baseUrl` is accepted only when it
+     * is [sameSite] as the bundled one (https, same registrable domain;
+     * port and path may change). Otherwise the bundled `baseUrl` stays in
+     * force — every other remote field (models, voices, hints) still
+     * applies — and the provider is flagged [CloudProvider.movedOffSite]
+     * so the UI can ask the user to update the app.
+     *
+     * Providers only in [remote] are taken as-is: nobody can have a key
+     * saved for them yet, and the user sees the new provider before
+     * entering one. [parseDocument] has already required https for them.
+     *
+     * The remote list stays authoritative for which providers exist and in
+     * what order.
+     */
+    fun pinBuiltInSites(
+        bundled: List<CloudProvider>,
+        remote: List<CloudProvider>,
+    ): List<CloudProvider> {
+        val bundledById = bundled.associateBy { it.id }
+        return remote.map { provider ->
+            val builtIn = bundledById[provider.id] ?: return@map provider
+            if (sameSite(builtIn.baseUrl, provider.baseUrl)) {
+                provider
+            } else {
+                provider.copy(baseUrl = builtIn.baseUrl, movedOffSite = true)
+            }
+        }
+    }
+
+    /**
+     * True when [candidate] is an https URL on the same site as [trusted].
+     * An exact host match always passes (this covers IP literals and
+     * single-label hosts); otherwise both hosts must share
+     * [registrableDomain]. Unparseable URLs fail.
+     */
+    fun sameSite(trusted: String, candidate: String): Boolean {
+        val candidateUri = runCatching { URI(candidate) }.getOrNull() ?: return false
+        if (!candidateUri.scheme.equals("https", ignoreCase = true)) return false
+        val candidateHost = hostOf(candidate) ?: return false
+        val trustedHost = hostOf(trusted) ?: return false
+        if (candidateHost == trustedHost) return true
+        return registrableDomain(candidateHost) == registrableDomain(trustedHost)
+    }
+
+    private fun hostOf(url: String): String? =
+        runCatching { URI(url).host }.getOrNull()
+            ?.lowercase()
+            ?.trimEnd('.')
+            ?.takeIf { it.isNotEmpty() }
+
+    /**
+     * An approximation of the registrable domain ("eTLD+1") of [host].
+     *
+     * The real answer needs the Public Suffix List, and nothing this app
+     * depends on ships one (the Android SDK has no public API for it and
+     * there is no OkHttp here). So the rule is deliberately conservative:
+     *
+     *  - Normally the last two labels: `api.venice.ai` → `venice.ai`.
+     *  - When the top-level label is two letters (a country code) and the
+     *    label before it looks like that country's second-level registry —
+     *    three letters or fewer (`co`, `com`, `org`, `ne`, `ac`, `gob`…) or
+     *    one of [LONG_CCTLD_SECOND_LEVELS] — the last three:
+     *    `api.example.co.uk` → `example.co.uk`, not `co.uk`.
+     *
+     * Known limits:
+     *  - The short-label test over-matches. `api.x.ai` reads `x.ai` as a
+     *    registry, so its site becomes `api.x.ai` and a move to `other.x.ai`
+     *    is refused. That is the safe direction to be wrong in: the
+     *    provider keeps working on its bundled URL and the user is told to
+     *    update.
+     *  - Multi-label public suffixes under generic TLDs are invisible to it
+     *    (`github.io`, `herokuapp.com`, `pages.dev`, `cloudfront.net`…). A
+     *    built-in provider hosted on one of those would share a "site" with
+     *    every other tenant there. None of the bundled providers is; check
+     *    for this before bundling one that is.
+     *  - IP-literal hosts only ever match exactly (see [sameSite]).
+     */
+    private fun registrableDomain(host: String): String {
+        val labels = host.split('.')
+        val secondLevel = labels.getOrNull(labels.size - 2).orEmpty()
+        val underCcTldRegistry = labels.size >= 3 &&
+            labels.last().length == 2 &&
+            (secondLevel.length <= 3 || secondLevel in LONG_CCTLD_SECOND_LEVELS)
+        return labels.takeLast(if (underCcTldRegistry) 3 else 2).joinToString(".")
+    }
+
+    /** ccTLD second-level registries longer than three letters. */
+    private val LONG_CCTLD_SECOND_LEVELS = setOf("gouv", "govt", "police", "school", "info", "firm", "priv")
 
     /** Providers only — for callers that don't care about the version. */
     fun parse(json: String): List<CloudProvider> = parseDocument(json).providers

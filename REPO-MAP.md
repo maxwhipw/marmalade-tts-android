@@ -132,7 +132,15 @@ When investigating **{concern}**, start at **{files}**:
   fetched descriptor overrides (engines repo), and per-provider live
   voice discovery; owns the engine's `voice_meta` rows via
   `VoiceMetaDao.replaceEngine` (no static catalog / CATALOG_VERSION
-  involvement). Caches under `filesDir/cloud/`.
+  involvement). Caches under `filesDir/cloud/`. The remote copy may add
+  providers and change models, but may only move a **built-in**
+  provider's `baseUrl` (where saved API keys go) within its own site —
+  `CloudProviders.pinBuiltInSites`; an off-site move keeps the bundled
+  URL and sets `CloudProvider.movedOffSite`, which the Cloud screen shows
+  as "update the app" for keyed providers. The site rule is a PSL-free
+  approximation (limits documented on `registrableDomain`). Any change to
+  the engines repo's `cloud-providers.json` needs Max's manual review;
+  agents never merge it.
 - "Installed" = any provider key in `SettingsRepository.cloudApiKeys`
   (`cloud_api_key_<provider>` prefs; legacy `cloud_api_key` reads as
   Venice). Configure UI: Engines tab → Cloud voices card →
