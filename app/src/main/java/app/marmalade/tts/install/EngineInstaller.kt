@@ -673,7 +673,10 @@ open class EngineInstaller @Inject constructor(
         val scratchDir = scratchDirFor(engineName)
 
         // Already installed (downloaded or previously seeded) — leave it.
-        if (verifyLayout(descriptor, finalDir) is InstallState.Installed) {
+        // The directory check comes first, as in probeEngine: verifyLayout's
+        // install-meta bootstrap writes into the directory, which on a first
+        // run doesn't exist yet (logged as an ENOENT warning on every seed).
+        if (finalDir.isDirectory && verifyLayout(descriptor, finalDir) is InstallState.Installed) {
             sf.value = InstallState.Installed
             return@withLock Result.success(Unit)
         }
