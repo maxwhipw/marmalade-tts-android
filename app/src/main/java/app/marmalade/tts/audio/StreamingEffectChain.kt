@@ -9,6 +9,7 @@ import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.round
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -465,10 +466,26 @@ private class TempoProcessor(factor: Float) : BlockProcessor {
     }
 
     override fun flush(): FloatArray {
-        // Emit whatever is accumulated, including the trailing (non-finalized)
-        // overlap region — there are no more frames to add to it.
-        val tail = normalize(0, accLen)
-        accLen = 0; synth = 0
+        // Input past the last whole frame — up to a frame of it, ≥ 512 samples
+        // (~21 ms at 24 kHz) at 1.0× — used to be dropped here. Zero-pad one
+        // frame so every frame that starts inside the real input still runs,
+        // then keep the output up to where the last of them places the final
+        // real sample. Flush-local output 0 is the next frame's slot (input
+        // `readPos`); frame j sits at j·hs and reads from readPos + j·ha. So
+        // the tail plays at unit speed, as the first frame's head does: at
+        // 1.0× the output is the input verbatim, otherwise its length is
+        // input / factor within a frame. The pad frames only add silence to the
+        // window sums, so the signal fades into them rather than being cut.
+        val remaining = inLen - readPos
+        var end = accLen
+        if (remaining > 0) {
+            val last = ceil(remaining / ha).toInt() - 1 // last frame starting before the end
+            end = maxOf(end, (last * hs + remaining - last * ha).roundToInt())
+        }
+        appendInput(FloatArray(w))
+        val tail = (runFrames() + normalize(0, accLen)).copyOf(end)
+        inLen = 0; readPos = 0.0
+        acc.fill(0f); accW.fill(0f); accLen = 0; synth = 0
         return tail
     }
 

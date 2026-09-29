@@ -169,6 +169,62 @@ class StreamingEffectChainTest {
     }
 
     @Test
+    fun `tempo at 1x keeps every input sample, tail included`() {
+        // Since fb3579a every on-device reader block runs through a live Tempo
+        // stage even at 1.0×; the input left after the last whole frame (up to
+        // ~21 ms) used to be dropped by flush(). Lengths off the hop grid
+        // exercise the partial-frame remainder.
+        for (n in listOf(20_000, 20_300, 24_000 + 777)) {
+            val pcm = signal(n)
+            pcm[n - 1] = 20_000 // the very last sample, which used to be lost
+            val out = streamLive(pcm, start = 1.0f)
+            assertEquals("length for n=$n", n, out.size)
+            // At 1.0× the output is the input verbatim, bar the Hann ramp-in.
+            for (i in 1024 until n) {
+                assertTrue("n=$n sample $i: ${out[i]} vs ${pcm[i]}", abs(out[i] - pcm[i]) <= 1)
+            }
+        }
+    }
+
+    @Test
+    fun `tempo output length is the input over the factor`() {
+        for (factor in listOf(2.0f, 1.5f, 0.75f)) {
+            for (n in listOf(20_000, 20_300, 24_000 + 777)) {
+                val out = streamLive(signal(n), start = factor)
+                // Within a hop: the final half-frame plays at unit speed.
+                assertEquals("length at ${factor}x, n=$n", n / factor.toDouble(), out.size.toDouble(), 512.0)
+            }
+        }
+    }
+
+    @Test
+    fun `tempo ends a cleanly ending signal without a click`() {
+        // Speech ends in a decay, not mid-waveform: fade the sine over its last
+        // 20 ms. The recovered tail must not add a step the signal doesn't have.
+        val n = 20_300
+        val pcm = signal(n)
+        for (i in n - 480 until n) pcm[i] = (pcm[i] * (n - i) / 480.0).toInt().toShort()
+        val steadyMaxStep = (1 until n).maxOf { abs(pcm[it] - pcm[it - 1]) }
+        for (factor in listOf(2.0f, 1.5f, 1.0f, 0.75f)) {
+            val out = streamLive(pcm, start = factor)
+            val tailMaxStep = (out.size - 1024 until out.size).maxOf { abs(out[it] - out[it - 1]) }
+            assertTrue("tail step $tailMaxStep at ${factor}x", tailMaxStep <= steadyMaxStep * 1.5)
+        }
+    }
+
+    @Test
+    fun `tempo at 2x reaches the last input samples`() {
+        // A burst in the final 300 input samples — past the last whole frame —
+        // must still be heard at the end of the 2× output.
+        val n = 20_300
+        val pcm = ShortArray(n)
+        for (i in n - 300 until n - 100) pcm[i] = (8000.0 * sin(2.0 * PI * 440.0 * i / sr)).toInt().toShort()
+        val out = streamLive(pcm, start = 2.0f)
+        val tailPeak = (out.size - 400 until out.size).maxOf { abs(out[it].toInt()) }
+        assertTrue("tail peak $tailPeak", tailPeak > 4000)
+    }
+
+    @Test
     fun `a chain without a live stage reports none`() {
         assertEquals(null, StreamingEffectChain(EffectChain.CAVE_BLOCKS, sr).liveTempo)
     }
