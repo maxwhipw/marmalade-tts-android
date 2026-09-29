@@ -449,6 +449,7 @@ open class KittenDirectEngine @Inject constructor(
                     speed,
                     rowText = chunk.rowText,
                     espeakVoice = espeakVoice,
+                    checkCancelled = { ensureActive() },
                 )
             }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
@@ -481,6 +482,9 @@ open class KittenDirectEngine @Inject constructor(
      * [synthesize] so [warmupSynth] can call it without re-acquiring
      * [synthLock] (warmup runs on the load thread, before the engine is
      * advertised as ready).
+     *
+     * [checkCancelled] runs before each re-split piece of an over-cap chunk,
+     * so a stop lands between pieces rather than after the whole chunk.
      */
     private fun runInference(
         text: String,
@@ -488,6 +492,7 @@ open class KittenDirectEngine @Inject constructor(
         speed: Float,
         rowText: String = text,
         espeakVoice: String = KITTEN_DEFAULT_ESPEAK_VOICE,
+        checkCancelled: () -> Unit = {},
     ): ShortArray {
         val phon = phonemizer ?: error("phonemizer missing")
         val rawIpa = phon.phonemize(text, espeakVoice)
@@ -507,6 +512,7 @@ open class KittenDirectEngine @Inject constructor(
         }
         Log.i(TAG, "phoneme count ${rawIpa.length} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
         val parts = pieces.map { piece ->
+            checkCancelled()
             // splitToFit leaves a piece oversize only if it's one character.
             val ipa = phon.phonemize(piece, espeakVoice).take(MAX_PHONEMES_PER_CHUNK)
             inferIpa(piece, ipa, voiceName, speed, rowText)

@@ -523,7 +523,9 @@ open class KokoroDirectEngine @Inject constructor(
             // the next request's TTFA paid for all of them (~11 s on the 8a).
             ensureActive()
             val inferStartNs = System.nanoTime()
-            val pcm = synthLock.withLock { runInference(chunk, voiceName, speed, effectiveLang) }
+            val pcm = synthLock.withLock {
+                runInference(chunk, voiceName, speed, effectiveLang) { ensureActive() }
+            }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
             if (pcm.isNotEmpty()) {
                 val audioMs = pcm.size * 1000L / sampleRate
@@ -542,7 +544,19 @@ open class KokoroDirectEngine @Inject constructor(
         for (audio in gate.drain()) emitAudio(audio)
     }.flowOn(Dispatchers.Default)
 
-    private fun runInference(text: String, voiceName: String, speed: Float, lang: String): ShortArray {
+    /**
+     * [checkCancelled] runs before each re-split piece of an over-cap chunk —
+     * the stream loop's own cancellation check only runs between chunks, and
+     * a CJK run-on's second piece is seconds of inference nobody will hear
+     * once the user has pressed Stop.
+     */
+    private fun runInference(
+        text: String,
+        voiceName: String,
+        speed: Float,
+        lang: String,
+        checkCancelled: () -> Unit = {},
+    ): ShortArray {
         val rawIds = encodeTextToTokens(text, lang)
         if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return inferTokens(text, rawIds, voiceName, speed)
 
@@ -557,6 +571,7 @@ open class KokoroDirectEngine @Inject constructor(
         }
         Log.i(TAG, "token count ${rawIds.size} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
         val parts = pieces.map { piece ->
+            checkCancelled()
             val ids = encodeTextToTokens(piece, lang)
             // splitToFit leaves a piece oversize only if it's one character.
             inferTokens(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)), voiceName, speed)
