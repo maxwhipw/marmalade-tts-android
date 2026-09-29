@@ -325,6 +325,71 @@ class ArticleExtractorTest {
         assertEquals(listOf("Short. Text."), ArticleExtractor.splitText("Short. Text.", max = 50))
     }
 
+    // -- reference / navigation furniture ------------------------------------
+
+    /**
+     * The shape of a Wikipedia article (Seville orange, emulator run
+     * 2026-09-28): an infobox whose cells became spoken blocks ("C. ×
+     * aurantium", ", 1753", "List", a synonym list), a hatnote, heading edit
+     * links, citation superscripts, and a navbox at the bottom.
+     */
+    private val wikiPage = page(
+        title = "Bitter orange",
+        body = """
+            <div class="hatnote">For the tree used as rootstock, see Trifoliate orange.</div>
+            <table class="infobox biota">
+              <tr><th>Bitter orange</th></tr>
+              <tr><td><p><i>C. × aurantium</i></p></td></tr>
+              <tr><td><p>, 1753</p></td></tr>
+              <tr><td><div class="collapsible">List</div>
+                <ul><li>Citrus bigaradia Loisel.</li><li>Citrus vulgaris Risso</li></ul></td></tr>
+            </table>
+            <p>The bitter orange is a hybrid citrus tree.<sup class="reference"><a href="#cite_note-1">[1]</a></sup> ${filler(3)}</p>
+            <h2>Production<span class="mw-editsection"><span>[</span><a href="/edit">edit</a><span>]</span></span></h2>
+            <p>${filler(2)} Brazil grew the most, followed by China and Mexico.<sup class="reference"><a href="#cite_note-2">[2]</a></sup></p>
+            <p>${filler(2)} It was first described in 1753.<sup class="noprint Inline-Template">[<i><a href="/wiki/Citation_needed"><span>citation needed</span></a></i>]</sup></p>
+            <table class="navbox"><tr><td><ul><li>Citron</li><li>Pomelo</li><li>Mandarin orange</li></ul></td></tr></table>
+        """.trimIndent(),
+    )
+
+    @Test
+    fun `infoboxes, navboxes and hatnotes are not read out`() {
+        val result = extract(wikiPage) as ExtractionResult.Success
+        val texts = result.blocks.map { it.text }
+
+        for (furniture in listOf("aurantium", "bigaradia", "Trifoliate", "Pomelo")) {
+            assertTrue("'$furniture' leaked into $texts", texts.none { furniture in it })
+        }
+        assertFalse(texts.any { it == ", 1753" || it == "List" || it == "Bitter orange" })
+        assertTrue(texts.first().startsWith("The bitter orange is a hybrid citrus tree. This"))
+    }
+
+    @Test
+    fun `citation markers and edit links are stripped`() {
+        val result = extract(wikiPage) as ExtractionResult.Success
+        val texts = result.blocks.map { it.text }
+
+        assertTrue("$texts", texts.none { "[1]" in it || "[2]" in it || "citation needed" in it })
+        assertTrue("$texts", texts.any { it.endsWith("followed by China and Mexico.") })
+        assertTrue("$texts", texts.any { it.endsWith("It was first described in 1753.") })
+        assertTrue("${result.blocks}", ArticleBlock.Heading(2, "Production") in result.blocks)
+    }
+
+    @Test
+    fun `only a lone bracketed superscript counts as a footnote marker`() {
+        val html = page(
+            title = "Arrays",
+            body = """
+                <p>${filler(3)} Read arr[1] before writing it.<sup><a href="#fn3">[3]</a></sup></p>
+                <p>${filler(3)} The room is 12 m<sup>2</sup> and the list [a] stays.</p>
+            """.trimIndent(),
+        )
+        val texts = (extract(html) as ExtractionResult.Success).blocks.map { it.text }
+
+        assertTrue(texts.any { it.endsWith("Read arr[1] before writing it.") })
+        assertTrue(texts.any { it.endsWith("The room is 12 m2 and the list [a] stays.") })
+    }
+
     // -- failure modes -----------------------------------------------------
 
     @Test

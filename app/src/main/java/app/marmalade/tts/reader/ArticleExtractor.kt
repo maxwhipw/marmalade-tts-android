@@ -7,6 +7,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import net.dankito.readability4j.Readability4J
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
 // -----------------------------------------------------------------------------
@@ -15,7 +16,9 @@ import org.jsoup.nodes.Element
 // Two-stage, both stages jsoup:
 //   1. Parse the fetched bytes (Readability4J needs a Document, and jsoup's
 //      stream parser is the only thing that gets the charset right — see
-//      below), run Readability4J over it to strip nav/ads/comments.
+//      below), drop the reference/navigation furniture Readability keeps
+//      (infoboxes, navboxes, footnote markers — see removeNoise), then run
+//      Readability4J over it to strip nav/ads/comments.
 //   2. Re-parse Readability's cleaned HTML and walk it into typed blocks,
 //      then run ArticleCleanup over the list to drop the page furniture
 //      Readability leaves behind (site headers, credits, references lists).
@@ -110,6 +113,9 @@ open class ArticleExtractor @Inject constructor() {
                 charsetOf(contentType),
                 finalUrl,
             )
+            // Before Readability, not after: its cleaned HTML has lost the
+            // class names these rules key on.
+            removeNoise(document)
             Readability4J(finalUrl, document).parse()
         } catch (t: Throwable) {
             // jsoup and Readability4J both walk arbitrary hostile markup.
@@ -137,6 +143,32 @@ open class ArticleExtractor @Inject constructor() {
             blocks = blocks,
             totalTextChars = blocks.sumOf { it.text.length },
         )
+    }
+
+    /**
+     * Remove what is page furniture wherever it appears, before Readability
+     * sees the page:
+     *
+     * - **Reference and navigation boxes** by class name ([NOISE_SELECTOR]):
+     *   infoboxes (a Wikipedia taxobox arrived as blocks like "C. ×
+     *   aurantium", ", 1753", "List" and a long synonym list), navboxes,
+     *   sidebars, hatnotes, edit links, reference lists.
+     * - **Footnote markers**: `sup.reference`, and any superscript whose whole
+     *   text is one bracketed marker — "[1]", "[a]", "[note 3]", "[citation
+     *   needed]" — so "…and Mexico.[1]" isn't read out. Gone from the display
+     *   too: the references they point at are cut by ArticleCleanup and the
+     *   native reader can't follow them, so they would only dangle there.
+     *   Bracketed text that isn't a lone superscript ("arr[1]" in prose) is
+     *   left alone.
+     *
+     * Class-name based rather than site-specific; the MediaWiki names cover
+     * every wiki running it, not just Wikipedia.
+     */
+    private fun removeNoise(document: Document) {
+        document.select(NOISE_SELECTOR).remove()
+        document.select("sup")
+            .filter { FOOTNOTE_MARKER.matches(normalise(it.text())) }
+            .forEach { it.remove() }
     }
 
     /**
@@ -209,6 +241,19 @@ open class ArticleExtractor @Inject constructor() {
 
     companion object {
         private val WHITESPACE = Regex("\\s+")
+
+        /** Reference/navigation furniture removed before extraction — see [removeNoise]. */
+        private const val NOISE_SELECTOR =
+            ".infobox, .navbox, .vertical-navbox, .sidebar, .hatnote, " +
+                ".mw-editsection, sup.reference, .reflist, ol.references"
+
+        /**
+         * A superscript that is nothing but a footnote/editorial marker:
+         * "[1]", "[12]", "[a]", "[note 3]", "[nb 1]", "[citation needed]",
+         * "[clarification needed]", "[who?]".
+         */
+        private val FOOTNOTE_MARKER =
+            Regex("""\[(?:\d{1,3}|[a-z]|(?:note|nb|n) ?\d{1,3}|[a-z][a-z ]{0,30}(?: needed|\?))]""")
 
         /** Longest block text the extractor emits — one speak request's worth. */
         internal const val MAX_BLOCK_CHARS = SpeakDispatcher.MAX_TEXT_LENGTH
