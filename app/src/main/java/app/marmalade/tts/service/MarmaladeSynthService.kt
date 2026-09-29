@@ -19,7 +19,9 @@ import android.os.PowerManager
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
+import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
+import androidx.core.content.IntentCompat
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 import android.os.SystemClock
@@ -278,6 +280,9 @@ class MarmaladeSynthService : Service() {
      * for. Cleared by every user pause/resume and by the next request.
      */
     @Volatile private var pausedByFocus: Boolean = false
+
+    /** The state last published to [mediaSession] — see [updateMediaState]. */
+    @Volatile private var mediaState: Int = PlaybackStateCompat.STATE_NONE
 
     /**
      * The request [activeJob] is playing, so a stop can cancel its channel —
@@ -572,6 +577,12 @@ class MarmaladeSynthService : Service() {
         // here is FGS-from-FGS, which is always allowed.
         keepaliveCoordinator.onSynthCompleted()
         activeRequestId = next.requestId
+        // Advertise transport controls from the start, not from the first
+        // audio: until the session has a state it offers no actions, and a
+        // headset/Bluetooth stop or pause during a slow engine's time-to-
+        // first-audio was dropped. A request following one that is playing
+        // keeps PLAYING, so a queue handover doesn't flicker the controls.
+        updateMediaState(stateForRequestStart(mediaState))
         // Prepared by the request before this one, in the common case: its
         // audio is already synthesised (or well underway) and playback starts
         // without waiting for the engine.
@@ -1537,6 +1548,25 @@ class MarmaladeSynthService : Service() {
             override fun onPause() = doPause()
             override fun onStop() = doStop()
 
+            // A headset's play/pause toggle resolves to onPlay for any state
+            // but PLAYING (MediaSession's default handling), so while the
+            // first audio is still being synthesised it would do nothing.
+            // There it means "pause", as it will once audio plays.
+            override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
+                val key = IntentCompat.getParcelableExtra(
+                    mediaButtonEvent,
+                    Intent.EXTRA_KEY_EVENT,
+                    KeyEvent::class.java,
+                )
+                if (key != null && key.action == KeyEvent.ACTION_DOWN &&
+                    key.repeatCount == 0 && playPauseKeyPauses(key.keyCode, mediaState)
+                ) {
+                    doPause()
+                    return true
+                }
+                return super.onMediaButtonEvent(mediaButtonEvent)
+            }
+
             // Headset / Bluetooth track-skip buttons step the article while
             // the reader owns playback. For every other kind of speech there
             // is no "next track", so they stay the no-ops they always were.
@@ -1553,20 +1583,10 @@ class MarmaladeSynthService : Service() {
     }
 
     private fun updateMediaState(state: Int) {
+        mediaState = state
         val session = mediaSession ?: return
-        val reader = transport.reader.value
-        var actions = PlaybackStateCompat.ACTION_PLAY or
-            PlaybackStateCompat.ACTION_PAUSE or
-            PlaybackStateCompat.ACTION_STOP or
-            PlaybackStateCompat.ACTION_PLAY_PAUSE
-        if (reader.isReading) {
-            if (reader.canNext) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-            if (reader.canPrevious) {
-                actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-            }
-        }
         val pb = PlaybackStateCompat.Builder()
-            .setActions(actions)
+            .setActions(sessionActions(transport.reader.value))
             .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
             .build()
         session.setPlaybackState(pb)
@@ -1873,6 +1893,44 @@ class MarmaladeSynthService : Service() {
             stopping: Boolean,
             continuation: Boolean,
         ): Boolean = paused && hasActive && !stopping && !continuation
+
+        /**
+         * Transport actions the media session advertises. The same set in
+         * every state, BUFFERING included, so a media-button stop or pause
+         * reaches the service before the first audio does.
+         */
+        internal fun sessionActions(reader: ReaderTransportState): Long {
+            var actions = PlaybackStateCompat.ACTION_PLAY or
+                PlaybackStateCompat.ACTION_PAUSE or
+                PlaybackStateCompat.ACTION_STOP or
+                PlaybackStateCompat.ACTION_PLAY_PAUSE
+            if (reader.isReading) {
+                if (reader.canNext) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+                if (reader.canPrevious) {
+                    actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                }
+            }
+            return actions
+        }
+
+        /**
+         * The session state a request starting now publishes, before its first
+         * audio: BUFFERING, unless the session is already PLAYING (the request
+         * before it just finished), which it keeps until the first chunk.
+         */
+        internal fun stateForRequestStart(current: Int): Int =
+            if (current == PlaybackStateCompat.STATE_PLAYING) current
+            else PlaybackStateCompat.STATE_BUFFERING
+
+        /**
+         * Whether a media key should pause while the session is in [state]
+         * where MediaSession's default handling wouldn't: the play/pause
+         * toggle (or a headset's single button) during BUFFERING, which the
+         * default turns into a no-op play.
+         */
+        internal fun playPauseKeyPauses(keyCode: Int, state: Int): Boolean =
+            state == PlaybackStateCompat.STATE_BUFFERING &&
+                (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
 
         /** Wake-lock tag, `app:component` as PowerManager recommends. */
         private const val WAKE_LOCK_TAG = "marmalade:synth"
