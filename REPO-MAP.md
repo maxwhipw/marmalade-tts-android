@@ -275,7 +275,9 @@ When investigating **{concern}**, start at **{files}**:
   2026-09-28): once per article, before the first block, the reader
   detects the article's language (`LangDetector` over the first ~2000
   chars) and, if the primary alias's voice doesn't speak it
-  (`VoiceMeta.languageCode`, language subtag only), reads it in another
+  (`VoiceMeta.languageCode`, language subtag only; a multilingual cloud
+  voice — OpenAI-style, stored as `en-US` as a placeholder — counts as
+  speaking everything, `CloudApiVoiceCatalog.hasKnownLanguage`), reads it in another
   alias whose voice does (sent as `EXTRA_ALIAS_ID` →
   `TtsRouter.resolveAlias(aliasId=…)`), else an installed on-device,
   pickable voice of that language (`EXTRA_VOICE`, dry, 1.0x; never a cloud

@@ -86,8 +86,7 @@ object CloudApiVoiceCatalog {
      * letters would tag OpenAI's `ballad` en-GB and `echo` es-ES.
      */
     fun voiceMeta(provider: CloudProvider, model: CloudModel, voice: String): VoiceMeta {
-        val kokoroStyle = voice.length > 2 && voice[2] == '_' &&
-            (voice[1] == 'f' || voice[1] == 'm')
+        val kokoroStyle = isKokoroStyle(voice)
         return VoiceMeta(
             id = voiceId(provider.id, model.id, voice),
             engine = ENGINE,
@@ -99,6 +98,20 @@ object CloudApiVoiceCatalog {
             isInstalled = false,
         )
     }
+
+    private fun isKokoroStyle(voice: String): Boolean =
+        voice.length > 2 && voice[2] == '_' && (voice[1] == 'f' || voice[1] == 'm')
+
+    /**
+     * Whether a cloud voice row's `languageCode` is the one language the voice
+     * speaks. Only Kokoro-style keys carry a language; every other cloud voice
+     * (OpenAI's `alloy`, …) is multilingual and its row says `en-US` only
+     * because the column needs a value — the pickers still file it under
+     * English. So language routing ([app.marmalade.tts.lang.VoiceForLanguage])
+     * must treat such a voice's language as unknown, not as English only.
+     */
+    fun hasKnownLanguage(voiceId: String): Boolean =
+        parseVoiceId(voiceId)?.let { isKokoroStyle(it.voice) } ?: false
 
     /**
      * Short provenance line for a cloud voice row ("Venice · Kokoro"),

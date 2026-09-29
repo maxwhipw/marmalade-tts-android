@@ -177,6 +177,54 @@ class VoiceForLanguageTest {
         assertEquals("id-cloud", (decision.voice as VoiceChoice.Alias).aliasId)
     }
 
+    /**
+     * An OpenAI-style cloud voice speaks whatever it is sent; its row says
+     * en-US only as a placeholder. As the primary it must not be judged
+     * unable to read French and swapped for an on-device voice.
+     */
+    @Test
+    fun `a multilingual cloud primary is kept for any language`() {
+        val alloy = VoiceMeta(
+            id = "cloud-api-v1:openai:gpt-4o-mini-tts:alloy",
+            engine = CloudApiVoiceCatalog.ENGINE,
+            displayName = "alloy",
+            languageCode = "en-US",
+            sampleRate = 24_000,
+            gender = null,
+        )
+        val frenchVoice = voice("ff_siwis")
+        val cloudPrimary = alias("id-alloy", alloy, createdAt = 1)
+        val frenchAlias = alias("id-fr", frenchVoice, createdAt = 2)
+
+        val decision = choose(
+            "fr", cloudPrimary, alloy,
+            aliases = listOf(cloudPrimary, frenchAlias),
+            pickable = listOf(alloy, frenchVoice),
+        )
+
+        assertEquals(VoiceChoice.Primary, decision.voice)
+        assertEquals(Reason.PrimaryVoiceUnknown, decision.reason)
+        assertNull(VoiceForLanguage.spokenLanguage(alloy))
+    }
+
+    /** A Kokoro-style cloud voice key does carry its language. */
+    @Test
+    fun `a kokoro-style cloud primary keeps its language`() {
+        val cloudHeart = VoiceMeta(
+            id = "cloud-api-v1:venice:tts-kokoro:af_heart",
+            engine = CloudApiVoiceCatalog.ENGINE,
+            displayName = "Heart",
+            languageCode = "en-US",
+            sampleRate = 24_000,
+            gender = "female",
+        )
+        assertEquals("en-US", VoiceForLanguage.spokenLanguage(cloudHeart))
+
+        val decision = choose("zh", alias("id-cloud-heart", cloudHeart), cloudHeart, pickable = listOf(xiaobei))
+
+        assertEquals(VoiceChoice.Installed(xiaobei.id, kokoro), decision.voice)
+    }
+
     // -- Log line ----------------------------------------------------------------
 
     @Test

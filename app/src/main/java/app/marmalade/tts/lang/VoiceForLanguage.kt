@@ -29,7 +29,9 @@ import app.marmalade.tts.service.TtsLocales
 //     primary alias (the old behaviour)
 //
 //   "Speaks it" is the voice's own VoiceMeta.languageCode, compared on the
-//   language subtag only (en-US and en-GB are both English). Never an
+//   language subtag only (en-US and en-GB are both English). A multilingual
+//   cloud voice (OpenAI-style, stored as en-US for want of a language) has no
+//   one language: as the primary it is always kept (spokenLanguage). Never an
 //   installed cloud voice: sending text to a provider is something the user
 //   opts into per alias. Callers: reader/LanguageAwareReaderVoicePicker and
 //   MarmaladeSynthService's share route, both through LanguageVoiceSelector.
@@ -66,7 +68,10 @@ data class VoiceDecision(
         /** Detection abstained — no reason to move off the primary. */
         LanguageUnknown,
 
-        /** The primary route's voice has no catalog row, so its language is unknown. */
+        /**
+         * The primary route's voice language is unknown: it has no catalog
+         * row, or it is a multilingual cloud voice with no one language.
+         */
         PrimaryVoiceUnknown,
 
         /** The primary alias's voice speaks the language. */
@@ -88,6 +93,18 @@ object VoiceForLanguage {
     /** The language subtag of a BCP-47 tag or bare code, lowercased: `en-GB` → `en`. */
     fun languageOf(tag: String?): String? =
         tag?.trim()?.split('-', '_')?.firstOrNull()?.lowercase()?.takeIf { it.isNotEmpty() }
+
+    /**
+     * The language [voice] speaks, as a VoiceMeta.languageCode, or null when
+     * it has no one language — a multilingual cloud voice, whose stored
+     * `en-US` is a placeholder ([CloudApiVoiceCatalog.hasKnownLanguage]).
+     */
+    fun spokenLanguage(voice: VoiceMeta): String? =
+        if (voice.engine == CloudApiVoiceCatalog.ENGINE && !CloudApiVoiceCatalog.hasKnownLanguage(voice.id)) {
+            null
+        } else {
+            voice.languageCode
+        }
 
     /** True when [voiceLanguage] (a VoiceMeta.languageCode) is [language], region ignored. */
     fun speaks(voiceLanguage: String?, language: String): Boolean =
@@ -117,15 +134,16 @@ object VoiceForLanguage {
         fun keep(reason: VoiceDecision.Reason) = VoiceDecision(VoiceChoice.Primary, language, reason)
 
         if (language == null) return keep(VoiceDecision.Reason.LanguageUnknown)
-        if (primaryVoice == null) return keep(VoiceDecision.Reason.PrimaryVoiceUnknown)
-        if (speaks(primaryVoice.languageCode, language)) {
+        val primaryLanguage = primaryVoice?.let(::spokenLanguage)
+            ?: return keep(VoiceDecision.Reason.PrimaryVoiceUnknown)
+        if (speaks(primaryLanguage, language)) {
             return keep(VoiceDecision.Reason.PrimarySupports)
         }
 
         val pickableById = pickable.associateBy { it.id }
         aliases.firstOrNull { alias ->
             alias.id != primary?.id &&
-                pickableById[alias.voiceId]?.let { speaks(it.languageCode, language) } == true
+                pickableById[alias.voiceId]?.let { speaks(spokenLanguage(it), language) } == true
         }?.let { alias ->
             return VoiceDecision(
                 voice = VoiceChoice.Alias(
