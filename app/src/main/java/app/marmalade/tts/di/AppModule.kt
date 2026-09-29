@@ -22,13 +22,7 @@ import app.marmalade.tts.data.db.MIGRATION_10_11
 import app.marmalade.tts.data.db.MarmaladeDb
 import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.data.db.VoiceMetaDao
-import app.marmalade.tts.engine.PocketDevEngine
-import app.marmalade.tts.engine.vits.VitsDirectEngine
-import app.marmalade.tts.engine.PocketEngine
-import app.marmalade.tts.engine.TtsEngine
-import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
+import app.marmalade.tts.engine.EngineRegistry
 import app.marmalade.tts.data.cloud.CloudJsonHttp
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoiceLatencyTracker
@@ -206,17 +200,8 @@ object AppModule {
      */
     @Provides
     @Singleton
-    fun provideNativeEngineHandle(
-        kittenDirect: KittenDirectEngine,
-        kokoroDirect: KokoroDirectEngine,
-        kokoroGerman: KokoroGermanEngine,
-        pocket: PocketEngine,
-        pocketDev: PocketDevEngine,
-        vits: VitsDirectEngine,
-    ): NativeEngineHandle {
-        val engines: List<TtsEngine> = listOf(kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev, vits)
-        return NativeEngineHandle.routing(engines.associate { it.engineName to it::release })
-    }
+    fun provideNativeEngineHandle(engines: EngineRegistry): NativeEngineHandle =
+        NativeEngineHandle.routing(engines.onDevice.associate { it.engineName to it::release })
 
     /**
      * Device capability probe seam. Concrete impl needs an ORT session +

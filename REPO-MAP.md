@@ -356,8 +356,11 @@ When investigating **{concern}**, start at **{files}**:
   - `EngineFilesDir` (typealias `() -> File`)
   - `KittenEngine`, `KokoroEngine` (both `@Singleton open`)
   - `NativeEngineHandle` — `release(engineName)` drops only that
-    engine's native handle (`NativeEngineHandle.routing`; an unknown name
-    releases all), so uninstalling one engine can't abort another's read
+    engine's native handle (`NativeEngineHandle.routing` over
+    `EngineRegistry.onDevice`; an unknown name releases all), so
+    uninstalling one engine can't abort another's read
+  - `EngineRegistry` is `@Inject`-constructed (not provided here); so are
+    `EngineResidency` and `EngineWarmup`, which take their engine lists from it
   - `EngineInstaller`
   - `TtsRouter`
 

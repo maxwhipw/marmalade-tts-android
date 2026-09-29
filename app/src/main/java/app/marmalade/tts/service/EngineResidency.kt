@@ -2,19 +2,8 @@ package app.marmalade.tts.service
 
 import android.os.SystemClock
 import android.util.Log
-import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroGermanVoiceCatalog
-import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.PocketVoiceCatalog
-import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
-import app.marmalade.tts.engine.PocketDevEngine
-import app.marmalade.tts.engine.PocketEngine
-import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
-import app.marmalade.tts.engine.vits.VitsDirectEngine
+import app.marmalade.tts.engine.EngineRegistry
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -73,21 +62,9 @@ class EngineResidency internal constructor(
     @Inject
     constructor(
         settings: SettingsRepository,
-        kokoroDirect: KokoroDirectEngine,
-        kokoroGerman: KokoroGermanEngine,
-        kittenDirect: KittenDirectEngine,
-        pocket: PocketEngine,
-        pocketDev: PocketDevEngine,
-        vits: VitsDirectEngine,
+        engines: EngineRegistry,
     ) : this(
-        releasers = linkedMapOf(
-            KokoroDirectVoiceCatalog.ENGINE to kokoroDirect::release,
-            KokoroGermanVoiceCatalog.ENGINE to kokoroGerman::release,
-            KittenDirectVoiceCatalog.ENGINE to kittenDirect::release,
-            PocketVoiceCatalog.ENGINE to pocket::release,
-            PocketDevVoiceCatalog.ENGINE to pocketDev::release,
-            VitsVoiceCatalog.ENGINE to vits::release,
-        ),
+        releasers = engines.onDevice.associateTo(LinkedHashMap()) { it.engineName to it::release },
         keepaliveMode = { settings.keepaliveMode.first() },
         clock = SystemClock::elapsedRealtime,
     )

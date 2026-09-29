@@ -157,13 +157,21 @@ class MarmaladeTtsServiceTest {
             "langDetector",
             LangDetector(java.io.File("src/main/assets/langdetect.tab").readLines()),
         )
-        setField(service, "engineWarmup", EngineWarmup(
-            kokoroDirect = fakeKokoroDirectEngine,
-            kokoroGerman = KokoroGermanEngine(ctx, fakeSettings, fakeSharedEspeakData()),
-            kittenDirect = fakeEngine,
-            pocket = PocketEngine(ctx, fakeSettings),
-            vits = fakeVits,
-        ))
+        setField(
+            service,
+            "engineWarmup",
+            EngineWarmup(
+                EngineRegistry(
+                    listOf(
+                        fakeKokoroDirectEngine,
+                        KokoroGermanEngine(ctx, fakeSettings, fakeSharedEspeakData()),
+                        fakeEngine,
+                        PocketEngine(ctx, fakeSettings),
+                        fakeVits,
+                    ),
+                ),
+            ),
+        )
     }
 
     private object EmptyMappingDao : app.marmalade.tts.data.db.AppAliasMappingDao {
