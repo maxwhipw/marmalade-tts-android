@@ -303,6 +303,14 @@ When investigating **{concern}**, start at **{files}**:
   live to the blocks already queued (no restart; see the
   "effect chain at PLAYBACK" quirk below) — only a fixed-speed (cloud)
   voice falls back to re-enqueueing from the current block.
+  **Jumps keep what is already queued** (`ReaderPlaybackController.jumpLocked`):
+  Forward, a tap or a contents pick onto a block already queued behind the
+  playing one stops only the requests in front of it, so the service plays
+  the target's prefetched audio at once instead of re-synthesising it
+  (logged `D/ReaderPlayback: jump to N kept queued request <id>` vs
+  `jump: restart from N`). Restarting the playing block, a non-queued target
+  and any seek while Paused still cancel everything — the service starts its
+  next queued request as soon as the paused one stops.
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —

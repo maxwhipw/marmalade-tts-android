@@ -1,6 +1,7 @@
 package app.marmalade.tts.reader
 
 import android.os.SystemClock
+import android.util.Log
 import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
@@ -55,6 +56,13 @@ import kotlinx.coroutines.launch
 //   through. It is: cancel every request we have outstanding
 //   (ACTION_STOP_REQUEST, which never touches an unrelated share-sheet read)
 //   and enqueue afresh from the target block.
+//
+//   Except when the target is already queued behind the playing block (the
+//   common Forward press, or a tap on the next paragraph): then only the
+//   requests in front of it are cancelled. The service has usually already
+//   synthesised the target (it prefetches the head of its queue), so its
+//   audio starts the moment the playing request stops, instead of paying a
+//   whole fresh time-to-first-audio. See [ReaderPlaybackController.jumpLocked].
 // -----------------------------------------------------------------------------
 
 /** Coarse transport state — everything the reader UI needs to draw itself. */
@@ -264,13 +272,13 @@ class ReaderPlaybackController internal constructor(
      * Read from [index] now — the tap-a-block (and contents-pick) action.
      * Unlike [seekTo] this plays even from Paused: tapping a paragraph is the
      * user asking to hear it, so a tap-then-press-play would be a step too
-     * many (Max, 2026-09-26). Any paused block still held by the service is
-     * cancelled by the restart.
+     * many (Max, 2026-09-26). The paused block still held by the service is
+     * cancelled; a target already queued behind it is kept (see [jumpLocked]).
      */
     fun playFrom(index: Int) {
         synchronized(lock) {
             if (index !in blocks.indices) return
-            startAtLocked(index)
+            jumpLocked(index)
         }
     }
 
@@ -285,14 +293,15 @@ class ReaderPlaybackController internal constructor(
             if (_state.value.status == ReaderPlaybackStatus.Paused) {
                 // Stay paused: a seek must not start audio the user asked to
                 // stop. Nothing is enqueued until resume, which re-enqueues
-                // from here.
+                // from here. Nothing queued is kept either: the service starts
+                // the next request as soon as the paused one stops.
                 cancelPendingLocked()
                 nextIndex = index
                 blockStartedAt = clock()
                 pausedAt = blockStartedAt
                 _state.value = _state.value.copy(currentIndex = index)
             } else {
-                startAtLocked(index)
+                jumpLocked(index)
             }
         }
     }
@@ -466,6 +475,48 @@ class ReaderPlaybackController internal constructor(
         canPrevious = state.blockCount > 0,
     )
 
+    /**
+     * Play from [index] because the user moved there (Forward, a tap, a
+     * contents pick, a playing seek).
+     *
+     * When [index] is already queued behind the playing block, keep it: cancel
+     * only the requests in front of it and let the service move straight on to
+     * the target, whose audio it has usually synthesised already — a Forward
+     * press then costs about as much as a block boundary does. Otherwise (the
+     * target is the playing block itself — a restart, or a speed change a
+     * fixed-speed voice can't take live — or isn't queued at all) cancel
+     * everything and start afresh, as [startAtLocked] always has.
+     *
+     * Also right from Paused (a tap plays): the service clears its pause when
+     * it starts the kept request, and our status is already Playing when that
+     * echo arrives. A paused [seekTo] never gets here — the service would
+     * start the kept block, and a seek must not start audio.
+     *
+     * The kept requests were sent as continuations, so they replace nothing;
+     * they carry the article's voice and follow the session speed live.
+     */
+    private fun jumpLocked(index: Int) {
+        val keep = pending.indexOfFirst { it.blockIndex == index }
+        if (keep <= 0) {
+            Log.d(TAG, "jump: restart from $index")
+            startAtLocked(index)
+            return
+        }
+        val dropped = List(keep) { pending.removeFirst() }
+        // Back to front: the queued ones leave the service's queue before the
+        // playing one stops, so its handover goes straight to the target
+        // rather than briefly starting a block we are about to cancel.
+        dropped.asReversed().forEach { speech.stopRequest(it.requestId) }
+        Log.d(TAG, "jump to $index kept queued request ${pending.first().requestId}")
+        blockStartedAt = clock()
+        _state.value = _state.value.copy(
+            currentIndex = index,
+            status = ReaderPlaybackStatus.Playing,
+            lastError = null,
+        )
+        topUpLocked(fresh = false)
+    }
+
     private fun startAtLocked(index: Int) {
         cancelPendingLocked()
         nextIndex = index
@@ -572,6 +623,8 @@ class ReaderPlaybackController internal constructor(
     private data class Pending(val requestId: Long, val blockIndex: Int)
 
     companion object {
+        private const val TAG = "ReaderPlayback"
+
         /**
          * Requests outstanding at once: the one playing plus two synthesising
          * behind it. Deeper buys nothing — the service plays strictly one at a

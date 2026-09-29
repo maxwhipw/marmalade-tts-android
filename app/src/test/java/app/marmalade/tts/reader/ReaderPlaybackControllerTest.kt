@@ -297,6 +297,126 @@ class ReaderPlaybackControllerTest {
         assertTrue(outstanding.isEmpty())
     }
 
+    /**
+     * Block 1 is already queued (and usually already synthesised) behind the
+     * playing block. Forward must stop only block 0 and let the service move
+     * straight on to block 1's request — re-sending it paid a whole fresh
+     * time-to-first-audio (5+ s on the phone, Max 2026-09-28).
+     */
+    @Test
+    fun `forward keeps the next block's queued request`() = runTest {
+        val controller = playing()
+        val (r0, r1, r2) = speech.spoken.map { it.requestId }
+
+        controller.next()
+
+        assertEquals(listOf(r0), speech.stopped)
+        assertEquals(1, controller.state.value.currentIndex)
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(listOf(r1, r2), outstanding.take(2).map { it.requestId })
+        assertEquals(1, speech.spokenTexts.count { it == "Block 1." })
+        // The top-up behind them is a continuation: it must not replace them.
+        assertEquals("Block 3.", speech.spoken.last().text)
+        assertTrue(speech.spoken.last().continuation)
+    }
+
+    @Test
+    fun `tapping a queued block stops only the requests in front of it`() = runTest {
+        val controller = playing()
+        val (r0, r1, r2) = speech.spoken.map { it.requestId }
+
+        controller.playFrom(2)
+
+        // Back to front, so the service never starts block 1 on the way.
+        assertEquals(listOf(r1, r0), speech.stopped)
+        assertEquals(2, controller.state.value.currentIndex)
+        assertEquals(r2, outstanding.first().requestId)
+        assertEquals(listOf("Block 2.", "Block 3.", "Block 4."), outstanding.map { it.text })
+        assertTrue(speech.spoken.drop(3).all { it.continuation })
+    }
+
+    @Test
+    fun `tapping a block that is not queued restarts there`() = runTest {
+        val controller = playing()
+        val original = speech.spoken.map { it.requestId }
+
+        controller.playFrom(4)
+
+        assertEquals(original, speech.stopped)
+        assertEquals(listOf("Block 4.", "Block 5."), outstanding.map { it.text })
+        assertEquals(false, outstanding.first().continuation)
+    }
+
+    /** A kept jump must still advance normally, and ignore the stop it caused. */
+    @Test
+    fun `the kept block completes like any other`() = runTest {
+        val controller = playing()
+        val r0 = speech.spoken.first().requestId
+        controller.next()
+
+        completions.post(r0, null, stopped = true)
+        advanceUntilIdle()
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(1, controller.state.value.currentIndex)
+
+        finish()
+        advanceUntilIdle()
+        assertEquals(2, controller.state.value.currentIndex)
+        assertEquals(listOf("Block 2.", "Block 3.", "Block 4."), outstanding.map { it.text })
+    }
+
+    /** The service starts the kept request, and un-pauses, on its own. */
+    @Test
+    fun `tapping a queued block while paused plays it without re-sending it`() = runTest {
+        val controller = playing()
+        val (r0, r1) = speech.spoken.map { it.requestId }
+        controller.pause()
+        transport.setPaused(true) // the service's echo of our pause
+        advanceUntilIdle()
+
+        controller.playFrom(1)
+
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(1, controller.state.value.currentIndex)
+        assertEquals(listOf(r0), speech.stopped)
+        assertEquals(r1, outstanding.first().requestId)
+        assertEquals(1, speech.spokenTexts.count { it == "Block 1." })
+
+        // The service clears its pause when it starts block 1: an echo.
+        transport.setPaused(false)
+        advanceUntilIdle()
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+    }
+
+    /** Keeping would let the service start the kept block — a seek must not. */
+    @Test
+    fun `forward while paused still drops the queue and stays paused`() = runTest {
+        val controller = playing()
+        val original = speech.spoken.map { it.requestId }
+        controller.pause()
+
+        controller.next()
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        assertEquals(1, controller.state.value.currentIndex)
+        assertEquals(original, speech.stopped)
+        assertEquals(3, speech.spoken.size)
+    }
+
+    /** Restarting the playing block needs a fresh request, never a kept one. */
+    @Test
+    fun `backward late in a block re-sends it`() = runTest {
+        val controller = playing()
+        val original = speech.spoken.map { it.requestId }
+        now += ReaderPlaybackController.RESTART_WINDOW_MS
+
+        controller.previous()
+
+        assertEquals(original, speech.stopped)
+        assertEquals(2, speech.spokenTexts.count { it == "Block 0." })
+        assertEquals(false, outstanding.first().continuation)
+    }
+
     @Test
     fun `backward near the start of a block goes to the previous block`() = runTest {
         val controller = playing()
