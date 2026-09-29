@@ -6,10 +6,12 @@ import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 // -----------------------------------------------------------------------------
@@ -100,26 +102,47 @@ class DeviceCapability @Inject constructor(
     /** Serialises concurrent [probe] callers so the benchmark runs once. */
     private val benchLock = Mutex()
 
-    override suspend fun probe(): DeviceProbe = DeviceProbe(
-        measuredKittenRtf = measureKittenRtf(),
-        computeScore = computeScore(),
-    )
+    /**
+     * Set when the benchmark came back empty-handed in this process, so the
+     * reader and alias screens — which probe on every open — don't pay for
+     * another model load and synthesis each time. In memory on purpose: what
+     * makes it fail (the seed not landed yet, a timeout on a busy device, an
+     * ORT init failure) is usually transient, and persisting the failure
+     * would pin the device to Tier 1 for good. One attempt per app start.
+     * Guarded by [benchLock].
+     */
+    private var benchmarkFailed = false
+
+    /**
+     * Off the caller's dispatcher: the callers are ViewModels on Main, and
+     * the benchmark's model load (`ensureModelLoaded`, a `runBlocking` over
+     * file I/O and ORT session setup) plus the sysfs reads would otherwise
+     * run on the UI thread.
+     */
+    override suspend fun probe(): DeviceProbe = withContext(Dispatchers.IO) {
+        DeviceProbe(
+            measuredKittenRtf = measureKittenRtf(),
+            computeScore = computeScore(),
+        )
+    }
 
     /**
      * Tier 1. Σ over non-efficiency clusters of `coreCount × maxFreqGhz`,
-     * or null when sysfs is unreadable (some manufacturers restrict it) —
-     * null means "no signal", which callers must not confuse with "slow".
+     * or null when sysfs is unreadable (some manufacturers restrict it) or
+     * reports no frequencies — null means "no signal", which callers must
+     * not confuse with "slow". See [computeScoreOf].
      *
      * Single-cluster devices have no efficiency tier to exclude, so every
      * core counts; that's the same rule [CpuClusterDetector] applies.
      */
     fun computeScore(): Double? {
         val clusters = CpuClusterDetector.readClusters()
-        if (clusters.isEmpty()) return null
-        val minFreq = clusters.minOf { it.maxFreqKhz }
-        val perf = clusters.filter { it.maxFreqKhz > minFreq }.ifEmpty { clusters }
-        val score = perf.sumOf { it.cpuCount * (it.maxFreqKhz / 1_000_000.0) }
-        Log.i(TAG, "Tier 1 compute score: %.2f (%d clusters)".format(score, clusters.size))
+        val score = computeScoreOf(clusters)
+        if (score == null) {
+            Log.i(TAG, "Tier 1 compute score: no signal (${clusters.size} clusters)")
+        } else {
+            Log.i(TAG, "Tier 1 compute score: %.2f (%d clusters)".format(score, clusters.size))
+        }
         return score
     }
 
@@ -132,7 +155,11 @@ class DeviceCapability @Inject constructor(
      */
     suspend fun measureKittenRtf(): Double? = benchLock.withLock {
         settings.kittenRtfMeasurement.first()?.let { return@withLock it.rtf }
-        val rtf = runBenchmark() ?: return@withLock null
+        if (benchmarkFailed) return@withLock null
+        val rtf = runBenchmark() ?: run {
+            benchmarkFailed = true
+            return@withLock null
+        }
         settings.setKittenRtfMeasurement(rtf, System.currentTimeMillis())
         rtf
     }
@@ -155,7 +182,10 @@ class DeviceCapability @Inject constructor(
             withTimeoutOrNull(SEED_WAIT_MS) {
                 settings.bakedDefaultSeeded.firstOrNull { it }
             }
-            if (!kitten.isInstalled()) return@runCatching null
+            if (!kitten.isInstalled()) {
+                Log.i(TAG, "Kitten benchmark skipped: engine not installed")
+                return@runCatching null
+            }
             kitten.ensureModelLoaded()
             val startNanos = System.nanoTime()
             val audio = kitten.synthesize(
@@ -207,4 +237,19 @@ class DeviceCapability @Inject constructor(
          */
         const val SEED_WAIT_MS = 15_000L
     }
+}
+
+/**
+ * Tier 1's score for [clusters]: Σ over non-efficiency clusters of
+ * `coreCount × maxFreqGhz`, or null when there is no signal — no clusters,
+ * or none reporting a frequency (an emulator lists its policies with a
+ * `cpuinfo_max_freq` of 0, which used to score a flat 0.00, i.e. "slowest
+ * phone ever" rather than "unknown").
+ */
+internal fun computeScoreOf(clusters: List<CpuClusterDetector.Cluster>): Double? {
+    val known = clusters.filter { it.maxFreqKhz > 0 }
+    if (known.isEmpty()) return null
+    val minFreq = known.minOf { it.maxFreqKhz }
+    val perf = known.filter { it.maxFreqKhz > minFreq }.ifEmpty { known }
+    return perf.sumOf { it.cpuCount * (it.maxFreqKhz / 1_000_000.0) }
 }

@@ -21,11 +21,13 @@ import app.marmalade.tts.install.EngineCatalog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // -----------------------------------------------------------------------------
 // Debug-only benchmark screen viewmodel.
@@ -170,7 +172,7 @@ class BenchmarkViewModel @Inject constructor(
                     // thrash that under-reports every engine's real, single-engine
                     // speed (the Speak screen only ever holds one). The next
                     // engine reloads cleanly on its own ensureModelLoaded().
-                    runCatching { target.engine.release() }
+                    runCatching { withContext(Dispatchers.IO) { target.engine.release() } }
                 }
             }
             _state.update {
@@ -193,7 +195,8 @@ class BenchmarkViewModel @Inject constructor(
      */
     private suspend fun runOneStreaming(target: EngineProfile, text: String): BenchmarkResult {
         val loadStart = System.currentTimeMillis()
-        target.engine.ensureModelLoaded()
+        // Off Main: the load is a runBlocking over file I/O and ORT setup.
+        withContext(Dispatchers.IO) { target.engine.ensureModelLoaded() }
         val loadMs = System.currentTimeMillis() - loadStart
 
         val streamStart = System.currentTimeMillis()
@@ -274,7 +277,7 @@ class BenchmarkViewModel @Inject constructor(
             // Free the engine-held Pocket sessions first — the fp32 variant
             // alone is ~300 MB; doubling the resident footprint would bench
             // a zram-thrashing phone instead of the model.
-            runCatching { pocket.release() }
+            runCatching { withContext(Dispatchers.IO) { pocket.release() } }
             val out = ArrayList<PocketQuantBench.VariantResult>()
             val fatal = PocketQuantBench.run(
                 ctx = appContext,
@@ -304,7 +307,7 @@ class BenchmarkViewModel @Inject constructor(
             // Free the engine-held Kokoro session first — otherwise the bench's
             // own session doubles the ~310 MB fp32 footprint and every variant
             // measures a zram-thrashing phone instead of the model.
-            runCatching { kokoroDirect.release() }
+            runCatching { withContext(Dispatchers.IO) { kokoroDirect.release() } }
             val out = ArrayList<KokoroQuantBench.VariantResult>()
             val fatal = KokoroQuantBench.run(
                 ctx = appContext,
