@@ -521,8 +521,11 @@ private class TempoProcessor(factor: Float) : BlockProcessor {
             shiftAcc(synth)
             accLen -= synth
             synth = 0
-            // Drop consumed input below the next frame's start.
-            val drop = readPos.toInt()
+            // Drop consumed input below the next frame's start. Above 2× the
+            // hop (512·factor) outgrows the frame, so the next start can lie
+            // past the input received so far: drop all of it and keep the
+            // overshoot in readPos (those samples are skipped, as OLA skips).
+            val drop = minOf(readPos.toInt(), inLen)
             if (drop > 0) {
                 System.arraycopy(inBuf, drop, inBuf, 0, inLen - drop)
                 inLen -= drop

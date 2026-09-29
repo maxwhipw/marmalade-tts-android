@@ -225,6 +225,20 @@ class StreamingEffectChainTest {
     }
 
     @Test
+    fun `tempo above 2x streams without running past its input`() {
+        // Above 2× the analysis hop (512·factor) outgrows the 1024-sample
+        // frame, so a hop can land past the input received so far. System TTS
+        // reaches 4× (speech rate × alias speed, see SpeedFallback).
+        for (factor in listOf(2.5f, 3.0f, 4.0f)) {
+            for (n in listOf(20_000, 20_300)) {
+                val chunked = streamChunked(listOf(EffectBlock.Tempo(factor)), signal(n), 900)
+                assertEquals("length at ${factor}x, n=$n", n / factor.toDouble(), chunked.size.toDouble(), 1024.0)
+                assertArrayEquals(streamWhole(listOf(EffectBlock.Tempo(factor)), signal(n)), chunked)
+            }
+        }
+    }
+
+    @Test
     fun `a chain without a live stage reports none`() {
         assertEquals(null, StreamingEffectChain(EffectChain.CAVE_BLOCKS, sr).liveTempo)
     }
