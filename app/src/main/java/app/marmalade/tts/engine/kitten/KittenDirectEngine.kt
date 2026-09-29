@@ -165,7 +165,7 @@ open class KittenDirectEngine @Inject constructor(
      * This does NOT retire the per-voice priors in [SPEED_PRIORS]. Those
      * are not user speed: they are part of each voice's blessed sound,
      * Max's picks from the 2026-08-07 ear-lab, and the raw model runs
-     * ~25% too fast without them. So [runInference] keeps applying
+     * ~25% too fast without them. So [inferIpa] keeps applying
      * `prior × incoming speed` to the tensor natively — with the
      * incoming speed now pinned at 1.0, that is just the prior. Only the
      * user-requested rate moved to the effect chain.
@@ -175,7 +175,7 @@ open class KittenDirectEngine @Inject constructor(
     /**
      * Soft cap for per-chunk char count. Under the F rules chunks are
      * clause fragments (never word-split), so this cap only matters for
-     * a single over-long fragment, which is emitted whole; [runInference]
+     * a single over-long fragment, which is emitted whole; [ipaPieces]
      * re-splits one whose IPA would blow past Kitten's BERT 512-position
      * limit ([MAX_PHONEMES_PER_CHUNK]).
      *
@@ -259,7 +259,7 @@ open class KittenDirectEngine @Inject constructor(
         // [env] field at the END, after [acousticSession] and [phonemizer]
         // are both set. ensureLoadedSuspending uses an unlocked `if (env
         // != null) return` fast path — assigning env mid-load lets a
-        // concurrent caller skip the lock and reach runInference with
+        // concurrent caller skip the lock and reach inference with
         // acousticSession still null ("acoustic session missing").
         val ort = OrtEnvironment.getEnvironment()
         // ORT copies the options into the native session; close them after
@@ -284,7 +284,7 @@ open class KittenDirectEngine @Inject constructor(
         phonemizer = espeak
         Log.i(TAG, "espeak version=${espeak.version()}")
 
-        // Publish only after every field a sibling caller's runInference
+        // Publish only after every field a sibling caller's inference
         // touches is non-null.
         env = ort
 
@@ -337,7 +337,9 @@ open class KittenDirectEngine @Inject constructor(
         val t0 = System.currentTimeMillis()
         try {
             val firstVoice = voiceMetas.first().displayName
-            runInference(text = "Hi.", voiceName = firstVoice, speed = 1.0f)
+            for (piece in ipaPieces("Hi.", KITTEN_DEFAULT_ESPEAK_VOICE)) {
+                inferIpa(piece.text, piece.ipa, firstVoice, speed = 1.0f, rowText = piece.text)
+            }
             Log.i(TAG, "warmup synth done in ${System.currentTimeMillis() - t0} ms")
         } catch (t: Throwable) {
             Log.w(TAG, "warmup failed (non-fatal): ${t.message}")
@@ -382,7 +384,7 @@ open class KittenDirectEngine @Inject constructor(
      * before any audio plays.
      *
      * Chunks are never word-split, so a run-on sentence can phonemize
-     * past the 512-position BERT limit; [runInference] then re-splits it
+     * past the 512-position BERT limit; [ipaPieces] then re-splits it
      * into pieces under [MAX_PHONEMES_PER_CHUNK] rather than truncating.
      */
     override fun synthesizeStream(
@@ -440,34 +442,36 @@ open class KittenDirectEngine @Inject constructor(
             // every remaining chunk while holding the service's synth mutex —
             // the next request's TTFA paid for all of them (~11 s on the 8a).
             ensureActive()
-            val inferStartNs = System.nanoTime()
-            // Single ORT session is non-reentrant, so we serialise per chunk.
+            // Single ORT session is non-reentrant, so we serialise per piece.
             // The send() outside the lock is fine because PCM is already a
             // ShortArray; no further session access happens during emit.
-            val pcm = synthLock.withLock {
-                runInference(
-                    chunk.text,
-                    voiceName,
-                    speed,
-                    rowText = chunk.rowText,
-                    espeakVoice = espeakVoice,
-                    checkCancelled = { ensureActive() },
-                )
-            }
-            val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
-            if (pcm.isNotEmpty()) {
+            val pieces = synthLock.withLock { ipaPieces(chunk.text, espeakVoice) }
+            // An over-cap chunk's pieces go out one at a time, each as soon
+            // as it is rendered, instead of all joined after the last one.
+            for ((pi, piece) in pieces.withIndex()) {
+                // Per-piece check: a stop lands between pieces rather than
+                // after the whole chunk.
+                ensureActive()
+                val inferStartNs = System.nanoTime()
+                // Every piece keeps the sentence's [rowText] register.
+                val pcm = synthLock.withLock {
+                    inferIpa(piece.text, piece.ipa, voiceName, speed, rowText = chunk.rowText)
+                }
+                val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
+                if (pcm.isEmpty()) continue
                 val audioMs = pcm.size * 1000L / sampleRate
                 val gapMs = if (prevSendNs == 0L) -1L else (System.nanoTime() - prevSendNs) / 1_000_000
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
-                Log.d(PERF_TAG, "kitten chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} gap=${gapMs}ms textLen=${chunk.text.length}")
-                if (idx == 0) {
+                val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
+                Log.d(PERF_TAG, "kitten chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} gap=${gapMs}ms textLen=${piece.text.length}")
+                if (prevSendNs == 0L) {
                     val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
                     Log.d(PERF_TAG, "kitten TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms + firstInfer=${inferMs}ms + overhead=${ttfaMs - loadWaitMs - inferMs}ms)")
                 }
                 // Boundary-typed gap rides on the chunk that closes it
-                // (see CLAUSE_GAP_MS/SENTENCE_GAP_MS). Not appended after
-                // the last chunk.
-                val out = if (idx < chunks.size - 1) {
+                // (see CLAUSE_GAP_MS/SENTENCE_GAP_MS) — i.e. on its last
+                // piece. Not appended after the last chunk.
+                val out = if (idx < chunks.size - 1 && pi == pieces.size - 1) {
                     val gap = if (chunk.sentenceEnd) SENTENCE_GAP_MS else CLAUSE_GAP_MS
                     pcm.copyOf(pcm.size + sampleRate * gap / 1000)
                 } else {
@@ -479,53 +483,28 @@ open class KittenDirectEngine @Inject constructor(
         }
     }.flowOn(Dispatchers.Default)
 
+    /** One model call's worth of text: [text] and its ≤ [MAX_PHONEMES_PER_CHUNK] IPA. */
+    private class IpaPiece(val text: String, val ipa: String)
+
     /**
-     * Full text→PCM16 pipeline for one synth call. Lives outside
-     * [synthesize] so [warmupSynth] can call it without re-acquiring
-     * [synthLock] (warmup runs on the load thread, before the engine is
-     * advertised as ready).
-     *
-     * [checkCancelled] runs before each re-split piece of an over-cap chunk,
-     * so a stop lands between pieces rather than after the whole chunk.
+     * [text] phonemized — one piece, or several when its IPA would pass the
+     * BERT position-embedding cap (a tail past it trips an
+     * ORT_INVALID_ARGUMENT on `/bert/Expand`). The chunker never word-splits
+     * a sentence, and Kitten's IPA expansion varies per phrase, so a run-on
+     * can still overflow. Truncating used to drop the tail silently;
+     * re-split at clause marks → whitespace → hard cut instead. The stream
+     * loop renders and emits the pieces one at a time.
      */
-    private suspend fun runInference(
-        text: String,
-        voiceName: String,
-        speed: Float,
-        rowText: String = text,
-        espeakVoice: String = KITTEN_DEFAULT_ESPEAK_VOICE,
-        checkCancelled: () -> Unit = {},
-    ): ShortArray {
+    private fun ipaPieces(text: String, espeakVoice: String): List<IpaPiece> {
         val phon = phonemizer ?: error("phonemizer missing")
         val rawIpa = phon.phonemize(text, espeakVoice)
-        if (rawIpa.length <= MAX_PHONEMES_PER_CHUNK) {
-            return inferIpa(text, rawIpa, voiceName, speed, rowText)
-        }
-
-        // BERT position-embedding cap: any phoneme tail past this would
-        // trip an ORT_INVALID_ARGUMENT on `/bert/Expand`. The chunker never
-        // word-splits a sentence, and Kitten's IPA expansion varies per
-        // phrase, so a run-on can still overflow. Truncating used to drop
-        // the tail silently; re-split at clause marks → whitespace → hard
-        // cut instead and render the pieces back to back. Every piece keeps
-        // the sentence's [rowText] register.
+        if (rawIpa.length <= MAX_PHONEMES_PER_CHUNK) return listOf(IpaPiece(text, rawIpa))
         val pieces = TextChunker.splitToFit(text) {
             phon.phonemize(it, espeakVoice).length <= MAX_PHONEMES_PER_CHUNK
         }
         Log.i(TAG, "phoneme count ${rawIpa.length} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
-        val parts = pieces.map { piece ->
-            checkCancelled()
-            // splitToFit leaves a piece oversize only if it's one character.
-            val ipa = phon.phonemize(piece, espeakVoice).take(MAX_PHONEMES_PER_CHUNK)
-            inferIpa(piece, ipa, voiceName, speed, rowText)
-        }
-        val out = ShortArray(parts.sumOf { it.size })
-        var pos = 0
-        for (p in parts) {
-            p.copyInto(out, pos)
-            pos += p.size
-        }
-        return out
+        // splitToFit leaves a piece oversize only if it's one character.
+        return pieces.map { IpaPiece(it, phon.phonemize(it, espeakVoice).take(MAX_PHONEMES_PER_CHUNK)) }
     }
 
     /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] IPA characters of [text]. */

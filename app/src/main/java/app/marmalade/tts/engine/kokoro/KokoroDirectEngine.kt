@@ -152,7 +152,7 @@ open class KokoroDirectEngine @Inject constructor(
      * of tiny adjacent sentences up to [MIN_CHARS_PER_CHUNK]. maxChars
      * only kicks in for pathological single-sentence inputs that
      * exceed both thresholds, in which case we emit oversize and
-     * [runInference] re-splits whatever overflows the token cap.
+     * [tokenPieces] re-splits whatever overflows the token cap.
      */
     override val maxInputChars: Int = 255
 
@@ -166,7 +166,7 @@ open class KokoroDirectEngine @Inject constructor(
      * alone. Mirrors the CLI, which moved every engine to `sox tempo`
      * (marmalade-tts-cli `6934ca6`). See [TtsEngine.supportsNativeSpeed].
      *
-     * Consequence: [runInference] now receives speed = 1.0 on every
+     * Consequence: [inferTokens] now receives speed = 1.0 on every
      * service-driven call and feeds that straight into the tensor. The
      * argument stays plumbed so a direct caller (benchmarks, capability
      * probe — both pass 1.0 today) keeps a working knob.
@@ -375,7 +375,7 @@ open class KokoroDirectEngine @Inject constructor(
             Log.w(TAG, "openjtalk_dic absent — Japanese falls back to espeak (degraded)")
         }
 
-        // Publish only after every field a sibling caller's runInference
+        // Publish only after every field a sibling caller's inference
         // touches is non-null.
         env = ort
 
@@ -423,7 +423,9 @@ open class KokoroDirectEngine @Inject constructor(
         val t0 = System.currentTimeMillis()
         try {
             val voiceKey = warmupVoiceKey
-            runInference(text = "Hi.", voiceName = voiceKey, speed = 1.0f, lang = espeakVoiceFor(voiceKey))
+            for (piece in tokenPieces("Hi.", espeakVoiceFor(voiceKey))) {
+                inferTokens(piece.text, piece.ids, voiceKey, speed = 1.0f)
+            }
             Log.i(TAG, "warmup synth done in ${System.currentTimeMillis() - t0} ms")
         } catch (t: Throwable) {
             Log.w(TAG, "warmup failed (non-fatal): ${t.message}")
@@ -524,15 +526,22 @@ open class KokoroDirectEngine @Inject constructor(
             // every remaining chunk while holding the service's synth mutex —
             // the next request's TTFA paid for all of them (~11 s on the 8a).
             ensureActive()
-            val inferStartNs = System.nanoTime()
-            val pcm = synthLock.withLock {
-                runInference(chunk, voiceName, speed, effectiveLang) { ensureActive() }
-            }
-            val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
-            if (pcm.isNotEmpty()) {
+            val pieces = synthLock.withLock { tokenPieces(chunk, effectiveLang) }
+            // An over-cap chunk's pieces go out one at a time, each as soon
+            // as it is rendered — joining them first made a CJK run-on wait
+            // for its whole second half before any sound (31.6 s on the 8a).
+            for ((pi, piece) in pieces.withIndex()) {
+                // Per-piece check: a run-on's next piece is seconds of
+                // inference nobody will hear once the user has pressed Stop.
+                ensureActive()
+                val inferStartNs = System.nanoTime()
+                val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed) }
+                val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
+                if (pcm.isEmpty()) continue
                 val audioMs = pcm.size * 1000L / sampleRate
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
-                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size} infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} textLen=${chunk.length}")
+                val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
+                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} textLen=${piece.text.length}")
                 val release = gate.onChunkRendered(
                     chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
                     renderMs = inferMs,
@@ -546,45 +555,30 @@ open class KokoroDirectEngine @Inject constructor(
         for (audio in gate.drain()) emitAudio(audio)
     }.flowOn(Dispatchers.Default)
 
-    /**
-     * [checkCancelled] runs before each re-split piece of an over-cap chunk —
-     * the stream loop's own cancellation check only runs between chunks, and
-     * a CJK run-on's second piece is seconds of inference nobody will hear
-     * once the user has pressed Stop.
-     */
-    private suspend fun runInference(
-        text: String,
-        voiceName: String,
-        speed: Float,
-        lang: String,
-        checkCancelled: () -> Unit = {},
-    ): ShortArray {
-        val rawIds = encodeTextToTokens(text, lang)
-        if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return inferTokens(text, rawIds, voiceName, speed)
+    /** One model call's worth of text: [text] and its ≤ [MAX_PHONEMES_PER_CHUNK] token ids. */
+    private class TokenPiece(val text: String, val ids: IntArray)
 
-        // Over the style table's position cap (the bound is on tokens, not
-        // IPA length — the encoder interleaves lexicon tokens with espeak
-        // phonemes). Truncating here used to drop the chunk's tail silently:
-        // English run-ons, comma-joined Chinese (≈5 tokens per Han char,
-        // split only at 。！？), 、-joined Japanese. Re-split at clause marks →
-        // whitespace → hard cut instead, and render the pieces back to back.
+    /**
+     * [text] encoded to token ids — one piece, or several when it overflows
+     * the style table's position cap (the bound is on tokens, not IPA
+     * length: the encoder interleaves lexicon tokens with espeak phonemes).
+     * Truncating used to drop the chunk's tail silently: English run-ons,
+     * comma-joined Chinese (≈3.4 tokens per Han char), 、-joined Japanese.
+     * Re-split at clause marks → whitespace → hard cut instead; the stream
+     * loop renders and emits the pieces one at a time.
+     */
+    private fun tokenPieces(text: String, lang: String): List<TokenPiece> {
+        val rawIds = encodeTextToTokens(text, lang)
+        if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return listOf(TokenPiece(text, rawIds))
         val pieces = TextChunker.splitToFit(text) {
             encodeTextToTokens(it, lang).size <= MAX_PHONEMES_PER_CHUNK
         }
         Log.i(TAG, "token count ${rawIds.size} exceeds $MAX_PHONEMES_PER_CHUNK — re-split into ${pieces.size} pieces")
-        val parts = pieces.map { piece ->
-            checkCancelled()
+        return pieces.map { piece ->
             val ids = encodeTextToTokens(piece, lang)
             // splitToFit leaves a piece oversize only if it's one character.
-            inferTokens(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)), voiceName, speed)
+            TokenPiece(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)))
         }
-        val out = ShortArray(parts.sumOf { it.size })
-        var pos = 0
-        for (p in parts) {
-            p.copyInto(out, pos)
-            pos += p.size
-        }
-        return out
     }
 
     /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] tokens of [text]. */

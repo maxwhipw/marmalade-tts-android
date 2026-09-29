@@ -119,7 +119,9 @@ When investigating **{concern}**, start at **{files}**:
 - **Over-cap chunks**: `audio/TextChunker.splitToFit(text, fits)`
   re-splits a chunk that still overflows an engine's cap (clause
   punctuation → whitespace → hard cut, nothing dropped). Kokoro and
-  Kitten call it with a "phonemizes to ≤ cap tokens" predicate;
+  Kitten call it with a "phonemizes to ≤ cap tokens" predicate
+  (`tokenPieces` / `ipaPieces`) and render + emit each piece as its own
+  stream chunk, never joined first;
   `TtsEngine.maxInputChars` is the per-engine character cap.
 
 ### Cloud API engine (hosted voices)
