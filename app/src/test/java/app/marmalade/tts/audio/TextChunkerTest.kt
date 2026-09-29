@@ -287,4 +287,139 @@ class TextChunkerTest {
         assertTrue(pieces.none { Character.isHighSurrogate(it.last()) || Character.isLowSurrogate(it.first()) })
         assertEquals(text, pieces.joinToString(""))
     }
+
+    // -- planByTokens (token-sized plan, T3 + T4) ------------------------------
+
+    /**
+     * Fake encoder: one token per non-space character, three per CJK
+     * character or mark (Kokoro measured ≈1.1 for English, ≈3.4 for
+     * Chinese). Deterministic, so plans can be asserted exactly.
+     */
+    private val fakeTokens: (String) -> Int = { s ->
+        s.fold(0) { n, c -> n + if (c.code >= 0x3000) 3 else if (c.isWhitespace()) 0 else 1 }
+    }
+
+    private val budget = TextChunker.TokenBudget(mergeFloor = 90, target = 200, firstPiece = 40, growth = 1.5)
+
+    private fun plan(text: String, b: TextChunker.TokenBudget = budget) =
+        TextChunker.planByTokens(text, b, fakeTokens)
+
+    /** A clause of [words] four-letter words ending in [end]: 4 × words + 1 tokens. */
+    private fun clause(words: Int, end: Char) = List(words) { "wxyz" }.joinToString(" ") + end
+
+    private fun isHiragana(c: Char) = c in 'ぁ'..'ゟ'
+
+    @Test
+    fun planMergesTinySentencesButNotTheFirst() {
+        assertEquals(
+            listOf("First sentence.", "Second sentence. Third one."),
+            plan("First sentence. Second sentence. Third one.").map { it.text },
+        )
+    }
+
+    @Test
+    fun planOnlyExemptsTheFirstParagraphsFirstSentence() {
+        assertEquals(listOf("Hi.", "Ok. Fine."), plan("Hi.\n\nOk. Fine.").map { it.text })
+    }
+
+    @Test
+    fun planMergeStopsAtTheTarget() {
+        val big = clause(49, '.') // 197 tokens
+        val within = clause(39, '.') // 157 tokens
+        // 6 + 197 > 200: the tiny sentence stays alone rather than build a monster chunk.
+        assertEquals(
+            listOf("Opening line here.", "Brief.", big),
+            plan("Opening line here. Brief. $big").map { it.text },
+        )
+        assertEquals(
+            listOf("Opening line here.", "Brief. $within"),
+            plan("Opening line here. Brief. $within").map { it.text },
+        )
+    }
+
+    @Test
+    fun planKeepsASentenceWithinToleranceWhole() {
+        // 6 × 41 = 246 tokens: over the 200 target but within 1.35 × 200.
+        val sentence = List(5) { clause(10, ',') }.joinToString(" ") + " " + clause(10, '.')
+        assertEquals(listOf(sentence), plan(sentence).map { it.text })
+    }
+
+    @Test
+    fun planCutsAnOverBudgetFirstSentenceSmallFirstThenGrows() {
+        val first = List(7) { clause(10, ',') }.joinToString(" ") + " " + clause(10, '.') // 8 × 41 = 328
+        val second = List(7) { clause(10, ',') }.joinToString(" ") + " " + clause(10, '.')
+        val chunks = plan("$first $second")
+        val firstPieces = chunks.takeWhile { !it.text.endsWith(".") } + chunks.first { it.text.endsWith(".") }
+        // Small first piece = the first clause alone (41 tokens, over the 40 target: one clause is the floor).
+        assertEquals(clause(10, ','), chunks[0].text)
+        assertEquals(41, chunks[0].tokens)
+        assertTrue(firstPieces.size >= 3)
+        assertEquals(first, firstPieces.joinToString(" ") { it.text })
+        assertTrue(chunks.all { it.tokens <= 200 })
+        // The second over-budget sentence is not the request's first chunk: packed to target at once.
+        val secondFirst = chunks[firstPieces.size]
+        assertEquals(164, secondFirst.tokens)
+        assertEquals(second, chunks.drop(firstPieces.size).joinToString(" ") { it.text })
+    }
+
+    @Test
+    fun planCutsAChineseRunOnAtCommasWithASmallFirstPiece() {
+        val clause = "今天天气很好我们，" // 27 tokens
+        val sentence = clause.repeat(11) + "今天天气很好我们。" // 324 tokens
+        val chunks = plan(sentence)
+        assertTrue(chunks.size > 1)
+        assertEquals(clause, chunks[0].text)
+        assertTrue(chunks.all { it.text.endsWith("，") || it.text.endsWith("。") })
+        assertTrue(chunks.all { it.tokens <= 200 })
+        // No space is ever added to CJK text.
+        assertEquals(sentence, chunks.joinToString("") { it.text })
+    }
+
+    @Test
+    fun planSplitsSentencesAtFullWidthSemicolonAndColonAndJoinsCjkWithoutSpaces() {
+        assertEquals(listOf("第一句；", "第二句：第三句。"), plan("第一句；第二句：第三句。").map { it.text })
+        assertEquals(listOf("你好。", "谢谢。再见。"), plan("你好。谢谢。再见。").map { it.text })
+    }
+
+    @Test
+    fun planNeverCutsJapaneseMidWordWhenAKanaKanjiBoundaryExists() {
+        // No 、 at all: 97 chars ≈ 291 tokens, one clause over the target.
+        val sentence = "東京に行きました".repeat(12) + "。"
+        val chunks = plan(sentence)
+        assertTrue(chunks.size > 1)
+        for ((a, b) in chunks.zipWithNext()) {
+            assertTrue("cut '${a.text}' | '${b.text}'", isHiragana(a.text.last()) && !isHiragana(b.text.first()))
+        }
+        assertEquals(sentence, chunks.joinToString("") { it.text })
+    }
+
+    @Test
+    fun planHardCutsUnpunctuatedChineseWithoutDroppingText() {
+        val sentence = "中文没有空格也没有标点".repeat(10) // 300 tokens, no marks, all Han
+        val chunks = plan(sentence)
+        assertTrue(chunks.size > 1)
+        assertTrue(chunks.all { it.tokens <= 200 })
+        assertEquals(sentence, chunks.joinToString("") { it.text })
+    }
+
+    @Test
+    fun planNeverCutsInsideAThousandsSeparator() {
+        val sentence = List(80) { if (it % 10 == 5) "1,000" else "wxyz" }.joinToString(" ") + "."
+        val chunks = plan(sentence)
+        assertTrue(chunks.size > 1)
+        assertTrue(chunks.none { it.text.endsWith("1,") || it.text.startsWith("000") })
+    }
+
+    @Test
+    fun planRejoinsARuntTail() {
+        val tight = TextChunker.TokenBudget(mergeFloor = 0, target = 20, firstPiece = 20, growth = 1.0)
+        val a = "a".repeat(19) + ","
+        val b = "b".repeat(19) + ","
+        assertEquals(listOf(a, "$b cc."), plan("$a $b cc.", tight).map { it.text })
+    }
+
+    @Test
+    fun planOfBlankTextIsEmpty() {
+        assertTrue(plan("  \n ").isEmpty())
+    }
 }

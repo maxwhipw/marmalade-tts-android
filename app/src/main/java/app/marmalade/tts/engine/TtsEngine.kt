@@ -37,9 +37,11 @@ interface TtsEngine {
      * caller reads this to pre-split.
      *
      * Current values:
-     *  - Kokoro Direct / Kitten Direct: 255 — sentence-only chunks; one
-     *    that still overflows the model's token cap is re-split in the
-     *    engine rather than truncated.
+     *  - Kitten Direct: 255 — clause chunks; one that still overflows
+     *    the model's token cap is re-split in the engine rather than
+     *    truncated.
+     *  - Kokoro Direct: unlimited here — it sizes chunks by its own token
+     *    count (`TextChunker.planByTokens`).
      *  - VITS: 400.
      *  - Cloud API: 1000 per HTTP request (providers cap at 4096).
      *  - Pocket TTS: unlimited here — it chunks by tokenizer count itself.

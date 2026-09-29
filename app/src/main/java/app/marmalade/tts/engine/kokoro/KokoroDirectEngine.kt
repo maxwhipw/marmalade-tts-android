@@ -147,16 +147,6 @@ open class KokoroDirectEngine @Inject constructor(
     override val sampleRate: Int = KokoroDirectVoiceCatalog.SAMPLE_RATE
 
     /**
-     * Ceiling for a single chunk. Most chunks land well below this:
-     * the chunker splits at every `.!?;:` + newline, then merges runs
-     * of tiny adjacent sentences up to [MIN_CHARS_PER_CHUNK]. maxChars
-     * only kicks in for pathological single-sentence inputs that
-     * exceed both thresholds, in which case we emit oversize and
-     * [tokenPieces] re-splits whatever overflows the token cap.
-     */
-    override val maxInputChars: Int = 255
-
-    /**
      * The model's `speed` tensor works, but not well enough to use: it
      * degrades articulation and saturates — desktop measurement
      * 2026-09-12 got only ~2.2x real speed-up for a requested 3.0x. The
@@ -172,15 +162,6 @@ open class KokoroDirectEngine @Inject constructor(
      * probe — both pass 1.0 today) keeps a working knob.
      */
     override val supportsNativeSpeed: Boolean = false
-
-    /**
-     * Soft floor used by the chunker's `minChars` merge pass. Sentences
-     * are grouped until the accumulator reaches this size; each chunk
-     * always ends on a sentence boundary regardless. Matches sherpa's
-     * 50-token tiny-sentence merge threshold (≈ 80 source-text chars
-     * for typical English).
-     */
-    private val minCharsPerChunk: Int = MIN_CHARS_PER_CHUNK
 
     // -- subclass seams -------------------------------------------------------
     //
@@ -480,20 +461,20 @@ open class KokoroDirectEngine @Inject constructor(
         val effectiveLang = phonemizationLanguage?.takeIf { it != LangDetector.AUTO }
             ?: espeakVoiceFor(voiceName)
         phonemizer?.setVoice(effectiveLang)
-        // Same chunking discipline as KittenDirect — never word-split, split
-        // only on sentence-end punctuation + newlines, pack up to maxInputChars.
-        val chunks = TextChunker.chunk(
-            text = text,
-            maxChars = maxInputChars,
-            packSentences = false,
-            sentenceOnly = true,
-            allowWordSplits = false,
-            minChars = minCharsPerChunk,
-            // TTFA: let a short opening sentence synthesize alone instead
-            // of waiting on a merged >=80-char chunk (AUDIT-2026-07-11).
-            minCharsExemptFirst = true,
-        )
+        // Chunks are sized in the model's own tokens (TextChunker.planByTokens):
+        // Kokoro's cost is linear in tokens, and a character is ≈1.1 tokens in
+        // English but ≈3.4 in Chinese. Counting encodes each sentence once;
+        // the ids are kept so a chunk rendered as planned isn't encoded twice.
+        val planStartNs = System.nanoTime()
+        val encoded = HashMap<String, IntArray>()
+        val chunks = synthLock.withLock {
+            TextChunker.planByTokens(text, TOKEN_BUDGET) { part ->
+                encoded.getOrPut(part) { encodeTextToTokens(part, effectiveLang) }.size
+            }
+        }
         if (chunks.isEmpty()) return@channelFlow
+        val planMs = (System.nanoTime() - planStartNs) / 1_000_000
+        Log.d(PERF_TAG, "kokoro plan chunks=${chunks.size} firstTokens=${chunks.first().tokens} maxTokens=${chunks.maxOf { it.tokens }} planMs=$planMs")
 
         // P-A diagnostic: per-chunk infer time + real-time factor + producer
         // inter-send gap. See KittenDirectEngine for the rationale.
@@ -526,7 +507,7 @@ open class KokoroDirectEngine @Inject constructor(
             // every remaining chunk while holding the service's synth mutex —
             // the next request's TTFA paid for all of them (~11 s on the 8a).
             ensureActive()
-            val pieces = synthLock.withLock { tokenPieces(chunk, effectiveLang) }
+            val pieces = synthLock.withLock { tokenPieces(chunk.text, effectiveLang, encoded[chunk.text]) }
             // An over-cap chunk's pieces go out one at a time, each as soon
             // as it is rendered — joining them first made a CJK run-on wait
             // for its whole second half before any sound (31.6 s on the 8a).
@@ -541,7 +522,7 @@ open class KokoroDirectEngine @Inject constructor(
                 val audioMs = pcm.size * 1000L / sampleRate
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
                 val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
-                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} textLen=${piece.text.length}")
+                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} textLen=${piece.text.length}")
                 val release = gate.onChunkRendered(
                     chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
                     renderMs = inferMs,
@@ -565,10 +546,11 @@ open class KokoroDirectEngine @Inject constructor(
      * Truncating used to drop the chunk's tail silently: English run-ons,
      * comma-joined Chinese (≈3.4 tokens per Han char), 、-joined Japanese.
      * Re-split at clause marks → whitespace → hard cut instead; the stream
-     * loop renders and emits the pieces one at a time.
+     * loop renders and emits the pieces one at a time. [known] is [text]'s
+     * ids when the caller already has them.
      */
-    private fun tokenPieces(text: String, lang: String): List<TokenPiece> {
-        val rawIds = encodeTextToTokens(text, lang)
+    private fun tokenPieces(text: String, lang: String, known: IntArray? = null): List<TokenPiece> {
+        val rawIds = known ?: encodeTextToTokens(text, lang)
         if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return listOf(TokenPiece(text, rawIds))
         val pieces = TextChunker.splitToFit(text) {
             encodeTextToTokens(it, lang).size <= MAX_PHONEMES_PER_CHUNK
@@ -945,7 +927,20 @@ open class KokoroDirectEngine @Inject constructor(
         /** Token ID for ASCII space in the Kokoro vocab. */
         private const val SPACE_TOKEN = 16
 
-        /** See [minCharsPerChunk] — sherpa's 50-token threshold in chars. */
-        private const val MIN_CHARS_PER_CHUNK = 80
+        /**
+         * Chunk sizes in model tokens (see [TextChunker.planByTokens]).
+         * Merge floor 90 ≈ the old 80-English-char floor (sherpa's
+         * tiny-sentence merge); a merge stops at 200. Target 200: a sentence over 270
+         * (1.35 × 200) is cut at clause marks — ~5 s cool / ~10 s hot per
+         * piece on the Pixel 8a, where one 715-token Chinese sentence used
+         * to take 31 s. A cut first sentence starts with a ~40-token piece
+         * (≈ 1.4 s cool, 2.1 s hot) and grows 1.5× per piece.
+         */
+        private val TOKEN_BUDGET = TextChunker.TokenBudget(
+            mergeFloor = 90,
+            target = 200,
+            firstPiece = 40,
+            growth = 1.5,
+        )
     }
 }

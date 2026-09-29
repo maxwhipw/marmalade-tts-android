@@ -17,7 +17,9 @@ package app.marmalade.tts.audio
 //      (unless the caller forbids them — see `allowWordSplits`).
 //
 // Per-engine `maxChars` comes from `TtsEngine.maxInputChars`; each
-// engine chunks its own input. `splitToFit` is the separate, model-aware
+// engine chunks its own input. `planByTokens` is the token-sized
+// alternative (Kokoro): same sentence discipline, limits counted by the
+// engine's own encoder. `splitToFit` is the separate, model-aware
 // fallback an engine applies to a chunk that overflows its token cap.
 //
 // Designed from first principles + paraphrased from our MIT-licensed
@@ -177,6 +179,239 @@ object TextChunker {
      * so "1,000" and "10:30" never cut; CJK marks (、 ， ； ：) take none.
      */
     private val SOFT_CLAUSE_CUT = Regex("[,;:]\\s+|[、，；：]\\s*")
+
+    // -- token-sized streaming plan (Kokoro) ------------------------------------
+
+    /**
+     * One chunk of a [planByTokens] plan.
+     *
+     * @property text   what to synthesize.
+     * @property tokens the planner's count of model tokens for [text] (the
+     *   sum of its parts' counts when it was assembled from several).
+     */
+    data class TokenChunk(val text: String, val tokens: Int)
+
+    /**
+     * Sizes for [planByTokens], all in model tokens. Kokoro's cost is a
+     * straight line in tokens (Pixel 8a: ~24 ms/token cool, ~52 hot; ~55 ms
+     * of audio per token), so these are time budgets in disguise.
+     *
+     * @property mergeFloor tiny sentences merge while the chunk is below this
+     *   (sherpa's tiny-sentence merge; ≈ the old 80 English chars).
+     * @property target size a sentence is cut to when it is over
+     *   [WHOLE_TOL] × target; also the most a merge of tiny sentences
+     *   may grow to.
+     * @property firstPiece the first piece's size when the request's first
+     *   sentence is cut; later pieces grow by [growth] up to [target].
+     */
+    data class TokenBudget(
+        val mergeFloor: Int,
+        val target: Int,
+        val firstPiece: Int,
+        val growth: Double,
+    )
+
+    /**
+     * Streaming plan sized by the model's own token count ([count]) rather
+     * than characters — a Chinese character is ≈3.4 Kokoro tokens and a
+     * Japanese one 2–3, against ≈1.1 for English, so character limits tuned
+     * on English made CJK chunks three times too heavy (TTFA assessment
+     * 2026-09-28, `docs/release/ttfa-chunking-lab.html`, T3 + T4).
+     *
+     * 1. Paragraphs, then sentences: `.!?;:` + whitespace, newlines, and the
+     *    CJK marks 。！？；： (no whitespace needed). Commas never split here.
+     * 2. Tiny sentences merge within a paragraph while the chunk is under
+     *    [TokenBudget.mergeFloor] — but only while the result stays within
+     *    the target (a 70-char + 95-char merge built a 240-token chunk that
+     *    stalled 12 s). The request's first sentence never merges:
+     *    its render time is the time-to-first-audio.
+     * 3. A sentence over [WHOLE_TOL] × target is cut at clause marks
+     *    (`,;:` + whitespace, em dash, 、，；：) and packed to target. A
+     *    clause still over target breaks at word level ([wordAtoms]: spaces,
+     *    and for Japanese the kana→kanji/katakana step that ends a particle or
+     *    okurigana), and only then between characters. When that sentence is
+     *    the request's first chunk, its first piece is small
+     *    ([TokenBudget.firstPiece], never less than one clause) and pieces
+     *    grow from there.
+     *
+     * Every chunk ends up ≤ [WHOLE_TOL] × target tokens by the planner's
+     * count; the engine keeps its own cap check for the count drifting.
+     */
+    fun planByTokens(text: String, budget: TokenBudget, count: (String) -> Int): List<TokenChunk> {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val out = ArrayList<TokenChunk>()
+        for (paragraph in PARAGRAPH_BREAK.split(trimmed)) {
+            val sentences = TOKEN_PLAN_BOUNDARY.split(paragraph)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .map { TokenChunk(it, count(it)) }
+            if (sentences.isEmpty()) continue
+            for (unit in mergeByTokens(sentences, budget, exemptFirst = out.isEmpty())) {
+                out += if (unit.tokens > wholeLimit(budget.target)) {
+                    cutByTokens(unit, budget, smallFirst = out.isEmpty(), count)
+                } else {
+                    listOf(unit)
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * A whole sentence (or merge) up to this many tokens stays one chunk —
+     * a modest overshoot of the target beats a cut (the CLI's WHOLE_TOL).
+     */
+    const val WHOLE_TOL = 1.35
+
+    /** A last piece under this many tokens rejoins its predecessor. */
+    private const val RUNT_TOKENS = 12
+
+    private fun wholeLimit(target: Int): Int = (target * WHOLE_TOL).toInt()
+
+    /** [planByTokens]' sentence boundary; see step 1 there. */
+    private val TOKEN_PLAN_BOUNDARY = Regex("(?<=[.!?:;])\\s+|(?<=[。！？；：])|\\n+")
+
+    /**
+     * In-sentence cut points for an over-budget sentence. ASCII marks need
+     * trailing whitespace so "1,000" and "10:30" never cut; an em dash cuts
+     * after itself (and any spaces); the CJK marks take none.
+     */
+    private val TOKEN_CLAUSE_CUT = Regex("[,;:]\\s+|—\\s*|[、，；：]\\s*")
+
+    private fun mergeByTokens(
+        units: List<TokenChunk>,
+        budget: TokenBudget,
+        exemptFirst: Boolean,
+    ): List<TokenChunk> {
+        val out = ArrayList<TokenChunk>()
+        var cur: TokenChunk? = null
+        for ((i, u) in units.withIndex()) {
+            val c = cur
+            cur = when {
+                c == null -> u
+                exemptFirst && i == 1 -> { out += c; u }
+                c.tokens < budget.mergeFloor && c.tokens + u.tokens <= budget.target ->
+                    TokenChunk(joinText(c.text, u.text), c.tokens + u.tokens)
+                else -> { out += c; u }
+            }
+        }
+        cur?.let { out += it }
+        return out
+    }
+
+    /**
+     * Join two trimmed pieces of text back into one chunk. CJK text takes
+     * no space between sentences ("文。文。"), so none is added there.
+     */
+    private fun joinText(a: String, b: String): String =
+        if (isCjk(a.last()) || isCjk(b.first())) a + b else "$a $b"
+
+    private fun cutByTokens(
+        unit: TokenChunk,
+        budget: TokenBudget,
+        smallFirst: Boolean,
+        count: (String) -> Int,
+    ): List<TokenChunk> {
+        // Atoms keep their raw text (trailing whitespace included) so packed
+        // pieces are exact substrings of the sentence.
+        val atoms = cutAfter(unit.text, TOKEN_CLAUSE_CUT)
+            .map { TokenChunk(it, count(it.trim())) }
+            .flatMap { if (it.tokens > budget.target) wordAtoms(it, budget.target, count) else listOf(it) }
+        return packRamp(atoms, budget, if (smallFirst) budget.firstPiece else budget.target)
+    }
+
+    /**
+     * Greedy pack of [atoms] into pieces: the first piece's limit is
+     * [firstLimit], each later one `growth ×` the previous limit (or the
+     * previous piece, if that ran over it), capped at the target. A piece is at
+     * least one atom. A piece still under half its limit takes one more atom
+     * if that stays within [WHOLE_TOL] of the limit, rather than leaving a
+     * runt; a runt last piece rejoins its predecessor.
+     */
+    private fun packRamp(atoms: List<TokenChunk>, budget: TokenBudget, firstLimit: Int): List<TokenChunk> {
+        val out = ArrayList<TokenChunk>()
+        var limit = firstLimit
+        val cur = StringBuilder()
+        var curTokens = 0
+        fun flush() {
+            val t = cur.toString().trim()
+            if (t.isNotEmpty()) {
+                out += TokenChunk(t, curTokens)
+                limit = minOf(budget.target, (maxOf(limit, curTokens) * budget.growth).toInt())
+            }
+            cur.clear()
+            curTokens = 0
+        }
+        for (a in atoms) {
+            val fits = curTokens + a.tokens <= limit
+            val topUp = curTokens < limit / 2 && curTokens + a.tokens <= limit * WHOLE_TOL
+            if (curTokens > 0 && !fits && !topUp) flush()
+            cur.append(a.text)
+            curTokens += a.tokens
+        }
+        flush()
+        if (out.size >= 2 && out.last().tokens < RUNT_TOKENS) {
+            val tail = out.removeAt(out.lastIndex)
+            val prev = out.removeAt(out.lastIndex)
+            if (prev.tokens + tail.tokens <= wholeLimit(budget.target)) {
+                out += TokenChunk(joinText(prev.text, tail.text), prev.tokens + tail.tokens)
+            } else {
+                out += prev
+                out += tail
+            }
+        }
+        return out
+    }
+
+    /**
+     * Word-level atoms of a clause that is still over [target] on its own:
+     * cut after whitespace, at a Japanese kana→kanji/katakana step (the end
+     * of a particle or okurigana — `東京に|行きました`, `新しい|図書館`), and
+     * where CJK meets Latin letters or digits. Only an atom still over
+     * [target] after that (all-Han Chinese, a URL) is cut between characters.
+     */
+    private fun wordAtoms(clause: TokenChunk, target: Int, count: (String) -> Int): List<TokenChunk> {
+        val raw = clause.text
+        val parts = ArrayList<String>()
+        var start = 0
+        for (i in 1 until raw.length) {
+            if (isWordBoundary(raw[i - 1], raw[i])) {
+                parts += raw.substring(start, i)
+                start = i
+            }
+        }
+        parts += raw.substring(start)
+        return parts
+            .filter { it.isNotBlank() }
+            .map { TokenChunk(it, count(it.trim())) }
+            .flatMap { part ->
+                if (part.tokens <= target) {
+                    listOf(part)
+                } else {
+                    hardSplit(part.text.trim()) { count(it) <= target }
+                        .map { TokenChunk(it, count(it)) }
+                }
+            }
+    }
+
+    private fun isWordBoundary(prev: Char, cur: Char): Boolean {
+        if (cur.isWhitespace()) return false
+        if (prev.isWhitespace()) return true
+        if (isHiragana(prev) && (isKatakana(cur) || isHan(cur))) return true
+        val prevCjk = isHan(prev) || isKana(prev)
+        val curCjk = isHan(cur) || isKana(cur)
+        return prevCjk != curCjk && prev.isLetterOrDigit() && cur.isLetterOrDigit()
+    }
+
+    private fun isHiragana(c: Char) = c in 'ぁ'..'ゟ'
+    private fun isKatakana(c: Char) = c in '゠'..'ヿ' || c in 'ㇰ'..'ㇿ' || c in 'ｦ'..'ﾟ'
+    private fun isKana(c: Char) = isHiragana(c) || isKatakana(c)
+    private fun isHan(c: Char) =
+        c in '一'..'鿿' || c in '㐀'..'䶿' || c in '豈'..'﫿' || c in '々'..'〇'
+
+    /** CJK scripts and their punctuation (ideographic + fullwidth forms). */
+    private fun isCjk(c: Char) = c in '　'..'鿿' || c in '豈'..'﫿' || c in '＀'..'￯'
 
     /**
      * Split [text] into chunks ≤ [maxChars] each. Returns an empty list
@@ -366,9 +601,10 @@ object TextChunker {
     /**
      * Split [text] into contiguous pieces that each satisfy [fits] — the
      * engines' fallback for a chunk that would overflow the model's
-     * token cap (Kokoro/Kitten: 500 positions). Chunking itself stays
-     * char-based and sentence-only; only a chunk that actually overflows
-     * comes here, so normal sentences render exactly as chunked.
+     * token cap (Kokoro/Kitten: 500 positions). Only a chunk that actually
+     * overflows comes here, so normal sentences render exactly as chunked
+     * (for Kokoro, whose [planByTokens] already keeps chunks far below the
+     * cap, it is a safety net for the planner's count drifting).
      *
      * Cascade, each level tried only on a piece the previous one left
      * oversize: clause punctuation (`,` `;` `:` + whitespace, or CJK

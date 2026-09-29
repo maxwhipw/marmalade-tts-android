@@ -116,6 +116,14 @@ When investigating **{concern}**, start at **{files}**:
   language code from the upstream voice-key prefix (a=en-US, b=en-GB,
   e=es-ES, f=fr-FR, h=hi-IN, i=it-IT, j=ja-JP, p=pt-BR, z=zh-CN).
 
+- **Kokoro chunk sizing is in model tokens** (`TextChunker.planByTokens`,
+  budget `TOKEN_BUDGET` in `KokoroDirectEngine`, inherited by the German
+  engine): sentences split at `.!?;:` + space, newlines and 。！？；：; tiny
+  sentences merge up to 90 tokens (never past 200, never the request's
+  first); a sentence over 270 is cut at `,;:`/—/、，；： to ≤ 200, then
+  word level (spaces; Japanese kana→kanji/katakana steps), then hard.
+  One `D/StreamPerf: kokoro plan …` line per request. Other engines still
+  chunk by characters (`TextChunker.chunk` / `clauseChunks`).
 - **Over-cap chunks**: `audio/TextChunker.splitToFit(text, fits)`
   re-splits a chunk that still overflows an engine's cap (clause
   punctuation → whitespace → hard cut, nothing dropped). Kokoro and

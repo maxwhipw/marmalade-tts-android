@@ -2262,15 +2262,16 @@ open class PocketEngine @Inject constructor(
 
         // -- chunking + pre-roll knobs (synthesizeStream) -----------------
         //
-        // Pocket adopts KokoroDirect's chunking discipline (sentence-only,
-        // char-bound, minChars-merge). An older token-based bin-pack
-        // produced orphan fragments ("Outside,") whenever a sentence got
-        // comma-split, which broke Pocket's per-chunk prosody seed and
-        // sounded choppy; the main path now uses [TextChunker.chunk] with
-        // the same params as KokoroDirect, and the rare oversized-sentence
+        // Pocket adopted KokoroDirect's former chunking discipline
+        // (sentence-only, char-bound, minChars-merge; Kokoro has since moved
+        // to token-sized plans, TextChunker.planByTokens). An older
+        // token-based bin-pack produced orphan fragments ("Outside,")
+        // whenever a sentence got comma-split, which broke Pocket's per-chunk
+        // prosody seed and sounded choppy; the main path now uses
+        // [TextChunker.chunk] with those params, and the rare oversized-sentence
         // fallback ([chunkPocketByTokens]) caps at bundle.maxTokenPerChunk.
 
-        /** Same as KokoroDirect.maxInputChars — sentence-boundary cap. */
+        /** Sentence-boundary cap (KokoroDirect's former character cap). */
         private const val POCKET_MAX_CHARS_PER_CHUNK = 255
 
         /**

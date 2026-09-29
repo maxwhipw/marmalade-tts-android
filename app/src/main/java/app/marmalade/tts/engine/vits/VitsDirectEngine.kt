@@ -144,7 +144,7 @@ open class VitsDirectEngine @Inject constructor(
      */
     override val sampleRate: Int get() = lastSampleRate
 
-    /** Same class as Kokoro/Kitten — see [TtsEngine.maxInputChars]. */
+    /** Same class as Kitten — see [TtsEngine.maxInputChars]. */
     override val maxInputChars: Int = 400
 
     /**
