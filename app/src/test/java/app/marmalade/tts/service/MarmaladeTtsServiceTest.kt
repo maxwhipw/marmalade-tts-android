@@ -31,6 +31,7 @@ import kotlin.math.sin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import app.marmalade.tts.engine.EngineRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -101,12 +102,15 @@ class MarmaladeTtsServiceTest {
         service = MarmaladeTtsService()
         // Inject by reflection — Hilt isn't running so the @Inject lateinit
         // vars are unset. Reflection bypasses the lateinit "isInitialized"
-        // guard. We only set the fields these tests exercise: the two engines
-        // they route to (kittenDirect, kokoroDirect), the DAO/preprocessor/
-        // settings/router, and effectResolver. The other engine fields stay
-        // unset — no test routes a voice to them, so they're never accessed.
-        setField(service, "kittenDirect", fakeEngine)
-        setField(service, "kokoroDirect", fakeKokoroDirectEngine)
+        // guard. We only set the fields these tests exercise: an engine
+        // registry holding the three engines they route to (kitten, kokoro,
+        // VITS), the DAO/preprocessor/settings/router, and effectResolver. No
+        // test routes a voice to another engine, so the registry needs none.
+        setField(
+            service,
+            "engines",
+            EngineRegistry(listOf(fakeKokoroDirectEngine, fakeEngine, fakeVits)),
+        )
         // installedVoices() probes the VITS engine's install/pack state on every
         // negotiation callback, so the field must be set for every test — not
         // only the VITS-routing ones.
