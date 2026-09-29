@@ -217,4 +217,18 @@ class VoiceAvailabilityTest {
             )
         }
     }
+
+    @Test
+    fun playNeverOffersAnFdroidOnlyEnginesVoices() {
+        // Pocket is fdroidOnly: hidden from every user-facing list on Play,
+        // including voices left on disk by carried-over F-Droid data.
+        val pocket = PocketVoiceCatalog.ENGINE
+        val pocketVoice = row(pocket, "$pocket:marius")
+        val kokoro = row("kokoro-direct-v1_0", "kokoro-direct-v1_0:af_bella")
+        val assets = InstalledVoiceAssets(engines = setOf(pocket, "kokoro-direct-v1_0"), packs = emptySet())
+        val all = listOf(pocketVoice, kokoro)
+
+        assertEquals(listOf(kokoro), all.pickableVoices(assets, showDeveloper = false, flavor = "play"))
+        assertEquals(all, all.pickableVoices(assets, showDeveloper = false, flavor = "fdroid"))
+    }
 }

@@ -96,7 +96,9 @@ fun isVoiceReleased(voice: VoiceMeta): Boolean {
  * engine left installed after developer mode was switched off, stays out of an
  * ordinary user's list while a developer still sees it. The Play [flavor]
  * has no developer mode at all ([EngineCatalog.effectiveDeveloperMode]): a
- * stored `true` shows neither a developer engine nor an unreleased pack.
+ * stored `true` shows neither a developer engine nor an unreleased pack. Play
+ * also never lists voices of `fdroidOnly` engines (Pocket), even if data
+ * carried over from an F-Droid install still has them on disk.
  *
  * Shared by the full-screen picker, the alias editor and onboarding's alias
  * step so the three can't disagree about what is pickable.
@@ -110,6 +112,7 @@ fun List<VoiceMeta>.pickableVoices(
     val showUnreleased = VoicePackCatalog.showsUnreleased(developer, flavor)
     return filterAvailable(assets).filter { voice ->
         (developer || voice.engine !in EngineCatalog.developerOnlyNames) &&
+            (flavor != "play" || EngineCatalog.byName(voice.engine)?.fdroidOnly != true) &&
             (showUnreleased || isVoiceReleased(voice))
     }
 }
