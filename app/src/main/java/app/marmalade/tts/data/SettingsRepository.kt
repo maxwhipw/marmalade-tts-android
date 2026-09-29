@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.marmalade.tts.BuildConfig
+import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.perf.KittenRtfMeasurement
 import app.marmalade.tts.perf.RollingRtf
 import app.marmalade.tts.preprocessing.EngineProfiles
@@ -371,9 +372,13 @@ open class SettingsRepository @Inject constructor(
      * opt-in. The user can flip it either way; routing never consults this
      * flag, so an alias already pointing at a hidden engine keeps
      * synthesizing even while the engine is hidden.
+     *
+     * This is the EFFECTIVE value ([EngineCatalog.effectiveDeveloperMode]):
+     * always false in the Play build, where the toggle is hidden, whatever
+     * is stored.
      */
     open val showDeveloperEngines: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_SHOW_DEVELOPER_ENGINES] ?: BuildConfig.DEBUG
+        EngineCatalog.effectiveDeveloperMode(prefs[KEY_SHOW_DEVELOPER_ENGINES] ?: BuildConfig.DEBUG)
     }
 
     /**

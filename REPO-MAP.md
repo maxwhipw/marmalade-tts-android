@@ -473,9 +473,12 @@ write Marmalade code.
   `probeInstalledVoiceAssets` (engine `verify` + per-pack `verifyPack`)
   → `pickableVoices(assets, showDeveloper)` — on disk (a VITS voice needs
   its own pack) and, outside developer mode, not a developer-only engine
-  or unreleased pack. The Play flavor hides unreleased packs even in
-  developer mode (`VoicePackCatalog.showsUnreleased`, also used by the
-  Engines/EngineDetail pack lists). Shared by `VoicePickerViewModel`, the alias
+  or unreleased pack. The Play flavor has no developer mode at all: its
+  toggle is hidden, and `EngineCatalog.effectiveDeveloperMode` (applied by
+  `SettingsRepository.showDeveloperEngines` and `pickableVoices`) turns a
+  stored `true` — F-Droid data carried over — into false there. It also
+  hides unreleased packs (`VoicePackCatalog.showsUnreleased`, also used by
+  the Engines/EngineDetail pack lists). Shared by `VoicePickerViewModel`, the alias
   editor and onboarding's alias step.
 - **`kokoro-int8-multi-lang-v1_0` is an unblessed power-user export**
   — added to sherpa-onnx releases by PR #2137 but never included in

@@ -181,6 +181,22 @@ class VoiceAvailabilityTest {
     }
 
     @Test
+    fun playNeverOffersADeveloperEngineEvenWithDeveloperModeStored() {
+        // A developer-mode flag carried over from F-Droid data must not make
+        // a leftover diagnostic engine pickable on Play, where the toggle to
+        // turn it off is hidden.
+        val dev = PocketDevVoiceCatalog.ENGINE
+        val devVoice = row(dev, "$dev:alba")
+        val kokoro = row("kokoro-direct-v1_0", "kokoro-direct-v1_0:af_bella")
+        val assets = InstalledVoiceAssets(engines = setOf(dev, "kokoro-direct-v1_0"), packs = emptySet())
+
+        assertEquals(
+            listOf(kokoro),
+            listOf(devVoice, kokoro).pickableVoices(assets, showDeveloper = true, flavor = "play"),
+        )
+    }
+
+    @Test
     fun playNeverOffersAnUnreleasedPackEvenInDeveloperMode() {
         // L8 (Max, 2026-09-26): the Play build lists only what its store
         // listing covers — a staged pack left on disk stays out of the picker

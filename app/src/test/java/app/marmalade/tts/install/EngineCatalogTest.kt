@@ -152,6 +152,16 @@ class EngineCatalogTest {
     }
 
     @Test
+    fun developerModeIsOffOnPlayWhateverIsStored() {
+        // The toggle is hidden on Play, so a stored true (F-Droid data carried
+        // over, a tester) must not take effect with no way to turn it off.
+        assertFalse(EngineCatalog.effectiveDeveloperMode(stored = true, flavor = "play"))
+        assertFalse(EngineCatalog.effectiveDeveloperMode(stored = false, flavor = "play"))
+        assertTrue(EngineCatalog.effectiveDeveloperMode(stored = true, flavor = "fdroid"))
+        assertFalse(EngineCatalog.effectiveDeveloperMode(stored = false, flavor = "fdroid"))
+    }
+
+    @Test
     fun engineNameMatchesEngineKey() {
         // Engine identifier must match the directory name the engine class
         // uses (filesDir/engines/<name>). Catching a rename here saves us

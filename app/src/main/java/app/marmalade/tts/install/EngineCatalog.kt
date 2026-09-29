@@ -574,4 +574,16 @@ object EngineCatalog {
     fun developerModeRevealsAnything(flavor: String = BuildConfig.FLAVOR): Boolean =
         visibleTo(showDeveloper = true, flavor).any { it.developerOnly } ||
             VoicePackCatalog.showsUnreleased(showDeveloper = true, flavor)
+
+    /**
+     * Developer mode as it takes effect: the [stored] setting, but only in a
+     * [flavor] where Advanced settings shows its toggle
+     * ([developerModeRevealsAnything]). On Play the toggle is hidden, so a
+     * `true` carried over from an F-Droid install's data (or set by a
+     * tester) must not leave developer engines pickable with no way to turn
+     * it off. [app.marmalade.tts.data.SettingsRepository.showDeveloperEngines]
+     * applies this, so every reader sees the effective value.
+     */
+    fun effectiveDeveloperMode(stored: Boolean, flavor: String = BuildConfig.FLAVOR): Boolean =
+        stored && developerModeRevealsAnything(flavor)
 }

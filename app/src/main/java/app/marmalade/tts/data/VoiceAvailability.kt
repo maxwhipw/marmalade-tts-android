@@ -95,8 +95,8 @@ fun isVoiceReleased(voice: VoiceMeta): Boolean {
  * ([isVoiceReleased]) — so an installed-but-staged VITS pack, or a diagnostic
  * engine left installed after developer mode was switched off, stays out of an
  * ordinary user's list while a developer still sees it. The Play [flavor]
- * keeps unreleased packs out even in developer mode
- * ([VoicePackCatalog.showsUnreleased]).
+ * has no developer mode at all ([EngineCatalog.effectiveDeveloperMode]): a
+ * stored `true` shows neither a developer engine nor an unreleased pack.
  *
  * Shared by the full-screen picker, the alias editor and onboarding's alias
  * step so the three can't disagree about what is pickable.
@@ -106,9 +106,10 @@ fun List<VoiceMeta>.pickableVoices(
     showDeveloper: Boolean,
     flavor: String = BuildConfig.FLAVOR,
 ): List<VoiceMeta> {
-    val showUnreleased = VoicePackCatalog.showsUnreleased(showDeveloper, flavor)
+    val developer = EngineCatalog.effectiveDeveloperMode(showDeveloper, flavor)
+    val showUnreleased = VoicePackCatalog.showsUnreleased(developer, flavor)
     return filterAvailable(assets).filter { voice ->
-        (showDeveloper || voice.engine !in EngineCatalog.developerOnlyNames) &&
+        (developer || voice.engine !in EngineCatalog.developerOnlyNames) &&
             (showUnreleased || isVoiceReleased(voice))
     }
 }
