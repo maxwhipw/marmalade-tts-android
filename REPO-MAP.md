@@ -105,6 +105,13 @@ When investigating **{concern}**, start at **{files}**:
   playback side — see "effect chain at PLAYBACK" under Known quirks)
 
 ### Engines
+- `engine/EngineRegistry.kt` — **the one `engineName → TtsEngine` table**
+  (2026-09-29). Name narrowing (`knownEngineOrDefault`, `engineNameFor`,
+  unknown → Kokoro Direct), system TTS's narrower set
+  (`SYSTEM_TTS_ENGINE_NAMES`: developer-only engines never offered to other
+  apps), `onDevice` (all but cloud: residency, native-handle release,
+  "release all") and `warmable` (on-device minus developer-only). A new
+  engine is added HERE; never write another `when (engineName)` dispatch.
 - `engine/SherpaEngine.kt` — abstract base (loadLock, ensureModelLoaded,
   synthesize, release, floatToPcm16, sampleRate)
 - `engine/KittenEngine.kt`, `engine/KokoroEngine.kt` — subclasses,

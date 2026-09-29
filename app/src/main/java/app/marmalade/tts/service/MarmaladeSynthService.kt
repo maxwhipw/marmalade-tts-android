@@ -32,25 +32,12 @@ import app.marmalade.tts.audio.EffectPreset
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
-import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.VitsVoiceCatalog
-import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.engine.EngineNotInstalledException
-import app.marmalade.tts.engine.PocketDevEngine
-import app.marmalade.tts.engine.vits.VitsDirectEngine
-import app.marmalade.tts.engine.PocketEngine
-import app.marmalade.tts.engine.api.CloudApiEngine
-import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
+import app.marmalade.tts.engine.EngineRegistry
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroGermanVoiceCatalog
 import app.marmalade.tts.audio.StreamingEffectChain
-import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.lang.LanguageVoiceSelector
@@ -193,13 +180,7 @@ import kotlinx.coroutines.withContext
 @AndroidEntryPoint
 class MarmaladeSynthService : Service() {
 
-    @Inject lateinit var kittenDirect: KittenDirectEngine
-    @Inject lateinit var kokoroDirect: KokoroDirectEngine
-    @Inject lateinit var kokoroGerman: KokoroGermanEngine
-    @Inject lateinit var pocket: PocketEngine
-    @Inject lateinit var pocketDev: PocketDevEngine
-    @Inject lateinit var vits: VitsDirectEngine
-    @Inject lateinit var cloudApi: CloudApiEngine
+    @Inject lateinit var engines: EngineRegistry
 
     @Inject lateinit var preprocessor: Preprocessor
 
@@ -497,33 +478,10 @@ class MarmaladeSynthService : Service() {
     /**
      * Pull the engine name out of a voice ID (`"<engine>:<voice>"`).
      * Falls back to Kokoro (the recommended default) for malformed IDs.
+     * Both entry points — this voice-id parse and the alias-resolved route
+     * in [prepareLocked] — narrow through [EngineRegistry], the one engine list.
      */
-    private fun engineFromVoiceId(voiceId: String): String {
-        val sep = voiceId.indexOf(':')
-        if (sep <= 0) return DEFAULT_ENGINE
-        return knownEngineOrDefault(voiceId.substring(0, sep))
-    }
-
-    /**
-     * The one list of engines this service can dispatch to; anything else
-     * degrades to Kokoro. Both entry points — the voice-id parse above and
-     * the alias-resolved route in [runOne] — go through here, because when
-     * they each kept their own copy the copies drifted and the cloud and
-     * dev-Pocket engines went missing from one of them. A name missing
-     * from this list doesn't fail; it silently synthesizes with Kokoro,
-     * which for a cloud alias means the wrong engine and an unusable
-     * voice id, with no error anywhere.
-     */
-    internal fun knownEngineOrDefault(name: String): String = when (name) {
-        KokoroDirectVoiceCatalog.ENGINE,
-        KokoroGermanVoiceCatalog.ENGINE,
-        KittenDirectVoiceCatalog.ENGINE,
-        PocketVoiceCatalog.ENGINE,
-        PocketDevVoiceCatalog.ENGINE,
-        VitsVoiceCatalog.ENGINE,
-        CloudApiVoiceCatalog.ENGINE -> name
-        else -> DEFAULT_ENGINE
-    }
+    private fun engineFromVoiceId(voiceId: String): String = EngineRegistry.engineNameFor(voiceId)
 
     private fun enqueue(req: SpeakRequest) {
         val replacedTrack = synchronized(lock) {
@@ -676,7 +634,7 @@ class MarmaladeSynthService : Service() {
                 // default) rather than failing loudly — keeps the foreground
                 // service robust to third-party callers sending garbage in
                 // EXTRA_ENGINE.
-                val engine = knownEngineOrDefault(resolved.engine)
+                val engine = EngineRegistry.knownEngineOrDefault(resolved.engine)
                 if (engine != resolved.engine) {
                     Log.w(TAG, "Engine '${resolved.engine}' not supported — using $engine")
                 }
@@ -867,7 +825,7 @@ class MarmaladeSynthService : Service() {
                     postErrorNotification(
                         getString(
                             R.string.service_synth_error_engine_not_installed,
-                            displayNameFor(engineName),
+                            EngineRegistry.displayName(engineName),
                         ),
                     )
                 }
@@ -883,7 +841,7 @@ class MarmaladeSynthService : Service() {
                     postErrorNotification(
                         getString(
                             R.string.service_synth_error_engine_not_installed,
-                            displayNameFor(engineName),
+                            EngineRegistry.displayName(engineName),
                         ),
                     )
                 }
@@ -955,7 +913,7 @@ class MarmaladeSynthService : Service() {
         // only non-neutral emotion still needs the batched pipeline
         // (ProsodyApplier shapes the whole PCM).
         val enabled = settings.enabledRules(engineName).first()
-        val handle = engineHandleFor(engineName)
+        val handle = engines[engineName]
         val batched = EmojiProsody.detect(resolved.text).emotion != Emotion.Neutral
 
         // The reader's requests follow a session-speed change live when the
@@ -1067,7 +1025,7 @@ class MarmaladeSynthService : Service() {
         enabledRules: Set<String>,
         channel: SendChannel<SynthAudio>,
     ) {
-        val plan = applySpeedFallback(engineHandleFor(engineName), resolved.speed, resolved.effectBlocks)
+        val plan = applySpeedFallback(engines[engineName], resolved.speed, resolved.effectBlocks)
         val result = runSynthesisPipeline(
             rawText = resolved.text,
             voiceId = resolved.voice,
@@ -1085,36 +1043,14 @@ class MarmaladeSynthService : Service() {
         }
     }
 
-    /** Engine handle for a catalog engine name — the capability side of the dispatch below. */
-    private fun engineHandleFor(engineName: String): TtsEngine = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
-        KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect
-        PocketVoiceCatalog.ENGINE -> pocket
-        PocketDevVoiceCatalog.ENGINE -> pocketDev
-        VitsVoiceCatalog.ENGINE -> vits
-        CloudApiVoiceCatalog.ENGINE -> cloudApi
-        else -> kokoroDirect
-    }
-
-    /** Per-engine synthesis dispatch. All engines emit at 24 kHz today. */
+    /** Per-engine synthesis dispatch through the one engine table. */
     private suspend fun synthesizeForEngine(
         engineName: String,
         text: String,
         voiceId: String,
         speed: Float,
         phonemizationLanguage: String? = null,
-    ): SynthAudio = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.synthesize(text, voiceId, speed, phonemizationLanguage)
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketVoiceCatalog.ENGINE -> pocket.synthesize(text, voiceId, speed, phonemizationLanguage)
-        PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesize(text, voiceId, speed, phonemizationLanguage)
-        VitsVoiceCatalog.ENGINE -> vits.synthesize(text, voiceId, speed, phonemizationLanguage)
-        CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesize(text, voiceId, speed, phonemizationLanguage)
-        // Defensive: runOne already narrows engineName to known values.
-        else -> kokoroDirect.synthesize(text, voiceId, speed, phonemizationLanguage)
-    }
+    ): SynthAudio = engines[engineName].synthesize(text, voiceId, speed, phonemizationLanguage)
 
     /** Streaming counterpart of [synthesizeForEngine] — same routing. */
     private fun streamForEngine(
@@ -1125,16 +1061,7 @@ class MarmaladeSynthService : Service() {
         phonemizationLanguage: String? = null,
         playbackRate: Float = 1f,
     ): Flow<SynthAudio> {
-        val stream = when (engineName) {
-            KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            KittenDirectVoiceCatalog.ENGINE -> kittenDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            PocketVoiceCatalog.ENGINE -> pocket.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            PocketDevVoiceCatalog.ENGINE -> pocketDev.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            VitsVoiceCatalog.ENGINE -> vits.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            CloudApiVoiceCatalog.ENGINE -> cloudApi.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-            else -> kokoroDirect.synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
-        }
+        val stream = engines[engineName].synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate)
         // Time-to-first-audio sampling — feeds the Speak screen's per-voice
         // latency hints (VoiceLatencySource). Lived in Synthesizer before
         // every in-app playback routed through this service; the write is
@@ -1151,18 +1078,6 @@ class MarmaladeSynthService : Service() {
                     scope.launch { runCatching { latency.record(voiceId, engineName, millis, text.length) } }
                 }
             }
-    }
-
-    /** Human-friendly engine label for notification copy. */
-    private fun displayNameFor(engineName: String): String = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> "Kokoro"
-        KokoroGermanVoiceCatalog.ENGINE -> "Kokoro German"
-        KittenDirectVoiceCatalog.ENGINE -> "Kitten Nano"
-        PocketVoiceCatalog.ENGINE -> "Pocket TTS"
-        PocketDevVoiceCatalog.ENGINE -> "Pocket TTS (clean)"
-        VitsVoiceCatalog.ENGINE -> "VITS Marmalade"
-        CloudApiVoiceCatalog.ENGINE -> "Cloud"
-        else -> engineName
     }
 
     // -- transport ------------------------------------------------------------
@@ -2014,7 +1929,7 @@ class MarmaladeSynthService : Service() {
          * doesn't disambiguate. Kokoro Direct is the recommended-default engine
          * (matches `EngineCatalog.KOKORO_DIRECT.isRecommended`).
          */
-        const val DEFAULT_ENGINE: String = "kokoro-direct-v1_0"
+        const val DEFAULT_ENGINE: String = EngineRegistry.DEFAULT_ENGINE
 
         // -- public intent contract --------------------------------------------
         const val ACTION_SPEAK: String = "app.marmalade.tts.action.SPEAK"

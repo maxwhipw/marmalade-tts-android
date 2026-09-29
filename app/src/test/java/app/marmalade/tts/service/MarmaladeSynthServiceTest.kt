@@ -3,12 +3,6 @@ package app.marmalade.tts.service
 import android.content.Intent
 import android.media.AudioManager
 import app.marmalade.tts.service.MarmaladeSynthService.FocusAction
-import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.PocketVoiceCatalog
-import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.lang.VoiceChoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,37 +13,21 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Engine narrowing, intent parsing, and the pure decisions pulled out of the
- * long-form foreground service (RTF sampling, audio-focus transitions).
+ * Intent parsing and the pure decisions pulled out of the long-form
+ * foreground service (RTF sampling, audio-focus transitions). Engine-name
+ * narrowing moved to [app.marmalade.tts.engine.EngineRegistry] and is tested
+ * there (EngineRegistryTest).
  *
  * That is what a JVM test can reach here: everything past them needs audio
  * focus, a notification channel, Hilt injection and real ONNX sessions.
- * Narrowing is also where the bug was — the cloud and dev-Pocket engines were
- * absent from the dispatch list, so aliases pointing at them were synthesized
- * with Kokoro and no error was raised anywhere.
  *
  * Robolectric only so the bare Service can be constructed; no injected
- * field is touched, and [knownEngineOrDefault] is pure string logic.
+ * field is touched.
  */
 @RunWith(RobolectricTestRunner::class)
 class MarmaladeSynthServiceTest {
 
     private val service = MarmaladeSynthService()
-
-    @Test
-    fun `every engine the app can alias survives narrowing`() {
-        val engines = listOf(
-            KokoroDirectVoiceCatalog.ENGINE,
-            KittenDirectVoiceCatalog.ENGINE,
-            PocketVoiceCatalog.ENGINE,
-            PocketDevVoiceCatalog.ENGINE,
-            VitsVoiceCatalog.ENGINE,
-            CloudApiVoiceCatalog.ENGINE,
-        )
-        for (engine in engines) {
-            assertEquals(engine, service.knownEngineOrDefault(engine))
-        }
-    }
 
     // -- Session speed override -----------------------------------------------
 
@@ -359,14 +337,5 @@ class MarmaladeSynthServiceTest {
                 AudioManager.AUDIOFOCUS_LOSS, paused = false, pausedByFocus = false,
             ),
         )
-    }
-
-    @Test
-    fun `unknown engine falls back to the default`() {
-        assertEquals(
-            MarmaladeSynthService.DEFAULT_ENGINE,
-            service.knownEngineOrDefault("piper-en-us-v1"),
-        )
-        assertEquals(MarmaladeSynthService.DEFAULT_ENGINE, service.knownEngineOrDefault(""))
     }
 }
