@@ -240,12 +240,23 @@ class MarmaladeSynthServiceTest {
         assertTrue(service.parseRequest(continued)!!.continuation)
     }
 
+    /**
+     * A call or a notification duck pauses the read through audio focus; a
+     * share arriving then must queue behind the article (which resumes when
+     * focus returns), not cancel it.
+     */
+    @Test
+    fun `a new speak queues behind an audio-focus pause`() {
+        assertFalse(replaces(paused = true, pausedByFocus = true))
+    }
+
     private fun replaces(
         paused: Boolean,
+        pausedByFocus: Boolean = false,
         hasActive: Boolean = true,
         stopping: Boolean = false,
         continuation: Boolean = false,
-    ) = MarmaladeSynthService.replacesPausedWork(paused, hasActive, stopping, continuation)
+    ) = MarmaladeSynthService.replacesPausedWork(paused, pausedByFocus, hasActive, stopping, continuation)
 
     // -- Rolling engine RTF -----------------------------------------------------
 

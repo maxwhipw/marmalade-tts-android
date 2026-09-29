@@ -94,8 +94,9 @@ When investigating **{concern}**, start at **{files}**:
   promotes it to foreground; stops use `stopSelfResult(lastStartId)` so a
   newer SPEAK in flight still reaches its `startForeground`; a partial
   wake lock is held while a request plays or waits and isn't paused.
-  A new SPEAK queues behind playing work but **replaces paused work**
-  (`replacesPausedWork`); the reader marks its follow-on blocks
+  A new SPEAK queues behind playing work but **replaces work the user
+  paused** (`replacesPausedWork`; an audio-focus pause — a call, a
+  notification duck — is not the user's, so it queues); the reader marks its follow-on blocks
   `EXTRA_CONTINUATION` so they never do, and reads the `stopped` flag on
   `PreviewCompletions.Completion` to fall back to Idle when replaced
 - Order of the canonical chain: emoji-detect → preprocess →

@@ -120,9 +120,9 @@ import kotlinx.coroutines.withContext
 //     ▼
 //   onStartCommand ──► parseRequest ──► enqueue ──► startNextLocked
 //     │                 (foreground notification + MediaSession ensured;
-//     │                  a busy service queues the request — unless its
-//     │                  work is paused: then the new request replaces
-//     │                  it, see replacesPausedWork)
+//     │                  a busy service queues the request — unless the
+//     │                  user paused its work: then the new request
+//     │                  replaces it, see replacesPausedWork)
 //     ▼
 //   Synthesis and playback are two halves that overlap ACROSS requests —
 //   the queue handover is otherwise a full time-to-first-audio of silence,
@@ -529,6 +529,7 @@ class MarmaladeSynthService : Service() {
         val replacedTrack = synchronized(lock) {
             val replacing = replacesPausedWork(
                 paused = paused,
+                pausedByFocus = pausedByFocus,
                 hasActive = activeJob != null,
                 stopping = cancelled,
                 continuation = req.continuation,
@@ -1903,13 +1904,20 @@ class MarmaladeSynthService : Service() {
          * it — and `paused` stays set until the next request starts, so a
          * second new speak right behind the first must queue behind it rather
          * than knock it out too.
+         *
+         * Only a USER pause counts. A [pausedByFocus] pause (a call, or a
+         * notification duck — ducks pause since setWillPauseWhenDucked) is the
+         * system's, not a read the user left: replacing it cancelled the
+         * article and then the new request failed to get focus anyway. It
+         * queues, and plays after the focus regain resumes the article.
          */
         internal fun replacesPausedWork(
             paused: Boolean,
+            pausedByFocus: Boolean,
             hasActive: Boolean,
             stopping: Boolean,
             continuation: Boolean,
-        ): Boolean = paused && hasActive && !stopping && !continuation
+        ): Boolean = paused && !pausedByFocus && hasActive && !stopping && !continuation
 
         /**
          * Transport actions the media session advertises. The same set in
