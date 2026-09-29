@@ -150,6 +150,23 @@ When investigating **{concern}**, start at **{files}**:
   stream chunk, never joined first;
   `TtsEngine.maxInputChars` is the per-engine character cap.
 
+### Narrator (`playback/`) — built, NOT wired in yet
+The reader-session redesign (local plan `docs/release/READER-SESSION-PLAN.md`,
+steps A → C1 → C2 → C3 → E → G). As of step B the package is pure Kotlin
+with no caller in the app: `MarmaladeSynthService`, the reader and
+`Synthesizer` still run today's per-request path. Step C1 wires it in.
+- `playback/NarratorApi.kt` — `NarratorControl` (commands, one
+  `StateFlow<NarratorState>`), `NarratorShell` (focus/host signals) and the
+  ports the service shell will implement (`SessionResolver`,
+  `SegmentPreparer`, `FocusPort`, `HostPort`, `ResidencyPort`, …).
+- `playback/StartPolicy.kt` — pure start/hold: today's PrerollGate formula
+  minus the audio already banked, fed the session's RTF EWMA.
+- `playback/RenderPlanner.kt` — pure "what to render next": ~60 s ahead for
+  on-device voices (also while paused), cloud only this segment + the next.
+- `playback/AudioOutput.kt` — the writer port: stream items (Begin/Write/End)
+  queue at their frame, controls (Play/Pause/Flush/SetTempo) apply at the
+  next slice; every chunk tagged `(sessionId, epoch, segment, chunk)`.
+
 ### Cloud API engine (hosted voices)
 - `engine/api/CloudApiEngine.kt` — OpenAI-compatible `/audio/speech`
   synthesis with true streaming (WAV header parse + chunked PCM emit).
