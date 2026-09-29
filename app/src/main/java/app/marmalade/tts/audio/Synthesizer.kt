@@ -3,21 +3,7 @@ package app.marmalade.tts.audio
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import app.marmalade.tts.data.CloudApiVoiceCatalog
-import app.marmalade.tts.data.KittenDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroDirectVoiceCatalog
-import app.marmalade.tts.data.KokoroGermanVoiceCatalog
-import app.marmalade.tts.data.PocketDevVoiceCatalog
-import app.marmalade.tts.data.VitsVoiceCatalog
-import app.marmalade.tts.data.PocketVoiceCatalog
-import app.marmalade.tts.engine.PocketDevEngine
-import app.marmalade.tts.engine.vits.VitsDirectEngine
-import app.marmalade.tts.engine.PocketEngine
-import app.marmalade.tts.engine.TtsEngine
-import app.marmalade.tts.engine.api.CloudApiEngine
-import app.marmalade.tts.engine.kitten.KittenDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
-import app.marmalade.tts.engine.kokoro.KokoroGermanEngine
+import app.marmalade.tts.engine.EngineRegistry
 import app.marmalade.tts.service.MarmaladeSynthService
 import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -122,7 +108,7 @@ interface SpeechPlayer {
      * [speak] call starts synthesising immediately rather than paying a
      * cold model load first.
      *
-     * Cheap + non-blocking (a volatile field read per [TtsEngine.isLoaded]),
+     * Cheap + non-blocking (a volatile field read per [app.marmalade.tts.engine.TtsEngine.isLoaded]),
      * so the Speak screen can call it on the main thread to decide between
      * showing "Loading <engine>…" and going straight to "Speaking…".
      */
@@ -155,13 +141,7 @@ interface SpeechPlayer {
 @Singleton
 class Synthesizer @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val kittenDirect: KittenDirectEngine,
-    private val kokoroDirect: KokoroDirectEngine,
-    private val kokoroGerman: KokoroGermanEngine,
-    private val pocket: PocketEngine,
-    private val pocketDev: PocketDevEngine,
-    private val vits: VitsDirectEngine,
-    private val cloudApi: CloudApiEngine,
+    private val engines: EngineRegistry,
     private val residency: app.marmalade.tts.service.EngineResidency,
     private val completions: PreviewCompletions,
 ) : SpeechPlayer {
@@ -262,7 +242,7 @@ class Synthesizer @Inject constructor(
     }
 
     override suspend fun preload(voiceId: String): Boolean = withContext(Dispatchers.IO) {
-        val engineName = engineNameFor(voiceId)
+        val engineName = EngineRegistry.engineNameFor(voiceId)
         // The Speak screen pre-loads on every voice change, which makes this
         // the in-app "currently selected engine" signal residency protects —
         // and the moment the previously selected engine stops being special.
@@ -270,7 +250,7 @@ class Synthesizer @Inject constructor(
         // evict for it.
         residency.select(engineName)
         try {
-            engineFor(engineName).ensureModelLoaded()
+            engines[engineName].ensureModelLoaded()
             true
         } catch (t: Throwable) {
             // Pre-load is best-effort. ModelMissing is the common case
@@ -283,16 +263,14 @@ class Synthesizer @Inject constructor(
     }
 
     override fun isWarm(voiceId: String): Boolean =
-        engineFor(engineNameFor(voiceId)).isLoaded()
+        engines[EngineRegistry.engineNameFor(voiceId)].isLoaded()
 
     override suspend fun releaseAll() = withContext(Dispatchers.IO) {
         // Stop any active playback first, then drop every engine's loaded
         // sessions. The next speak()/preload() reloads on demand — picking up
         // settings (e.g. ONNX thread count) that are only read at load time.
         cancel()
-        listOf(
-            kittenDirect, kokoroDirect, kokoroGerman, pocket, pocketDev, vits,
-        ).forEach { runCatching { it.release() } }
+        engines.onDevice.forEach { runCatching { it.release() } }
     }
 
     override fun cancel() {
@@ -315,41 +293,6 @@ class Synthesizer @Inject constructor(
                     .putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, id),
             )
         }
-    }
-
-    // -- private --------------------------------------------------------------
-
-    /**
-     * Engine name embedded in [voiceId] (everything before the first `:`).
-     * Falls back to the recommended Kokoro Direct engine for malformed
-     * inputs.
-     */
-    private fun engineNameFor(voiceId: String): String {
-        val sep = voiceId.indexOf(':')
-        if (sep <= 0) return KokoroDirectVoiceCatalog.ENGINE
-        val name = voiceId.substring(0, sep)
-        return when (name) {
-            KokoroDirectVoiceCatalog.ENGINE,
-            KokoroGermanVoiceCatalog.ENGINE,
-            KittenDirectVoiceCatalog.ENGINE,
-            PocketVoiceCatalog.ENGINE,
-            PocketDevVoiceCatalog.ENGINE,
-            VitsVoiceCatalog.ENGINE,
-            CloudApiVoiceCatalog.ENGINE -> name
-            else -> KokoroDirectVoiceCatalog.ENGINE
-        }
-    }
-
-    /** TtsEngine handle for an engine name — serves preload/isWarm/releaseAll. */
-    private fun engineFor(engineName: String): TtsEngine = when (engineName) {
-        KokoroDirectVoiceCatalog.ENGINE -> kokoroDirect
-        KokoroGermanVoiceCatalog.ENGINE -> kokoroGerman
-        KittenDirectVoiceCatalog.ENGINE -> kittenDirect
-        PocketVoiceCatalog.ENGINE -> pocket
-        PocketDevVoiceCatalog.ENGINE -> pocketDev
-        VitsVoiceCatalog.ENGINE -> vits
-        CloudApiVoiceCatalog.ENGINE -> cloudApi
-        else -> kokoroDirect
     }
 
     /** The in-flight in-app request, so [cancel] can target exactly it. */
