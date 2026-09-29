@@ -50,7 +50,9 @@ import app.marmalade.tts.audio.StreamingEffectChain
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.lang.LangDetector
+import app.marmalade.tts.lang.LanguageVoiceSelector
 import app.marmalade.tts.lang.UtteranceLanguage
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.preprocessing.EmojiProsody
 import app.marmalade.tts.preprocessing.Emotion
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -129,7 +131,9 @@ import kotlinx.coroutines.withContext
 //     │                  while the request in front of it still plays.
 //     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
 //     │     voice/speed/effect/lang (share-sheet path and the reader; the
-//     │     reader may name another alias via EXTRA_ALIAS_ID)
+//     │     reader may name another alias via EXTRA_ALIAS_ID; an EXTRA_SHARED
+//     │     text whose language the primary's voice doesn't speak goes to
+//     │     LanguageVoiceSelector's alias/installed voice instead)
 //     ├── speed = req.sessionSpeed, if sent (reader session speed; replaces
 //     │     the alias's speed — absent for every other caller)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
@@ -207,6 +211,9 @@ class MarmaladeSynthService : Service() {
     @Inject lateinit var residency: EngineResidency
 
     @Inject lateinit var langDetector: LangDetector
+
+    /** Picks a shared text's voice by its language — see [isLanguageAwareShare]. */
+    @Inject lateinit var languageVoices: LanguageVoiceSelector
 
     @Inject lateinit var completions: PreviewCompletions
 
@@ -477,6 +484,7 @@ class MarmaladeSynthService : Service() {
             requestId = intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
             continuation = intent.getBooleanExtra(EXTRA_CONTINUATION, false),
             aliasId = intent.getStringExtra(EXTRA_ALIAS_ID)?.takeIf { it.isNotBlank() },
+            shared = intent.getBooleanExtra(EXTRA_SHARED, false),
         )
     }
 
@@ -710,11 +718,20 @@ class MarmaladeSynthService : Service() {
         // resolve. The router still does the right thing (skip per-app
         // lookup, return the primary). The reader may name another alias
         // (EXTRA_ALIAS_ID) when the primary's voice doesn't speak the
-        // article's language.
+        // article's language; a plain-text share gets the same decision
+        // made here, once, on the whole shared text (lang/VoiceForLanguage.kt).
+        val choice = if (isLanguageAwareShare(req)) {
+            languageVoices.select(req.text, subject = "share", logTag = SHARE_VOICE_TAG)
+        } else {
+            VoiceChoice.Primary
+        }
         val routed: SpeakRequest = if (req.voiceExplicit) {
             req
+        } else if (choice is VoiceChoice.Installed) {
+            withInstalledVoice(req, choice)
         } else {
-            val alias = router.resolveAlias(callerPackage = null, aliasId = req.aliasId)
+            val aliasId = (choice as? VoiceChoice.Alias)?.aliasId ?: req.aliasId
+            val alias = router.resolveAlias(callerPackage = null, aliasId = aliasId)
             if (alias != null) {
                 req.copy(
                     engine = alias.engine,
@@ -731,9 +748,10 @@ class MarmaladeSynthService : Service() {
         // Resolve auto-detection against the utterance, once, before any
         // chunking. No per-utterance voice rerouting here: it has no request
         // locale to fall back on and the caller picked the voice, so
-        // detection only ever moves the phonemizer. (The reader picks a
-        // voice for the article's language itself, once per article, before
-        // it sends anything — see reader/ReaderVoice.kt.) See
+        // detection only ever moves the phonemizer. (The voice for the
+        // text's language was already settled: by the reader, once per
+        // article, or above, once per shared text — see
+        // lang/VoiceForLanguage.kt.) See
         // [UtteranceLanguage] for the per-engine rules.
         //
         // The session speed lands here, after routing, so it replaces the
@@ -757,6 +775,30 @@ class MarmaladeSynthService : Service() {
      * caller's session speed when it sent one, the routed speed otherwise.
      */
     internal fun effectiveSpeed(routed: SpeakRequest): Float = routed.sessionSpeed ?: routed.speed
+
+    /**
+     * Whether [req] is a plain-text share whose voice follows its language:
+     * sent by the share sheet (or the reader's "read text as-is" fallback,
+     * which is the same shared text), with no voice or alias named. Every
+     * other caller — the Speak screen and previews (explicit voice), the
+     * reader (decides per article itself) — is routed exactly as before.
+     * System TTS never comes through this service at all.
+     */
+    internal fun isLanguageAwareShare(req: SpeakRequest): Boolean =
+        req.shared && !req.voiceExplicit && req.aliasId == null
+
+    /**
+     * [req] spoken in an installed voice no alias uses: that voice, dry, at
+     * 1.0x, its phonemizer left to the engine's own auto-detection.
+     */
+    internal fun withInstalledVoice(req: SpeakRequest, choice: VoiceChoice.Installed): SpeakRequest =
+        req.copy(
+            engine = choice.engine,
+            voice = choice.voiceId,
+            speed = 1.0f,
+            effectBlocks = EffectChain.blocksForPreset(EffectPreset.NONE),
+            phonemizationLanguage = null,
+        )
 
     private suspend fun runOne(prepared: Prepared) {
         val req = prepared.req
@@ -1757,6 +1799,8 @@ class MarmaladeSynthService : Service() {
         val continuation: Boolean = false,
         /** Sent with [EXTRA_ALIAS_ID]: route through this alias instead of the primary. */
         val aliasId: String? = null,
+        /** Sent with [EXTRA_SHARED]: plain text from the share sheet — see [isLanguageAwareShare]. */
+        val shared: Boolean = false,
     )
 
     companion object {
@@ -1943,6 +1987,16 @@ class MarmaladeSynthService : Service() {
          * the primary.
          */
         const val EXTRA_ALIAS_ID: String = "app.marmalade.tts.extra.ALIAS_ID"
+        /**
+         * Boolean, default false. True marks plain text shared into the app
+         * ([SpeakDispatcher]: the share sheet, PROCESS_TEXT, the reader's
+         * "read text as-is"). With no [EXTRA_VOICE] it is spoken in a voice
+         * that speaks its language when the primary alias's doesn't.
+         */
+        const val EXTRA_SHARED: String = "app.marmalade.tts.extra.SHARED"
+
+        /** Logcat tag for the share route's per-text voice decision. */
+        private const val SHARE_VOICE_TAG = "ShareVoice"
         /**
          * Path (inside our own cacheDir) holding the text, used instead of
          * [EXTRA_TEXT] when the text is too large for a binder transaction.

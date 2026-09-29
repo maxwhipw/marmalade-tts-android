@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.service.LiveSessionSpeed
 import app.marmalade.tts.service.MarmaladeSynthService
 import app.marmalade.tts.service.SpeakDispatcher
@@ -45,7 +46,7 @@ interface ReaderSpeechClient {
         text: String,
         speed: Float,
         continuation: Boolean,
-        voice: ReaderVoice,
+        voice: VoiceChoice,
     ): Boolean
 
     /**
@@ -79,7 +80,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         text: String,
         speed: Float,
         continuation: Boolean,
-        voice: ReaderVoice,
+        voice: VoiceChoice,
     ): Boolean {
         // The live value wins over the extra below in the service; setting it
         // here is what makes a new article's starting speed replace the last
@@ -88,7 +89,7 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         // The primary alias sends no voice at all: leaving EXTRA_VOICE off is
         // what makes the service resolve it (voice, speed, effect, language),
         // exactly as the share-sheet path does. The other two come from the
-        // article-language switch (see ReaderVoice.kt): another alias goes by
+        // article-language switch (see lang/VoiceForLanguage.kt): another alias goes by
         // id, so the service applies that alias whole; an installed voice no
         // alias uses is named outright and spoken dry.
         //
@@ -108,10 +109,10 @@ class SynthServiceReaderSpeechClient @Inject constructor(
             putExtra(MarmaladeSynthService.EXTRA_SESSION_SPEED, speed)
             putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, continuation)
             when (voice) {
-                ReaderVoice.Primary -> Unit
-                is ReaderVoice.Alias ->
+                VoiceChoice.Primary -> Unit
+                is VoiceChoice.Alias ->
                     putExtra(MarmaladeSynthService.EXTRA_ALIAS_ID, voice.aliasId)
-                is ReaderVoice.Installed ->
+                is VoiceChoice.Installed ->
                     putExtra(MarmaladeSynthService.EXTRA_VOICE, voice.voiceId)
             }
             setPackage(context.packageName)

@@ -229,7 +229,14 @@ When investigating **{concern}**, start at **{files}**:
   one-line title — → reader; everything else, prose containing a link and
   PROCESS_TEXT included → speak). Unit-tested on the JVM.
 - `service/SpeakDispatcher.kt` — wraps the foreground-service start
-  intent for in-app and external callers
+  intent for shared text (share sheet, PROCESS_TEXT, the reader's "read
+  text as-is"); marks it `EXTRA_SHARED`, so MarmaladeSynthService's
+  `resolveRequest` detects the whole text's language once and, if the
+  primary alias's voice doesn't speak it, uses the same choice as the
+  reader (`LanguageVoiceSelector`: other alias → installed on-device voice
+  → primary), logged as `D/ShareVoice`. Explicit-voice callers (Speak
+  screen, previews) and the reader are untouched; system TTS
+  (`MarmaladeTtsService`) keeps its own per-utterance rerouting
 
 ### Navigation
 - `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
@@ -257,7 +264,8 @@ When investigating **{concern}**, start at **{files}**:
   (`ReaderAutoScroll`) except after a user drag, and never while
   TalkBack's touch exploration is on (watched live via
   `AccessibilityManager`) — it would steal accessibility focus; then only
-  a ToC pick scrolls. **Voice per article** (`reader/ReaderVoice.kt`,
+  a ToC pick scrolls. **Voice per article** (`reader/ReaderVoicePicker.kt`
+  over the shared `lang/VoiceForLanguage.kt` + `lang/LanguageVoiceSelector.kt`,
   2026-09-28): once per article, before the first block, the reader
   detects the article's language (`LangDetector` over the first ~2000
   chars) and, if the primary alias's voice doesn't speak it

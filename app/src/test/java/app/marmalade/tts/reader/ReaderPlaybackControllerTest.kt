@@ -1,5 +1,6 @@
 package app.marmalade.tts.reader
 
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
 import kotlinx.coroutines.CoroutineScope
@@ -618,7 +619,7 @@ class ReaderPlaybackControllerTest {
 
     // -- The article's voice ----------------------------------------------------
 
-    private val chinese = ReaderVoice.Installed("kokoro-direct-v1_0:zf_xiaobei", "kokoro-direct-v1_0")
+    private val chinese = VoiceChoice.Installed("kokoro-direct-v1_0:zf_xiaobei", "kokoro-direct-v1_0")
 
     @Test
     fun `every block of an article is read in the voice it was opened with`() = runTest {
@@ -644,7 +645,7 @@ class ReaderPlaybackControllerTest {
         controller.open(article(KEY, blocks), voice = chinese)
         controller.play()
 
-        controller.open(article(KEY, blocks), voice = ReaderVoice.Primary)
+        controller.open(article(KEY, blocks), voice = VoiceChoice.Primary)
         controller.seekTo(3)
 
         assertEquals(chinese, controller.state.value.voice)
@@ -660,7 +661,7 @@ class ReaderPlaybackControllerTest {
         controller.open(article("https://example.com/other", listOf("New.")))
         controller.play()
 
-        assertEquals(ReaderVoice.Primary, speech.spoken.last().voice)
+        assertEquals(VoiceChoice.Primary, speech.spoken.last().voice)
     }
 
     // -- Reconciling with the service's own pause -----------------------------

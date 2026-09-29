@@ -9,6 +9,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
+import app.marmalade.tts.lang.VoiceChoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -115,6 +116,69 @@ class MarmaladeSynthServiceTest {
         assertEquals("id-zh", request.aliasId)
         assertEquals(false, request.voiceExplicit)
         assertNull(service.parseRequest(speakIntent(sessionSpeed = null))!!.aliasId)
+    }
+
+    // -- Shared text follows its language (Max, 2026-09-28) ----------------------
+
+    @Test
+    fun `a shared text with no voice gets the language-aware route`() {
+        val shared = service.parseRequest(
+            speakIntent(sessionSpeed = null).putExtra(MarmaladeSynthService.EXTRA_SHARED, true),
+        )!!
+
+        assertEquals(true, shared.shared)
+        assertEquals(true, service.isLanguageAwareShare(shared))
+    }
+
+    /** Speak screen, previews, the reader: routed exactly as before. */
+    @Test
+    fun `only shared text gets the language-aware route`() {
+        fun parsed(build: Intent.() -> Unit) =
+            service.parseRequest(speakIntent(sessionSpeed = null).apply(build))!!
+
+        // The reader: no share flag (and it may name its own alias).
+        assertEquals(false, service.isLanguageAwareShare(parsed {}))
+        // A caller that names a voice keeps it, shared or not.
+        assertEquals(
+            false,
+            service.isLanguageAwareShare(
+                parsed {
+                    putExtra(MarmaladeSynthService.EXTRA_SHARED, true)
+                    putExtra(MarmaladeSynthService.EXTRA_VOICE, "kitten-direct-v0_8:Bella")
+                },
+            ),
+        )
+        assertEquals(
+            false,
+            service.isLanguageAwareShare(
+                parsed {
+                    putExtra(MarmaladeSynthService.EXTRA_SHARED, true)
+                    putExtra(MarmaladeSynthService.EXTRA_ALIAS_ID, "id-zh")
+                },
+            ),
+        )
+    }
+
+    /** An installed voice no alias uses: that voice, dry, 1.0x, engine-default phonemizer. */
+    @Test
+    fun `a shared text moved to an installed voice is spoken dry at 1x`() {
+        val shared = service.parseRequest(
+            speakIntent(sessionSpeed = null)
+                .putExtra(MarmaladeSynthService.EXTRA_SHARED, true)
+                .putExtra(MarmaladeSynthService.EXTRA_EFFECT, "CAVE"),
+        )!!.copy(speed = 1.7f, phonemizationLanguage = "en-us")
+
+        val routed = service.withInstalledVoice(
+            shared,
+            VoiceChoice.Installed("kokoro-direct-v1_0:zf_xiaobei", "kokoro-direct-v1_0"),
+        )
+
+        assertEquals("kokoro-direct-v1_0:zf_xiaobei", routed.voice)
+        assertEquals("kokoro-direct-v1_0", routed.engine)
+        assertEquals(1.0f, routed.speed, 0f)
+        assertEquals(emptyList<Any>(), routed.effectBlocks)
+        assertNull(routed.phonemizationLanguage)
+        assertEquals(shared.text, routed.text)
     }
 
     private fun speakIntent(sessionSpeed: Float?) =

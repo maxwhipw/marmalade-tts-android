@@ -20,7 +20,7 @@ import app.marmalade.tts.perf.SpeedPerfWarning
 import app.marmalade.tts.reader.ReaderParseDispatcher
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
-import app.marmalade.tts.reader.ReaderVoice
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.reader.ReaderVoicePicker
 import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -191,7 +191,7 @@ class ReaderViewModel @Inject constructor(
     /**
      * The primary alias's engine — the one the service routes the reader to
      * (see [app.marmalade.tts.service.TtsRouter.resolveAlias]) when the
-     * article's voice is [ReaderVoice.Primary]. Falls back to an empty engine
+     * article's voice is [VoiceChoice.Primary]. Falls back to an empty engine
      * when no primary alias is set (or it has been deleted), mirroring the
      * service falling through to the engine's default.
      */
@@ -211,9 +211,9 @@ class ReaderViewModel @Inject constructor(
     private val readingEngine: StateFlow<String> =
         combine(playback, primaryAlias) { pb, alias ->
             when (val voice = pb.voice) {
-                ReaderVoice.Primary -> alias.engine
-                is ReaderVoice.Alias -> voice.engine
-                is ReaderVoice.Installed -> voice.engine
+                VoiceChoice.Primary -> alias.engine
+                is VoiceChoice.Alias -> voice.engine
+                is VoiceChoice.Installed -> voice.engine
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
@@ -427,13 +427,13 @@ class ReaderViewModel @Inject constructor(
      * which would otherwise match no chip and label the extra chip with
      * float noise. The difference is far below anything audible.
      */
-    private suspend fun startingSpeed(voice: ReaderVoice): Float {
+    private suspend fun startingSpeed(voice: VoiceChoice): Float {
         val speed = when (voice) {
-            ReaderVoice.Primary -> settings.primaryAliasId.first()
+            VoiceChoice.Primary -> settings.primaryAliasId.first()
                 ?.let { aliasDao.findById(it) }
                 ?.speed
-            is ReaderVoice.Alias -> voice.speed
-            is ReaderVoice.Installed -> null
+            is VoiceChoice.Alias -> voice.speed
+            is VoiceChoice.Installed -> null
         } ?: return 1.0f
         return (speed * 100).roundToInt() / 100f
     }

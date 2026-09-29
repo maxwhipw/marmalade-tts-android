@@ -1,6 +1,7 @@
 package app.marmalade.tts.reader
 
 import android.os.SystemClock
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.service.PlaybackTransport
 import app.marmalade.tts.service.PreviewCompletions
 import app.marmalade.tts.service.ReaderTransportState
@@ -95,10 +96,10 @@ data class ReaderPlaybackState(
     val speed: Float = 1.0f,
     /**
      * The voice this article is read in, chosen once when it was opened (see
-     * ReaderVoice.kt) and kept for the whole article so it never changes
+     * lang/VoiceForLanguage.kt) and kept for the whole article so it never changes
      * voice mid-read.
      */
-    val voice: ReaderVoice = ReaderVoice.Primary,
+    val voice: VoiceChoice = VoiceChoice.Primary,
     /**
      * Why playback last stopped on its own — a failed synthesis, a missing
      * engine, or a service that refused to start — or null. Set alongside the
@@ -192,7 +193,7 @@ class ReaderPlaybackController internal constructor(
     fun open(
         article: ReaderArticle,
         initialSpeed: Float = 1.0f,
-        voice: ReaderVoice = ReaderVoice.Primary,
+        voice: VoiceChoice = VoiceChoice.Primary,
     ): Boolean = synchronized(lock) {
         if (article.url == _state.value.articleKey && this.blocks.isNotEmpty()) return false
         cancelPendingLocked()

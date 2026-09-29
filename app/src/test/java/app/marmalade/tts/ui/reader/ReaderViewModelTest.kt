@@ -10,7 +10,7 @@ import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackStatus
-import app.marmalade.tts.reader.ReaderVoice
+import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.reader.ReaderVoicePicker
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineCatalog
@@ -162,7 +162,7 @@ class ReaderViewModelTest {
             settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
             aliasDao = FakeAliasDao(),
             deviceProbe = FakeDeviceProbe(),
-            voicePicker = FakeVoicePicker(ReaderVoice.Primary),
+            voicePicker = FakeVoicePicker(VoiceChoice.Primary),
             parseDispatcher = Dispatchers.Main,
             savedStateHandle = SavedStateHandle(),
         )
@@ -442,13 +442,13 @@ class ReaderViewModelTest {
 
     // -- The article's voice (language-aware) ------------------------------------
 
-    private val zhAlias = ReaderVoice.Alias(
+    private val zhAlias = VoiceChoice.Alias(
         aliasId = "id-zh",
         voiceId = "kokoro-direct-v1_0:zf_xiaoni",
         engine = "kokoro-direct-v1_0",
         speed = 1.2000001f,
     )
-    private val zhInstalled = ReaderVoice.Installed(
+    private val zhInstalled = VoiceChoice.Installed(
         voiceId = "kokoro-direct-v1_0:zf_xiaobei",
         engine = "kokoro-direct-v1_0",
     )
@@ -532,7 +532,7 @@ class ReaderViewModelTest {
         val controller = newController()
         controller.open(heldArticle(), voice = zhInstalled)
         controller.play()
-        val picker = FakeVoicePicker(ReaderVoice.Primary)
+        val picker = FakeVoicePicker(VoiceChoice.Primary)
 
         newViewModel(controller = controller, voicePicker = picker).state.first()
         controller.next()
@@ -550,11 +550,11 @@ class ReaderViewModelTest {
         assertEquals(1, picker.calls)
     }
 
-    private class FakeVoicePicker(private val voice: ReaderVoice) : ReaderVoicePicker {
+    private class FakeVoicePicker(private val voice: VoiceChoice) : ReaderVoicePicker {
         var calls = 0
             private set
 
-        override suspend fun voiceFor(article: ReaderArticle): ReaderVoice {
+        override suspend fun voiceFor(article: ReaderArticle): VoiceChoice {
             calls++
             return voice
         }
@@ -791,7 +791,7 @@ class ReaderViewModelTest {
         controller: ReaderPlaybackController = newController(),
         aliasDao: FakeAliasDao = FakeAliasDao(),
         deviceProbe: FakeDeviceProbe = FakeDeviceProbe(),
-        voicePicker: ReaderVoicePicker = FakeVoicePicker(ReaderVoice.Primary),
+        voicePicker: ReaderVoicePicker = FakeVoicePicker(VoiceChoice.Primary),
         parseDispatcher: CoroutineDispatcher = Dispatchers.Main,
         savedState: Map<String, Any> = emptyMap(),
         handle: SavedStateHandle = savedStateHandle(sharedText, savedState),

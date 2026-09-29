@@ -23,7 +23,7 @@ import androidx.core.content.ContextCompat
 //     └── build Intent {
 //           component   = MarmaladeSynthService
 //           action      = MarmaladeSynthService.ACTION_SPEAK
-//           extras      = { EXTRA_TEXT = clamped text }
+//           extras      = { EXTRA_TEXT = clamped text, EXTRA_SHARED = true }
 //           package     = caller's package (explicit, safe across exports)
 //         }
 //           │
@@ -82,6 +82,9 @@ internal object SpeakDispatcher {
         val intent = Intent(context, MarmaladeSynthService::class.java).apply {
             action = MarmaladeSynthService.ACTION_SPEAK
             putExtra(MarmaladeSynthService.EXTRA_TEXT, prepared.text)
+            // Shared text: the service speaks it in a voice that speaks its
+            // language if the primary alias's voice doesn't.
+            putExtra(MarmaladeSynthService.EXTRA_SHARED, true)
             setPackage(context.packageName)
         }
         try {

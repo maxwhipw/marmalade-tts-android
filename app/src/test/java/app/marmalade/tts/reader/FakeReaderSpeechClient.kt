@@ -1,5 +1,7 @@
 package app.marmalade.tts.reader
 
+import app.marmalade.tts.lang.VoiceChoice
+
 /**
  * Records what the reader asked [MarmaladeSynthService] to do, so the
  * controller's sequencing can be asserted without a Context or a service.
@@ -13,8 +15,8 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         val speed: Float = 1.0f,
         /** False only for the request that starts a play — see [ReaderSpeechClient.speak]. */
         val continuation: Boolean = false,
-        /** The voice the article is read in — see [ReaderVoice]. */
-        val voice: ReaderVoice = ReaderVoice.Primary,
+        /** The voice the article is read in — see [VoiceChoice]. */
+        val voice: VoiceChoice = VoiceChoice.Primary,
     )
 
     val spoken = mutableListOf<Spoken>()
@@ -32,7 +34,7 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         text: String,
         speed: Float,
         continuation: Boolean,
-        voice: ReaderVoice,
+        voice: VoiceChoice,
     ): Boolean {
         if (!startAllowed) return false
         spoken += Spoken(requestId, text, speed, continuation, voice)

@@ -1,13 +1,11 @@
-package app.marmalade.tts.reader
+package app.marmalade.tts.lang
 
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.db.VoiceMeta
-import app.marmalade.tts.lang.LangDetector
-import app.marmalade.tts.reader.ReaderVoiceDecision.Reason
-import java.io.File
+import app.marmalade.tts.lang.VoiceDecision.Reason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -15,13 +13,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * [ReaderVoiceChooser] — which voice reads an article (Max, 2026-09-28: "Reader
- * should load a language-supported engine if the default alias does not
- * support it"). The device evidence: a Chinese page with primary alias "Heart"
- * (kokoro af_heart, English) was phonemized as Chinese but spoken by the
- * English speaker.
+ * [VoiceForLanguage] — which voice reads an article or a shared text (Max,
+ * 2026-09-28: "Reader should load a language-supported engine if the default
+ * alias does not support it", then the same for plain-text shares). The
+ * device evidence: Chinese text with primary alias "Heart" (kokoro af_heart,
+ * English) was phonemized as Chinese but spoken by the English speaker.
  */
-class ReaderVoiceChooserTest {
+class VoiceForLanguageTest {
 
     private val kokoro = KokoroDirectVoiceCatalog.ENGINE
 
@@ -37,14 +35,14 @@ class ReaderVoiceChooserTest {
 
     @Test
     fun `regions of one language are the same language`() {
-        assertTrue(ReaderVoiceChooser.speaks("en-US", "en"))
-        assertTrue(ReaderVoiceChooser.speaks("en-GB", "en"))
-        assertTrue(ReaderVoiceChooser.speaks("en_GB", "EN"))
-        assertTrue(ReaderVoiceChooser.speaks("zh-CN", "zh"))
-        assertFalse(ReaderVoiceChooser.speaks("en-US", "zh"))
-        assertFalse(ReaderVoiceChooser.speaks(null, "en"))
-        assertEquals("pt", ReaderVoiceChooser.languageOf("pt-BR"))
-        assertNull(ReaderVoiceChooser.languageOf(" "))
+        assertTrue(VoiceForLanguage.speaks("en-US", "en"))
+        assertTrue(VoiceForLanguage.speaks("en-GB", "en"))
+        assertTrue(VoiceForLanguage.speaks("en_GB", "EN"))
+        assertTrue(VoiceForLanguage.speaks("zh-CN", "zh"))
+        assertFalse(VoiceForLanguage.speaks("en-US", "zh"))
+        assertFalse(VoiceForLanguage.speaks(null, "en"))
+        assertEquals("pt", VoiceForLanguage.languageOf("pt-BR"))
+        assertNull(VoiceForLanguage.languageOf(" "))
     }
 
     /** A British primary reading an English article is not "unsupported". */
@@ -52,7 +50,7 @@ class ReaderVoiceChooserTest {
     fun `a primary of another region of the language is kept`() {
         val decision = choose("en", alias("id-emma", emma), emma, pickable = listOf(heart))
 
-        assertEquals(ReaderVoice.Primary, decision.voice)
+        assertEquals(VoiceChoice.Primary, decision.voice)
         assertEquals(Reason.PrimarySupports, decision.reason)
     }
 
@@ -62,7 +60,7 @@ class ReaderVoiceChooserTest {
     fun `an unsupported language moves to an installed voice that speaks it`() {
         val decision = choose("zh", heartAlias, heart, pickable = listOf(heart, xiaobei, xiaoni))
 
-        assertEquals(ReaderVoice.Installed(xiaobei.id, kokoro), decision.voice)
+        assertEquals(VoiceChoice.Installed(xiaobei.id, kokoro), decision.voice)
         assertEquals(Reason.InstalledVoice, decision.reason)
     }
 
@@ -76,7 +74,7 @@ class ReaderVoiceChooserTest {
             pickable = listOf(heart, xiaobei, xiaoni),
         )
 
-        assertEquals(ReaderVoice.Alias("id-ni", xiaoni.id, kokoro, 0.9f), decision.voice)
+        assertEquals(VoiceChoice.Alias("id-ni", xiaoni.id, kokoro, 0.9f), decision.voice)
         assertEquals(Reason.OtherAlias, decision.reason)
     }
 
@@ -92,7 +90,7 @@ class ReaderVoiceChooserTest {
             pickable = listOf(heart, xiaobei, xiaoni),
         )
 
-        assertEquals("id-a", (decision.voice as ReaderVoice.Alias).aliasId)
+        assertEquals("id-a", (decision.voice as VoiceChoice.Alias).aliasId)
     }
 
     /** An alias whose voice isn't on disk (engine uninstalled) can't speak anything. */
@@ -106,14 +104,14 @@ class ReaderVoiceChooserTest {
             pickable = listOf(heart, xiaobei),
         )
 
-        assertEquals(ReaderVoice.Installed(xiaobei.id, kokoro), decision.voice)
+        assertEquals(VoiceChoice.Installed(xiaobei.id, kokoro), decision.voice)
     }
 
     @Test
     fun `nothing that speaks it keeps the primary`() {
         val decision = choose("zh", heartAlias, heart, pickable = listOf(heart, dora))
 
-        assertEquals(ReaderVoice.Primary, decision.voice)
+        assertEquals(VoiceChoice.Primary, decision.voice)
         assertEquals(Reason.NoVoiceForLanguage, decision.reason)
     }
 
@@ -122,7 +120,7 @@ class ReaderVoiceChooserTest {
     fun `an undetected language keeps the primary`() {
         val decision = choose(null, heartAlias, heart, pickable = listOf(xiaobei))
 
-        assertEquals(ReaderVoice.Primary, decision.voice)
+        assertEquals(VoiceChoice.Primary, decision.voice)
         assertEquals(Reason.LanguageUnknown, decision.reason)
     }
 
@@ -130,7 +128,7 @@ class ReaderVoiceChooserTest {
     fun `a primary voice with no catalog row keeps the primary`() {
         val decision = choose("zh", heartAlias, primaryVoice = null, pickable = listOf(xiaobei))
 
-        assertEquals(ReaderVoice.Primary, decision.voice)
+        assertEquals(VoiceChoice.Primary, decision.voice)
         assertEquals(Reason.PrimaryVoiceUnknown, decision.reason)
     }
 
@@ -148,7 +146,7 @@ class ReaderVoiceChooserTest {
 
         val decision = choose("zh", primary = null, primaryVoice = kittenDefault, pickable = listOf(xiaobei))
 
-        assertEquals(ReaderVoice.Installed(xiaobei.id, kokoro), decision.voice)
+        assertEquals(VoiceChoice.Installed(xiaobei.id, kokoro), decision.voice)
     }
 
     /**
@@ -166,7 +164,7 @@ class ReaderVoiceChooserTest {
             gender = "female",
         )
         assertEquals(
-            ReaderVoice.Primary,
+            VoiceChoice.Primary,
             choose("zh", heartAlias, heart, pickable = listOf(heart, cloudZh)).voice,
         )
 
@@ -176,47 +174,7 @@ class ReaderVoiceChooserTest {
             aliases = listOf(heartAlias, cloudAlias),
             pickable = listOf(heart, cloudZh),
         )
-        assertEquals("id-cloud", (decision.voice as ReaderVoice.Alias).aliasId)
-    }
-
-    // -- Detection sample --------------------------------------------------------
-
-    private val detector = LangDetector(
-        File("src/main/assets/langdetect.tab").readLines(),
-        systemCjk = null,
-    )
-
-    /** The device case: a Chinese article whose chrome (title) is English. */
-    @Test
-    fun `a Chinese article with an English title detects as Chinese`() {
-        val article = ReaderArticle(
-            url = "https://example.com/zh",
-            title = "News",
-            byline = null,
-            blocks = listOf(
-                ArticleBlock.Paragraph("这是一个关于果酱的故事。我们今天去市场买了很多橙子。"),
-                ArticleBlock.Paragraph("他们说这个应用可以读出文章。"),
-            ),
-            totalTextChars = 40,
-        )
-
-        assertEquals("zh", detector.detect(ReaderVoiceChooser.detectionSample(article)))
-    }
-
-    @Test
-    fun `the detection sample is capped`() {
-        val long = ReaderArticle(
-            url = "https://example.com/long",
-            title = null,
-            byline = null,
-            blocks = List(500) { ArticleBlock.Paragraph("The quick brown fox jumps over the lazy dog.") },
-            totalTextChars = 22_000,
-        )
-
-        val sample = ReaderVoiceChooser.detectionSample(long)
-
-        assertEquals(ReaderVoiceChooser.DETECTION_SAMPLE_CHARS, sample.length)
-        assertEquals("en", detector.detect(sample))
+        assertEquals("id-cloud", (decision.voice as VoiceChoice.Alias).aliasId)
     }
 
     // -- Log line ----------------------------------------------------------------
@@ -227,7 +185,7 @@ class ReaderVoiceChooserTest {
 
         assertEquals(
             "article lang=zh primary=$kokoro:af_heart unsupported -> $kokoro:zf_xiaobei (installed voice)",
-            ReaderVoiceChooser.describe(decision, heart.id),
+            VoiceForLanguage.describe("article", decision, heart.id),
         )
     }
 
@@ -239,7 +197,7 @@ class ReaderVoiceChooserTest {
         primaryVoice: VoiceMeta?,
         aliases: List<VoiceAlias> = listOfNotNull(primary),
         pickable: List<VoiceMeta>,
-    ) = ReaderVoiceChooser.choose(language, primary, primaryVoice, aliases, pickable)
+    ) = VoiceForLanguage.choose(language, primary, primaryVoice, aliases, pickable)
 
     private fun voice(key: String) = KokoroDirectVoiceCatalog.voices.first { it.id.endsWith(":$key") }
 
