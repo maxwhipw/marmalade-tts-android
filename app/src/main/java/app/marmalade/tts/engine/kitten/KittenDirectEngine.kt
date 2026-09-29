@@ -308,6 +308,14 @@ open class KittenDirectEngine @Inject constructor(
             setIntraOpNumThreads(intraOpThreads)
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             setMemoryPatternOptimization(true)
+            // x86_64 only exists in debug builds, for the emulator (release
+            // ships ARM only). ORT's x86_64 XNNPACK EP segfaults in
+            // createSession there, crashing the first-launch benchmark, so
+            // emulator builds run the plain CPU EP.
+            if (Build.SUPPORTED_ABIS.firstOrNull() == "x86_64") {
+                Log.i(TAG, "x86_64 (emulator build): XNNPACK EP skipped")
+                return@apply
+            }
             try {
                 addXnnpack(mapOf("intra_op_num_threads" to intraOpThreads.toString()))
                 addConfigEntry("session.intra_op.allow_spinning", "0")
