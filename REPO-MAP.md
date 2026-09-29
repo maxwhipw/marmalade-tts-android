@@ -234,7 +234,7 @@ When investigating **{concern}**, start at **{files}**:
   text as-is"); marks it `EXTRA_SHARED`, so MarmaladeSynthService's
   `resolveRequest` detects the whole text's language once and, if the
   primary alias's voice doesn't speak it, uses the same choice as the
-  reader (`LanguageVoiceSelector`: other alias → installed on-device voice
+  reader (`LanguageVoiceSelector`: other on-device alias → installed on-device voice
   → primary), logged as `D/ShareVoice`. Explicit-voice callers (Speak
   screen, previews) and the reader are untouched; system TTS
   (`MarmaladeTtsService`) keeps its own per-utterance rerouting
@@ -278,10 +278,11 @@ When investigating **{concern}**, start at **{files}**:
   (`VoiceMeta.languageCode`, language subtag only; a multilingual cloud
   voice — OpenAI-style, stored as `en-US` as a placeholder — counts as
   speaking everything, `CloudApiVoiceCatalog.hasKnownLanguage`), reads it in another
-  alias whose voice does (sent as `EXTRA_ALIAS_ID` →
+  on-device alias whose voice does (sent as `EXTRA_ALIAS_ID` →
   `TtsRouter.resolveAlias(aliasId=…)`), else an installed on-device,
-  pickable voice of that language (`EXTRA_VOICE`, dry, 1.0x; never a cloud
-  voice), else the primary as before. Undetected language keeps the
+  pickable voice of that language (`EXTRA_VOICE`, dry, 1.0x), else the
+  primary as before. **Never a cloud voice or cloud alias** (Max's privacy
+  rule): text reaches a provider only through a cloud primary. Undetected language keeps the
   primary. A rebind keeps the article's voice; logged as `D/ReaderVoice`.
   The reader UI shows no voice name. The reading speed (`ReaderSpeedSheet`) is
   session-only and an **absolute override** of the reading alias's speed,

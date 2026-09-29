@@ -150,11 +150,12 @@ class VoiceForLanguageTest {
     }
 
     /**
-     * Reading an article to a cloud provider is opted into per alias; the
-     * reader never sends one there on its own.
+     * Max's privacy rule: the auto-pick never sends text to a cloud provider
+     * on its own — neither an installed cloud voice nor another alias that
+     * uses one. Only a cloud alias the user made primary is used.
      */
     @Test
-    fun `an installed cloud voice is never picked, a cloud alias can be`() {
+    fun `neither an installed cloud voice nor a cloud alias is picked`() {
         val cloudZh = VoiceMeta(
             id = "cloud-api-v1:venice:tts-kokoro:zf_xiaobei",
             engine = CloudApiVoiceCatalog.ENGINE,
@@ -174,7 +175,36 @@ class VoiceForLanguageTest {
             aliases = listOf(heartAlias, cloudAlias),
             pickable = listOf(heart, cloudZh),
         )
-        assertEquals("id-cloud", (decision.voice as VoiceChoice.Alias).aliasId)
+        assertEquals(VoiceChoice.Primary, decision.voice)
+        assertEquals(Reason.NoVoiceForLanguage, decision.reason)
+
+        // ...and a later on-device alias that speaks it still wins.
+        val xiaobeiAlias = alias("id-xiaobei", xiaobei, createdAt = 3)
+        val onDevice = choose(
+            "zh", heartAlias, heart,
+            aliases = listOf(heartAlias, cloudAlias, xiaobeiAlias),
+            pickable = listOf(heart, cloudZh, xiaobei),
+        )
+        assertEquals("id-xiaobei", (onDevice.voice as VoiceChoice.Alias).aliasId)
+    }
+
+    /** A cloud alias the user made primary is still used when it speaks the language. */
+    @Test
+    fun `a cloud primary alias is still used`() {
+        val cloudZh = VoiceMeta(
+            id = "cloud-api-v1:venice:tts-kokoro:zf_xiaobei",
+            engine = CloudApiVoiceCatalog.ENGINE,
+            displayName = "Xiaobei",
+            languageCode = "zh-CN",
+            sampleRate = 24_000,
+            gender = "female",
+        )
+        val cloudPrimary = alias("id-cloud", cloudZh)
+
+        val decision = choose("zh", cloudPrimary, cloudZh, pickable = listOf(cloudZh, xiaobei))
+
+        assertEquals(VoiceChoice.Primary, decision.voice)
+        assertEquals(Reason.PrimarySupports, decision.reason)
     }
 
     /**

@@ -19,8 +19,8 @@ import app.marmalade.tts.service.TtsLocales
 //       ▼
 //     primary alias's voice speaks it?      → primary alias
 //       ▼ no
-//     another alias whose voice speaks it?  → that alias (createdAt order —
-//       │                                    the alias list's own order)
+//     another on-device alias whose voice  → that alias (createdAt order —
+//       │ speaks it?                          the alias list's own order)
 //       ▼ none
 //     an installed, released, on-device     → that voice, dry, at 1.0x
 //       │ voice of that language?             (Kokoro first, catalog order —
@@ -31,9 +31,12 @@ import app.marmalade.tts.service.TtsLocales
 //   "Speaks it" is the voice's own VoiceMeta.languageCode, compared on the
 //   language subtag only (en-US and en-GB are both English). A multilingual
 //   cloud voice (OpenAI-style, stored as en-US for want of a language) has no
-//   one language: as the primary it is always kept (spokenLanguage). Never an
-//   installed cloud voice: sending text to a provider is something the user
-//   opts into per alias. Callers: reader/LanguageAwareReaderVoicePicker and
+//   one language: as the primary it is always kept (spokenLanguage).
+//
+//   Privacy rule (Max, 2026-09-28): the auto-pick NEVER picks a cloud voice —
+//   neither an installed cloud voice nor another alias that uses one. Sending
+//   the text to a provider happens only when the user made that cloud alias
+//   their primary. Callers: reader/LanguageAwareReaderVoicePicker and
 //   MarmaladeSynthService's share route, both through LanguageVoiceSelector.
 //   System TTS (MarmaladeTtsService) has its own per-utterance rerouting and
 //   doesn't use this.
@@ -123,6 +126,10 @@ object VoiceForLanguage {
      * @param pickable     the voices a user could pick right now
      *                     ([app.marmalade.tts.data.pickableVoices]): on disk,
      *                     released, developer-gated.
+     *
+     * Never moves the text TO a cloud voice — not another alias's, not an
+     * installed one: text goes to a provider only when a cloud alias is the
+     * user's own primary, which this keeps like any other primary.
      */
     fun choose(
         language: String?,
@@ -140,10 +147,12 @@ object VoiceForLanguage {
             return keep(VoiceDecision.Reason.PrimarySupports)
         }
 
-        val pickableById = pickable.associateBy { it.id }
+        // Cloud voices are excluded here and below: see the privacy rule above.
+        val onDevice = pickable.filter { it.engine != CloudApiVoiceCatalog.ENGINE }
+        val onDeviceById = onDevice.associateBy { it.id }
         aliases.firstOrNull { alias ->
             alias.id != primary?.id &&
-                pickableById[alias.voiceId]?.let { speaks(spokenLanguage(it), language) } == true
+                onDeviceById[alias.voiceId]?.let { speaks(spokenLanguage(it), language) } == true
         }?.let { alias ->
             return VoiceDecision(
                 voice = VoiceChoice.Alias(
@@ -157,10 +166,6 @@ object VoiceForLanguage {
             )
         }
 
-        // On-device voices only: sending the text to a cloud provider is
-        // something the user opts into per alias, never something decided
-        // for them here.
-        val onDevice = pickable.filter { it.engine != CloudApiVoiceCatalog.ENGINE }
         TtsLocales.defaultVoiceFor(language, null, onDevice)?.let { voice ->
             return VoiceDecision(
                 voice = VoiceChoice.Installed(voiceId = voice.id, engine = voice.engine),
