@@ -4,6 +4,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.view.KeyEvent
 import app.marmalade.tts.service.MarmaladeSynthService.Companion.playPauseKeyPauses
 import app.marmalade.tts.service.MarmaladeSynthService.Companion.sessionActions
+import app.marmalade.tts.service.MarmaladeSynthService.Companion.showsStopControl
 import app.marmalade.tts.service.MarmaladeSynthService.Companion.stateForRequestStart
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -89,5 +90,18 @@ class MediaSessionStateTest {
         assertFalse(
             playPauseKeyPauses(KeyEvent.KEYCODE_MEDIA_PAUSE, PlaybackStateCompat.STATE_BUFFERING),
         )
+    }
+
+    @Test
+    fun `stop is a control while there is anything to stop`() {
+        for (live in listOf(
+            PlaybackStateCompat.STATE_BUFFERING,
+            PlaybackStateCompat.STATE_PLAYING,
+            PlaybackStateCompat.STATE_PAUSED,
+        )) {
+            assertTrue(showsStopControl(live))
+        }
+        assertFalse(showsStopControl(PlaybackStateCompat.STATE_STOPPED))
+        assertFalse(showsStopControl(PlaybackStateCompat.STATE_NONE))
     }
 }

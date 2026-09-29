@@ -14,6 +14,7 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
 import android.support.v4.media.session.MediaSessionCompat
@@ -1577,6 +1578,10 @@ class MarmaladeSynthService : Service() {
             override fun onSkipToPrevious() {
                 if (transport.reader.value.isReading) readerPlayback.previous()
             }
+
+            override fun onCustomAction(action: String?, extras: Bundle?) {
+                if (action == CUSTOM_ACTION_STOP) doStop()
+            }
         })
         session.isActive = true
         mediaSession = session
@@ -1588,8 +1593,20 @@ class MarmaladeSynthService : Service() {
         val pb = PlaybackStateCompat.Builder()
             .setActions(sessionActions(transport.reader.value))
             .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
-            .build()
-        session.setPlaybackState(pb)
+        // Android 13+ builds the shade's media controls from this state, not
+        // from the notification's actions, and ACTION_STOP has no button
+        // there — Stop only shows as a custom action. Older versions keep
+        // using the notification's own Stop (buildNotification).
+        if (showsStopControl(state)) {
+            pb.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    CUSTOM_ACTION_STOP,
+                    getString(R.string.service_synth_action_stop),
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                ).build(),
+            )
+        }
+        session.setPlaybackState(pb.build())
     }
 
     // -- notification ---------------------------------------------------------
@@ -1931,6 +1948,13 @@ class MarmaladeSynthService : Service() {
         internal fun playPauseKeyPauses(keyCode: Int, state: Int): Boolean =
             state == PlaybackStateCompat.STATE_BUFFERING &&
                 (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+
+        /** The media session's Stop, as a custom action — see [updateMediaState]. */
+        internal const val CUSTOM_ACTION_STOP = "app.marmalade.tts.media.STOP"
+
+        /** Whether the session's controls offer Stop: while there is anything to stop. */
+        internal fun showsStopControl(state: Int): Boolean =
+            state != PlaybackStateCompat.STATE_NONE && state != PlaybackStateCompat.STATE_STOPPED
 
         /** Wake-lock tag, `app:component` as PowerManager recommends. */
         private const val WAKE_LOCK_TAG = "marmalade:synth"
