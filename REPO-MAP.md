@@ -163,6 +163,8 @@ with no caller in the app: `MarmaladeSynthService`, the reader and
   minus the audio already banked, fed the session's RTF EWMA.
 - `playback/RenderPlanner.kt` — pure "what to render next": ~60 s ahead for
   on-device voices (also while paused), cloud only this segment + the next.
+  `NarratorConfig(todaysDepthOnly = true)` depth-limits every voice — how
+  C1–C3 must run until G (Pocket holds its lock for a whole utterance).
 - `playback/AudioOutput.kt` — the writer port: stream items (Begin/Write/End)
   queue at their frame, controls (Play/Pause/Flush/SetTempo) apply at the
   next slice; every chunk tagged `(sessionId, epoch, segment, chunk)`.

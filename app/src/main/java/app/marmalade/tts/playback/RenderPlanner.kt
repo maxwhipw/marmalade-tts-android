@@ -29,7 +29,12 @@ object RenderPlanner {
         val segment: Int,
         /** Fully rendered, every chunk from the listener's position still held. */
         val complete: Boolean,
-        val cloud: Boolean,
+        /**
+         * Prepare only [CLOUD_DEPTH_SEGMENTS] past the listener instead of the
+         * time budget: cloud voices always, every voice while
+         * [NarratorConfig.todaysDepthOnly] is set.
+         */
+        val depthLimited: Boolean,
         /** 0 for the segment the listener is in (or will start with), 1 for the next… */
         val segmentsAhead: Int,
         /** Played ms buffered ahead of the listener BEFORE this item, along the play order. */
@@ -44,13 +49,13 @@ object RenderPlanner {
 
     /** May the render job working on [item] render one more chunk? */
     fun mayContinue(item: Item, budgetMs: Double = ON_DEVICE_BUDGET_MS): Boolean {
-        if (item.cloud) return item.segmentsAhead <= CLOUD_DEPTH_SEGMENTS
+        if (item.depthLimited) return item.segmentsAhead <= CLOUD_DEPTH_SEGMENTS
         val ahead = item.aheadMsBefore + item.ownAheadMs
         return ahead < budgetMs
     }
 
     private fun allowed(item: Item, budgetMs: Double): Boolean =
-        if (item.cloud) {
+        if (item.depthLimited) {
             item.segmentsAhead <= CLOUD_DEPTH_SEGMENTS
         } else {
             (item.segmentsAhead == 0 && item.aheadMsBefore == 0.0) || item.aheadMsBefore < budgetMs

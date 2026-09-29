@@ -15,7 +15,7 @@ class RenderPlannerTest {
         cloud: Boolean = false,
         before: Double = 0.0,
         own: Double = 0.0,
-    ) = Item(sessionId = 1, segment = segment, complete = complete, cloud = cloud,
+    ) = Item(sessionId = 1, segment = segment, complete = complete, depthLimited = cloud,
         segmentsAhead = segment, aheadMsBefore = before, ownAheadMs = own)
 
     @Test

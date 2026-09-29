@@ -31,6 +31,13 @@ data class NarratorConfig(
     /** Audio ms per character before a session has measured its own. */
     val defaultMsPerChar: Double = 65.0,
     val maxHoldChunks: Int = StartPolicy.MAX_HOLD_CHUNKS,
+    /**
+     * Prepare every voice only as far as today (this block + the next), as
+     * cloud voices always do. Plan §2.5: C1–C3 run with this set; the minute
+     * of read-ahead waits for G, because a Pocket render parked ahead holds
+     * its engine lock for a whole utterance and would block TalkBack.
+     */
+    val todaysDepthOnly: Boolean = false,
 )
 
 /**
@@ -817,7 +824,7 @@ class Narrator(
                     sessionId = s.id,
                     segment = i,
                     complete = seg.complete && seg.intactFrom(from),
-                    cloud = s.cloud,
+                    depthLimited = s.cloud || config.todaysDepthOnly,
                     segmentsAhead = ahead++,
                     aheadMsBefore = aheadBefore,
                     ownAheadMs = own,

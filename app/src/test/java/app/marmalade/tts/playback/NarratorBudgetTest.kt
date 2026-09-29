@@ -86,6 +86,23 @@ class NarratorBudgetTest {
     }
 
     @Test
+    fun `until G, today's depth for every voice - this segment and the next`() = runTest {
+        val h = harness(NarratorConfig(todaysDepthOnly = true))
+        val segs = article(6)
+        h.open(segs)
+        val id = h.narrator.articleId()!!
+        h.runUntil { h.firstHeard(id, 0) != null }
+        h.narrator.pause()
+        h.run(5 * 60_000L)
+        val rendered = segs.indices.filter { h.kokoro.rendersOf(segs[it]).isNotEmpty() }
+        assertEquals(listOf(0, 1), rendered)
+        h.narrator.play()
+        h.runUntil(maxMs = 200_000) { h.article.status == Status.Finished }
+        assertEquals(0.0, h.gapsMs(), 0.0)
+        h.done()
+    }
+
+    @Test
     fun `Q4 - a cloud speed change is stretched on the phone - no re-render, no gap`() = runTest {
         val h = harness()
         h.articleVoice = voice(engine = CLOUD_ENGINE, cloud = true)
