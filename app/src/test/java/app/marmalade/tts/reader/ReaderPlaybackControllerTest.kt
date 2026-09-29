@@ -453,6 +453,18 @@ class ReaderPlaybackControllerTest {
         assertTrue(speech.spoken.all { it.speed == 1.1f })
     }
 
+    /** The speed sheet offers the way back to the alias's own speed. */
+    @Test
+    fun `the starting speed is kept after a speed change`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks), initialSpeed = 1.1f)
+
+        controller.setSpeed(1.5f)
+
+        assertEquals(1.5f, controller.state.value.speed, 0f)
+        assertEquals(1.1f, controller.state.value.startingSpeed, 0f)
+    }
+
     @Test
     fun `an article opened without a speed reads at 1x`() = runTest {
         playing()

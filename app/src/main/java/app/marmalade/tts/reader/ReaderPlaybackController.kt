@@ -95,6 +95,12 @@ data class ReaderPlaybackState(
      */
     val speed: Float = 1.0f,
     /**
+     * The speed this article was opened at — its reading alias's own speed
+     * (see [speed]). Kept after the user picks another so the speed sheet can
+     * always offer the way back to it, even when it isn't a curated chip.
+     */
+    val startingSpeed: Float = 1.0f,
+    /**
      * The voice this article is read in, chosen once when it was opened (see
      * lang/VoiceForLanguage.kt) and kept for the whole article so it never changes
      * voice mid-read.
@@ -203,12 +209,14 @@ class ReaderPlaybackController internal constructor(
         // A whole new state value, so the session speed resets to the
         // alias's with it — deliberate: the speed belongs to the article being
         // read, and the same-key rebind above returns before ever getting here.
+        val speed = initialSpeed.coerceIn(MIN_SPEED, MAX_SPEED)
         _state.value = ReaderPlaybackState(
             articleKey = article.url,
             blockCount = blocks.size,
             currentIndex = 0,
             status = ReaderPlaybackStatus.Idle,
-            speed = initialSpeed.coerceIn(MIN_SPEED, MAX_SPEED),
+            speed = speed,
+            startingSpeed = speed,
             voice = voice,
         )
         return true

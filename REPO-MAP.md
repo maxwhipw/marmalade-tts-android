@@ -297,7 +297,9 @@ When investigating **{concern}**, start at **{files}**:
   and the reader sends it as `EXTRA_SESSION_SPEED`, which
   MarmaladeSynthService applies *after* alias routing (voice, effect and
   language still come from the alias). A non-chip alias speed gets its
-  own chip (`readerSpeedChoices`). A mid-article speed change is applied
+  own chip for the whole article (`readerSpeedChoices` over
+  `ReaderPlaybackState.startingSpeed`), so picking another speed never
+  removes the way back to it. A mid-article speed change is applied
   live to the blocks already queued (no restart; see the
   "effect chain at PLAYBACK" quirk below) — only a fixed-speed (cloud)
   voice falls back to re-enqueueing from the current block.

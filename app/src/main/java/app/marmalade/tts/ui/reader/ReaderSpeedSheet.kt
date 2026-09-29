@@ -28,7 +28,8 @@ import app.marmalade.tts.ui.MarmaladeFilterChip
 // for this article (voice, effect and language still come from the alias).
 // Reading starts at the alias's speed; when that isn't one of the curated
 // chips (an alias tuned to 1.1, say) it gets a chip of its own, in sorted
-// position, so the current speed is always visibly selected. See
+// position, for the whole article — so it is visibly selected at first and
+// still there to go back to after picking another. See
 // ReaderPlaybackController.setSpeed.
 //
 // Session-scoped by design (Max's second UX pass): this is how fast you want
@@ -39,17 +40,19 @@ import app.marmalade.tts.ui.MarmaladeFilterChip
 private val SPEED_CHOICES = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 /**
- * The chips to show while reading at [current]: the curated set, plus
- * [current] in sorted position when it isn't one of them (it came from the
- * alias's own speed), so the selected chip always exists.
+ * The chips to show while reading at [current] an article that started at
+ * [starting] (its alias's own speed): the curated set plus both, in sorted
+ * position — [starting] so the way back to it never disappears, [current] so
+ * the selected chip always exists.
  */
-internal fun readerSpeedChoices(current: Float): List<Float> =
-    if (current in SPEED_CHOICES) SPEED_CHOICES else (SPEED_CHOICES + current).sorted()
+internal fun readerSpeedChoices(current: Float, starting: Float): List<Float> =
+    (SPEED_CHOICES + starting + current).distinct().sorted()
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ReaderSpeedSheet(
     speed: Float,
+    startingSpeed: Float,
     showPerfWarning: Boolean,
     onSpeedChange: (Float) -> Unit,
     onDismiss: () -> Unit,
@@ -76,7 +79,7 @@ fun ReaderSpeedSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                for (choice in readerSpeedChoices(speed)) {
+                for (choice in readerSpeedChoices(speed, startingSpeed)) {
                     MarmaladeFilterChip(
                         selected = choice == speed,
                         onClick = { onSpeedChange(choice) },
