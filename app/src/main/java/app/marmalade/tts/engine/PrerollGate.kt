@@ -1,6 +1,6 @@
 package app.marmalade.tts.engine
 
-import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 
 /**
@@ -20,21 +20,42 @@ import kotlin.math.max
  *
  *   playedMs        = audioMs / playbackRate
  *   deficitFraction = max(0, renderMs / playedMs − REALTIME_MARGIN)
- *   K               = 1 + ceil((totalChunks − 1) × deficitFraction)
+ *   shortfall       = (totalChunks − 1) × deficitFraction
+ *   K               = 1 + round(shortfall)        (a half rounds up)
  *
  * capped at [maxPreroll]. deficitFraction is the extra render time each
  * played chunk-length costs; over the remaining totalChunks − 1 chunks
- * that shortfall must be covered by audio banked before playback
- * starts, and each held chunk banks ≈ one chunk-length. At or above
- * realtime (with [REALTIME_MARGIN] headroom to spare) K stays 1 and
- * behaviour is exactly what it was before this class existed.
+ * that adds up to `shortfall` chunk-lengths, which audio banked before
+ * playback starts must cover, and each held chunk banks ≈ one
+ * chunk-length. At or above realtime (with [REALTIME_MARGIN] headroom
+ * to spare) K stays 1 and behaviour is exactly what it was before this
+ * class existed.
+ *
+ * Why round and not ceil: holding a chunk is a *certain* up-front cost
+ * — one whole chunk's render time, which is ≥ 0.9 of a chunk-length
+ * whenever there is any deficit at all — while the stall it prevents is
+ * only the uncovered part of the shortfall. Rounding holds an extra
+ * chunk once that remainder reaches half a chunk-length, i.e. it weighs
+ * a mid-playback stall at about twice an up-front wait (a stall sounds
+ * broken; a wait after a tap doesn't), and never leaves more than half
+ * a chunk-length uncovered. The margin already overstates the true
+ * stall by 0.1 chunk-lengths per chunk, so most of a sub-half remainder
+ * is headroom, not silence. Ceil held a whole chunk for any deficit: a
+ * thermally throttled 8a (2026-09-28) played RTF 0.91 at 1.0× over a
+ * 5-chunk paragraph — shortfall 4 × 0.01 = 0.04 chunk-lengths, ~190 ms
+ * — and ceil made the tap wait an extra ~5 s chunk for it (K=2). Round
+ * gives K=1 there, and at 2.0× with RTF 0.6 over 5 chunks (played 1.2,
+ * shortfall 1.2) K=2 where ceil gave 3.
  *
  * There is deliberately no speed threshold: measured on the 8a
  * (2026-09-19), warm Kokoro renders at RTF 0.51–0.56, so at 1.0× the
  * played RTF is ~0.55 → K = 1, at 1.5× ~0.84 → still K = 1, and at
- * 2.0× ~1.02–1.12 → K = 2, which is the ~1.1 s between-sentence stall
- * this fixes. The gate self-calibrates from what chunk 0 actually cost
- * on this device, this session.
+ * 2.0× ~1.02–1.12 (deficit 0.12–0.22) → K = 2 once the text has
+ * enough chunks for that to add up to half a chunk (≥ 4–6 chunks),
+ * which is the ~1.1 s between-sentence stall this fixes; a 2–3 chunk
+ * text plays at once and risks one short stall instead. The gate
+ * self-calibrates from what chunk 0 actually cost on this device, this
+ * session.
  */
 class PrerollGate<T>(
     private val playbackRate: Float,
@@ -57,8 +78,8 @@ class PrerollGate<T>(
         if (seen == 0 && audioMs > 0 && playbackRate > 0f) {
             val playedMs = audioMs / playbackRate
             val deficitFraction = max(0.0, renderMs / playedMs - REALTIME_MARGIN)
-            prerollChunks = (1 + ceil((totalChunks - 1) * deficitFraction).toInt())
-                .coerceIn(1, maxPreroll)
+            val shortfall = (totalChunks - 1) * deficitFraction
+            prerollChunks = (1 + floor(shortfall + 0.5).toInt()).coerceIn(1, maxPreroll)
         }
         val idx = seen++
         // Mirrors PocketEngine's emitOrBuffer: chunks 0..K−2 are held,
@@ -93,11 +114,12 @@ class PrerollGate<T>(
 
         /**
          * TTFA bound: K chunks must render before the first emit, and a
-         * warm Kokoro chunk is ~1–2 s of wall time. 3 keeps the worst
-         * added wait in the "long sentence" range rather than the
-         * "is it broken?" range. (Pocket's own ceiling is 2 — its
-         * chunks render slower, so its TTFA budget is tighter.)
+         * chunk is a sentence or more of render time (~1–2 s warm on the
+         * 8a, ~4–5 s throttled). 2 means playback starts within about one
+         * extra sentence at most (Max, 2026-09-28, down from 3): at a
+         * speed the device can't sustain, brief pauses between sentences
+         * beat a long silence after a tap. Pocket's own ceiling is 2 too.
          */
-        const val MAX_PREROLL_CHUNKS = 3
+        const val MAX_PREROLL_CHUNKS = 2
     }
 }
