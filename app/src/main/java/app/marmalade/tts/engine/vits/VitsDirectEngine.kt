@@ -9,8 +9,10 @@ import android.util.Log
 import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.OrtRunAbort
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.engine.abortableInference
 import app.marmalade.tts.install.PackVoice
 import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.lang.LangDetector
@@ -456,7 +458,7 @@ open class VitsDirectEngine @Inject constructor(
      * characters directly (no espeak, no clause splitting — see
      * [VitsPhonemeIds.encodeText]).
      */
-    private fun renderChunk(
+    private suspend fun renderChunk(
         pack: LoadedPack,
         chunk: String,
         lang: String,
@@ -494,7 +496,7 @@ open class VitsDirectEngine @Inject constructor(
      * runs is invalid once the Result that saw it has been closed, and nothing
      * is pinned because pinning demands the full output set.
      */
-    private fun runInference(pack: LoadedPack, ids: IntArray, sid: Int?): ShortArray {
+    private suspend fun runInference(pack: LoadedPack, ids: IntArray, sid: Int?): ShortArray {
         val ort = env ?: error("engine not loaded")
         // Ids are only the two markers — nothing to say.
         if (ids.size <= 2) return ShortArray(0)
@@ -525,11 +527,12 @@ open class VitsDirectEngine @Inject constructor(
                 put(INPUT_SCALES, scalesTensor)
                 sidTensor?.let { put(INPUT_SID, it) }
             }
-            val results = pack.session.run(inputs)
-            try {
-                return floatToPcm16(squeezeWaveform(results[0].value))
-            } finally {
-                results.close()
+            // Abortable: a cancelled stream (reader tap, Stop) stops this run
+            // between graph nodes instead of finishing an unwanted chunk.
+            return abortableInference(engineName, ::OrtRunAbort) { abort ->
+                pack.session.run(inputs, abort.options).use { results ->
+                    floatToPcm16(squeezeWaveform(results[0].value))
+                }
             }
         } finally {
             inputTensor.close()

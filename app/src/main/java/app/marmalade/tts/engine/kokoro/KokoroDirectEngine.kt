@@ -12,7 +12,9 @@ import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.OrtRunAbort
 import app.marmalade.tts.engine.PrerollGate
+import app.marmalade.tts.engine.abortableInference
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.kitten.PAD_TOKEN
@@ -417,7 +419,7 @@ open class KokoroDirectEngine @Inject constructor(
      * kernel compilation costs fold into engine load. Mirrors the Pocket
      * and KittenDirect warmup strategy.
      */
-    private fun warmupSynth() {
+    private suspend fun warmupSynth() {
         val t0 = System.currentTimeMillis()
         try {
             val voiceKey = warmupVoiceKey
@@ -550,7 +552,7 @@ open class KokoroDirectEngine @Inject constructor(
      * a CJK run-on's second piece is seconds of inference nobody will hear
      * once the user has pressed Stop.
      */
-    private fun runInference(
+    private suspend fun runInference(
         text: String,
         voiceName: String,
         speed: Float,
@@ -586,7 +588,7 @@ open class KokoroDirectEngine @Inject constructor(
     }
 
     /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] tokens of [text]. */
-    private fun inferTokens(text: String, phonemeIds: IntArray, voiceName: String, speed: Float): ShortArray {
+    private suspend fun inferTokens(text: String, phonemeIds: IntArray, voiceName: String, speed: Float): ShortArray {
         if (phonemeIds.isEmpty()) return ShortArray(0)
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
@@ -623,36 +625,41 @@ open class KokoroDirectEngine @Inject constructor(
         val speedTensor = OnnxTensor.createTensor(ort, speedFloat, longArrayOf(1))
 
         try {
-            val results = session.run(
-                mapOf(
-                    "tokens" to inputIdTensor,
-                    "style"  to styleTensor,
-                    "speed"  to speedTensor,
-                ),
-            )
-            try {
-                val raw = extractWaveform(results[0].value)
-                // Amplitude-aware tail trim (CLI kokoro-daemon `_last_loud_end`
-                // + TAIL_KEEP port, see TailTrim): walk back across the
-                // decoder's ring-out and keep ~75 ms of it as the natural gap.
-                // The blind 5000-sample chop this replaces cut real speech at
-                // speeds ≥2.5x, where the rendered tail is shorter than the
-                // chop (issue #8, measured 2026-09-12).
-                val trimmed = TailTrim.trimTail(raw)
-                // Safety net only: with a 75 ms kept tail the compressor's
-                // 2400-sample gate makes it a no-op on normal chunks. It still
-                // catches an unusually long model-chosen tail, which would
-                // otherwise accumulate into draggy playback across many chunks.
-                val pcm16 = floatToPcm16(trimmed)
-                return SilenceCompressor.compress(pcm16)
-            } finally {
-                results.close()
+            // Abortable: a cancelled stream (reader tap, Stop) stops this run
+            // between graph nodes instead of finishing an unwanted chunk.
+            return abortableInference(engineName, ::OrtRunAbort) { abort ->
+                session.run(
+                    mapOf(
+                        "tokens" to inputIdTensor,
+                        "style"  to styleTensor,
+                        "speed"  to speedTensor,
+                    ),
+                    abort.options,
+                ).use { results -> pcmFrom(results) }
             }
         } finally {
             inputIdTensor.close()
             styleTensor.close()
             speedTensor.close()
         }
+    }
+
+    /** Waveform output of one Kokoro run → trimmed, compressed PCM16. */
+    private fun pcmFrom(results: OrtSession.Result): ShortArray {
+        val raw = extractWaveform(results[0].value)
+        // Amplitude-aware tail trim (CLI kokoro-daemon `_last_loud_end`
+        // + TAIL_KEEP port, see TailTrim): walk back across the
+        // decoder's ring-out and keep ~75 ms of it as the natural gap.
+        // The blind 5000-sample chop this replaces cut real speech at
+        // speeds ≥2.5x, where the rendered tail is shorter than the
+        // chop (issue #8, measured 2026-09-12).
+        val trimmed = TailTrim.trimTail(raw)
+        // Safety net only: with a 75 ms kept tail the compressor's
+        // 2400-sample gate makes it a no-op on normal chunks. It still
+        // catches an unusually long model-chosen tail, which would
+        // otherwise accumulate into draggy playback across many chunks.
+        val pcm16 = floatToPcm16(trimmed)
+        return SilenceCompressor.compress(pcm16)
     }
 
     /**

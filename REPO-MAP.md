@@ -428,6 +428,17 @@ write Marmalade code.
   focused app or default IME can), so it needs a focus-holding trampoline
   activity. The last (still buggy) attempt is in commit `2c6ffb7`
   (`SpeakClipboardTileService` + `SpeakClipboardActivity`).
+- **Cancelling a stream aborts the ONNX run in flight** (Kokoro incl.
+  German, Kitten, VITS): every `session.run` goes through
+  `engine/AbortableInference.kt`, which gives the run its own
+  `RunOptions` and calls `setTerminate(true)` when the collecting
+  coroutine is cancelled; the resulting OrtException comes back as a
+  CancellationException (logcat: `StreamPerf: <engine> inference aborted
+  (cancelled)`). Without it the abandoned chunk ran to completion under
+  synthLock and the service's synth mutex, and a reader tap paid for it.
+  A new ORT engine should route its runs through it too, consuming and
+  closing the `Result` inside the block. Pocket needs none: its runs are
+  short autoregressive steps with an `ensureActive` between them.
 - **User `speed` is a time-stretch, not a model parameter**: Pocket's
   ONNX graphs are autoregressive with no speed input, and Kokoro's and
   Kitten's `speed` tensors saturate (Kokoro ~2.2x for a requested 3.0x;

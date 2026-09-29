@@ -11,8 +11,10 @@ import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.OrtRunAbort
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
+import app.marmalade.tts.engine.abortableInference
 import app.marmalade.tts.lang.LangDetector
 import app.marmalade.tts.perf.CpuClusterDetector
 import app.marmalade.tts.phonemizer.EnPhonemeFixups
@@ -331,7 +333,7 @@ open class KittenDirectEngine @Inject constructor(
      * kernel compilation costs are folded into engine load. Mirrors
      * PocketEngine's warmup strategy.
      */
-    private fun warmupSynth() {
+    private suspend fun warmupSynth() {
         val t0 = System.currentTimeMillis()
         try {
             val firstVoice = voiceMetas.first().displayName
@@ -486,7 +488,7 @@ open class KittenDirectEngine @Inject constructor(
      * [checkCancelled] runs before each re-split piece of an over-cap chunk,
      * so a stop lands between pieces rather than after the whole chunk.
      */
-    private fun runInference(
+    private suspend fun runInference(
         text: String,
         voiceName: String,
         speed: Float,
@@ -527,7 +529,7 @@ open class KittenDirectEngine @Inject constructor(
     }
 
     /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] IPA characters of [text]. */
-    private fun inferIpa(
+    private suspend fun inferIpa(
         text: String,
         ipa: String,
         voiceName: String,
@@ -576,31 +578,33 @@ open class KittenDirectEngine @Inject constructor(
         }
 
         try {
-            val results = session.run(
-                mapOf(
-                    "input_ids" to inputIdTensor,
-                    "style"     to styleTensor,
-                    "speed"     to speedTensor,
-                ),
-            )
-            try {
-                val raw = extractWaveform(results[0].value)
-                // Duration-exact lead/tail trim (CLI _trim_run port). The
-                // model's second output is per-token frame counts; when it
-                // matches the waveform, trim the BOS lead pad and the
-                // trailing pause group. Contract broken / output missing →
-                // amplitude-aware tail trim (see TailTrim), which is the same
-                // recipe the CLI kokoro daemon uses when it has no usable
-                // alignment. The blind 5000-sample chop that used to live here
-                // silently cut ~200 ms off the end (issue #8).
-                val dur = if (results.size() > 1) extractDurations(results[1].value) else null
-                val trimmed = dur?.let { KittenTrim.trim(inputIds, raw, it) } ?: run {
-                    warnTrimFallback(inputIds, raw, dur)
-                    TailTrim.trimTail(raw)
+            // Abortable: a cancelled stream (reader tap, Stop) stops this run
+            // between graph nodes instead of finishing an unwanted chunk.
+            return abortableInference(engineName, ::OrtRunAbort) { abort ->
+                session.run(
+                    mapOf(
+                        "input_ids" to inputIdTensor,
+                        "style"     to styleTensor,
+                        "speed"     to speedTensor,
+                    ),
+                    abort.options,
+                ).use { results ->
+                    val raw = extractWaveform(results[0].value)
+                    // Duration-exact lead/tail trim (CLI _trim_run port). The
+                    // model's second output is per-token frame counts; when it
+                    // matches the waveform, trim the BOS lead pad and the
+                    // trailing pause group. Contract broken / output missing →
+                    // amplitude-aware tail trim (see TailTrim), which is the same
+                    // recipe the CLI kokoro daemon uses when it has no usable
+                    // alignment. The blind 5000-sample chop that used to live here
+                    // silently cut ~200 ms off the end (issue #8).
+                    val dur = if (results.size() > 1) extractDurations(results[1].value) else null
+                    val trimmed = dur?.let { KittenTrim.trim(inputIds, raw, it) } ?: run {
+                        warnTrimFallback(inputIds, raw, dur)
+                        TailTrim.trimTail(raw)
+                    }
+                    floatToPcm16(trimmed)
                 }
-                return floatToPcm16(trimmed)
-            } finally {
-                results.close()
             }
         } finally {
             inputIdTensor.close()
