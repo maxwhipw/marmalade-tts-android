@@ -188,8 +188,14 @@ object TextChunker {
      * @property text   what to synthesize.
      * @property tokens the planner's count of model tokens for [text] (the
      *   sum of its parts' counts when it was assembled from several).
+     * @property rowTokens the token count of the whole sentence this piece
+     *   was cut from, or null for a chunk that was not cut. Kokoro picks its
+     *   style row by token count, so a piece must use this, not its own
+     *   (short) count — which would select the brisk short-utterance
+     *   register and voice the cut like a sentence end (T6; Max's blind
+     *   A/B 2026-09-28, `docs/release/first-piece-lab.html`, variant S2).
      */
-    data class TokenChunk(val text: String, val tokens: Int)
+    data class TokenChunk(val text: String, val tokens: Int, val rowTokens: Int? = null)
 
     /**
      * Sizes for [planByTokens], all in model tokens. Kokoro's cost is a
@@ -319,6 +325,7 @@ object TextChunker {
             .map { TokenChunk(it, count(it.trim())) }
             .flatMap { if (it.tokens > budget.target) wordAtoms(it, budget.target, count) else listOf(it) }
         return packRamp(atoms, budget, if (smallFirst) budget.firstPiece else budget.target)
+            .map { it.copy(rowTokens = unit.tokens) }
     }
 
     /**

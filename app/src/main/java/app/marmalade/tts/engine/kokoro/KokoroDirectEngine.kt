@@ -126,6 +126,19 @@ private const val MAX_TOKEN_LEN = 510
  */
 private const val MAX_PHONEMES_PER_CHUNK = 500
 
+/**
+ * Kokoro's style-table row for every model call of a chunk of
+ * [chunkTokens] (unwrapped) tokens. Upstream picks the row by the call's
+ * own token count; a chunk the planner cut from a longer sentence uses the
+ * whole sentence's count, [sentenceTokens], instead — a piece's own short
+ * count selects the brisk short-utterance register and voices the cut like
+ * a sentence end (T6, Max's blind A/B variant S2, 2026-09-28). The pieces
+ * the cap re-split makes of one chunk all share the chunk's row. Clamped
+ * into the table, so a run-on past 509 tokens uses the last row.
+ */
+internal fun kokoroStyleRow(chunkTokens: Int, sentenceTokens: Int?): Int =
+    (sentenceTokens ?: chunkTokens).coerceIn(0, MAX_TOKEN_LEN - 1)
+
 /** Default espeak phonemization voice — see file comment. */
 private const val ESPEAK_VOICE = "en-us"
 
@@ -405,7 +418,7 @@ open class KokoroDirectEngine @Inject constructor(
         try {
             val voiceKey = warmupVoiceKey
             for (piece in tokenPieces("Hi.", espeakVoiceFor(voiceKey))) {
-                inferTokens(piece.text, piece.ids, voiceKey, speed = 1.0f)
+                inferTokens(piece.text, piece.ids, voiceKey, speed = 1.0f, piece.styleRow)
             }
             Log.i(TAG, "warmup synth done in ${System.currentTimeMillis() - t0} ms")
         } catch (t: Throwable) {
@@ -507,7 +520,7 @@ open class KokoroDirectEngine @Inject constructor(
             // every remaining chunk while holding the service's synth mutex —
             // the next request's TTFA paid for all of them (~11 s on the 8a).
             ensureActive()
-            val pieces = synthLock.withLock { tokenPieces(chunk.text, effectiveLang, encoded[chunk.text]) }
+            val pieces = synthLock.withLock { tokenPieces(chunk.text, effectiveLang, encoded[chunk.text], chunk.rowTokens) }
             // An over-cap chunk's pieces go out one at a time, each as soon
             // as it is rendered — joining them first made a CJK run-on wait
             // for its whole second half before any sound (31.6 s on the 8a).
@@ -516,13 +529,13 @@ open class KokoroDirectEngine @Inject constructor(
                 // inference nobody will hear once the user has pressed Stop.
                 ensureActive()
                 val inferStartNs = System.nanoTime()
-                val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed) }
+                val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed, piece.styleRow) }
                 val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
                 if (pcm.isEmpty()) continue
                 val audioMs = pcm.size * 1000L / sampleRate
                 val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
                 val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
-                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} textLen=${piece.text.length}")
+                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} row=${piece.styleRow} textLen=${piece.text.length}")
                 val release = gate.onChunkRendered(
                     chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
                     renderMs = inferMs,
@@ -536,8 +549,11 @@ open class KokoroDirectEngine @Inject constructor(
         for (audio in gate.drain()) emitAudio(audio)
     }.flowOn(Dispatchers.Default)
 
-    /** One model call's worth of text: [text] and its ≤ [MAX_PHONEMES_PER_CHUNK] token ids. */
-    private class TokenPiece(val text: String, val ids: IntArray)
+    /**
+     * One model call's worth of text: [text], its ≤ [MAX_PHONEMES_PER_CHUNK]
+     * token ids, and its style row (see [kokoroStyleRow]).
+     */
+    private class TokenPiece(val text: String, val ids: IntArray, val styleRow: Int)
 
     /**
      * [text] encoded to token ids — one piece, or several when it overflows
@@ -548,10 +564,20 @@ open class KokoroDirectEngine @Inject constructor(
      * Re-split at clause marks → whitespace → hard cut instead; the stream
      * loop renders and emits the pieces one at a time. [known] is [text]'s
      * ids when the caller already has them.
+     *
+     * Every piece takes its style row from [rowTokens] — the whole sentence
+     * [text] was cut from, when the planner cut it — else from [text] as a
+     * whole, never from the piece itself (T6).
      */
-    private fun tokenPieces(text: String, lang: String, known: IntArray? = null): List<TokenPiece> {
+    private fun tokenPieces(
+        text: String,
+        lang: String,
+        known: IntArray? = null,
+        rowTokens: Int? = null,
+    ): List<TokenPiece> {
         val rawIds = known ?: encodeTextToTokens(text, lang)
-        if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return listOf(TokenPiece(text, rawIds))
+        val styleRow = kokoroStyleRow(rawIds.size, rowTokens)
+        if (rawIds.size <= MAX_PHONEMES_PER_CHUNK) return listOf(TokenPiece(text, rawIds, styleRow))
         val pieces = TextChunker.splitToFit(text) {
             encodeTextToTokens(it, lang).size <= MAX_PHONEMES_PER_CHUNK
         }
@@ -559,12 +585,21 @@ open class KokoroDirectEngine @Inject constructor(
         return pieces.map { piece ->
             val ids = encodeTextToTokens(piece, lang)
             // splitToFit leaves a piece oversize only if it's one character.
-            TokenPiece(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)))
+            TokenPiece(piece, ids.copyOf(minOf(ids.size, MAX_PHONEMES_PER_CHUNK)), styleRow)
         }
     }
 
-    /** One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] tokens of [text]. */
-    private suspend fun inferTokens(text: String, phonemeIds: IntArray, voiceName: String, speed: Float): ShortArray {
+    /**
+     * One ORT call for ≤ [MAX_PHONEMES_PER_CHUNK] tokens of [text], voiced
+     * with style row [styleRow] (see [kokoroStyleRow]).
+     */
+    private suspend fun inferTokens(
+        text: String,
+        phonemeIds: IntArray,
+        voiceName: String,
+        speed: Float,
+        styleRow: Int,
+    ): ShortArray {
         if (phonemeIds.isEmpty()) return ShortArray(0)
         val ort = env ?: error("engine not loaded")
         val session = acousticSession ?: error("acoustic session missing")
@@ -576,20 +611,16 @@ open class KokoroDirectEngine @Inject constructor(
         }
         val resolvedSid = if (sid >= 0) sid else 0
 
-        // Voice indexing by phoneme-token length (sherpa convention,
-        // confirmed in offline-tts-kokoro-model.cc:Run): len = total - 2.
-        val styleLen = inputIds.size - 2
-
         // Fill reusable scratch buffers directly — no intermediate FloatArray.
         val styleFloat = styleScratchFloat ?: error("style scratch missing")
         val speedFloat = speedScratchFloat ?: error("speed scratch missing")
-        fillStyleScratch(resolvedSid, styleLen, styleFloat)
+        fillStyleScratch(resolvedSid, styleRow, styleFloat)
         speedFloat.clear()
         speedFloat.put(speed)
         speedFloat.rewind()
 
         Log.d(TAG, "input='$text'")
-        Log.d(TAG, "voice='$voiceName' sid=$resolvedSid styleLen=$styleLen speed=$speed tokenCount=${phonemeIds.size}")
+        Log.d(TAG, "voice='$voiceName' sid=$resolvedSid styleLen=$styleRow speed=$speed tokenCount=${phonemeIds.size}")
         Log.d(TAG, "tokens=${inputIds.toList()}")
 
         // Tokens vary in size per chunk (1 to ~500 longs); still per-call

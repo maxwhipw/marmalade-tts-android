@@ -419,6 +419,17 @@ class TextChunkerTest {
     }
 
     @Test
+    fun planPiecesCarryTheirWholeSentencesTokenCountAndWholeChunksDoNot() {
+        val clause = "今天天气很好我们，"
+        val sentence = clause.repeat(11) + "今天天气很好我们。" // 324 tokens, cut
+        val chunks = plan("短句。$sentence") // "短句。" 9 tokens, whole
+        assertEquals(null, chunks[0].rowTokens)
+        assertTrue(chunks.size > 2)
+        assertTrue(chunks.drop(1).all { it.rowTokens == 324 })
+        assertEquals(listOf(null, null), plan("First sentence. Second sentence. Third one.").map { it.rowTokens })
+    }
+
+    @Test
     fun planOfBlankTextIsEmpty() {
         assertTrue(plan("  \n ").isEmpty())
     }
