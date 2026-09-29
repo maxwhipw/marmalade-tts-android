@@ -99,7 +99,9 @@ When investigating **{concern}**, start at **{files}**:
   `EXTRA_CONTINUATION` so they never do, and reads the `stopped` flag on
   `PreviewCompletions.Completion` to fall back to Idle when replaced
 - Order of the canonical chain: emoji-detect → preprocess →
-  strip-emoji → engine synth → ProsodyApplier → EffectChain
+  strip-emoji → engine synth → ProsodyApplier → EffectChain (in
+  MarmaladeSynthService's streaming path the EffectChain step runs on the
+  playback side — see "effect chain at PLAYBACK" under Known quirks)
 
 ### Engines
 - `engine/SherpaEngine.kt` — abstract base (loadLock, ensureModelLoaded,
@@ -262,7 +264,10 @@ When investigating **{concern}**, start at **{files}**:
   and the reader sends it as `EXTRA_SESSION_SPEED`, which
   MarmaladeSynthService applies *after* alias routing (voice, effect and
   language still come from the alias). A non-chip alias speed gets its
-  own chip (`readerSpeedChoices`).
+  own chip (`readerSpeedChoices`). A mid-article speed change is applied
+  live to the blocks already queued (no restart; see the
+  "effect chain at PLAYBACK" quirk below) — only a fixed-speed (cloud)
+  voice falls back to re-enqueueing from the current block.
 - `ui/AppRootViewModel.kt` — collects theme preset + mode + onboarded
   flag from `SettingsRepository`; drives `MainActivity` decisions.
 - `ui/onboarding/OnboardingScreen.kt` + `OnboardingViewModel.kt` —
@@ -394,6 +399,23 @@ write Marmalade code.
   `sox tempo`).
   A new engine that can't (or shouldn't) honour `speed` only has to
   override the flag.
+- **MarmaladeSynthService runs the effect chain at PLAYBACK, not in the
+  producer** (2026-09-28): the producer sends raw engine PCM (so RTF is
+  still measured pre-stretch) plus a `Shaping` (the chain spec);
+  `playFromChannel` runs `StreamingEffectChain` in ~100 ms slices right
+  before the AudioTrack. Reason: the reader's speed must change live — the
+  producer runs up to 8 chunks ahead, so a producer-side Tempo couldn't
+  follow a change. A reader request (`sessionSpeed`) on a time-stretching
+  engine gets a **live Tempo stage** (`StreamingEffectChain(liveTempo=…)`,
+  in front of the alias's effects) that re-reads
+  `service/LiveSessionSpeed` every slice; audible within the AudioTrack's
+  ~250 ms buffer, logged as `Live speed: request N tempo A -> B`. Cloud
+  (native speed) and the batched emoji path bake the speed in: they're
+  marked fixed, `ReaderSpeechClient.changeSpeed` returns false and the
+  reader re-enqueues via `seekTo` as before. Engine pre-roll
+  (`playbackRate`) is sized at stream start only, so a big mid-block speed
+  increase can briefly underrun on a slow device. `MarmaladeTtsService`
+  (system TTS) is unaffected — its chain still runs inline.
 - **TTS engine registration requires `DEFAULT` category** on the
   `TTS_SERVICE` intent-filter AND `CHECK_TTS_DATA` activity AND a
   populated `tts_engine.xml` with `settingsActivity`. All three are

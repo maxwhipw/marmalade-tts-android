@@ -464,15 +464,76 @@ class ReaderPlaybackControllerTest {
         val controller = playing()
 
         controller.setSpeed(1.25f)
+        finish()
+        advanceUntilIdle()
 
         assertEquals(1.25f, controller.state.value.speed, 0f)
-        assertTrue(outstanding.isNotEmpty())
-        assertTrue(outstanding.all { it.speed == 1.25f })
+        // The top-up sent after the change carries the new speed itself.
+        assertEquals(1.25f, speech.spoken.last().speed, 0f)
     }
 
-    /** Audio already synthesised can't be re-speeded, so the change re-enqueues. */
+    /**
+     * The on-device engines' speed is a playback-side time-stretch, so the
+     * blocks already handed over just follow the change — no restart, no
+     * re-synthesis (Max, 2026-09-28: 2× → 1× used to stop the audio for
+     * seconds).
+     */
     @Test
-    fun `changing speed while playing restarts the current block at the new speed`() = runTest {
+    fun `changing speed while playing retimes the queued blocks live`() = runTest {
+        val controller = playing()
+        finish()
+        advanceUntilIdle()
+        val queued = outstanding.map { it.requestId }
+        val sent = speech.spoken.size
+
+        controller.setSpeed(1.5f)
+
+        assertEquals(listOf(queued to 1.5f), speech.speedChanges)
+        assertTrue(speech.stopped.isEmpty())
+        assertEquals(sent, speech.spoken.size)
+        assertEquals(1, controller.state.value.currentIndex)
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+        assertEquals(1.5f, controller.state.value.speed, 0f)
+    }
+
+    @Test
+    fun `a live speed change while paused stays paused and resumes the same blocks`() = runTest {
+        val controller = playing()
+        controller.pause()
+        val queued = outstanding.map { it.requestId }
+        val sent = speech.spoken.size
+
+        controller.setSpeed(2.0f)
+
+        assertEquals(ReaderPlaybackStatus.Paused, controller.state.value.status)
+        assertEquals(listOf(queued to 2.0f), speech.speedChanges)
+        assertTrue(speech.stopped.isEmpty())
+        assertEquals(0, speech.resumes)
+
+        controller.play()
+
+        assertEquals(1, speech.resumes)
+        assertEquals(sent, speech.spoken.size)
+        assertEquals(ReaderPlaybackStatus.Playing, controller.state.value.status)
+    }
+
+    @Test
+    fun `a speed change with nothing in flight asks the service nothing`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks))
+
+        controller.setSpeed(1.5f)
+
+        assertTrue(speech.speedChanges.isEmpty())
+    }
+
+    /**
+     * A cloud voice renders the speed itself: audio already synthesised can't
+     * be re-speeded, so the change re-enqueues from the current block.
+     */
+    @Test
+    fun `changing speed on a fixed-speed voice restarts the current block at the new speed`() = runTest {
+        speech.liveSpeed = false
         val controller = playing()
         finish()
         advanceUntilIdle()
@@ -491,7 +552,8 @@ class ReaderPlaybackControllerTest {
     }
 
     @Test
-    fun `changing speed while paused enqueues nothing until resume`() = runTest {
+    fun `changing speed while paused on a fixed-speed voice enqueues nothing until resume`() = runTest {
+        speech.liveSpeed = false
         val controller = playing()
         controller.seekTo(3)
         controller.pause()

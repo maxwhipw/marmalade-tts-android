@@ -36,6 +36,20 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         return true
     }
 
+    /** Every [changeSpeed] call: the request ids and the speed. */
+    val speedChanges = mutableListOf<Pair<List<Long>, Float>>()
+
+    /**
+     * What [changeSpeed] answers: true for an engine that time-stretches (every
+     * on-device one), false to simulate a cloud voice with the speed baked in.
+     */
+    var liveSpeed = true
+
+    override fun changeSpeed(requestIds: List<Long>, speed: Float): Boolean {
+        speedChanges += requestIds to speed
+        return liveSpeed
+    }
+
     override fun stopRequest(requestId: Long) {
         stopped += requestId
     }

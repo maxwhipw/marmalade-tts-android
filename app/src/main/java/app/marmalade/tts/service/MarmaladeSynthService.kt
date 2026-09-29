@@ -66,7 +66,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -134,16 +133,22 @@ import kotlinx.coroutines.withContext
 //     │     the alias's speed — absent for every other caller)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
 //     ├── settings.enabledRules → Preprocessor.apply → stripEmojis
-//     └── neutral emotion → produceAudio (engine synthesizeStream →
-//           StreamingEffectChain → channel; TTFA sampled into
-//           VoiceLatencyTracker) ; else produceBatched (ProsodyApplier +
-//           EffectChain need the whole PCM, sent as one chunk)
+//     └── neutral emotion → produceAudio (engine synthesizeStream → raw
+//           PCM → channel, plus the request's Shaping (effect chain) for
+//           playback; TTFA sampled into VoiceLatencyTracker) ; else
+//           produceBatched (ProsodyApplier + EffectChain need the whole
+//           PCM, sent as one already-shaped chunk)
 //
 //   runOne(prepared) — consumer:
 //     ├── requestAudioFocus(AUDIOFOCUS_GAIN)
 //     │     - LOSS_TRANSIENT → pause; GAIN → resume (only that focus
 //     │       pause, never the user's own); LOSS → doStop
-//     ├── playFromChannel → AudioTrack (a synthesis failure reaches here as
+//     ├── playFromChannel → StreamingEffectChain in ~100 ms slices →
+//     │     AudioTrack. The chain (Tempo included) runs HERE, not in the
+//     │     producer, so the reader's session speed can change live: a
+//     │     reader request on a time-stretching engine gets a live Tempo
+//     │     stage that re-reads LiveSessionSpeed every slice. (A synthesis
+//     │     failure reaches here as
 //     │     the channel's close cause, and maps to the same outcome it did
 //     │     when the two halves were one function)
 //     └── finally: producer cancelled, residency/focus released, and the
@@ -208,6 +213,9 @@ class MarmaladeSynthService : Service() {
 
     /** Two-way transport seam with the reader — see [PlaybackTransport]. */
     @Inject lateinit var transport: PlaybackTransport
+
+    /** The reader's session speed, followed live during playback. */
+    @Inject lateinit var sessionSpeeds: LiveSessionSpeed
 
     /**
      * Target of the reader's notification actions. App-scoped singleton, so
@@ -615,7 +623,10 @@ class MarmaladeSynthService : Service() {
      * Caller must hold `lock`.
      */
     private fun dropPreparedHeadLocked() {
-        preparedHead?.cancel()
+        preparedHead?.let {
+            it.cancel()
+            sessionSpeeds.release(it.req.requestId)
+        }
         preparedHead = null
     }
 
@@ -633,6 +644,7 @@ class MarmaladeSynthService : Service() {
     private fun prepareLocked(req: SpeakRequest): Prepared {
         val channel = Channel<SynthAudio>(capacity = SYNTH_BUFFER_CHUNKS)
         val engineName = CompletableDeferred<String>()
+        val shaping = CompletableDeferred<Shaping>()
         val job = scope.launch {
             try {
                 val resolved = resolveRequest(req)
@@ -655,7 +667,7 @@ class MarmaladeSynthService : Service() {
                     // for the playback window.
                     residency.beginSynth(engine)
                     try {
-                        produceAudio(resolved, engine, channel)
+                        produceAudio(resolved, engine, channel, shaping)
                     } finally {
                         residency.endSynth(engine)
                     }
@@ -671,12 +683,15 @@ class MarmaladeSynthService : Service() {
                 channel.close(t)
                 if (t is kotlinx.coroutines.CancellationException) throw t
             } finally {
-                // Never leave a consumer awaiting an engine name that a
-                // cancelled producer will never publish.
+                // Never leave a consumer awaiting an engine name (or, at its
+                // first chunk, a shaping) that a cancelled producer will never
+                // publish. No audio is sent before the shaping is, so the
+                // passthrough never reaches audio that needed shaping.
                 if (!engineName.isCompleted) engineName.complete(DEFAULT_ENGINE)
+                if (!shaping.isCompleted) shaping.complete(Shaping.PASSTHROUGH)
             }
         }
-        return Prepared(req, channel, job, engineName)
+        return Prepared(req, channel, job, engineName, shaping)
     }
 
     /**
@@ -781,7 +796,7 @@ class MarmaladeSynthService : Service() {
             // that is left here is to move PCM as it arrives, which is what
             // frees the engine to work on the next request meanwhile.
             try {
-                playFromChannel(prepared.channel)
+                playFromChannel(prepared)
             } catch (e: EngineNotInstalledException) {
                 Log.w(TAG, "Engine not installed", e)
                 outcome = PreviewCompletions.ErrorKind.MODEL_MISSING
@@ -839,6 +854,7 @@ class MarmaladeSynthService : Service() {
             // Playback ended, however it ended — stop burning CPU on chunks
             // nobody will hear and free whatever the producer buffered.
             prepared.cancel()
+            sessionSpeeds.release(req.requestId)
             // The post site covering every exit that entered runOne's body
             // — played through, user cancel (a terminal success), error,
             // focus denied, or cancellation anywhere including the
@@ -869,6 +885,7 @@ class MarmaladeSynthService : Service() {
         resolved: SpeakRequest,
         engineName: String,
         channel: SendChannel<SynthAudio>,
+        shaping: CompletableDeferred<Shaping>,
     ) {
         // Per-engine preprocessing (currency, numbers, abbreviations, …)
         // feeds the engine the same normalised text the user gets on the
@@ -877,8 +894,26 @@ class MarmaladeSynthService : Service() {
         // only non-neutral emotion still needs the batched pipeline
         // (ProsodyApplier shapes the whole PCM).
         val enabled = settings.enabledRules(engineName).first()
-        if (EmojiProsody.detect(resolved.text).emotion != Emotion.Neutral) {
-            produceBatched(resolved, engineName, enabled, channel)
+        val handle = engineHandleFor(engineName)
+        val batched = EmojiProsody.detect(resolved.text).emotion != Emotion.Neutral
+
+        // The reader's requests follow a session-speed change live when the
+        // speed is a time-stretch applied at playback — i.e. the engine
+        // renders at 1.0 and the batched path (which bakes the whole chain
+        // in here) isn't in play. Otherwise the speed is fixed from this
+        // moment, and LiveSessionSpeed tells the reader to re-enqueue.
+        val liveSpeed = resolved.sessionSpeed != null && resolved.requestId != 0L &&
+            !handle.supportsNativeSpeed && !batched
+        val speed = if (resolved.sessionSpeed != null && resolved.requestId != 0L) {
+            sessionSpeeds.resolve(resolved.requestId, resolved.speed, liveCapable = liveSpeed)
+        } else {
+            resolved.speed
+        }
+
+        if (batched) {
+            // Fully shaped here, speed included — playback must not touch it.
+            shaping.complete(Shaping.PASSTHROUGH)
+            produceBatched(resolved.copy(speed = speed), engineName, enabled, channel)
             return
         }
 
@@ -889,20 +924,32 @@ class MarmaladeSynthService : Service() {
         // and the request still completes successfully.
         if (stripped.isBlank()) return
 
-        var chain: StreamingEffectChain? = null
-        var sampleRate = 0
-        val handle = engineHandleFor(engineName)
         // Cold-start skew guard: an engine that has to load its model during
         // this utterance renders the first chunk far slower than it will warm.
         // Match DeviceCapability's benchmark, which excludes model load — only
         // record RTF when the model is already resident.
         val warm = handle.isLoaded()
-        val plan = applySpeedFallback(handle, resolved.speed, resolved.effectBlocks)
+        val plan = applySpeedFallback(handle, speed, resolved.effectBlocks)
+        // The effect chain runs on the PLAYBACK side (playFromChannel), not
+        // here: this producer runs up to SYNTH_BUFFER_CHUNKS ahead, so a
+        // tempo applied here couldn't follow a speed change for seconds. On
+        // the live path the chain is the alias's effects behind a live Tempo
+        // stage (the Tempo that applySpeedFallback would have prepended, made
+        // adjustable); otherwise it is exactly the plan's chain.
+        shaping.complete(
+            if (liveSpeed) {
+                Shaping(resolved.effectBlocks, liveTempo = speed, liveRequestId = resolved.requestId)
+            } else {
+                Shaping(plan.blocks)
+            },
+        )
+        var sampleRate = 0
         // Rolling-RTF measurement. renderNanos accumulates only the time the
         // engine spends producing each chunk (the gap before it arrives),
-        // reset AFTER the send so downstream effect processing and channel
-        // backpressure — which have nothing to do with render speed — are
-        // excluded. audioSamples is the engine's own rendered PCM (pre-stretch).
+        // reset AFTER the send so channel backpressure — which has nothing to
+        // do with render speed — is excluded. audioSamples is the engine's own
+        // rendered PCM: the channel carries it unstretched (the effect chain,
+        // Tempo included, runs at playback).
         //
         // That only holds while the collector never waits: the engines'
         // synthesizeStream is a buffered flow on its own dispatcher, so while
@@ -921,22 +968,19 @@ class MarmaladeSynthService : Service() {
             resolved.voice,
             plan.speed,
             resolved.phonemizationLanguage,
+            // The speed at stream start sizes the engine's pre-roll; a live
+            // change later on doesn't re-budget it (see LiveSessionSpeed).
             plan.playbackRate,
         ).collect { audio ->
             renderNanos += System.nanoTime() - lastResume
             audioSamples += audio.pcm.size
-            val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate)
-                .also { chain = it; sampleRate = audio.sampleRate }
-            val out = SynthAudio(c.process(audio.pcm), audio.sampleRate)
+            sampleRate = audio.sampleRate
             if (paused) skewed = true
-            if (!channel.trySend(out).isSuccess) {
+            if (!channel.trySend(audio).isSuccess) {
                 skewed = true
-                channel.send(out)
+                channel.send(audio)
             }
             lastResume = System.nanoTime()
-        }
-        chain?.flush()?.takeIf { it.isNotEmpty() }?.let { tail ->
-            channel.send(SynthAudio(tail, sampleRate))
         }
         engineRtfSample(warm, skewed, renderNanos, audioSamples, sampleRate)
             ?.let { recordEngineRtf(engineName, it) }
@@ -1355,13 +1399,24 @@ class MarmaladeSynthService : Service() {
 
     /**
      * Consumer half of the pipeline: open the AudioTrack lazily on the
-     * first chunk (its sample rate sets the format), write chunks as they
-     * arrive, then drain. Pause blocks this consumer, which backpressures
-     * the producer through the channel. Each chunk re-arms the wake lock.
+     * first chunk (its sample rate sets the format), shape and write chunks
+     * as they arrive, then drain. Pause blocks this consumer, which
+     * backpressures the producer through the channel. Each chunk re-arms the
+     * wake lock.
+     *
+     * The effect chain runs here, on the engine's raw PCM, in slices of
+     * ~100 ms written one at a time. That is what makes a live session-speed
+     * change ([Shaping.liveTempo]) audible within the AudioTrack's ~250 ms
+     * buffer: the speed is re-read before every slice, whereas one chunk is a
+     * whole sentence or more. Slicing doesn't change the output — the chain
+     * is continuous across seams (StreamingEffectChainTest, chunked == whole).
      */
-    private suspend fun playFromChannel(channel: ReceiveChannel<SynthAudio>) =
+    private suspend fun playFromChannel(prepared: Prepared) =
         withContext(Dispatchers.IO) {
+            val channel = prepared.channel
             var track: AudioTrack? = null
+            var chain: StreamingEffectChain? = null
+            var shaping: Shaping? = null
             var written = 0
             try {
                 for (audio in channel) {
@@ -1382,13 +1437,47 @@ class MarmaladeSynthService : Service() {
                             it.play()
                         }
                     }
-                    written += writePcm(t, audio.pcm)
+                    // Published before the first chunk was sent.
+                    val s = shaping ?: prepared.shaping.await().also { shaping = it }
+                    val c = chain ?: StreamingEffectChain(s.blocks, audio.sampleRate, s.liveTempo)
+                        .also { chain = it }
+                    if (c.isEmpty) {
+                        written += writePcm(t, audio.pcm)
+                        continue
+                    }
+                    val slice = (audio.sampleRate / 10).coerceAtLeast(1)
+                    var from = 0
+                    while (from < audio.pcm.size && !cancelled) {
+                        s.liveRequestId?.let { followLiveSpeed(c, it) }
+                        val to = minOf(from + slice, audio.pcm.size)
+                        written += writePcm(t, c.process(audio.pcm.copyOfRange(from, to)))
+                        from = to
+                    }
+                }
+                // The channel ended cleanly: the chain's tail (Tempo's last
+                // frame, a reverb ring-out) is still owed.
+                val t = track
+                if (t != null && !cancelled) {
+                    chain?.flush()?.takeIf { it.isNotEmpty() }?.let { written += writePcm(t, it) }
                 }
                 track?.let { drainTrack(it, written) }
             } finally {
                 track?.let { releaseTrack(it) }
             }
         }
+
+    /**
+     * Point [chain]'s live Tempo at the reader's current session speed. Logs
+     * only on an actual change — the line to look for on a device when
+     * checking that a speed change was applied live.
+     */
+    private fun followLiveSpeed(chain: StreamingEffectChain, requestId: Long) {
+        val was = chain.liveTempo ?: return
+        val now = sessionSpeeds.current(fallback = was)
+        if (now == was) return
+        chain.setLiveTempo(now)
+        Log.d(TAG, "Live speed: request $requestId tempo $was -> $now")
+    }
 
     // -- media session --------------------------------------------------------
 
@@ -1589,6 +1678,22 @@ class MarmaladeSynthService : Service() {
     // -- request value type ---------------------------------------------------
 
     /**
+     * The effect chain playback applies to a request's raw engine PCM — see
+     * [playFromChannel]. [liveTempo] non-null puts an adjustable Tempo stage
+     * in front of [blocks], following [LiveSessionSpeed] for [liveRequestId].
+     */
+    private class Shaping(
+        val blocks: List<EffectBlock>,
+        val liveTempo: Float? = null,
+        val liveRequestId: Long? = null,
+    ) {
+        companion object {
+            /** Audio that arrives already shaped (the batched path), or none at all. */
+            val PASSTHROUGH = Shaping(emptyList())
+        }
+    }
+
+    /**
      * A request whose synthesis has been started, and the channel its audio
      * arrives on. Held for the head of the queue while the request in front
      * of it is still playing — see [prepareLocked].
@@ -1599,6 +1704,8 @@ class MarmaladeSynthService : Service() {
         private val job: Job,
         /** Resolved engine, published as soon as routing is done. */
         val engineName: CompletableDeferred<String>,
+        /** How playback shapes the audio — published before the first chunk. */
+        val shaping: CompletableDeferred<Shaping>,
     ) {
         /** Abandon the synthesis and drop whatever it buffered. */
         fun cancel() {

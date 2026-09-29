@@ -326,9 +326,9 @@ class ReaderViewModelTest {
 
     /**
      * The session speed is playback state, not a setting: the ViewModel hands
-     * it to the controller, and the re-enqueued blocks carry it. Nothing here
-     * touches SettingsRepository — that is what would make it outlive the
-     * article, which is exactly what Max asked it not to do.
+     * it to the controller, which moves the blocks in flight to it live.
+     * Nothing here touches SettingsRepository — that is what would make it
+     * outlive the article, which is exactly what Max asked it not to do.
      */
     @Test
     fun `the session speed reaches playback`() = runTest {
@@ -338,7 +338,7 @@ class ReaderViewModelTest {
         vm.onSpeedChange(1.5f)
 
         assertEquals(1.5f, vm.playback.first().speed, 0f)
-        assertEquals(1.5f, speech.spoken.last().speed, 0f)
+        assertEquals(1.5f, speech.speedChanges.last().second, 0f)
     }
 
     /**

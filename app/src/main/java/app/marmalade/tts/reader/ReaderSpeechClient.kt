@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
+import app.marmalade.tts.service.LiveSessionSpeed
 import app.marmalade.tts.service.MarmaladeSynthService
 import app.marmalade.tts.service.SpeakDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,6 +46,16 @@ interface ReaderSpeechClient {
         continuation: Boolean,
     ): Boolean
 
+    /**
+     * Move [requestIds] — requests already handed over — to [speed] without
+     * restarting them. True when all of them follow it live (the speed is a
+     * playback-side time-stretch, audible within a few hundred ms); false when
+     * at least one has the speed baked into its audio (a cloud voice, or the
+     * batched emoji path), and the caller must re-enqueue to be heard at
+     * [speed]. Either way, requests sent later carry [speed] themselves.
+     */
+    fun changeSpeed(requestIds: List<Long>, speed: Float): Boolean
+
     /** Cancel one request — queued or playing — leaving the rest alone. */
     fun stopRequest(requestId: Long)
 
@@ -58,6 +69,7 @@ interface ReaderSpeechClient {
 @Singleton
 class SynthServiceReaderSpeechClient @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val sessionSpeeds: LiveSessionSpeed,
 ) : ReaderSpeechClient {
 
     override fun speak(
@@ -66,6 +78,10 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         speed: Float,
         continuation: Boolean,
     ): Boolean {
+        // The live value wins over the extra below in the service; setting it
+        // here is what makes a new article's starting speed replace the last
+        // article's (see LiveSessionSpeed).
+        sessionSpeeds.set(speed)
         // No EXTRA_VOICE on purpose: leaving it off is what makes the service
         // resolve the user's primary alias (voice, speed, effect, language),
         // which is exactly the voice the share-sheet path already reads in.
@@ -92,6 +108,18 @@ class SynthServiceReaderSpeechClient @Inject constructor(
             .onFailure { Log.w(TAG, "Reader speak request refused", it) }
             .isSuccess
     }
+
+    override fun changeSpeed(requestIds: List<Long>, speed: Float): Boolean =
+        sessionSpeeds.change(requestIds, speed).also { live ->
+            Log.d(
+                TAG,
+                if (live) {
+                    "Session speed -> $speed applied live to ${requestIds.size} request(s)"
+                } else {
+                    "Session speed -> $speed: a request has it baked in; re-enqueueing"
+                },
+            )
+        }
 
     override fun stopRequest(requestId: Long) =
         send(MarmaladeSynthService.ACTION_STOP_REQUEST) {

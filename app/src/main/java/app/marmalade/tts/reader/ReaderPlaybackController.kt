@@ -259,7 +259,8 @@ class ReaderPlaybackController internal constructor(
 
     /**
      * Move playback to [index], keeping Paused paused — the transport's
-     * forward/back and speed changes. Taps use [playFrom].
+     * forward/back, and speed changes a fixed-speed voice can't take live
+     * (see [setSpeed]). Taps use [playFrom].
      */
     fun seekTo(index: Int) {
         synchronized(lock) {
@@ -320,19 +321,27 @@ class ReaderPlaybackController internal constructor(
      * Set the session's speed — absolute, replacing the alias's own speed
      * rather than scaling it (see [ReaderPlaybackState.speed]).
      *
-     * Blocks already handed to the service are already synthesised (or being
-     * synthesised) at the old speed and cannot be re-speeded, so a change that
-     * lands mid-article re-enqueues from the current block, through [seekTo]:
-     * playing restarts the block at the new speed, paused stays paused and
-     * drops the queue for the resume to re-enqueue. Idle/Finished only store
-     * it — the next play picks it up.
+     * On-device engines render at 1.0 and the speed is a time-stretch the
+     * service applies at playback, so blocks already handed over normally
+     * just follow the change, live: nothing stops or re-synthesises, playing
+     * keeps playing (the new speed is audible within a few hundred ms) and
+     * paused stays paused, resuming at the new speed.
+     *
+     * When the service says a block has the speed baked into its audio (a
+     * cloud voice renders it itself), the change re-enqueues from the current
+     * block instead, through [seekTo]: playing restarts the block at the new
+     * speed, paused stays paused and drops the queue for the resume to
+     * re-enqueue. Idle/Finished only store it — the next play picks it up.
      */
     fun setSpeed(speed: Float) {
         synchronized(lock) {
             val clamped = speed.coerceIn(MIN_SPEED, MAX_SPEED)
             if (clamped == _state.value.speed) return
             _state.value = _state.value.copy(speed = clamped)
-            if (_state.value.isActive) seekTo(_state.value.currentIndex)
+            if (!_state.value.isActive || pending.isEmpty()) return
+            if (!speech.changeSpeed(pending.map { it.requestId }, clamped)) {
+                seekTo(_state.value.currentIndex)
+            }
         }
     }
 
