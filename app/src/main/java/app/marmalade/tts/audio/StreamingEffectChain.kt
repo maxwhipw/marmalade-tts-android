@@ -35,10 +35,37 @@ import kotlin.math.sqrt
  * Stateful, chunk-by-chunk effect chain. Construct once per utterance, feed
  * engine chunks through [process], then call [flush] after the last chunk to
  * drain any reverb/echo tail.
+ *
+ * [liveTempo], when non-null, puts a Tempo stage at that factor in FRONT of
+ * [blocks] whose factor can be changed mid-stream with [setLiveTempo] — the
+ * reader's speed control, which must not restart synthesis (see
+ * MarmaladeSynthService.playFromChannel). It sits first for the same reason
+ * SpeedFallback prepends its Tempo: the rest of the chain shapes the
+ * already-retimed signal.
  */
-class StreamingEffectChain(blocks: List<EffectBlock>, sampleRate: Int) {
+class StreamingEffectChain(
+    blocks: List<EffectBlock>,
+    sampleRate: Int,
+    liveTempo: Float? = null,
+) {
 
-    private val processors: List<BlockProcessor> = blocks.map { processorFor(it, sampleRate) }
+    private val live: TempoProcessor? = liveTempo?.let(::TempoProcessor)
+
+    private val processors: List<BlockProcessor> =
+        listOfNotNull<BlockProcessor>(live) + blocks.map { processorFor(it, sampleRate) }
+
+    /** The live Tempo stage's current factor, or null when built without one. */
+    val liveTempo: Float? get() = live?.factor
+
+    /**
+     * Retime from the next Tempo frame on (~21 ms of input at 24 kHz): what
+     * the stage already emitted — and whatever the caller has buffered
+     * downstream of it — keeps the old rate. Only the analysis hop changes, so
+     * the overlap-add stays continuous across the switch (no click).
+     */
+    fun setLiveTempo(factor: Float) {
+        checkNotNull(live) { "chain was built without a live Tempo stage" }.factor = factor
+    }
 
     /** True when there is no DSP to apply — callers can skip allocation. */
     val isEmpty: Boolean get() = processors.isEmpty()
@@ -407,7 +434,20 @@ private class PitchProcessor(cents: Float, sr: Int) : BlockProcessor {
 private class TempoProcessor(factor: Float) : BlockProcessor {
     private val w = 1024
     private val hs = 512                                   // synthesis hop (50% overlap)
-    private val ha = (hs * factor).toDouble().coerceAtLeast(1.0) // analysis hop
+    private var ha = hopFor(factor)                        // analysis hop
+
+    /**
+     * Mutable for [StreamingEffectChain.setLiveTempo]. A change only moves the
+     * analysis hop of the frames still to come; the synthesis side (and so
+     * the overlap-add normalisation) is untouched, which keeps the seam clean.
+     */
+    var factor: Float = factor
+        set(value) {
+            field = value
+            ha = hopFor(value)
+        }
+
+    private fun hopFor(f: Float): Double = (hs * f).toDouble().coerceAtLeast(1.0)
     private val window = FloatArray(w) { (0.5 * (1 - cos(2.0 * PI * it / (w - 1)))).toFloat() }
 
     private var inBuf = FloatArray(w * 2)

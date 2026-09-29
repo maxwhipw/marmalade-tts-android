@@ -102,6 +102,77 @@ class StreamingEffectChainTest {
         )
     }
 
+    // ── live Tempo stage (the reader's session speed) ────────────────────────
+
+    /** Run [pcm] through a live-tempo chain in 2400-sample slices, calling [atSlice] before each. */
+    private fun streamLive(
+        pcm: ShortArray,
+        start: Float,
+        blocks: List<EffectBlock> = emptyList(),
+        atSlice: (StreamingEffectChain, Int) -> Unit = { _, _ -> },
+    ): ShortArray {
+        val chain = StreamingEffectChain(blocks, sr, liveTempo = start)
+        val out = ArrayList<Short>()
+        var off = 0
+        var slice = 0
+        while (off < pcm.size) {
+            atSlice(chain, slice++)
+            val end = minOf(off + 2400, pcm.size)
+            for (s in chain.process(pcm.copyOfRange(off, end))) out.add(s)
+            off = end
+        }
+        for (s in chain.flush()) out.add(s)
+        return out.toShortArray()
+    }
+
+    @Test
+    fun `a live tempo stage at a fixed factor matches a leading Tempo block`() {
+        val pcm = signal(48_000)
+        val effects = EffectChain.CAVE_BLOCKS
+        assertArrayEquals(
+            streamWhole(listOf(EffectBlock.Tempo(2.0f)) + effects, pcm),
+            streamLive(pcm, start = 2.0f, blocks = effects),
+        )
+    }
+
+    @Test
+    fun `changing the live tempo mid-stream retimes only what follows`() {
+        // 4 s of input: the first half at 2×, the second at 1× — the reader's
+        // 2× → 1× switch. Expect ≈ 1 s + 2 s of output, against 2 s for 2×
+        // throughout and 4 s for 1× throughout.
+        val pcm = signal(96_000)
+        val fast = streamLive(pcm, start = 2.0f)
+        val slow = streamLive(pcm, start = 1.0f)
+        val switched = streamLive(pcm, start = 2.0f) { chain, slice ->
+            if (slice == 20) chain.setLiveTempo(1.0f) // 20 × 2400 = 48 000 samples in
+        }
+
+        val frame = 1024 // one Tempo frame of slack at each end
+        assertEquals(48_000.0, fast.size.toDouble(), frame.toDouble())
+        assertEquals(96_000.0, slow.size.toDouble(), frame.toDouble())
+        assertEquals(72_000.0, switched.size.toDouble(), 2.0 * frame)
+        assertEquals(1.0f, StreamingEffectChain(emptyList(), sr, 2.0f).apply { setLiveTempo(1.0f) }.liveTempo!!, 0f)
+    }
+
+    @Test
+    fun `a live tempo switch leaves no click at the seam`() {
+        // Overlap-add keeps the output continuous: no sample-to-sample jump
+        // bigger than the steady signal's own around the switch.
+        val pcm = signal(96_000)
+        val out = streamLive(pcm, start = 2.0f) { chain, slice ->
+            if (slice == 20) chain.setLiveTempo(0.75f)
+        }
+        val steadyMaxStep = (1 until pcm.size).maxOf { abs(pcm[it] - pcm[it - 1]) }
+        // Skip the Hann ramp-in at the very start.
+        val maxStep = (2048 until out.size - 2048).maxOf { abs(out[it] - out[it - 1]) }
+        assertTrue("max step $maxStep vs steady $steadyMaxStep", maxStep <= steadyMaxStep * 1.5)
+    }
+
+    @Test
+    fun `a chain without a live stage reports none`() {
+        assertEquals(null, StreamingEffectChain(EffectChain.CAVE_BLOCKS, sr).liveTempo)
+    }
+
     // ── new effect blocks (E-J) — all must stream chunk-invariantly ──────────
 
     @Test
