@@ -125,7 +125,15 @@ When investigating **{concern}**, start at **{files}**:
   Every piece of a cut sentence uses the WHOLE sentence's style row
   (`TokenChunk.rowTokens` → `kokoroStyleRow`) — Kokoro picks its row by
   token count, and a short piece's own row sounds like a sentence end.
-  One `D/StreamPerf: kokoro plan …` line per request. Other engines still
+  **Short first piece** (Max's blind A/B, `docs/release/first-piece-lab.html`):
+  when the audio Kokoro already emitted (`engine/PlaybackHorizon`, an
+  in-engine estimate — the service passes no "cold" flag) can't cover
+  rendering the first sentence, that sentence alone is cut at a clause
+  mark (never a word gap) into a 15–55-token first piece sized for
+  ~1.1 s of render from the last measured ms/token, then pieces growing
+  by `0.9 / (RTF × playbackRate)` (`kokoroStreamBudget`). No seam trim.
+  One `D/StreamPerf: kokoro plan …` line per request (cutFirst, aheadMs,
+  firstPiece, growth, msPerToken). Other engines still
   chunk by characters (`TextChunker.chunk` / `clauseChunks`).
 - **Over-cap chunks**: `audio/TextChunker.splitToFit(text, fits)`
   re-splits a chunk that still overflows an engine's cap (clause

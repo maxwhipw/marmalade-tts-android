@@ -31,7 +31,7 @@ class KokoroStyleRowTest {
         val sentence = clause.repeat(11) + "今天天气很好我们。"
         val count: (String) -> Int = { it.length * 3 }
         val budget = TextChunker.TokenBudget(mergeFloor = 90, target = 200, firstPiece = 40, growth = 1.5)
-        val chunks = TextChunker.planByTokens(sentence, budget, count)
+        val chunks = TextChunker.planByTokens(sentence, budget, count = count)
         val rows = chunks.map { kokoroStyleRow(it.tokens, it.rowTokens) }.toSet()
         assertEquals(setOf(kokoroStyleRow(count(sentence), null)), rows)
     }

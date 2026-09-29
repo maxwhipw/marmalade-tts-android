@@ -13,6 +13,7 @@ import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.OrtRunAbort
+import app.marmalade.tts.engine.PlaybackHorizon
 import app.marmalade.tts.engine.PrerollGate
 import app.marmalade.tts.engine.abortableInference
 import app.marmalade.tts.engine.SynthAudio
@@ -138,6 +139,44 @@ private const val MAX_PHONEMES_PER_CHUNK = 500
  */
 internal fun kokoroStyleRow(chunkTokens: Int, sentenceTokens: Int?): Int =
     (sentenceTokens ?: chunkTokens).coerceIn(0, MAX_TOKEN_LEN - 1)
+
+/** Render time a short first piece aims for (T9): ~1.1 s. */
+private const val FIRST_PIECE_RENDER_MS = 1100.0
+
+/** Adaptive first-piece target range: ~20 tokens hot, ~40–45 cool. */
+private const val FIRST_PIECE_TARGET_MIN = 20
+private const val FIRST_PIECE_TARGET_MAX = 45
+
+/** Chunks below this many tokens don't update the speed memory. */
+private const val MEASURE_MIN_TOKENS = 20
+
+/** Assumed ms per token before any chunk was measured (between cool 24 and hot 52). */
+private const val DEFAULT_MS_PER_TOKEN = 30.0
+
+/**
+ * [base] with the short-first-piece sizes adapted to the measured speed
+ * (T9). The first piece aims at [FIRST_PIECE_RENDER_MS] of render time
+ * from [msPerToken] (clamped to 20–45 tokens; the planner never cuts below
+ * one clause anyway). Each later piece may grow by as much as it can while
+ * the previous one plays: `0.9 / (rtf × playbackRate)`, clamped to 1–2×. A
+ * NaN measurement keeps [base]'s value.
+ */
+internal fun kokoroStreamBudget(
+    base: TextChunker.TokenBudget,
+    msPerToken: Double,
+    rtf: Double,
+    playbackRate: Float,
+): TextChunker.TokenBudget {
+    val firstPiece = if (msPerToken > 0) {
+        Math.round(FIRST_PIECE_RENDER_MS / msPerToken).toInt()
+            .coerceIn(FIRST_PIECE_TARGET_MIN, FIRST_PIECE_TARGET_MAX)
+    } else {
+        base.firstPiece
+    }
+    val playedRtf = rtf * (if (playbackRate > 0f) playbackRate else 1f)
+    val growth = if (playedRtf > 0) (0.9 / playedRtf).coerceIn(1.0, 2.0) else base.growth
+    return base.copy(firstPiece = firstPiece, growth = growth)
+}
 
 /** Default espeak phonemization voice — see file comment. */
 private const val ESPEAK_VOICE = "en-us"
@@ -265,6 +304,19 @@ open class KokoroDirectEngine @Inject constructor(
         kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
     )
     private var warmupJob: kotlinx.coroutines.Job? = null
+
+    /** How much of this engine's emitted audio is still ahead of the listener (T8). */
+    private val horizon = PlaybackHorizon()
+
+    /**
+     * Last measured render cost (ms per token) and real-time factor of a
+     * chunk of ≥ [MEASURE_MIN_TOKENS] tokens on this engine — NaN until the
+     * first one. Sizes the next request's short first piece (T9): the phone
+     * runs ~24 ms/token cool and ~52 hot, so a fixed size would double its
+     * time-to-first-audio as it heats up.
+     */
+    @Volatile private var measuredMsPerToken = Double.NaN
+    @Volatile private var measuredRtf = Double.NaN
 
     override fun isInstalled(): Boolean {
         if (!engineDir.isDirectory) return false
@@ -478,16 +530,39 @@ open class KokoroDirectEngine @Inject constructor(
         // Kokoro's cost is linear in tokens, and a character is ≈1.1 tokens in
         // English but ≈3.4 in Chinese. Counting encodes each sentence once;
         // the ids are kept so a chunk rendered as planned isn't encoded twice.
+        //
+        // Short first piece (T1/T8/T9): when the audio this engine already
+        // sent can't cover rendering the first sentence whole — nothing
+        // playing, or too little left — the first sentence is cut at a clause
+        // mark into a small piece sized from the measured speed, then growing
+        // pieces. A request prefetched behind a playing one keeps it whole.
         val planStartNs = System.nanoTime()
+        val msPerToken = measuredMsPerToken
+        val budget = kokoroStreamBudget(TOKEN_BUDGET, msPerToken, measuredRtf, playbackRate)
+        val aheadMs = horizon.remainingMs()
+        var cutFirst = false
         val encoded = HashMap<String, IntArray>()
         val chunks = synthLock.withLock {
-            TextChunker.planByTokens(text, TOKEN_BUDGET) { part ->
+            TextChunker.planByTokens(
+                text,
+                budget,
+                cutFirstSentence = { firstTokens ->
+                    cutFirst = aheadMs < firstTokens * (msPerToken.takeIf { it > 0 } ?: DEFAULT_MS_PER_TOKEN)
+                    cutFirst
+                },
+            ) { part ->
                 encoded.getOrPut(part) { encodeTextToTokens(part, effectiveLang) }.size
             }
         }
         if (chunks.isEmpty()) return@channelFlow
         val planMs = (System.nanoTime() - planStartNs) / 1_000_000
-        Log.d(PERF_TAG, "kokoro plan chunks=${chunks.size} firstTokens=${chunks.first().tokens} maxTokens=${chunks.maxOf { it.tokens }} planMs=$planMs")
+        Log.d(
+            PERF_TAG,
+            "kokoro plan chunks=${chunks.size} firstTokens=${chunks.first().tokens} " +
+                "maxTokens=${chunks.maxOf { it.tokens }} cutFirst=$cutFirst aheadMs=$aheadMs " +
+                "firstPiece=${budget.firstPiece} growth=${"%.2f".format(budget.growth)} " +
+                "msPerToken=${"%.1f".format(msPerToken)} planMs=$planMs",
+        )
 
         // P-A diagnostic: per-chunk infer time + real-time factor + producer
         // inter-send gap. See KittenDirectEngine for the rationale.
@@ -509,44 +584,59 @@ open class KokoroDirectEngine @Inject constructor(
                 val ttfaMs = (System.nanoTime() - streamStartNs) / 1_000_000
                 Log.d(PERF_TAG, "kokoro TTFA=${ttfaMs}ms (loadWait=${loadWaitMs}ms) K=${gate.prerollChunks}")
             }
-            Log.d(PERF_TAG, "kokoro emit audio=${audio.pcm.size * 1000L / audio.sampleRate}ms gap=${gapMs}ms K=${gate.prerollChunks}")
+            val audioMs = audio.pcm.size * 1000L / audio.sampleRate
+            Log.d(PERF_TAG, "kokoro emit audio=${audioMs}ms gap=${gapMs}ms K=${gate.prerollChunks}")
             send(audio)
+            horizon.onEmitted(if (playbackRate > 0f) (audioMs / playbackRate).toLong() else audioMs)
             prevSendNs = System.nanoTime()
         }
-        for ((idx, chunk) in chunks.withIndex()) {
-            // A cancelled stream (reader tap, Stop, skip) must stop HERE:
-            // inference blocks and the uncontended lock/buffered send never
-            // suspend, so without this check a cancelled producer rendered
-            // every remaining chunk while holding the service's synth mutex —
-            // the next request's TTFA paid for all of them (~11 s on the 8a).
-            ensureActive()
-            val pieces = synthLock.withLock { tokenPieces(chunk.text, effectiveLang, encoded[chunk.text], chunk.rowTokens) }
-            // An over-cap chunk's pieces go out one at a time, each as soon
-            // as it is rendered — joining them first made a CJK run-on wait
-            // for its whole second half before any sound (31.6 s on the 8a).
-            for ((pi, piece) in pieces.withIndex()) {
-                // Per-piece check: a run-on's next piece is seconds of
-                // inference nobody will hear once the user has pressed Stop.
+        try {
+            for ((idx, chunk) in chunks.withIndex()) {
+                // A cancelled stream (reader tap, Stop, skip) must stop HERE:
+                // inference blocks and the uncontended lock/buffered send never
+                // suspend, so without this check a cancelled producer rendered
+                // every remaining chunk while holding the service's synth mutex —
+                // the next request's TTFA paid for all of them (~11 s on the 8a).
                 ensureActive()
-                val inferStartNs = System.nanoTime()
-                val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed, piece.styleRow) }
-                val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
-                if (pcm.isEmpty()) continue
-                val audioMs = pcm.size * 1000L / sampleRate
-                val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
-                val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
-                Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} row=${piece.styleRow} textLen=${piece.text.length}")
-                val release = gate.onChunkRendered(
-                    chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
-                    renderMs = inferMs,
-                    audioMs = audioMs,
-                )
-                for (audio in release) emitAudio(audio)
+                val pieces = synthLock.withLock { tokenPieces(chunk.text, effectiveLang, encoded[chunk.text], chunk.rowTokens) }
+                // An over-cap chunk's pieces go out one at a time, each as soon
+                // as it is rendered — joining them first made a CJK run-on wait
+                // for its whole second half before any sound (31.6 s on the 8a).
+                for ((pi, piece) in pieces.withIndex()) {
+                    // Per-piece check: a run-on's next piece is seconds of
+                    // inference nobody will hear once the user has pressed Stop.
+                    ensureActive()
+                    val inferStartNs = System.nanoTime()
+                    val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed, piece.styleRow) }
+                    val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
+                    if (pcm.isEmpty()) continue
+                    val audioMs = pcm.size * 1000L / sampleRate
+                    val rtf = if (audioMs > 0) inferMs.toDouble() / audioMs else Double.NaN
+                    // Speed memory for the next request's first-piece sizing (T9).
+                    // Tiny pieces are mostly fixed per-call cost, so skip them.
+                    if (piece.ids.size >= MEASURE_MIN_TOKENS && audioMs > 0) {
+                        measuredMsPerToken = inferMs.toDouble() / piece.ids.size
+                        measuredRtf = rtf
+                    }
+                    val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
+                    Log.d(PERF_TAG, "kokoro chunk=$idx/${chunks.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} row=${piece.styleRow} textLen=${piece.text.length}")
+                    val release = gate.onChunkRendered(
+                        chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
+                        renderMs = inferMs,
+                        audioMs = audioMs,
+                    )
+                    for (audio in release) emitAudio(audio)
+                }
             }
+            // Anything the gate still holds (e.g. the nominal last chunk
+            // phonemized to nothing, so the flush never triggered).
+            for (audio in gate.drain()) emitAudio(audio)
+        } catch (t: Throwable) {
+            // Cancelled (Stop, reader tap) or failed: what this stream was
+            // feeding has been cut off, so the next request starts cold.
+            horizon.clear()
+            throw t
         }
-        // Anything the gate still holds (e.g. the nominal last chunk
-        // phonemized to nothing, so the flush never triggered).
-        for (audio in gate.drain()) emitAudio(audio)
     }.flowOn(Dispatchers.Default)
 
     /**
@@ -965,7 +1055,11 @@ open class KokoroDirectEngine @Inject constructor(
          * (1.35 × 200) is cut at clause marks — ~5 s cool / ~10 s hot per
          * piece on the Pixel 8a, where one 715-token Chinese sentence used
          * to take 31 s. A cut first sentence starts with a ~40-token piece
-         * (≈ 1.4 s cool, 2.1 s hot) and grows 1.5× per piece.
+         * (≈ 1.4 s cool, 2.1 s hot) and grows 1.5× per piece — defaults
+         * until a chunk has been measured; [kokoroStreamBudget] then adapts
+         * both to the device's measured speed. A short first piece cut from
+         * a normal-size sentence must hold 15–55 tokens (defaults of
+         * [TextChunker.TokenBudget]).
          */
         private val TOKEN_BUDGET = TextChunker.TokenBudget(
             mergeFloor = 90,

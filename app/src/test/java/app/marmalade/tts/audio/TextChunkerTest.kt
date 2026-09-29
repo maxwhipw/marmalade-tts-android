@@ -302,7 +302,7 @@ class TextChunkerTest {
     private val budget = TextChunker.TokenBudget(mergeFloor = 90, target = 200, firstPiece = 40, growth = 1.5)
 
     private fun plan(text: String, b: TextChunker.TokenBudget = budget) =
-        TextChunker.planByTokens(text, b, fakeTokens)
+        TextChunker.planByTokens(text, b, count = fakeTokens)
 
     /** A clause of [words] four-letter words ending in [end]: 4 × words + 1 tokens. */
     private fun clause(words: Int, end: Char) = List(words) { "wxyz" }.joinToString(" ") + end
@@ -427,6 +427,71 @@ class TextChunkerTest {
         assertTrue(chunks.size > 2)
         assertTrue(chunks.drop(1).all { it.rowTokens == 324 })
         assertEquals(listOf(null, null), plan("First sentence. Second sentence. Third one.").map { it.rowTokens })
+    }
+
+    // -- short first piece (T1) ------------------------------------------------
+
+    private val news = "After three days of heavy rain, the river finally burst its banks " +
+        "early on Tuesday morning, flooding dozens of homes along the valley." // 26 + 50 + 36 tokens
+
+    @Test
+    fun shortFirstPieceCutsTheFirstSentenceAtItsFirstClauseThenGrows() {
+        var seen = -1
+        val chunks = TextChunker.planByTokens(news, budget, cutFirstSentence = { seen = it; true }, fakeTokens)
+        assertEquals(112, seen)
+        assertEquals(
+            listOf(
+                "After three days of heavy rain,",
+                "the river finally burst its banks early on Tuesday morning,",
+                "flooding dozens of homes along the valley.",
+            ),
+            chunks.map { it.text },
+        )
+        assertEquals(listOf(26, 50, 36), chunks.map { it.tokens })
+        // Every piece keeps the whole sentence's style row (T6).
+        assertTrue(chunks.all { it.rowTokens == 112 })
+    }
+
+    @Test
+    fun shortFirstPieceOnlyWhenAskedAndOnlyForTheFirstSentence() {
+        assertEquals(listOf(news), plan(news).map { it.text })
+        val chunks = TextChunker.planByTokens("$news $news", budget, cutFirstSentence = { true }, fakeTokens)
+        assertEquals(4, chunks.size)
+        assertEquals(news, chunks.last().text)
+        assertEquals(null, chunks.last().rowTokens)
+    }
+
+    @Test
+    fun shortFirstPieceKeepsTheSentenceWholeWithoutAUsableClauseMark() {
+        val cut = { _: Int -> true }
+        // No mark at all.
+        val plain = List(20) { "wxyz" }.joinToString(" ") + "."
+        assertEquals(listOf(plain), TextChunker.planByTokens(plain, budget, cut, fakeTokens).map { it.text })
+        // First clause too long for a short first piece (> 55 tokens).
+        val longHead = clause(15, ',') + " " + clause(5, '.')
+        assertEquals(listOf(longHead), TextChunker.planByTokens(longHead, budget, cut, fakeTokens).map { it.text })
+        // First piece would be a runt (< 15 tokens) — "Hi," alone.
+        val runtHead = "Hi, " + clause(20, '.')
+        assertEquals(listOf(runtHead), TextChunker.planByTokens(runtHead, budget, cut, fakeTokens).map { it.text })
+        // Already short: within 1.35 × the first-piece target.
+        val short = "Yes, of course, I will be there."
+        assertEquals(listOf(short), TextChunker.planByTokens(short, budget, cut, fakeTokens).map { it.text })
+    }
+
+    @Test
+    fun shortFirstPieceTakesATinyOpeningClauseWithTheNext() {
+        val s = "Well, " + clause(7, ',') + " " + clause(20, '.') // 5 + 29 + 81
+        val chunks = TextChunker.planByTokens(s, budget, cutFirstSentence = { true }, fakeTokens)
+        assertEquals("Well, " + clause(7, ','), chunks[0].text)
+        assertEquals(34, chunks[0].tokens)
+    }
+
+    @Test
+    fun shortFirstPieceCutsJapaneseAtAnIdeographicComma() {
+        val s = "雨が降っていたので、傘を持って出かけたが、途中で止んだので本当に良かった。" // 10 + 11 + 16 chars × 3
+        val chunks = TextChunker.planByTokens(s, budget, cutFirstSentence = { true }, fakeTokens)
+        assertEquals("雨が降っていたので、", chunks[0].text)
+        assertEquals(s, chunks.joinToString("") { it.text })
     }
 
     @Test

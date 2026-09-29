@@ -209,12 +209,18 @@ object TextChunker {
      *   may grow to.
      * @property firstPiece the first piece's size when the request's first
      *   sentence is cut; later pieces grow by [growth] up to [target].
+     * @property firstPieceMin / [firstPieceMax] the range a short first piece
+     *   cut from an otherwise-whole first sentence must land in (see
+     *   [planByTokens] step 4); outside it the sentence stays whole. Max's
+     *   blind listening test approved first pieces of 32–46 tokens.
      */
     data class TokenBudget(
         val mergeFloor: Int,
         val target: Int,
         val firstPiece: Int,
         val growth: Double,
+        val firstPieceMin: Int = 15,
+        val firstPieceMax: Int = 55,
     )
 
     /**
@@ -239,11 +245,25 @@ object TextChunker {
      *    the request's first chunk, its first piece is small
      *    ([TokenBudget.firstPiece], never less than one clause) and pieces
      *    grow from there.
+     * 4. Short first piece (T1): when [cutFirstSentence] says so for the
+     *    request's first sentence (given its token count) and that sentence
+     *    is otherwise whole, it is cut at clause marks only — never a word
+     *    gap — into a first piece of about [TokenBudget.firstPiece] tokens,
+     *    then growing pieces. The cut is kept only if the first piece lands
+     *    in [TokenBudget.firstPieceMin]..[TokenBudget.firstPieceMax];
+     *    otherwise the sentence stays whole, as does every later sentence.
      *
-     * Every chunk ends up ≤ [WHOLE_TOL] × target tokens by the planner's
-     * count; the engine keeps its own cap check for the count drifting.
+     * Pieces cut from a sentence carry its token count in
+     * [TokenChunk.rowTokens]. Every chunk ends up ≤ [WHOLE_TOL] × target
+     * tokens by the planner's count; the engine keeps its own cap check for
+     * the count drifting.
      */
-    fun planByTokens(text: String, budget: TokenBudget, count: (String) -> Int): List<TokenChunk> {
+    fun planByTokens(
+        text: String,
+        budget: TokenBudget,
+        cutFirstSentence: (firstSentenceTokens: Int) -> Boolean = { false },
+        count: (String) -> Int,
+    ): List<TokenChunk> {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return emptyList()
         val out = ArrayList<TokenChunk>()
@@ -254,14 +274,31 @@ object TextChunker {
                 .map { TokenChunk(it, count(it)) }
             if (sentences.isEmpty()) continue
             for (unit in mergeByTokens(sentences, budget, exemptFirst = out.isEmpty())) {
-                out += if (unit.tokens > wholeLimit(budget.target)) {
-                    cutByTokens(unit, budget, smallFirst = out.isEmpty(), count)
-                } else {
-                    listOf(unit)
+                val first = out.isEmpty()
+                out += when {
+                    unit.tokens > wholeLimit(budget.target) -> cutByTokens(unit, budget, smallFirst = first, count)
+                    first && cutFirstSentence(unit.tokens) -> shortFirstPiece(unit, budget, count)
+                    else -> listOf(unit)
                 }
             }
         }
         return out
+    }
+
+    /**
+     * [planByTokens] step 4: the first sentence as a short first piece plus
+     * growing pieces, cut at clause marks only — or whole, when it is short
+     * already, has no usable mark, or the first piece would fall outside
+     * [TokenBudget.firstPieceMin]..[TokenBudget.firstPieceMax].
+     */
+    private fun shortFirstPiece(unit: TokenChunk, budget: TokenBudget, count: (String) -> Int): List<TokenChunk> {
+        if (unit.tokens <= wholeLimit(budget.firstPiece)) return listOf(unit)
+        val atoms = cutAfter(unit.text, TOKEN_CLAUSE_CUT).map { TokenChunk(it, count(it.trim())) }
+        if (atoms.size < 2) return listOf(unit)
+        val pieces = packRamp(atoms, budget, budget.firstPiece)
+        val head = pieces.first().tokens
+        if (pieces.size < 2 || head < budget.firstPieceMin || head > budget.firstPieceMax) return listOf(unit)
+        return pieces.map { it.copy(rowTokens = unit.tokens) }
     }
 
     /**
