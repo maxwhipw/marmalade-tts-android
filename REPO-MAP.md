@@ -166,6 +166,31 @@ with no caller in the app: `MarmaladeSynthService`, the reader and
 - `playback/AudioOutput.kt` — the writer port: stream items (Begin/Write/End)
   queue at their frame, controls (Play/Pause/Flush/SetTempo) apply at the
   next slice; every chunk tagged `(sessionId, epoch, segment, chunk)`.
+- `playback/Narrator.kt` — the one owner: a command loop on its own
+  single thread (`Narrator.newLoopDispatcher()`) whose handlers never
+  suspend; resolution and rendering are child jobs reporting tagged events.
+  After every message `settle()` plans the render (RenderPlanner), runs the
+  StartPolicy, writes chunks to the output, syncs track play/pause, focus
+  and residency, and publishes the state. Audio is keyed by per-session
+  epochs (a jump/stop/resume bumps it and flushes the writer); child jobs
+  by their own token. Encodes Max's §6 answers: a share while the article
+  plays interrupts on the `Interrupt` track and the article resumes from the
+  start of the interrupted chunk; ~60 s ahead on-device, cloud this block +
+  next; preparing continues while paused except after `PauseReason.Navigation`;
+  every speed change (cloud too) is the writer's live Tempo, engines render
+  at 1.0; permanent focus loss → `Paused(FocusLoss)`; 30 min paused → stopped
+  (Idle, the shell stops); Previous/Next act on the article only.
+  A stop drops the article's audio and restarts its block on Play — a
+  re-render need not cut the same chunks (Kokoro's short first piece).
+- `playback/SegmentRenderer.kt` — one render job: prepare, stream the
+  engine at 1.0, wait for the budget permit between chunks, one TTFA sample
+  and one RTF sample per job (chunks after a permit wait are skewed: the
+  engines keep rendering into their own 64-chunk buffer meanwhile).
+- Tests: `test/.../playback/` — `NarratorHarness` (virtual clock, fake
+  ports, invariants), `FakeEngine` (lock, non-abortable mode, over-cap
+  re-split, internal buffer), `VirtualAudioOutput` (real
+  `StreamingEffectChain`, side-band frame marks), and the §5.2 scenarios in
+  `Narrator{Scenarios,Budget,Sessions}Test`.
 
 ### Cloud API engine (hosted voices)
 - `engine/api/CloudApiEngine.kt` — OpenAI-compatible `/audio/speech`
