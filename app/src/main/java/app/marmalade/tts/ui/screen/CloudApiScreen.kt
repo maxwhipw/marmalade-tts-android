@@ -293,8 +293,9 @@ private fun ProviderCard(
             )
 
             // The downloaded provider list tried to move this provider's
-            // endpoint to another site and was refused (the bundled URL is
-            // still in use). Only a user with a saved key needs to act.
+            // endpoint to another site and was refused (the pinned URL — the
+            // bundled one, or the one its key was saved for — is still in
+            // use). Only a user with a saved key needs to act.
             if (keyed && provider.movedOffSite) {
                 Spacer(Modifier.height(4.dp))
                 Text(

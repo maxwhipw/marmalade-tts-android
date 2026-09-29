@@ -167,9 +167,38 @@ class SettingsRepositoryTest {
         // Removing every key must not re-arm the gate. Acceptance records
         // "was told", not "is using"; re-prompting a user who already read
         // it is how people learn to dismiss disclaimers unread.
-        repo.setCloudApiKey("venice", "sk-test")
-        repo.setCloudApiKey("venice", "")
+        repo.setCloudApiKey("venice", "sk-test", "https://api.venice.ai/api/v1")
+        repo.setCloudApiKey("venice", "", "https://api.venice.ai/api/v1")
         assertTrue(repo.cloudDisclaimerAccepted.first())
+    }
+
+    @Test
+    fun cloudApiKey_recordsTheUrlItWasSavedForAndRemovesItWithTheKey() = runTest {
+        val repo = newRepo()
+        repo.setCloudApiKey("newco", "sk-new", "https://tts.newco.example/v1")
+
+        assertEquals(mapOf("newco" to "https://tts.newco.example/v1"), repo.cloudApiKeyBaseUrls.first())
+        // The URL prefix must not read back as a key of a provider "url_newco".
+        assertEquals(mapOf("newco" to "sk-new"), repo.cloudApiKeys.first())
+
+        repo.setCloudApiKey("newco", "", "https://tts.newco.example/v1")
+        assertEquals(emptyMap<String, String>(), repo.cloudApiKeyBaseUrls.first())
+        assertEquals(emptyMap<String, String>(), repo.cloudApiKeys.first())
+    }
+
+    @Test
+    fun recordCloudApiKeyBaseUrls_fillsGapsButNeverOverwrites() = runTest {
+        val repo = newRepo()
+        repo.setCloudApiKey("newco", "sk-new", "https://tts.newco.example/v1")
+
+        repo.recordCloudApiKeyBaseUrls(
+            mapOf("newco" to "https://evil.example/v1", "other" to "https://tts.other.example"),
+        )
+
+        assertEquals(
+            mapOf("newco" to "https://tts.newco.example/v1", "other" to "https://tts.other.example"),
+            repo.cloudApiKeyBaseUrls.first(),
+        )
     }
 
     @Test

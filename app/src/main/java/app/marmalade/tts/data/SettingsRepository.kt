@@ -432,15 +432,62 @@ open class SettingsRepository @Inject constructor(
         }
     }
 
-    /** Persist [providerId]'s Cloud API key; blank removes it. */
-    open suspend fun setCloudApiKey(providerId: String, value: String) {
+    /**
+     * Persist [providerId]'s Cloud API key, together with the [baseUrl] the
+     * provider had when the user saved it; blank removes both.
+     *
+     * The URL is the pin for providers the app doesn't bundle: a later
+     * downloaded provider list may move such a provider only within that
+     * URL's site ([cloudApiKeyBaseUrls],
+     * [app.marmalade.tts.data.cloud.CloudProviders.pinKeyedSites]).
+     */
+    open suspend fun setCloudApiKey(providerId: String, value: String, baseUrl: String) {
         dataStore.edit { prefs ->
             val trimmed = value.trim()
             val key = stringPreferencesKey("$CLOUD_API_KEY_PREFIX$providerId")
-            if (trimmed.isEmpty()) prefs.remove(key) else prefs[key] = trimmed
+            val urlKey = stringPreferencesKey("$CLOUD_API_KEY_BASE_URL_PREFIX$providerId")
+            if (trimmed.isEmpty()) {
+                prefs.remove(key)
+                prefs.remove(urlKey)
+            } else {
+                prefs[key] = trimmed
+                prefs[urlKey] = baseUrl
+            }
             // Any per-provider write for Venice supersedes the
             // single-provider era's key — drop it so remove actually removes.
             if (providerId == LEGACY_CLOUD_PROVIDER) prefs.remove(KEY_CLOUD_API_KEY)
+        }
+    }
+
+    /**
+     * The `baseUrl` each saved cloud API key was saved for, keyed by provider
+     * id — where the user agreed to send that key. Keys saved before these
+     * were recorded (1.1.0 and earlier) have none until
+     * [recordCloudApiKeyBaseUrls] fills it in on the next provider load.
+     */
+    open val cloudApiKeyBaseUrls: Flow<Map<String, String>> = dataStore.data.map { prefs ->
+        val urls = mutableMapOf<String, String>()
+        for ((key, value) in prefs.asMap()) {
+            val providerId = key.name.removePrefix(CLOUD_API_KEY_BASE_URL_PREFIX)
+            if (providerId != key.name && value is String && value.isNotBlank()) {
+                urls[providerId] = value
+            }
+        }
+        urls
+    }
+
+    /**
+     * Trust-on-first-use migration for keys that predate
+     * [cloudApiKeyBaseUrls]: record [urls] (provider id → its current
+     * `baseUrl`) for providers that have no recorded URL yet. Never
+     * overwrites one.
+     */
+    open suspend fun recordCloudApiKeyBaseUrls(urls: Map<String, String>) {
+        dataStore.edit { prefs ->
+            for ((providerId, url) in urls) {
+                val urlKey = stringPreferencesKey("$CLOUD_API_KEY_BASE_URL_PREFIX$providerId")
+                if (prefs[urlKey].isNullOrBlank()) prefs[urlKey] = url
+            }
         }
     }
 
@@ -669,6 +716,11 @@ open class SettingsRepository @Inject constructor(
         // Cloud API engine keys, one pref per provider:
         // "cloud_api_key_<providerId>". No provider keyed => unconfigured.
         private const val CLOUD_API_KEY_PREFIX = "cloud_api_key_"
+
+        // The baseUrl each cloud key was saved for, "cloud_key_base_url_<id>".
+        // Must not start with CLOUD_API_KEY_PREFIX: [cloudApiKeys] scans by
+        // prefix and would read these as keys of a provider "url_<id>".
+        private const val CLOUD_API_KEY_BASE_URL_PREFIX = "cloud_key_base_url_"
 
         // Cloud disclaimer acceptance. Absent ⇒ never shown, so existing
         // installs that already keyed a provider see it once on next visit.

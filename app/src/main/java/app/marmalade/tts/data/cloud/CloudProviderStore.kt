@@ -12,6 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 
@@ -22,6 +23,8 @@ import org.json.JSONException
 //     │              ◄── filesDir/cloud/providers.json   (remote copy, if fetched)
 //     │              ◄── assets/cloud-providers.json     (bundled fallback; also
 //     │                   pins each built-in provider's baseUrl to its site)
+//     │              ◄── SettingsRepository.cloudApiKeyBaseUrls (pins each
+//     │                   keyed provider to the site its key was saved for)
 //     │              + per-provider discovery overlay
 //     │                 (filesDir/cloud/voices-<id>.json, written by
 //     │                  discoverVoices() from GET {baseUrl}/models?type=tts)
@@ -49,7 +52,9 @@ import org.json.JSONException
  * The remote list is trusted input with a limit: it may add providers and
  * change a built-in provider's models, but may only move a built-in
  * provider's `baseUrl` (which receives the user's saved API key) within
- * that provider's own site — [CloudProviders.pinBuiltInSites]. Process
+ * that provider's own site — [CloudProviders.pinBuiltInSites] — and any
+ * provider the user saved a key for within the site of the URL the key was
+ * saved for — [CloudProviders.pinKeyedSites]. Process
  * rule (Max): any change to `cloud-providers.json` in the engines repo
  * needs Max's manual review; agents never merge it.
  */
@@ -203,9 +208,16 @@ class CloudProviderStore @Inject constructor(
      * same-version remote can still deliver new models between releases.
      *
      * A winning remote copy still can't move a built-in provider's
-     * `baseUrl` off its site — see [CloudProviders.pinBuiltInSites].
+     * `baseUrl` off its site — see [CloudProviders.pinBuiltInSites] — nor a
+     * keyed one off the site its key was saved for — [pinKeyed].
      */
     private fun loadBaseProviders(): List<CloudProvider> {
+        val (bundled, providers) = loadUnkeyedProviders()
+        return pinKeyed(bundled, providers)
+    }
+
+    /** (bundled providers, the list in force before [pinKeyed]). */
+    private fun loadUnkeyedProviders(): Pair<List<CloudProvider>, List<CloudProvider>> {
         val bundled = context.assets.open(BUNDLED_ASSET).use {
             it.readBytes().toString(Charsets.UTF_8)
         }
@@ -216,9 +228,9 @@ class CloudProviderStore @Inject constructor(
             runCatching { CloudProviders.parseDocument(file.readText()) }
                 .onFailure { Log.w(TAG, "cached provider list unreadable; using bundled", it) }
                 .getOrNull()
-        } ?: return bundledDoc.providers
+        } ?: return bundledDoc.providers to bundledDoc.providers
 
-        return if (cachedDoc.version >= bundledDoc.version) {
+        return bundledDoc.providers to if (cachedDoc.version >= bundledDoc.version) {
             CloudProviders.pinBuiltInSites(bundledDoc.providers, cachedDoc.providers).onEach {
                 if (it.movedOffSite) {
                     val moved = cachedDoc.providers.first { remote -> remote.id == it.id }
@@ -236,6 +248,42 @@ class CloudProviderStore @Inject constructor(
                     "bundled is v${bundledDoc.version}; using bundled",
             )
             bundledDoc.providers
+        }
+    }
+
+    /**
+     * Apply [CloudProviders.pinKeyedSites] with the saved keys' URLs.
+     *
+     * Migration, trust on first use: a key saved before its URL was recorded
+     * (1.1.0 and earlier) gets the URL its provider has in this first load,
+     * which runs before this process can fetch a new provider list
+     * (CloudApiViewModel reads [providers] before [refreshProviders]).
+     *
+     * runBlocking: [providers] is synchronous (the engine's provider lookup)
+     * and this runs once per cache fill, the same trade as
+     * CloudApiEngine.isInstalled.
+     */
+    private fun pinKeyed(bundled: List<CloudProvider>, providers: List<CloudProvider>): List<CloudProvider> {
+        val (keys, saved) = runBlocking {
+            settings.cloudApiKeys.first() to settings.cloudApiKeyBaseUrls.first()
+        }
+        val unrecorded = providers
+            .filter { !keys[it.id].isNullOrBlank() && it.id !in saved }
+            .associate { it.id to it.baseUrl }
+        if (unrecorded.isNotEmpty()) {
+            Log.i(TAG, "recording key URLs for ${unrecorded.keys} (first use)")
+            runBlocking { settings.recordCloudApiKeyBaseUrls(unrecorded) }
+        }
+        val listed = providers.associateBy { it.id }
+        return CloudProviders.pinKeyedSites(bundled, providers, saved + unrecorded).onEach {
+            val listedUrl = listed.getValue(it.id).baseUrl
+            if (it.movedOffSite && it.baseUrl != listedUrl) {
+                Log.w(
+                    TAG,
+                    "provider list moves keyed ${it.id} off-site to $listedUrl; " +
+                        "refused, keeping ${it.baseUrl} where its key was saved",
+                )
+            }
         }
     }
 

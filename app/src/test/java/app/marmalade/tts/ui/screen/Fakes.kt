@@ -171,6 +171,25 @@ internal class FakeSettings(
     private val cloudKeySet = MutableStateFlow(false)
     override val anyCloudApiKeySet: Flow<Boolean> = cloudKeySet
 
+    // CloudProviderStore reads these (blocking) on its first provider load;
+    // on the NoOp store they would throw instead of emitting.
+    private val cloudKeys = MutableStateFlow<Map<String, String>>(emptyMap())
+    override val cloudApiKeys: Flow<Map<String, String>> = cloudKeys
+    private val cloudKeyUrls = MutableStateFlow<Map<String, String>>(emptyMap())
+    override val cloudApiKeyBaseUrls: Flow<Map<String, String>> = cloudKeyUrls
+    override suspend fun setCloudApiKey(providerId: String, value: String, baseUrl: String) {
+        if (value.isBlank()) {
+            cloudKeys.value -= providerId
+            cloudKeyUrls.value -= providerId
+        } else {
+            cloudKeys.value += providerId to value.trim()
+            cloudKeyUrls.value += providerId to baseUrl
+        }
+    }
+    override suspend fun recordCloudApiKeyBaseUrls(urls: Map<String, String>) {
+        cloudKeyUrls.value = urls + cloudKeyUrls.value
+    }
+
     // Same reason: CloudApiViewModel gates its whole screen on this, so a
     // never-emitting flow would leave the gate stuck on its null state.
     private val disclaimerAccepted = MutableStateFlow(false)

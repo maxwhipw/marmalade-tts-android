@@ -11,7 +11,9 @@ import org.json.JSONObject
 // -----------------------------------------------------------------------------
 //   cloud-providers.json (bundled asset; a cached remote copy wins only if
 //   its `version` is >= the bundled one, and even then it may only move a
-//   built-in provider's baseUrl within the same site — pinBuiltInSites())
+//   built-in provider's baseUrl within the same site — pinBuiltInSites() —
+//   or a keyed provider's within the site its key was saved for —
+//   pinKeyedSites())
 //     │
 //     ▼
 //   CloudProviders.parseDocument(json) ──► CloudProvidersDocument
@@ -65,11 +67,12 @@ import org.json.JSONObject
  * @property models        The allowlist: every model this app will speak
  *                         through, with its verified capabilities.
  * @property movedOffSite  Not part of the JSON. True when the downloaded
- *                         provider list moved this built-in provider to a
- *                         different site and the move was refused
- *                         ([CloudProviders.pinBuiltInSites]); [baseUrl] is
- *                         then still the bundled one, and the UI tells a
- *                         user with a saved key to update the app.
+ *                         provider list moved this provider to a different
+ *                         site and the move was refused — a built-in one
+ *                         ([CloudProviders.pinBuiltInSites]) or one the user
+ *                         saved a key for ([CloudProviders.pinKeyedSites]);
+ *                         [baseUrl] is then still the pinned one, and the UI
+ *                         tells a user with a saved key to update the app.
  */
 data class CloudProvider(
     val id: String,
@@ -199,9 +202,10 @@ object CloudProviders {
      * applies — and the provider is flagged [CloudProvider.movedOffSite]
      * so the UI can ask the user to update the app.
      *
-     * Providers only in [remote] are taken as-is: nobody can have a key
-     * saved for them yet, and the user sees the new provider before
-     * entering one. [parseDocument] has already required https for them.
+     * Providers only in [remote] are taken as-is here: the user sees a new
+     * provider before entering a key for it, and [parseDocument] has already
+     * required https. Once a key is saved for one, [pinKeyedSites] holds it
+     * to the site of the URL the key was saved for.
      *
      * The remote list stays authoritative for which providers exist and in
      * what order.
@@ -217,6 +221,36 @@ object CloudProviders {
                 provider
             } else {
                 provider.copy(baseUrl = builtIn.baseUrl, movedOffSite = true)
+            }
+        }
+    }
+
+    /**
+     * Hold every provider the user saved a key for to the site of the
+     * `baseUrl` it was saved for ([keyBaseUrls], provider id → that URL; see
+     * SettingsRepository.cloudApiKeyBaseUrls). The same rule as
+     * [pinBuiltInSites]: a [sameSite] move is taken, an off-site one keeps
+     * the saved URL and flags [CloudProvider.movedOffSite].
+     *
+     * This closes the gap [pinBuiltInSites] leaves: a provider that exists
+     * only in the downloaded list would otherwise be trusted as-is on every
+     * load, so a later tampered list could send the saved key anywhere.
+     * Providers in [bundled] keep their bundled pin and are left alone here;
+     * so is any provider without a saved key.
+     */
+    fun pinKeyedSites(
+        bundled: List<CloudProvider>,
+        providers: List<CloudProvider>,
+        keyBaseUrls: Map<String, String>,
+    ): List<CloudProvider> {
+        val bundledIds = bundled.mapTo(HashSet()) { it.id }
+        return providers.map { provider ->
+            if (provider.id in bundledIds) return@map provider
+            val saved = keyBaseUrls[provider.id] ?: return@map provider
+            if (sameSite(saved, provider.baseUrl)) {
+                provider
+            } else {
+                provider.copy(baseUrl = saved, movedOffSite = true)
             }
         }
     }

@@ -340,6 +340,52 @@ class CloudProvidersTest {
         assertEquals(remote, pinned)
     }
 
+    // --- a provider only in the remote list is pinned once the user saves a key ---
+
+    private val newco = provider("newco", "https://tts.newco.example/v1")
+
+    private fun pinnedKeyed(remoteUrl: String, keyUrls: Map<String, String>): CloudProvider =
+        CloudProviders.pinKeyedSites(
+            bundled = listOf(bundledVenice),
+            providers = listOf(provider("newco", remoteUrl)),
+            keyBaseUrls = keyUrls,
+        ).single()
+
+    @Test
+    fun `a keyed remote-only provider moved off-site keeps its saved url and is flagged`() {
+        val p = pinnedKeyed("https://evil.example/v1", mapOf("newco" to newco.baseUrl))
+        assertEquals(newco.baseUrl, p.baseUrl)
+        assertTrue(p.movedOffSite)
+    }
+
+    @Test
+    fun `a keyed remote-only provider may move within its site`() {
+        val url = "https://api.newco.example/v2"
+        val p = pinnedKeyed(url, mapOf("newco" to newco.baseUrl))
+        assertEquals(url, p.baseUrl)
+        assertFalse(p.movedOffSite)
+    }
+
+    @Test
+    fun `a remote-only provider without a saved key is unchanged`() {
+        val p = pinnedKeyed("https://evil.example/v1", mapOf("someone-else" to newco.baseUrl))
+        assertEquals("https://evil.example/v1", p.baseUrl)
+        assertFalse(p.movedOffSite)
+    }
+
+    @Test
+    fun `a bundled provider keeps its bundled pin, not the key's`() {
+        // pinBuiltInSites already judged it; a stale saved URL must not
+        // override the bundled one.
+        val venice = provider("venice", "https://api2.venice.ai/api/v1")
+        val pinned = CloudProviders.pinKeyedSites(
+            bundled = listOf(bundledVenice),
+            providers = listOf(venice),
+            keyBaseUrls = mapOf("venice" to "https://old.example/v1"),
+        ).single()
+        assertEquals(venice, pinned)
+    }
+
     @Test
     fun `country-code second-level domains compare three labels`() {
         // example.co.uk is the site, not co.uk.

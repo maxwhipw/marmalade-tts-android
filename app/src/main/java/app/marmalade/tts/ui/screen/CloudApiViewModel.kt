@@ -118,7 +118,9 @@ class CloudApiViewModel @Inject constructor(
      */
     fun setKey(provider: CloudProvider, value: String) {
         viewModelScope.launch {
-            settings.setCloudApiKey(provider.id, value)
+            // The URL is the pin for a provider the app doesn't bundle
+            // (CloudProviders.pinKeyedSites): where the user agreed to send it.
+            settings.setCloudApiKey(provider.id, value, provider.baseUrl)
             store.sync()
             if (value.isNotBlank() && provider.discoverVoices) {
                 refreshVoices(provider)

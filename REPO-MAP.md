@@ -140,7 +140,13 @@ When investigating **{concern}**, start at **{files}**:
   provider's `baseUrl` (where saved API keys go) within its own site —
   `CloudProviders.pinBuiltInSites`; an off-site move keeps the bundled
   URL and sets `CloudProvider.movedOffSite`, which the Cloud screen shows
-  as "update the app" for keyed providers. The site rule is a PSL-free
+  as "update the app" for keyed providers. A provider only in the remote
+  list is held the same way once the user saves a key for it:
+  `setCloudApiKey` records the `baseUrl` the key was saved for
+  (`SettingsRepository.cloudApiKeyBaseUrls`) and `CloudProviders.pinKeyedSites`
+  refuses an off-site move from it on every load. Keys saved before that
+  (≤ 1.1.0) get their provider's current URL on first load (trust on first
+  use, `CloudProviderStore.pinKeyed`). The site rule is a PSL-free
   approximation (limits documented on `registrableDomain`). Any change to
   the engines repo's `cloud-providers.json` needs Max's manual review;
   agents never merge it.

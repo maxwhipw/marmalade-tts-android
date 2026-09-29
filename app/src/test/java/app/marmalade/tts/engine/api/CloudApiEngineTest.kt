@@ -44,7 +44,7 @@ private class FakeKeySettings(vararg keys: Pair<String, String>) :
     override fun cloudApiKeyFor(providerId: String): Flow<String> =
         keyState.map { it[providerId] ?: "" }
     override val anyCloudApiKeySet: Flow<Boolean> = keyState.map { it.isNotEmpty() }
-    override suspend fun setCloudApiKey(providerId: String, value: String) {
+    override suspend fun setCloudApiKey(providerId: String, value: String, baseUrl: String) {
         keyState.value =
             if (value.isBlank()) keyState.value - providerId
             else keyState.value + (providerId to value.trim())
