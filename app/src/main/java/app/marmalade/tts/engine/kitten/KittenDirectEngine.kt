@@ -27,6 +27,7 @@ import javax.inject.Singleton
 import kotlin.math.roundToLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
@@ -423,6 +424,12 @@ open class KittenDirectEngine @Inject constructor(
         // than playback (no audible gap possible from inference alone).
         var prevSendNs = 0L
         for ((idx, chunk) in chunks.withIndex()) {
+            // A cancelled stream (reader tap, Stop, skip) must stop HERE:
+            // inference blocks and the uncontended lock/buffered send never
+            // suspend, so without this check a cancelled producer rendered
+            // every remaining chunk while holding the service's synth mutex —
+            // the next request's TTFA paid for all of them (~11 s on the 8a).
+            ensureActive()
             val inferStartNs = System.nanoTime()
             // Single ORT session is non-reentrant, so we serialise per chunk.
             // The send() outside the lock is fine because PCM is already a

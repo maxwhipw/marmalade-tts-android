@@ -37,6 +37,7 @@ import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -515,6 +516,12 @@ open class KokoroDirectEngine @Inject constructor(
             prevSendNs = System.nanoTime()
         }
         for ((idx, chunk) in chunks.withIndex()) {
+            // A cancelled stream (reader tap, Stop, skip) must stop HERE:
+            // inference blocks and the uncontended lock/buffered send never
+            // suspend, so without this check a cancelled producer rendered
+            // every remaining chunk while holding the service's synth mutex —
+            // the next request's TTFA paid for all of them (~11 s on the 8a).
+            ensureActive()
             val inferStartNs = System.nanoTime()
             val pcm = synthLock.withLock { runInference(chunk, voiceName, speed, effectiveLang) }
             val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000

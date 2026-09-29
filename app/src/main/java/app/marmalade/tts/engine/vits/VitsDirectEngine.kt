@@ -25,6 +25,7 @@ import java.nio.ByteOrder
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
@@ -269,6 +270,12 @@ open class VitsDirectEngine @Inject constructor(
             minCharsExemptFirst = true,
         )
         for ((idx, chunk) in chunks.withIndex()) {
+            // A cancelled stream (reader tap, Stop, skip) must stop HERE:
+            // inference blocks and the uncontended lock/buffered send never
+            // suspend, so without this check a cancelled producer rendered
+            // every remaining chunk while holding the service's synth mutex —
+            // the next request's TTFA paid for all of them (~11 s on the 8a).
+            ensureActive()
             if (chunk.isBlank()) continue
             val startNs = System.nanoTime()
             // Phonemize + infer under the synth lock: the clause loop must not
