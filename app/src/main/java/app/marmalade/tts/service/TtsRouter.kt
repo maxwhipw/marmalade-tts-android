@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.first
 //     │  callerPackage = packageManager.getNameForUid(request.callerUid)
 //     │                  (or null for shared-UID system apps / non-IPC paths)
 //     ▼
-//   TtsRouter.resolveAlias(callerPackage)
+//   TtsRouter.resolveAlias(callerPackage, aliasId)
+//     │
+//     ├── if aliasId != null (the reader naming an alias for the article's
+//     │     language): VoiceAliasDao.findById(aliasId) → return it if found
 //     │
 //     ├── if callerPackage != null:
 //     │     AppAliasMappingDao.findByPackage(callerPackage) ──► mapping?
@@ -78,11 +81,17 @@ class TtsRouter @Inject constructor(
      *                       null when the caller cannot be identified
      *                       (shared UID, in-process path like the share
      *                       sheet, etc.).
+     * @param aliasId        An alias an in-app caller named outright (the
+     *                       reader, reading an article in a language the
+     *                       primary's voice doesn't speak). Wins when it
+     *                       resolves; a deleted one falls through to the
+     *                       normal per-app → primary order.
      * @return the resolved [VoiceAlias], or null when the caller should
      *         fall back to the engine's default voice (no primary set
      *         or primary alias has been deleted).
      */
-    suspend fun resolveAlias(callerPackage: String?): VoiceAlias? {
+    suspend fun resolveAlias(callerPackage: String?, aliasId: String? = null): VoiceAlias? {
+        aliasId?.let { aliasDao.findById(it) }?.let { return it }
         resolvePerApp(callerPackage)?.let { return it }
 
         // 2. Primary fallback.

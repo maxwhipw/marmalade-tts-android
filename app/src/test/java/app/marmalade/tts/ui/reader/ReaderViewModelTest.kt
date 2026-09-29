@@ -10,6 +10,8 @@ import app.marmalade.tts.reader.FetchResult
 import app.marmalade.tts.reader.ReaderArticle
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackStatus
+import app.marmalade.tts.reader.ReaderVoice
+import app.marmalade.tts.reader.ReaderVoicePicker
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.install.EngineCatalog
 import app.marmalade.tts.service.PlaybackTransport
@@ -160,6 +162,7 @@ class ReaderViewModelTest {
             settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella"),
             aliasDao = FakeAliasDao(),
             deviceProbe = FakeDeviceProbe(),
+            voicePicker = FakeVoicePicker(ReaderVoice.Primary),
             parseDispatcher = Dispatchers.Main,
             savedStateHandle = SavedStateHandle(),
         )
@@ -437,6 +440,126 @@ class ReaderViewModelTest {
         assertEquals(url, fetcher.seenUrl)
     }
 
+    // -- The article's voice (language-aware) ------------------------------------
+
+    private val zhAlias = ReaderVoice.Alias(
+        aliasId = "id-zh",
+        voiceId = "kokoro-direct-v1_0:zf_xiaoni",
+        engine = "kokoro-direct-v1_0",
+        speed = 1.2000001f,
+    )
+    private val zhInstalled = ReaderVoice.Installed(
+        voiceId = "kokoro-direct-v1_0:zf_xiaobei",
+        engine = "kokoro-direct-v1_0",
+    )
+
+    /** Another alias picked for the language starts at ITS speed, not the primary's. */
+    @Test
+    fun `an article read in another alias starts at that alias's speed`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-fast")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 2.0f)))
+        val vm = newViewModel(
+            extraction = threeBlocks(),
+            settings = settings,
+            aliasDao = aliasDao,
+            voicePicker = FakeVoicePicker(zhAlias),
+        )
+        vm.state.first()
+
+        assertEquals(1.2f, vm.playback.first().speed, 0f)
+        assertTrue(speech.spoken.isNotEmpty())
+        assertTrue(speech.spoken.all { it.voice == zhAlias && it.speed == 1.2f })
+    }
+
+    /** An installed voice has no alias, so no speed of its own: 1.0. */
+    @Test
+    fun `an article read in an installed voice starts at 1x`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-fast")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-fast", speed = 2.0f)))
+        val vm = newViewModel(
+            extraction = threeBlocks(),
+            settings = settings,
+            aliasDao = aliasDao,
+            voicePicker = FakeVoicePicker(zhInstalled),
+        )
+        vm.state.first()
+
+        assertEquals(1.0f, vm.playback.first().speed, 0f)
+        assertTrue(speech.spoken.all { it.voice == zhInstalled })
+    }
+
+    /** The live speed change still reaches the blocks read in the picked voice. */
+    @Test
+    fun `a speed change applies to an article read in a picked voice`() = runTest {
+        val vm = newViewModel(extraction = threeBlocks(), voicePicker = FakeVoicePicker(zhInstalled))
+        vm.state.first()
+        val ids = speech.spoken.map { it.requestId }
+
+        vm.onSpeedChange(1.5f)
+
+        assertEquals(ids to 1.5f, speech.speedChanges.last())
+    }
+
+    /** A missing engine is named after the engine actually reading, not the primary's. */
+    @Test
+    fun `a missing engine names the picked voice's engine`() = runTest {
+        val settings = FakeSettings(initialId = "kitten-direct-v0_8:Bella")
+        settings.setPrimaryAliasId("id-1x")
+        val aliasDao = FakeAliasDao(initial = listOf(alias(id = "id-1x", speed = 1.0f)))
+        val vm = newViewModel(
+            extraction = threeBlocks(),
+            settings = settings,
+            aliasDao = aliasDao,
+            voicePicker = FakeVoicePicker(zhInstalled),
+        )
+        vm.state.first()
+
+        completions.post(speech.spoken.first().requestId, PreviewCompletions.ErrorKind.MODEL_MISSING)
+
+        assertEquals(
+            ReaderPlaybackError.EngineNotInstalled(
+                EngineCatalog.byName("kokoro-direct-v1_0")!!.displayName,
+            ),
+            vm.playbackError.first(),
+        )
+    }
+
+    /** Decided once per article: a rebind keeps the voice and never re-picks. */
+    @Test
+    fun `rebinding to a held article does not pick a voice again`() = runTest {
+        val controller = newController()
+        controller.open(heldArticle(), voice = zhInstalled)
+        controller.play()
+        val picker = FakeVoicePicker(ReaderVoice.Primary)
+
+        newViewModel(controller = controller, voicePicker = picker).state.first()
+        controller.next()
+
+        assertEquals(0, picker.calls)
+        assertEquals(zhInstalled, speech.spoken.last().voice)
+    }
+
+    @Test
+    fun `a new article is picked for exactly once`() = runTest {
+        val picker = FakeVoicePicker(zhInstalled)
+
+        newViewModel(extraction = threeBlocks(), voicePicker = picker).state.first()
+
+        assertEquals(1, picker.calls)
+    }
+
+    private class FakeVoicePicker(private val voice: ReaderVoice) : ReaderVoicePicker {
+        var calls = 0
+            private set
+
+        override suspend fun voiceFor(article: ReaderArticle): ReaderVoice {
+            calls++
+            return voice
+        }
+    }
+
     private fun heldArticle() = threeBlocks().let {
         ReaderArticle(
             url = url,
@@ -668,6 +791,7 @@ class ReaderViewModelTest {
         controller: ReaderPlaybackController = newController(),
         aliasDao: FakeAliasDao = FakeAliasDao(),
         deviceProbe: FakeDeviceProbe = FakeDeviceProbe(),
+        voicePicker: ReaderVoicePicker = FakeVoicePicker(ReaderVoice.Primary),
         parseDispatcher: CoroutineDispatcher = Dispatchers.Main,
         savedState: Map<String, Any> = emptyMap(),
         handle: SavedStateHandle = savedStateHandle(sharedText, savedState),
@@ -678,6 +802,7 @@ class ReaderViewModelTest {
         settings = settings,
         aliasDao = aliasDao,
         deviceProbe = deviceProbe,
+        voicePicker = voicePicker,
         parseDispatcher = parseDispatcher,
         savedStateHandle = handle,
     )

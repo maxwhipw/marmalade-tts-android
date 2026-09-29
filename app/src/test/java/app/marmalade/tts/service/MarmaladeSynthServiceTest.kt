@@ -101,6 +101,22 @@ class MarmaladeSynthServiceTest {
         assertEquals(2.0f, service.effectiveSpeed(routed), 0f)
     }
 
+    /**
+     * The reader names another alias when the primary's voice doesn't speak
+     * the article's language; it must still go through alias routing (no
+     * explicit voice), just to that alias.
+     */
+    @Test
+    fun `a named alias is carried and keeps the request on the alias route`() {
+        val request = service.parseRequest(
+            speakIntent(sessionSpeed = 1.0f).putExtra(MarmaladeSynthService.EXTRA_ALIAS_ID, "id-zh"),
+        )!!
+
+        assertEquals("id-zh", request.aliasId)
+        assertEquals(false, request.voiceExplicit)
+        assertNull(service.parseRequest(speakIntent(sessionSpeed = null))!!.aliasId)
+    }
+
     private fun speakIntent(sessionSpeed: Float?) =
         Intent(MarmaladeSynthService.ACTION_SPEAK).apply {
             putExtra(MarmaladeSynthService.EXTRA_TEXT, "Hello.")

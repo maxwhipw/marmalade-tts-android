@@ -13,6 +13,8 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         val speed: Float = 1.0f,
         /** False only for the request that starts a play — see [ReaderSpeechClient.speak]. */
         val continuation: Boolean = false,
+        /** The voice the article is read in — see [ReaderVoice]. */
+        val voice: ReaderVoice = ReaderVoice.Primary,
     )
 
     val spoken = mutableListOf<Spoken>()
@@ -30,9 +32,10 @@ class FakeReaderSpeechClient : ReaderSpeechClient {
         text: String,
         speed: Float,
         continuation: Boolean,
+        voice: ReaderVoice,
     ): Boolean {
         if (!startAllowed) return false
-        spoken += Spoken(requestId, text, speed, continuation)
+        spoken += Spoken(requestId, text, speed, continuation, voice)
         return true
     }
 

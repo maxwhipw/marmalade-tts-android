@@ -128,7 +128,8 @@ import kotlinx.coroutines.withContext
 //     │                  order holds). Started for the head of the queue
 //     │                  while the request in front of it still plays.
 //     ├── if (!req.voiceExplicit): TtsRouter.resolveAlias → primary alias's
-//     │     voice/speed/effect/lang (share-sheet path only)
+//     │     voice/speed/effect/lang (share-sheet path and the reader; the
+//     │     reader may name another alias via EXTRA_ALIAS_ID)
 //     ├── speed = req.sessionSpeed, if sent (reader session speed; replaces
 //     │     the alias's speed — absent for every other caller)
 //     ├── UtteranceLanguage.resolve (per-utterance language auto-detect)
@@ -475,6 +476,7 @@ class MarmaladeSynthService : Service() {
             phonemizationLanguage = intent.getStringExtra(EXTRA_LANG)?.takeIf { it.isNotBlank() },
             requestId = intent.getLongExtra(EXTRA_REQUEST_ID, 0L),
             continuation = intent.getBooleanExtra(EXTRA_CONTINUATION, false),
+            aliasId = intent.getStringExtra(EXTRA_ALIAS_ID)?.takeIf { it.isNotBlank() },
         )
     }
 
@@ -706,11 +708,13 @@ class MarmaladeSynthService : Service() {
         // lands. Caller-package is null on this path — the trampoline
         // activity runs in our own process and there's no callerUid to
         // resolve. The router still does the right thing (skip per-app
-        // lookup, return the primary).
+        // lookup, return the primary). The reader may name another alias
+        // (EXTRA_ALIAS_ID) when the primary's voice doesn't speak the
+        // article's language.
         val routed: SpeakRequest = if (req.voiceExplicit) {
             req
         } else {
-            val alias = router.resolveAlias(callerPackage = null)
+            val alias = router.resolveAlias(callerPackage = null, aliasId = req.aliasId)
             if (alias != null) {
                 req.copy(
                     engine = alias.engine,
@@ -725,9 +729,11 @@ class MarmaladeSynthService : Service() {
         }
 
         // Resolve auto-detection against the utterance, once, before any
-        // chunking. No voice rerouting on this route: it has no request
+        // chunking. No per-utterance voice rerouting here: it has no request
         // locale to fall back on and the caller picked the voice, so
-        // detection only ever moves the phonemizer. See
+        // detection only ever moves the phonemizer. (The reader picks a
+        // voice for the article's language itself, once per article, before
+        // it sends anything — see reader/ReaderVoice.kt.) See
         // [UtteranceLanguage] for the per-engine rules.
         //
         // The session speed lands here, after routing, so it replaces the
@@ -1749,6 +1755,8 @@ class MarmaladeSynthService : Service() {
         val requestId: Long = 0L,
         /** Sent with [EXTRA_CONTINUATION]: never replaces paused work. */
         val continuation: Boolean = false,
+        /** Sent with [EXTRA_ALIAS_ID]: route through this alias instead of the primary. */
+        val aliasId: String? = null,
     )
 
     companion object {
@@ -1926,6 +1934,15 @@ class MarmaladeSynthService : Service() {
          * the user paused would throw out the article they paused.
          */
         const val EXTRA_CONTINUATION: String = "app.marmalade.tts.extra.CONTINUATION"
+        /**
+         * Id (String) of the alias to route through when [EXTRA_VOICE] is
+         * absent — in place of the primary alias, with everything an alias
+         * carries (voice, speed, effect, language). The reader sends it when
+         * the article's language needs another alias's voice. An id that no
+         * longer resolves (the alias was deleted mid-article) falls back to
+         * the primary.
+         */
+        const val EXTRA_ALIAS_ID: String = "app.marmalade.tts.extra.ALIAS_ID"
         /**
          * Path (inside our own cacheDir) holding the text, used instead of
          * [EXTRA_TEXT] when the text is too large for a binder transaction.

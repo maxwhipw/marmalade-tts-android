@@ -28,11 +28,12 @@ import javax.inject.Singleton
 interface ReaderSpeechClient {
 
     /**
-     * Enqueue [text] under [requestId], spoken at [speed] — an absolute speed
-     * that replaces the one the user's alias resolves to (the alias still
-     * supplies voice, effect and language). Returns false if the service refused
-     * to start (a background start with no foreground-service exemption), in
-     * which case no completion will ever arrive for [requestId].
+     * Enqueue [text] under [requestId], read in [voice] and spoken at
+     * [speed] — an absolute speed that replaces the one the alias resolves
+     * to (the alias still supplies voice, effect and language). Returns false
+     * if the service refused to start (a background start with no
+     * foreground-service exemption), in which case no completion will ever
+     * arrive for [requestId].
      *
      * [continuation] marks a block that follows one already handed over. It
      * queues even behind paused playback; a non-continuation request (the
@@ -44,6 +45,7 @@ interface ReaderSpeechClient {
         text: String,
         speed: Float,
         continuation: Boolean,
+        voice: ReaderVoice,
     ): Boolean
 
     /**
@@ -77,15 +79,18 @@ class SynthServiceReaderSpeechClient @Inject constructor(
         text: String,
         speed: Float,
         continuation: Boolean,
+        voice: ReaderVoice,
     ): Boolean {
         // The live value wins over the extra below in the service; setting it
         // here is what makes a new article's starting speed replace the last
         // article's (see LiveSessionSpeed).
         sessionSpeeds.set(speed)
-        // No EXTRA_VOICE on purpose: leaving it off is what makes the service
-        // resolve the user's primary alias (voice, speed, effect, language),
-        // which is exactly the voice the share-sheet path already reads in.
-        // The reader has no voice picker of its own by design.
+        // The primary alias sends no voice at all: leaving EXTRA_VOICE off is
+        // what makes the service resolve it (voice, speed, effect, language),
+        // exactly as the share-sheet path does. The other two come from the
+        // article-language switch (see ReaderVoice.kt): another alias goes by
+        // id, so the service applies that alias whole; an installed voice no
+        // alias uses is named outright and spoken dry.
         //
         // EXTRA_SPEED can't carry the session speed: on this route the
         // alias's speed replaces it. EXTRA_SESSION_SPEED is applied AFTER
@@ -102,6 +107,13 @@ class SynthServiceReaderSpeechClient @Inject constructor(
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
             putExtra(MarmaladeSynthService.EXTRA_SESSION_SPEED, speed)
             putExtra(MarmaladeSynthService.EXTRA_CONTINUATION, continuation)
+            when (voice) {
+                ReaderVoice.Primary -> Unit
+                is ReaderVoice.Alias ->
+                    putExtra(MarmaladeSynthService.EXTRA_ALIAS_ID, voice.aliasId)
+                is ReaderVoice.Installed ->
+                    putExtra(MarmaladeSynthService.EXTRA_VOICE, voice.voiceId)
+            }
             setPackage(context.packageName)
         }
         return runCatching { ContextCompat.startForegroundService(context, intent) }

@@ -616,6 +616,53 @@ class ReaderPlaybackControllerTest {
         assertEquals(1.5f, controller.state.value.speed, 0f)
     }
 
+    // -- The article's voice ----------------------------------------------------
+
+    private val chinese = ReaderVoice.Installed("kokoro-direct-v1_0:zf_xiaobei", "kokoro-direct-v1_0")
+
+    @Test
+    fun `every block of an article is read in the voice it was opened with`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks), voice = chinese)
+        controller.play()
+        finish()
+        advanceUntilIdle()
+        controller.seekTo(4)
+
+        // First three, one top-up after the completion, then a fresh run from 4.
+        assertEquals(
+            listOf("Block 0.", "Block 1.", "Block 2.", "Block 3.", "Block 4.", "Block 5."),
+            speech.spokenTexts,
+        )
+        assertTrue(speech.spoken.all { it.voice == chinese })
+    }
+
+    /** A rebind must not re-decide: the voice stays whatever the article started with. */
+    @Test
+    fun `reopening the same article keeps its voice`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks), voice = chinese)
+        controller.play()
+
+        controller.open(article(KEY, blocks), voice = ReaderVoice.Primary)
+        controller.seekTo(3)
+
+        assertEquals(chinese, controller.state.value.voice)
+        assertEquals(chinese, speech.spoken.last().voice)
+    }
+
+    @Test
+    fun `a new article takes the voice it is opened with`() = runTest {
+        val controller = newController()
+        controller.open(article(KEY, blocks), voice = chinese)
+        controller.play()
+
+        controller.open(article("https://example.com/other", listOf("New.")))
+        controller.play()
+
+        assertEquals(ReaderVoice.Primary, speech.spoken.last().voice)
+    }
+
     // -- Reconciling with the service's own pause -----------------------------
 
     /**

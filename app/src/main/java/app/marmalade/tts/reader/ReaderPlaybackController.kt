@@ -86,11 +86,19 @@ data class ReaderPlaybackState(
      *
      * Lives in this in-memory state and nowhere else — not in DataStore, not
      * in settings. It is a property of *this reading* of *this article*: each
-     * new article starts back at the primary alias's own speed (passed to
-     * [ReaderPlaybackController.open]), because a speed picked to skim one
+     * new article starts back at its reading alias's own speed — the primary
+     * alias, or the one [voice] picked for the article's language; 1.0 for an
+     * installed voice no alias uses (passed to
+     * [ReaderPlaybackController.open]) — because a speed picked to skim one
      * long post is not a preference about how the app speaks.
      */
     val speed: Float = 1.0f,
+    /**
+     * The voice this article is read in, chosen once when it was opened (see
+     * ReaderVoice.kt) and kept for the whole article so it never changes
+     * voice mid-read.
+     */
+    val voice: ReaderVoice = ReaderVoice.Primary,
     /**
      * Why playback last stopped on its own — a failed synthesis, a missing
      * engine, or a service that refused to start — or null. Set alongside the
@@ -172,21 +180,20 @@ class ReaderPlaybackController internal constructor(
     }
 
     /**
-     * Bind [article], keyed on its URL.
+     * Load [article] for reading in [voice], its session speed starting at
+     * [initialSpeed] — the caller passes that voice's alias's own speed, so
+     * the reader begins exactly as fast as the voice is tuned to speak.
      *
      * Returns true when this is a new article — the caller's cue to start
-     * playing. Returns false when that URL is already loaded, meaning playback
-     * is still going (or paused) from a previous visit to the screen and must
-     * be left exactly as it is.
+     * playing. Returns false (and changes nothing, speed and voice included)
+     * when [article] is already the one held: that is a rebind, not a new
+     * reading, and playback carries on exactly as it was.
      */
-    /**
-     * Load [article] for reading, its session speed starting at
-     * [initialSpeed] — the caller passes the primary alias's own speed, so
-     * the reader begins exactly as fast as that voice is tuned to speak.
-     * Returns false (and changes nothing, speed included) when [article] is
-     * already the one held: that is a rebind, not a new reading.
-     */
-    fun open(article: ReaderArticle, initialSpeed: Float = 1.0f): Boolean = synchronized(lock) {
+    fun open(
+        article: ReaderArticle,
+        initialSpeed: Float = 1.0f,
+        voice: ReaderVoice = ReaderVoice.Primary,
+    ): Boolean = synchronized(lock) {
         if (article.url == _state.value.articleKey && this.blocks.isNotEmpty()) return false
         cancelPendingLocked()
         this.article = article
@@ -201,6 +208,7 @@ class ReaderPlaybackController internal constructor(
             currentIndex = 0,
             status = ReaderPlaybackStatus.Idle,
             speed = initialSpeed.coerceIn(MIN_SPEED, MAX_SPEED),
+            voice = voice,
         )
         return true
     }
@@ -480,7 +488,8 @@ class ReaderPlaybackController internal constructor(
             nextIndex++
             val continuation = !fresh || pending.isNotEmpty()
             pending.addLast(Pending(requestId, index))
-            if (!speech.speak(requestId, blocks[index], _state.value.speed, continuation)) {
+            val state = _state.value
+            if (!speech.speak(requestId, blocks[index], state.speed, continuation, state.voice)) {
                 // The service wouldn't start, so this request will never
                 // complete and the pipeline would stall silently. Nothing is
                 // playable in that state — unwind to Idle, and say why.

@@ -45,8 +45,10 @@ import app.marmalade.tts.install.HttpFetcher
 import app.marmalade.tts.install.NativeEngineHandle
 import app.marmalade.tts.install.UrlHttpFetcher
 import app.marmalade.tts.perf.DeviceCapability
+import app.marmalade.tts.reader.LanguageAwareReaderVoicePicker
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderSpeechClient
+import app.marmalade.tts.reader.ReaderVoicePicker
 import app.marmalade.tts.reader.SynthServiceReaderSpeechClient
 import app.marmalade.tts.perf.DeviceProbeSource
 import app.marmalade.tts.preprocessing.Preprocessor
@@ -149,6 +151,17 @@ object AppModule {
     fun provideReaderSpeechClient(
         impl: SynthServiceReaderSpeechClient,
     ): ReaderSpeechClient = impl
+
+    /**
+     * Which voice reads an article — the primary alias unless its voice
+     * doesn't speak the article's language. An interface so ReaderViewModel's
+     * tests can fake the choice.
+     */
+    @Provides
+    @Singleton
+    fun provideReaderVoicePicker(
+        impl: LanguageAwareReaderVoicePicker,
+    ): ReaderVoicePicker = impl
 
     /**
      * The launchable-app roster behind the alias screen's routing sheet.

@@ -257,10 +257,20 @@ When investigating **{concern}**, start at **{files}**:
   (`ReaderAutoScroll`) except after a user drag, and never while
   TalkBack's touch exploration is on (watched live via
   `AccessibilityManager`) — it would steal accessibility focus; then only
-  a ToC pick scrolls. The reading speed (`ReaderSpeedSheet`) is
-  session-only and an **absolute override** of the primary alias's speed,
-  not a factor on it: each new article starts at the alias's own speed
-  (`ReaderViewModel.primaryAliasSpeed` → `ReaderPlaybackController.open`),
+  a ToC pick scrolls. **Voice per article** (`reader/ReaderVoice.kt`,
+  2026-09-28): once per article, before the first block, the reader
+  detects the article's language (`LangDetector` over the first ~2000
+  chars) and, if the primary alias's voice doesn't speak it
+  (`VoiceMeta.languageCode`, language subtag only), reads it in another
+  alias whose voice does (sent as `EXTRA_ALIAS_ID` →
+  `TtsRouter.resolveAlias(aliasId=…)`), else an installed on-device,
+  pickable voice of that language (`EXTRA_VOICE`, dry, 1.0x; never a cloud
+  voice), else the primary as before. Undetected language keeps the
+  primary. A rebind keeps the article's voice; logged as `D/ReaderVoice`.
+  The reader UI shows no voice name. The reading speed (`ReaderSpeedSheet`) is
+  session-only and an **absolute override** of the reading alias's speed,
+  not a factor on it: each new article starts at that alias's own speed
+  (`ReaderViewModel.startingSpeed` → `ReaderPlaybackController.open`),
   and the reader sends it as `EXTRA_SESSION_SPEED`, which
   MarmaladeSynthService applies *after* alias routing (voice, effect and
   language still come from the alias). A non-chip alias speed gets its

@@ -20,6 +20,8 @@ import app.marmalade.tts.perf.SpeedPerfWarning
 import app.marmalade.tts.reader.ReaderParseDispatcher
 import app.marmalade.tts.reader.ReaderPlaybackController
 import app.marmalade.tts.reader.ReaderPlaybackState
+import app.marmalade.tts.reader.ReaderVoice
+import app.marmalade.tts.reader.ReaderVoicePicker
 import app.marmalade.tts.service.PreviewCompletions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URL
@@ -47,9 +49,12 @@ import kotlinx.coroutines.withContext
 //     │
 //     ├── init: ArticleFetcher.fetch(url) → ArticleExtractor.extract(bytes)
 //     │           │   (the extract runs on @ReaderParseDispatcher, off Main)
-//     │           └── on success: hand the blocks to ReaderPlaybackController,
-//     │               its session speed seeded from the primary alias's
-//     │               speed, and, if it's a new article, start reading — once per
+//     │           └── on success: ReaderVoicePicker picks the voice for the
+//     │               article's language (the primary alias unless its voice
+//     │               doesn't speak it), then hand the blocks to
+//     │               ReaderPlaybackController in that voice, its session
+//     │               speed seeded from that voice's alias's speed (1.0 for an
+//     │               installed voice), and, if it's a new article, start reading — once per
 //     │               ViewModel: a SavedStateHandle flag stops a ViewModel
 //     │               restored after process death from autoplaying again
 //     │
@@ -134,6 +139,7 @@ class ReaderViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val aliasDao: VoiceAliasDao,
     private val deviceProbe: DeviceProbeSource,
+    private val voicePicker: ReaderVoicePicker,
     @ReaderParseDispatcher private val parseDispatcher: CoroutineDispatcher,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -184,8 +190,8 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * The primary alias's engine — the one the service routes the reader to
-     * (see [app.marmalade.tts.service.TtsRouter.resolveAlias]), and so the
-     * one whose RTF the perf warning checks. Falls back to an empty engine
+     * (see [app.marmalade.tts.service.TtsRouter.resolveAlias]) when the
+     * article's voice is [ReaderVoice.Primary]. Falls back to an empty engine
      * when no primary alias is set (or it has been deleted), mirroring the
      * service falling through to the engine's default.
      */
@@ -195,6 +201,21 @@ class ReaderViewModel @Inject constructor(
     ) { primaryId, aliases ->
         PrimaryAlias(engine = aliases.firstOrNull { it.id == primaryId }?.engine ?: "")
     }.stateIn(viewModelScope, SharingStarted.Eagerly, PrimaryAlias(engine = ""))
+
+    /**
+     * The engine this article is actually read with — the primary alias's,
+     * or the one behind the voice picked for the article's language — and so
+     * the one whose RTF the perf warning checks and whose name a missing
+     * engine error shows. Empty when that is unknown (no primary alias).
+     */
+    private val readingEngine: StateFlow<String> =
+        combine(playback, primaryAlias) { pb, alias ->
+            when (val voice = pb.voice) {
+                ReaderVoice.Primary -> alias.engine
+                is ReaderVoice.Alias -> voice.engine
+                is ReaderVoice.Installed -> voice.engine
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     /**
      * This device's synthesis-capability probe, resolved once. Feeds the
@@ -212,12 +233,12 @@ class ReaderViewModel @Inject constructor(
      */
     val showSpeedWarning: StateFlow<Boolean> = combine(
         playback,
-        primaryAlias,
+        readingEngine,
         deviceProbeState,
         settings.engineRtf,
-    ) { pb, alias, probe, rtfByEngine ->
-        val measured = rtfByEngine[alias.engine]
-        val predicted = probe?.let { EngineRecommender.predictedRtf(alias.engine, it) }
+    ) { pb, engine, probe, rtfByEngine ->
+        val measured = rtfByEngine[engine]
+        val predicted = probe?.let { EngineRecommender.predictedRtf(engine, it) }
         SpeedPerfWarning.shouldWarn(measured, predicted, pb.speed)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -226,19 +247,19 @@ class ReaderViewModel @Inject constructor(
      * error notification for in-app requests (the caller is expected to show
      * the error), so without this a failed read would just go quiet.
      *
-     * A missing engine is named after the primary alias's engine — the one the
-     * service routed to. With no primary alias the service fell back to an
-     * engine default we can't name, so that case reads as a plain failure.
+     * A missing engine is named after [readingEngine] — the one the service
+     * routed to. With no primary alias the service fell back to an engine
+     * default we can't name, so that case reads as a plain failure.
      */
     val playbackError: StateFlow<ReaderPlaybackError?> =
-        combine(playback, primaryAlias) { pb, alias ->
+        combine(playback, readingEngine) { pb, engine ->
             when (pb.lastError) {
                 null -> null
                 PreviewCompletions.ErrorKind.MODEL_MISSING ->
-                    if (alias.engine.isEmpty()) {
+                    if (engine.isEmpty()) {
                         ReaderPlaybackError.Failed
                     } else {
-                        ReaderPlaybackError.EngineNotInstalled(engineLabelOf(alias.engine))
+                        ReaderPlaybackError.EngineNotInstalled(engineLabelOf(engine))
                     }
                 PreviewCompletions.ErrorKind.FAILED -> ReaderPlaybackError.Failed
             }
@@ -372,7 +393,11 @@ class ReaderViewModel @Inject constructor(
                     blocks = extracted.blocks,
                     totalTextChars = extracted.totalTextChars,
                 )
-                val isNew = playbackController.open(article, primaryAliasSpeed())
+                // Once per article, before anything is spoken, so the voice
+                // never changes mid-read. Detection is CPU work over the text
+                // and the pick probes the disk, hence off Main.
+                val voice = withContext(parseDispatcher) { voicePicker.voiceFor(article) }
+                val isNew = playbackController.open(article, startingSpeed(voice), voice)
                 if (isNew && savedStateHandle.get<Boolean>(KEY_AUTOPLAYED) != true) {
                     savedStateHandle[KEY_AUTOPLAYED] = true
                     playbackController.play()
@@ -390,23 +415,26 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
-     * The speed the reader starts an article at: the primary alias's own, so
-     * reading begins exactly as fast as the voice the service routes to
-     * (the same primary-alias lookup as
+     * The speed the reader starts an article at: the own speed of the alias
+     * it is read in, so reading begins exactly as fast as that voice is tuned
+     * to speak. For the primary that is the same primary-alias lookup as
      * [app.marmalade.tts.service.TtsRouter.resolveAlias] with no caller
-     * package). 1.0 when there is no primary alias. Read directly rather
-     * than from [primaryAlias], whose first value may still be the
-     * placeholder when a fast load gets here.
+     * package, read directly rather than from [primaryAlias], whose first
+     * value may still be the placeholder when a fast load gets here. 1.0 when
+     * there is no primary alias, and for an installed voice no alias uses.
      *
      * Rounded to hundredths: the alias slider stores values like 1.1000001f,
      * which would otherwise match no chip and label the extra chip with
      * float noise. The difference is far below anything audible.
      */
-    private suspend fun primaryAliasSpeed(): Float {
-        val speed = settings.primaryAliasId.first()
-            ?.let { aliasDao.findById(it) }
-            ?.speed
-            ?: return 1.0f
+    private suspend fun startingSpeed(voice: ReaderVoice): Float {
+        val speed = when (voice) {
+            ReaderVoice.Primary -> settings.primaryAliasId.first()
+                ?.let { aliasDao.findById(it) }
+                ?.speed
+            is ReaderVoice.Alias -> voice.speed
+            is ReaderVoice.Installed -> null
+        } ?: return 1.0f
         return (speed * 100).roundToInt() / 100f
     }
 

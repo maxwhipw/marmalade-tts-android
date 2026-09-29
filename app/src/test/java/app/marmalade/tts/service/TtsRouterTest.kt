@@ -19,8 +19,13 @@ import org.junit.Test
  * the db v10 UUID re-key until v1.1.0, so every fallback configured in that
  * window dangled against an id-only lookup and the protection silently never
  * fired. Both shapes have to resolve.
+ *
+ * Also [TtsRouter.resolveAlias]'s caller-named alias, which the reader uses to
+ * read an article in a voice that speaks its language.
  */
 class TtsRouterTest {
+
+    private val settings = FakePreprocessSettings()
 
     private val kitten = alias(id = "uuid-kitten", name = "Kitty", voiceId = "kitten-direct-v0_8:Bella")
 
@@ -39,7 +44,7 @@ class TtsRouterTest {
     private fun routerWith(vararg aliases: VoiceAlias) = TtsRouter(
         mappingDao = NoMappings,
         aliasDao = MapAliasDao(aliases.toList()),
-        settings = FakePreprocessSettings(),
+        settings = settings,
     )
 
     private val cloudVoice = "cloud-api-v1:venice:tts-kokoro:af_sky"
@@ -74,6 +79,27 @@ class TtsRouterTest {
     fun `no fallback configured resolves to no fallback`() = runBlocking {
         val cloud = alias("uuid-cloud", "Sky", cloudVoice)
         assertNull(routerWith(cloud, kitten).fallbackVoiceIdFor(cloud))
+    }
+
+    // -- An alias named by the caller (the reader's article-language switch) ---
+
+    @Test
+    fun `a named alias wins over the primary`() = runBlocking {
+        val zh = alias("uuid-zh", "Xiaoni", "kokoro-direct-v1_0:zf_xiaoni")
+        val router = routerWith(kitten, zh)
+        settings.setPrimaryAliasId(kitten.id)
+
+        assertEquals(zh, router.resolveAlias(callerPackage = null, aliasId = zh.id))
+        assertEquals(kitten, router.resolveAlias(callerPackage = null))
+    }
+
+    /** Deleted mid-article: read on in the primary rather than fail. */
+    @Test
+    fun `a named alias that no longer exists falls back to the primary`() = runBlocking {
+        val router = routerWith(kitten)
+        settings.setPrimaryAliasId(kitten.id)
+
+        assertEquals(kitten, router.resolveAlias(callerPackage = null, aliasId = "uuid-deleted"))
     }
 
     private class MapAliasDao(private val rows: List<VoiceAlias>) : VoiceAliasDao {
