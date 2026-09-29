@@ -15,9 +15,9 @@ same concept names — a user moving between CLI and app should not
 have to relearn vocabulary.
 
 What the Android app adds that the CLI can't: system TTS provider,
-share sheet, Quick Settings tile, foreground media playback, voice
-cloning from a mic recording with a guided consent UX, Tasker/MacroDroid
-plugin, Android Auto / Wear OS, Quick-tile voice profile switching.
+share sheet, foreground media playback, voice cloning from a mic
+recording with a guided consent UX, Tasker/MacroDroid plugin, Android
+Auto / Wear OS, Quick-tile voice profile switching.
 
 What the CLI has that won't ship on Android: subprocess-based engine
 hosting (Android uses ONNX in-process), the Docker HTTP server (the
