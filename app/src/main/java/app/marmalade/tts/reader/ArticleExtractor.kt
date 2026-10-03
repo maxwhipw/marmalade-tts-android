@@ -17,7 +17,8 @@ import org.jsoup.nodes.Element
 //   1. Parse the fetched bytes (Readability4J needs a Document, and jsoup's
 //      stream parser is the only thing that gets the charset right — see
 //      below), drop the reference/navigation furniture Readability keeps
-//      (infoboxes, navboxes, footnote markers — see removeNoise), then run
+//      (nav/aside/footer landmarks, infoboxes, navboxes, footnote markers —
+//      see removeNoise), then run
 //      Readability4J over it to strip nav/ads/comments.
 //   2. Re-parse Readability's cleaned HTML and walk it into typed blocks,
 //      then run ArticleCleanup over the list to drop the page furniture
@@ -149,6 +150,12 @@ open class ArticleExtractor @Inject constructor() {
      * Remove what is page furniture wherever it appears, before Readability
      * sees the page:
      *
+     * - **Page landmarks that are never the article** ([LANDMARK_SELECTOR]):
+     *   `nav`, `aside`, `footer`, `dialog` and their ARIA roles. Readability
+     *   keeps them when it settles on a wrapper around the whole page — a
+     *   news site's section menu arrived as seven one-word list items above
+     *   the headline, its breadcrumb and consent modal after the body. An
+     *   `aside` costs the occasional callout box; that trade is deliberate.
      * - **Reference and navigation boxes** by class name ([NOISE_SELECTOR]):
      *   infoboxes (a Wikipedia taxobox arrived as blocks like "C. ×
      *   aurantium", ", 1753", "List" and a long synonym list), navboxes,
@@ -161,10 +168,11 @@ open class ArticleExtractor @Inject constructor() {
      *   Bracketed text that isn't a lone superscript ("arr[1]" in prose) is
      *   left alone.
      *
-     * Class-name based rather than site-specific; the MediaWiki names cover
-     * every wiki running it, not just Wikipedia.
+     * Tag-, role- and class-name based rather than site-specific; the
+     * MediaWiki names cover every wiki running it, not just Wikipedia.
      */
     private fun removeNoise(document: Document) {
+        document.select(LANDMARK_SELECTOR).remove()
         document.select(NOISE_SELECTOR).remove()
         document.select("sup")
             .filter { FOOTNOTE_MARKER.matches(normalise(it.text())) }
@@ -241,6 +249,10 @@ open class ArticleExtractor @Inject constructor() {
 
     companion object {
         private val WHITESPACE = Regex("\\s+")
+
+        /** Page landmarks removed before extraction — see [removeNoise]. */
+        private const val LANDMARK_SELECTOR =
+            "nav, aside, footer, dialog, [role=navigation], [role=complementary]"
 
         /** Reference/navigation furniture removed before extraction — see [removeNoise]. */
         private const val NOISE_SELECTOR =

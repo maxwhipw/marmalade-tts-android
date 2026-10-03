@@ -332,11 +332,13 @@ with no caller in the app: `MarmaladeSynthService`, the reader and
   parsed on the `@ReaderParseDispatcher` from
   `reader/ReaderParseDispatcher.kt`, off Main) → article rendered as
   native Compose text blocks. Page furniture that Readability keeps
-  (infoboxes, navboxes, sidebars, hatnotes, edit links, footnote-marker
-  superscripts like `[1]`/`[citation needed]`) is removed by class name
-  in `ArticleExtractor.removeNoise` *before* Readability runs — its
-  cleaned HTML has no class names left; `ArticleCleanup` then filters the
-  block list. Entered from ShareIntentActivity (or the
+  (`nav`/`aside`/`footer`/`dialog` landmarks and their ARIA roles,
+  infoboxes, navboxes, sidebars, hatnotes, edit links, footnote-marker
+  superscripts like `[1]`/`[citation needed]`) is removed by tag, role and
+  class name in `ArticleExtractor.removeNoise` *before* Readability runs —
+  its cleaned HTML has no class names left (Readability sometimes keeps a
+  wrapper around the whole page, menus included); `ArticleCleanup` then
+  filters the block list. Entered from ShareIntentActivity (or the
   playback notification), which starts MainActivity with
   `EXTRA_READER_URL`. MainActivity takes a request only from a fresh
   launch or `onNewIntent` — not a recreation or a Recents replay (a

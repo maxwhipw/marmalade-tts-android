@@ -390,6 +390,120 @@ class ArticleExtractorTest {
         assertTrue(texts.any { it.endsWith("The room is 12 m2 and the list [a] stays.") })
     }
 
+    // -- page landmarks and link furniture ----------------------------------
+
+    /**
+     * The shape of a news page whose full body sits behind a login (a
+     * national broadcaster's site, device run 2026-10-03; text made up here):
+     * a title, a date line and a two-sentence teaser, surrounded by a section
+     * menu, a keyword tag cloud, "read next" / "in depth" link lists, a
+     * sidebar of duplicated widget headings, a breadcrumb, a consent modal
+     * and a footer. Readability settles on a wrapper around most of it.
+     */
+    private fun linkFurnitureItem(n: Int, headline: String) =
+        """<li><a href="/news/$n"><div><div><img src="/img/$n.jpg" alt="$headline"></div>""" +
+            """<div><p>$headline</p><p>3 October 16:0$n</p></div></div></a></li>"""
+
+    private val newsPage = """
+        <html>
+          <head><title>Harbour festival returns after six years, and the town is ready | Example News</title></head>
+          <body>
+            <dialog aria-label="Menu"><div><ul></ul></div></dialog>
+            <div>
+              <header><div><button><span>Menu</span></button></div></header>
+              <div>
+                <nav><div><a href="/news">News</a><ul>
+                  <li><a href="/latest">Latest</a></li><li><a href="/society">Society</a></li>
+                  <li><a href="/politics">Politics</a></li><li><a href="/business">Business</a></li>
+                  <li><a href="/world">World</a></li><li><a href="/science">Science &amp; culture</a></li>
+                  <li><a href="/sport">Sport</a></li><li><a href="/living">Living</a></li>
+                  <li><a href="/depth">In depth</a></li><li><a href="/regions">Regions</a></li>
+                  <li><a href="/video">Video &amp; shows</a></li>
+                </ul></div></nav>
+                <main><div><div>
+                  <div>
+                    <div><div>
+                      <h1>Harbour festival returns after six years</h1>
+                      <div><div><time>3 October 2026 5:02</time><button><span>Share</span></button></div>
+                        <a href="/topics/harbour">Harbour</a></div>
+                    </div></div>
+                    <p>The harbour festival opens on Saturday for the first time in six years, and organisers expect boats from all along the coast to join the…</p>
+                    <div><h3>Key words</h3><div><a href="/t/harbour">Harbour</a><a href="/t/festivals">Festivals</a></div></div>
+                  </div>
+                  <div><h2>Read next</h2><ul>
+                    ${linkFurnitureItem(1, "Council votes to repaint the old lighthouse in its original colours")}
+                    ${linkFurnitureItem(2, "Ferry timetable changes for the winter season announced")}
+                    ${linkFurnitureItem(3, "Local bakery wins a regional prize for its seaweed bread")}
+                    ${linkFurnitureItem(4, "School choir to sing at the opening of the new library")}
+                  </ul></div>
+                  <div><h2>In depth</h2><div><ul>
+                    ${linkFurnitureItem(5, "Why the fishing fleet keeps shrinking")}
+                    ${linkFurnitureItem(6, "The family that has kept the tide tables for a century")}
+                    ${linkFurnitureItem(7, "What a quieter harbour sounds like at night")}
+                  </ul><span><a href="/depth">More in-depth stories</a></span></div></div>
+                  <div>
+                    <div><div><h2>Latest video</h2></div><div><h2>Latest video</h2></div>
+                      <span><a href="/video">Watch the videos</a></span></div>
+                    <div><h2>Weather</h2><h2>Weather</h2><span><a href="/weather">Check the forecast</a></span></div>
+                    <div><h2>Latest news</h2><h2>Latest news</h2><ul>
+                      ${linkFurnitureItem(8, "Road closed after a landslip near the quarry")}
+                      ${linkFurnitureItem(9, "Rowing club celebrates its fiftieth year")}
+                    </ul><span><a href="/latest">All the latest news</a></span></div>
+                    <div><h2>Local news</h2><h2>Local news</h2>
+                      <div><svg viewBox="0 0 10 10"><title>Map</title><g><path d="M0,0h10v10z"></path></g></svg>
+                        <p>Choose on the map</p></div></div>
+                  </div>
+                </div></div></main>
+                <nav aria-label="Breadcrumb"><ol>
+                  <li><a href="/">Example News home</a></li><li><a href="/world">World news list</a></li>
+                  <li>Harbour festival returns after six years</li>
+                </ol></nav>
+              </div>
+              <dialog>
+                <h2>Before you continue</h2>
+                <p>Example News is free for everyone to read, but some services need an account, and you can read more about how we use your data on our policy pages before you continue.</p>
+                <h3>Services you can use</h3><p>Live streams of every programme</p>
+                <p>Tick the box to continue</p>
+              </dialog>
+              <footer><p>Copyright Example News. All rights reserved.</p></footer>
+            </div>
+          </body>
+        </html>
+    """.trimIndent()
+
+    @Test
+    fun `nav, footer and dialog landmarks are never read out`() {
+        val texts = (extract(newsPage) as ExtractionResult.Success).blocks.map { it.text }
+
+        for (chrome in listOf("Sport", "Regions", "Video & shows", "World news list")) {
+            assertFalse("menu item '$chrome' leaked into $texts", chrome in texts)
+        }
+        assertTrue("$texts", texts.none { "Before you continue" in it || "Tick the box" in it })
+        assertTrue("$texts", texts.none { "Copyright" in it })
+        // The article itself survives: headline, date line, teaser.
+        assertEquals("Harbour festival returns after six years", texts[0])
+        assertEquals("3 October 2026 5:02", texts[1])
+        assertTrue("$texts", texts[2].startsWith("The harbour festival opens on Saturday"))
+    }
+
+    @Test
+    fun `aside and navigation or complementary roles inside the article are dropped`() {
+        val html = page(
+            title = "Landmarks",
+            body = """
+                <p>${filler(3)}</p>
+                <aside><p>Sponsored: a word from our partners, who make fine boats.</p></aside>
+                <div role="complementary"><p>Related: another story you might enjoy reading.</p></div>
+                <div role="navigation"><p>Previous page, next page, back to the top.</p></div>
+                <p>${filler(3)}</p>
+            """.trimIndent(),
+        )
+        val texts = (extract(html) as ExtractionResult.Success).blocks.map { it.text }
+
+        assertEquals("$texts", 2, texts.size)
+        assertTrue(texts.all { it.startsWith("This is filler sentence") })
+    }
+
     // -- failure modes -----------------------------------------------------
 
     @Test
