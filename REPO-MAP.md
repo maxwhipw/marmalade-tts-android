@@ -337,8 +337,12 @@ with no caller in the app: `MarmaladeSynthService`, the reader and
   superscripts like `[1]`/`[citation needed]`) is removed by tag, role and
   class name in `ArticleExtractor.removeNoise` *before* Readability runs —
   its cleaned HTML has no class names left (Readability sometimes keeps a
-  wrapper around the whole page, menus included); `ArticleCleanup` then
-  filters the block list. Entered from ShareIntentActivity (or the
+  wrapper around the whole page, menus included). Its output keeps `<a>`
+  tags, so `reader/LinkFurniture` then drops link-shaped furniture while
+  walking it: `ul`/`ol` with ≥70% of letters in links (unless a paragraph
+  ending in a colon introduces it), link-only rows and runs of short
+  link-only blocks, and the headings standing over nothing but those.
+  `ArticleCleanup` then filters the block list. Entered from ShareIntentActivity (or the
   playback notification), which starts MainActivity with
   `EXTRA_READER_URL`. MainActivity takes a request only from a fresh
   launch or `onNewIntent` — not a recreation or a Recents replay (a

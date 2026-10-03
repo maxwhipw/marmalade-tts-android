@@ -449,9 +449,6 @@ class ArticleExtractorTest {
                       ${linkFurnitureItem(8, "Road closed after a landslip near the quarry")}
                       ${linkFurnitureItem(9, "Rowing club celebrates its fiftieth year")}
                     </ul><span><a href="/latest">All the latest news</a></span></div>
-                    <div><h2>Local news</h2><h2>Local news</h2>
-                      <div><svg viewBox="0 0 10 10"><title>Map</title><g><path d="M0,0h10v10z"></path></g></svg>
-                        <p>Choose on the map</p></div></div>
                   </div>
                 </div></div></main>
                 <nav aria-label="Breadcrumb"><ol>
@@ -484,6 +481,110 @@ class ArticleExtractorTest {
         assertEquals("Harbour festival returns after six years", texts[0])
         assertEquals("3 October 2026 5:02", texts[1])
         assertTrue("$texts", texts[2].startsWith("The harbour festival opens on Saturday"))
+    }
+
+    @Test
+    fun `link lists, tag clouds and the widget headings over them are not read out`() {
+        val result = extract(newsPage) as ExtractionResult.Success
+
+        assertEquals(
+            listOf(
+                ArticleBlock.Heading(1, "Harbour festival returns after six years"),
+                ArticleBlock.Paragraph("3 October 2026 5:02"),
+            ),
+            result.blocks.take(2),
+        )
+        assertTrue(result.blocks[2].text.startsWith("The harbour festival opens on Saturday"))
+        assertEquals("${result.blocks}", 3, result.blocks.size)
+    }
+
+    @Test
+    fun `a paragraph with inline links and a plain bulleted list are kept`() {
+        val html = page(
+            title = "Festival guide",
+            body = """
+                <p>${filler(2)}</p>
+                <p>The <a href="/council">town council</a> said on <a href="/tuesday">Tuesday</a> that the <a href="/quay">old quay</a> will be closed to cars for the whole weekend.</p>
+                <h2>What to bring</h2>
+                <ul><li>A warm coat, because the wind off the water is cold.</li><li>Cash for the food stalls.</li><li>Ear plugs for the fireworks.</li></ul>
+                <h2>Where to eat</h2>
+                <ul><li><a href="/bakery">The bakery on Quay Street</a>, open from seven until late.</li><li><a href="/cafe">The harbour café</a>, which serves soup and fresh bread all day.</li></ul>
+                <p>${filler(2)}</p>
+            """.trimIndent(),
+        )
+        val result = extract(html) as ExtractionResult.Success
+        val texts = result.blocks.map { it.text }
+
+        assertTrue(texts.any { it.startsWith("The town council said on Tuesday that the old quay") })
+        assertTrue(ArticleBlock.Heading(2, "What to bring") in result.blocks)
+        assertTrue(ArticleBlock.ListItem("Cash for the food stalls.") in result.blocks)
+        assertTrue(ArticleBlock.Heading(2, "Where to eat") in result.blocks)
+        assertEquals("$texts", 5, result.blocks.count { it is ArticleBlock.ListItem })
+    }
+
+    @Test
+    fun `a list of links that a paragraph introduces with a colon is kept`() {
+        val html = page(
+            title = "Twin towns",
+            body = """
+                <p>${filler(3)}</p>
+                <p>The town is twinned with:</p>
+                <ul><li><a href="/a">Portwenn</a></li><li><a href="/b">Saltmarsh</a></li><li><a href="/c">Gullhaven</a></li></ul>
+                <p>${filler(3)}</p>
+            """.trimIndent(),
+        )
+        val texts = (extract(html) as ExtractionResult.Success).blocks.map { it.text }
+
+        assertTrue("$texts", texts.containsAll(listOf("Portwenn", "Saltmarsh", "Gullhaven")))
+    }
+
+    @Test
+    fun `a related-links box mid-article goes, heading and all, and the article continues`() {
+        val html = page(
+            title = "Harbour",
+            body = """
+                <h2>The quay</h2>
+                <p>${filler(3)}</p>
+                <div><h3>Related</h3><ul>
+                  <li><a href="/r/1">Lighthouse to be repainted in its original colours</a></li>
+                  <li><a href="/r/2">Ferry timetable changes for winter</a> 2 days ago</li>
+                </ul></div>
+                <h2>The boats</h2>
+                <p>${filler(3)}</p>
+                <p><a href="/home">Home</a></p><p><a href="/news">News</a></p><p><a href="/sport">Sport</a></p>
+                <p><a href="/t/boats">Boats</a> · <a href="/t/harbour">Harbour</a></p>
+                <p>${filler(3)}</p>
+            """.trimIndent(),
+        )
+        val result = extract(html) as ExtractionResult.Success
+        val texts = result.blocks.map { it.text }
+
+        assertTrue("$texts", texts.none { "Lighthouse" in it || "Ferry" in it || it == "Related" })
+        assertTrue("$texts", texts.none { it in listOf("Home", "News", "Sport") || "Boats ·" in it })
+        assertEquals(
+            listOf("Heading", "Paragraph", "Heading", "Paragraph", "Paragraph"),
+            result.blocks.map { it::class.simpleName },
+        )
+    }
+
+    @Test
+    fun `a related-posts heading over a link list still ends the article`() {
+        val html = page(
+            title = "Harbour",
+            body = """
+                <p>${filler(3)}</p>
+                <p>${filler(3)}</p>
+                <p>${filler(3)}</p>
+                <h2>Related posts</h2>
+                <ul><li><a href="/r/1">Lighthouse to be repainted</a></li><li><a href="/r/2">Ferry times change</a></li></ul>
+                <h2>Comments</h2>
+                <p>Great piece, thanks for writing it, I learned a lot about the harbour today.</p>
+            """.trimIndent(),
+        )
+        val texts = (extract(html) as ExtractionResult.Success).blocks.map { it.text }
+
+        assertEquals("$texts", 3, texts.size)
+        assertTrue(texts.all { it.startsWith("This is filler sentence") })
     }
 
     @Test

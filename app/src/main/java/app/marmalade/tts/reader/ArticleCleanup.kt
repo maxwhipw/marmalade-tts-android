@@ -129,10 +129,16 @@ internal object ArticleCleanup {
         val cut = blocks.indices.firstOrNull { i ->
             i >= blocks.size / 2 &&
                 blocks[i] is ArticleBlock.Heading &&
-                comparisonKey(blocks[i].text) in BOILERPLATE_HEADINGS
+                isBoilerplateHeading(blocks[i].text)
         } ?: return
         blocks.subList(cut, blocks.size).clear()
     }
+
+    /**
+     * Is [text] a heading the trailing-section cut ends an article at?
+     * LinkFurniture leaves these in place so the cut still happens.
+     */
+    fun isBoilerplateHeading(text: String): Boolean = comparisonKey(text) in BOILERPLATE_HEADINGS
 
     // -- 3. leading site-header cruft -------------------------------------------
 

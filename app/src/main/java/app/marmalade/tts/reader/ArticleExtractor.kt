@@ -21,8 +21,10 @@ import org.jsoup.nodes.Element
 //      see removeNoise), then run
 //      Readability4J over it to strip nav/ads/comments.
 //   2. Re-parse Readability's cleaned HTML and walk it into typed blocks,
-//      then run ArticleCleanup over the list to drop the page furniture
-//      Readability leaves behind (site headers, credits, references lists).
+//      dropping the link furniture it leaves in (link lists, tag clouds and
+//      the headings over them — see LinkFurniture), then run ArticleCleanup
+//      over the list to drop the rest (site headers, credits, references
+//      lists).
 //
 // The app NEVER renders the extracted HTML. The reader UI composes native
 // Compose text from these blocks, which means no WebView, no page JS, no
@@ -130,12 +132,14 @@ open class ArticleExtractor @Inject constructor() {
         val title = article.title?.let(::normalise)?.takeIf { it.isNotEmpty() }
         val byline = article.byline?.let(::normalise)?.takeIf { it.isNotEmpty() }
 
-        val walked = mutableListOf<ArticleBlock>()
+        val walked = mutableListOf<LinkFurniture.Walked>()
         collectBlocks(Jsoup.parse(cleanedHtml, finalUrl).body(), walked)
-        // extract → title echo → junk filters → split → count. The count comes
-        // last on purpose: it is the short-extraction signal, so it has to
-        // describe what will be spoken, not what Readability handed over.
-        val blocks = ArticleCleanup.clean(walked, title).flatMap(::splitOversized)
+        // extract → link furniture → title echo → junk filters → split →
+        // count. The count comes last on purpose: it is the short-extraction
+        // signal, so it has to describe what will be spoken, not what
+        // Readability handed over.
+        val blocks = ArticleCleanup.clean(LinkFurniture.drop(walked), title)
+            .flatMap(::splitOversized)
 
         if (blocks.isEmpty()) return ExtractionResult.ExtractionFailed
         return ExtractionResult.Success(
@@ -191,14 +195,21 @@ open class ArticleExtractor @Inject constructor() {
      * Text sitting loose in a `<div>` with no block wrapper is dropped. That
      * costs nothing on real articles (Readability's output is p/li/h*-shaped)
      * and avoids emitting fragments of markup scaffolding as paragraphs.
+     *
+     * Link lists and loose rows of links ([LinkFurniture]) are not walked;
+     * each leaves a [LinkFurniture.Walked.Removed] marker in their place.
      */
-    private fun collectBlocks(parent: Element, out: MutableList<ArticleBlock>) {
+    private fun collectBlocks(parent: Element, out: MutableList<LinkFurniture.Walked>) {
         for (child in parent.children()) {
+            if (child.normalName() in LIST_TAGS && LinkFurniture.isLinkList(child)) {
+                out.add(LinkFurniture.Walked.Removed)
+                continue
+            }
             val block = blockFor(child)
-            if (block != null) {
-                out.add(block)
-            } else {
-                collectBlocks(child, out)
+            when {
+                block != null -> out.add(LinkFurniture.walked(block, child))
+                LinkFurniture.isLooseLinkRow(child) -> out.add(LinkFurniture.Walked.Removed)
+                else -> collectBlocks(child, out)
             }
         }
     }
@@ -249,6 +260,8 @@ open class ArticleExtractor @Inject constructor() {
 
     companion object {
         private val WHITESPACE = Regex("\\s+")
+
+        private val LIST_TAGS = setOf("ul", "ol")
 
         /** Page landmarks removed before extraction — see [removeNoise]. */
         private const val LANDMARK_SELECTOR =
