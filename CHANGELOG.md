@@ -5,11 +5,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed
-- The themed (single-colour) app icon on Android 13+ is now a plain jar
-  silhouette with the sound waves, without the cut-out face.
-
-## [1.1.0] - 2026-09-20
+## [1.1.0] - 2026-10-03
 
 ### Added
 - **Reader mode**: share a web page to Marmalade and it extracts the
@@ -17,12 +13,14 @@ This project follows [Semantic Versioning](https://semver.org/).
   current block highlighted and auto-scrolled, a player notification
   with transport controls that reopens the article at the position you
   left, a table of contents, a typography sheet (font size stepper,
-  line width), per-read speed chips that stack on your alias speed, and
-  junk-block filtering with an honest "short extraction" banner when a
-  page resists extraction. The next block synthesizes while the current
-  one plays, so paragraph gaps are short. Article extraction runs
-  entirely on-device (Readability4J); the page is fetched once, and
-  nothing about your reading is sent anywhere.
+  line width), a reading-speed sheet that starts at your alias's speed
+  and changes speed live without restarting the paragraph, tap-a-paragraph
+  to play from it, and junk-block filtering (site menus, related-article
+  lists, infoboxes and citation markers are skipped) with an honest
+  "short extraction" banner when a page resists extraction. The next
+  block synthesizes while the current one plays, so paragraph gaps are
+  short. Article extraction runs entirely on-device (Readability4J); the
+  page is fetched once, and nothing about your reading is sent anywhere.
 - **German, for real**: a native German voice engine (**Kokoro German
   v1.0**, downloadable). It speaks with Thorsten Müller's voice — the
   Thorsten-Voice dataset was recorded and donated by him specifically
@@ -56,6 +54,10 @@ This project follows [Semantic Versioning](https://semver.org/).
   native speakers can grade them before anything ships. Ukrainian is
   currently held after exactly that feedback: the reviewed voices
   aren't daily-usable yet, so they stay out until they are.
+- **Language-aware voices**: when your default voice doesn't speak an
+  article's or a shared text's language, Marmalade reads it with an
+  installed on-device voice that does. Cloud voices are never picked
+  automatically.
 - The **Sponsors** row in Settings now ships in both flavors.
 
 ### Changed
@@ -73,6 +75,17 @@ This project follows [Semantic Versioning](https://semver.org/).
   outruns synthesis. The alias editor and the reader's speed sheet warn
   you when a speed is likely to stutter, based on how fast the chosen
   engine actually runs on your device.
+- **Kokoro starts speaking sooner.** Text is chunked by how much work
+  each piece is for the model rather than by character count; long
+  Chinese and Japanese sentences are cut at clause marks and played as
+  each piece is ready; and when nothing is playing, a long first sentence
+  starts with a short opening piece, cut at its first comma or similar
+  break. A long Chinese run-on sentence that took about 30 seconds to
+  start on a Pixel 8a now starts in about two.
+- The themed (single-colour) app icon on Android 13+ is now a plain jar
+  silhouette with the sound waves, without the cut-out face.
+- The Google Play build no longer shows developer options, or voices of
+  engines that are only offered on F-Droid.
 
 ### Fixed
 - **Offline / hardened-Android crashes** (issue #12): opening the Cloud
@@ -107,6 +120,20 @@ This project follows [Semantic Versioning](https://semver.org/).
   got an error instead of speech.
 - Very long sentences with little or no punctuation are no longer cut
   off partway. They're split at a natural break instead.
+- **Stop, Next and tapping a paragraph respond quickly**: cancelled
+  speech stops rendering at once instead of finishing in the background,
+  and Next plays the paragraph that's already prepared.
+- A paused read is no longer resumed by another app's notification
+  sound, and media-button Stop/Pause work even before the first audio.
+  Android 13+ media controls now show a Stop button.
+- Speeds above 2× no longer crash the speed stage, and the speed stage
+  no longer clips the last few milliseconds of speech.
+- **Cloud provider safety**: an updated provider list can no longer move
+  a built-in provider's address to a different site. If that ever
+  happens the app shows "Update the app to keep using it" instead of
+  sending your API key to the new address. A key saved for a provider
+  that comes only from the downloaded list stays tied to the address it
+  was saved for.
 
 ### Removed
 - The Quick Settings "Speak clipboard" tile, for now. Share text to
