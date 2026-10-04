@@ -35,6 +35,11 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the legacy `tools` package,
+          # which Google's SDK repository no longer serves (v1.1.0 run failed
+          # on it). Gradle installs the platform/build-tools it needs.
+          packages: platform-tools
 
       # NDK + CMake versions track the ones pinned in app/build.gradle.kts.
       # Keep them in lockstep — Gradle will fail if it can't find an exact
