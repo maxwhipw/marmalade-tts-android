@@ -199,7 +199,12 @@ class MarmaladeSynthService : Service() {
             // to be heard.
             ACTION_PAUSE -> narrator.pause()
             ACTION_RESUME -> resume()
-            ACTION_STOP -> narrator.stop()
+            // The notification's Stop, or a swipe of any of its notifications
+            // (#94): a share still loading is cancelled too.
+            ACTION_STOP -> {
+                narrator.stop()
+                loading?.let(loadHold::cancel)
+            }
             ACTION_STOP_REQUEST -> shim.stop(intent.getLongExtra(EXTRA_REQUEST_ID, 0L))
             // Only shown while the article is on air, but a stale
             // PendingIntent can still land after it stopped.
@@ -480,7 +485,7 @@ class MarmaladeSynthService : Service() {
      * around the pause while the article is on air, and tapping it reopens the
      * article (reader-mode design point 7).
      */
-    private fun buildNotification(ui: ServiceUi?): Notification {
+    internal fun buildNotification(ui: ServiceUi?): Notification {
         val stateText = when (ui?.text) {
             ServiceUi.Text.Speaking ->
                 if (ui.snippet.isNotBlank()) {
@@ -540,13 +545,15 @@ class MarmaladeSynthService : Service() {
             .setOngoing(ongoing)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         actions.forEach(builder::addAction)
-        // Swiping away the notification left after a permanent focus loss
-        // stops the read. It may outlive this service (onDestroy), so it also
-        // clears itself once the Narrator's paused timeout has ended the read.
-        if (!ongoing) {
-            builder.setDeleteIntent(servicePendingIntent(ACTION_STOP))
-            builder.setTimeoutAfter(PAUSED_NOTIFICATION_TIMEOUT_MS)
-        }
+        // Swiping the notification away stops the read (#94). Android 14+ lets
+        // the user dismiss a foreground service's notification despite
+        // setOngoing; SystemUI pins a media notification only while its session
+        // is PLAYING, so it can go while buffering or paused.
+        builder.setDeleteIntent(servicePendingIntent(ACTION_STOP))
+        // The notification left after a permanent focus loss may outlive this
+        // service (onDestroy), so it clears itself once the Narrator's paused
+        // timeout has ended the read.
+        if (!ongoing) builder.setTimeoutAfter(PAUSED_NOTIFICATION_TIMEOUT_MS)
         ui?.articleKey?.let { builder.setContentIntent(readerPendingIntent(it)) }
         mediaSession?.sessionToken?.let { token ->
             val compact = IntArray(minOf(COMPACT_ACTIONS, actions.size)) { it }
@@ -563,9 +570,16 @@ class MarmaladeSynthService : Service() {
     private fun foregroundNotification(): Notification {
         val url = loading
         if (ui?.onAir == true || url == null) return buildNotification(ui)
-        // No actions: there is nothing to pause yet. Tapping opens the reader,
-        // and backing out of it before the article loads cancels the read.
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return loadingNotification(url)
+    }
+
+    /**
+     * "Loading article…" for the shared [url]. No actions: there is nothing to
+     * pause yet. Tapping opens the reader, and backing out of it before the
+     * article loads cancels the read.
+     */
+    internal fun loadingNotification(url: String): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.service_synth_notification_title))
             .setContentText(getString(R.string.service_synth_state_loading_article))
             .setSmallIcon(R.drawable.ic_stat_marmalade_speaking)
@@ -573,8 +587,9 @@ class MarmaladeSynthService : Service() {
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(readerPendingIntent(url))
+            // Swiped away: the article is not read once it loads (#94).
+            .setDeleteIntent(servicePendingIntent(ACTION_STOP))
             .build()
-    }
 
     private fun servicePendingIntent(action: String): PendingIntent {
         val intent = Intent(this, MarmaladeSynthService::class.java).setAction(action)

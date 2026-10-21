@@ -326,6 +326,22 @@ class ReaderViewModelTest {
         assertEquals(ReaderPlaybackStatus.Playing, vm.playback.first().status)
     }
 
+    /** #94: the user swiped "Loading article…" away — the article opens but is not read. */
+    @Test
+    fun `an article whose load was cancelled opens without reading`() = runTest {
+        val hold = ArticleLoadHold({ true }, backgroundScope)
+        hold.begin(url)
+        hold.cancel(url)
+        val vm = newViewModel(extraction = threeBlocks(), loadHold = hold)
+
+        val state = vm.state.first()
+        h.run(3_000)
+
+        assertTrue("expected Ready, got $state", state is ReaderUiState.Ready)
+        assertEquals(ReaderPlaybackStatus.Idle, vm.playback.first().status)
+        assertTrue("nothing may be spoken", h.kokoro.renders.isEmpty())
+    }
+
     /** Re-sharing the link of the reader on top reaches no new reader: its hold ends at once. */
     @Test
     fun `a re-share of the article on top ends its hold at once`() = runTest {

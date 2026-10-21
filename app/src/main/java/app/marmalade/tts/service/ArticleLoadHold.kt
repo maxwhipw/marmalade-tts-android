@@ -48,11 +48,16 @@ class ArticleLoadHold internal constructor(
     private val key = MutableStateFlow<String?>(null)
     private var timeout: Job? = null
 
+    /** Links whose "Loading article…" the user dismissed: the reader must not autoplay them. */
+    private val cancelled = mutableSetOf<String>()
+
     /** The article being loaded under the hold, or null. The service shows "Loading article…" meanwhile. */
     val loading: StateFlow<String?> = key.asStateFlow()
 
     /** A link to [url] was shared, and we are in front: bring the host up now. False if Android refused. */
     fun begin(url: String): Boolean {
+        // A new share of a link cancelled before means "read me" again.
+        synchronized(this) { cancelled -= url }
         // Set first: the service's startForeground shows the loading notification.
         key.value = url
         if (!startHost()) {
@@ -74,6 +79,19 @@ class ArticleLoadHold internal constructor(
     fun end(url: String) {
         key.compareAndSet(url, null)
     }
+
+    /**
+     * The user dismissed "Loading article…" (or sent a stop) while [url] was
+     * loading: the hold ends, and the reader opens the article without
+     * reading it ([consumeCancelled]).
+     */
+    fun cancel(url: String) {
+        synchronized(this) { cancelled += url }
+        end(url)
+    }
+
+    /** Whether the load of [url] was cancelled; answers true once. */
+    fun consumeCancelled(url: String): Boolean = synchronized(this) { cancelled.remove(url) }
 
     companion object {
         private const val TAG = "ArticleLoadHold"

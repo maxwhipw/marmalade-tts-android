@@ -43,6 +43,28 @@ class ArticleLoadHoldTest {
         assertEquals(b, hold.loading.value)
     }
 
+    /** #94: "Loading article…" swiped away — the hold ends and the reader must not autoplay. */
+    @Test
+    fun `a cancelled load ends the hold and is reported once`() = runTest {
+        val hold = ArticleLoadHold({ true }, backgroundScope)
+        hold.begin(a)
+        hold.cancel(a)
+        assertNull(hold.loading.value)
+        assertFalse(hold.consumeCancelled(b))
+        assertTrue(hold.consumeCancelled(a))
+        assertFalse(hold.consumeCancelled(a))
+    }
+
+    @Test
+    fun `sharing a cancelled link again reads it`() = runTest {
+        val hold = ArticleLoadHold({ true }, backgroundScope)
+        hold.begin(a)
+        hold.cancel(a)
+        hold.begin(a)
+        assertEquals(a, hold.loading.value)
+        assertFalse(hold.consumeCancelled(a))
+    }
+
     /** Onboarding still open, a reader that never opened: no foreground service stays stuck. */
     @Test
     fun `a hold nobody ends times out`() = runTest {
