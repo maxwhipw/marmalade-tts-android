@@ -545,10 +545,13 @@ class MarmaladeSynthService : Service() {
             .setOngoing(ongoing)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         actions.forEach(builder::addAction)
-        // Swiping the notification away stops the read (#94). Android 14+ lets
+        // Dismissing the notification stops the read (#94): Android 14+ lets
         // the user dismiss a foreground service's notification despite
-        // setOngoing; SystemUI pins a media notification only while its session
-        // is PLAYING, so it can go while buffering or paused.
+        // setOngoing. Android 13+ shows this one as the shade's media player
+        // instead, and swiping that player away only hides it: SystemUI marks
+        // it timed out ("Media carousel swiped away") and tells the app
+        // nothing, playing or paused (Pixel 6a, Android 14). It comes back on
+        // the next pause/play.
         builder.setDeleteIntent(servicePendingIntent(ACTION_STOP))
         // The notification left after a permanent focus loss may outlive this
         // service (onDestroy), so it clears itself once the Narrator's paused

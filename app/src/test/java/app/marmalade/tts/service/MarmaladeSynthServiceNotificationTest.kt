@@ -18,9 +18,10 @@ import org.robolectric.Shadows.shadowOf
 
 /**
  * #94: Android 14+ lets the user swipe away a foreground service's
- * notification, and SystemUI pins a media notification only while its session
- * is PLAYING. Every notification the service posts must stop the read when
- * dismissed, or the audio plays on with no controls.
+ * notification despite setOngoing. Every notification the service posts must
+ * stop the read when dismissed, or the audio plays on with no controls.
+ * (Swiping away the shade's media player is not a dismissal: SystemUI only
+ * hides it and tells the app nothing.)
  *
  * The service is attached but never created (onCreate needs Hilt), so there is
  * no media session: the plain notification, as on a detached re-post.

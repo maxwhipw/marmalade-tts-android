@@ -6,10 +6,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
-- **Swiping away the playback notification stops the reading**: on Android
-  14 and later, swiping it away while an article was starting, paused or
-  loading left the audio playing with no way to stop it. Swiping away
-  "Loading article…" now cancels that article too.
+- **Swiping away "Loading article…" cancels the article**: on Android 14 and
+  later it could be swiped away, and the article still started reading once
+  it had loaded.
 
 ## [1.3.2] - 2026-10-18
 

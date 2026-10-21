@@ -69,10 +69,9 @@ class ServiceUiTest {
     }
 
     /**
-     * #94: SystemUI lets the user swipe a media notification away whenever its
-     * session isn't PLAYING. Between blocks of one read (a skip, a block
-     * re-rendered, the article resuming after a share) the session stays
-     * PLAYING until the read stops or pauses.
+     * #94: between blocks of one read (a skip, a block re-rendered, the
+     * article resuming after a share) the session stays PLAYING until the read
+     * stops or pauses, so the controls don't flicker to "loading".
      */
     @Test
     fun `buffering inside an ongoing read stays playing`() {
