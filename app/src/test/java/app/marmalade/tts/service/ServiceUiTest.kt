@@ -68,6 +68,28 @@ class ServiceUiTest {
         assertEquals(playing, render(NarratorState(article = article(Status.Buffering)), previous = playing).mediaState)
     }
 
+    /**
+     * #94: between blocks of one read (a skip, a block re-rendered, the
+     * article resuming after a share) the session stays PLAYING until the read
+     * stops or pauses, so the controls don't flicker to "loading".
+     */
+    @Test
+    fun `buffering inside an ongoing read stays playing`() {
+        var previous = none
+        val seen = listOf(
+            NarratorState(article = article(Status.Buffering)),
+            NarratorState(article = article(Status.Playing, index = 0)),
+            NarratorState(article = article(Status.Buffering, index = 1)),
+            NarratorState(article = article(Status.Buffering, index = 2)),
+            NarratorState(article = article(Status.Paused(PausedBy.Interrupt)), oneShot = shot(Status.Buffering)),
+            NarratorState(article = article(Status.Paused(PausedBy.Interrupt)), oneShot = shot(Status.Playing)),
+            NarratorState(article = article(Status.Buffering, index = 2)),
+            NarratorState(article = article(Status.Playing, index = 2)),
+        ).map { state -> render(state, previous).mediaState.also { previous = it } }
+
+        assertEquals(listOf(PlaybackStateCompat.STATE_BUFFERING) + List(7) { playing }, seen)
+    }
+
     @Test
     fun `stop and pause are always advertised while on air`() {
         for (status in listOf(Status.Buffering, Status.Playing, Status.Paused(PausedBy.User))) {

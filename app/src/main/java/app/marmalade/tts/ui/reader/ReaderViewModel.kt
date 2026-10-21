@@ -462,6 +462,7 @@ class ReaderViewModel @Inject constructor(
                 // process death the controller is empty again, so open()
                 // says "new", but the user never re-shared anything — they
                 // are returning to a screen, and it must not start talking.
+                // Nor one whose "Loading article…" the user swiped away.
                 val article = ReaderArticle(
                     url = url,
                     title = extracted.title,
@@ -474,7 +475,8 @@ class ReaderViewModel @Inject constructor(
                 // and the pick probes the disk, hence off Main.
                 val voice = withContext(parseDispatcher) { voicePicker.voiceFor(article) }
                 val isNew = playbackController.open(article, startingSpeed(voice), voice)
-                if (isNew && savedStateHandle.get<Boolean>(KEY_AUTOPLAYED) != true) {
+                val cancelled = loadHold.consumeCancelled(url)
+                if (isNew && !cancelled && savedStateHandle.get<Boolean>(KEY_AUTOPLAYED) != true) {
                     savedStateHandle[KEY_AUTOPLAYED] = true
                     playbackController.play()
                 }

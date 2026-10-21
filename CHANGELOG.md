@@ -5,6 +5,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Swiping away "Loading article…" cancels the article**: on Android 14 and
+  later it could be swiped away, and the article still started reading once
+  it had loaded.
+
 ## [1.3.2] - 2026-10-18
 
 ### Fixed

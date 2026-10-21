@@ -921,7 +921,17 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   back-out; 90 s timeout); `ServicePlaybackHost.start()` counts an
   already-foreground host as success. A refused start from the background shows
   `reader_error_background_start` ("Couldn't start reading in the background.
-  Tap Play."), not "Synthesis failed". After a permanent focus loss the service leaves the
+  Tap Play."), not "Synthesis failed". **Every notification the service
+  posts (playback and "Loading article…") has a delete intent of
+  `ACTION_STOP`** (#94): Android 14+ lets the user swipe away a foreground
+  service's notification despite `setOngoing`. A stop while a share is
+  loading cancels the load (`ArticleLoadHold.cancel`), and the reader then
+  opens that article without autoplaying it. **Swiping away the shade's media
+  player is not a dismissal** (Android 13+): SystemUI only marks the player
+  timed out (logcat `MediaDataFilter: Media carousel swiped away`) and sends
+  the app nothing, playing or paused; the notification stays posted, the read
+  carries on, and the player returns on the next pause→play (verified on the
+  Pixel 6a, Android 14, 2026-10-20). After a permanent focus loss the service leaves the
   foreground (`STOP_FOREGROUND_DETACH`) with a swipe-away-able notification
   whose delete intent stops the read; it reports a lost host to the Narrator
   only when destroyed while still foreground. Destroyed while detached (the
