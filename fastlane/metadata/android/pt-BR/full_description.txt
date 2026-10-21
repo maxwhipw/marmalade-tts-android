@@ -1,44 +1,44 @@
-<p>O Marmalade TTS dá ao seu celular uma voz que vale a pena ouvir. Defina o app como o mecanismo de conversão de texto em voz do sistema e todo aplicativo que lê em voz alta, de leitores de tela a leitores de e-books e apps de mensagens, passa a falar pelo Marmalade.</p>
+<p>O Marmalade TTS dá ao seu celular uma voz que vale a pena ouvir. Defina-o como seu motor de texto para fala e todo app que lê em voz alta, de leitores de tela a leitores de e-book e apps de mensagens, fala pelo Marmalade, com vozes naturais que funcionam offline no seu celular.</p>
 
 <ul>
-<li><b>Vozes neurais naturais.</b> Prontas para falar assim que você instalar</li>
-<li><b>Rápido.</b> A fala responde depressa até em celulares modestos</li>
+<li><b>Vozes neurais naturais.</b> Mais de 70, com uma voz rápida em inglês pronta assim que você instala</li>
+<li><b>Ouça antes de escolher.</b> Cada voz no dispositivo toca uma pequena amostra</li>
+<li><b>Rápido.</b> A fala responde logo, mesmo em celulares simples</li>
 <li><b>Privado por padrão.</b> Tudo roda no seu dispositivo</li>
-<li><b>Vozes na nuvem opcionais.</b> De provedores externos que respeitam a privacidade, com a sua própria chave de API (Venice.ai)</li>
-<li><b>Vozes por app.</b> Direcione cada aplicativo para a sua própria voz</li>
-<li><b>Fala 8 idiomas.</b> Detecta sozinho o idioma do texto no mecanismo Kokoro TTS</li>
-<li><b>Vozes expressivas em inglês.</b> O Pocket TTS adiciona vozes em inglês vivas e naturais que rodam no seu celular</li>
+<li><b>Vozes por app.</b> Direcione cada app para sua própria voz</li>
+<li><b>Fala 9 idiomas.</b> O Kokoro TTS detecta o idioma que está sendo lido</li>
 <li><b>Acessível.</b> Compatível com o TalkBack e projetado para atender à WCAG 2.1 AA</li>
-<li><b>Efeitos de voz.</b> 22 predefinições de efeito, mais um editor para criar as suas</li>
-<li><b>Grátis, código aberto, sem anúncios, sem contas</b></li>
+<li><b>Efeitos de voz.</b> Mais de 20 predefinições e um editor para criar os seus</li>
+<li><b>Vozes na nuvem opcionais.</b> De provedores de nuvem como a Venice.ai, com sua própria chave de API</li>
+<li><b>Gratuito, código aberto, sem anúncios, sem contas</b></li>
 </ul>
 
+<p><b>FALA 9 IDIOMAS</b></p>
+<p>O motor multilíngue Kokoro fala inglês (EUA e Reino Unido), espanhol, francês, italiano, português (Brasil), híndi, japonês e chinês mandarim. Ele detecta o idioma enquanto lê e troca a pronúncia na hora. O Kokoro German acrescenta uma voz alemã nativa.</p>
+
 <p><b>FUNCIONA EM TODO LUGAR</b></p>
-<p>O Marmalade implementa a interface padrão de conversão de texto em voz do Android, então ele substitui direto o TTS do Google ou da Samsung. Basta escolher o app uma vez nas Configurações e ele passa a cuidar de todo texto falado nos seus aplicativos.</p>
+<p>O Marmalade se integra à configuração padrão de conversão de texto em voz do Android, então todo app que fala por ela fala com o Marmalade. Escolha-o uma vez como seu motor de TTS nas Configurações.</p>
 
 <p><b>PRONTO PARA USAR</b></p>
-<p>Uma voz rápida em inglês já vem embutida, então o Marmalade fala offline desde a primeira abertura. Mecanismos maiores e melhores são baixados só quando você escolhe, e o texto lido pelas vozes no dispositivo nunca sai do seu celular.</p>
+<p>O Marmalade já vem com uma voz rápida em inglês, então o texto para fala funciona offline desde a primeira abertura. Os outros idiomas precisam de um único download. Motores maiores e melhores só são baixados quando você os escolhe e depois também rodam offline.</p>
 
 <p><b>UMA VOZ PARA CADA APP</b></p>
-<p>O Marmalade é construído em torno de apelidos. Monte a sua voz preferida com ajustes de velocidade e efeito. Direcione apps para apelidos e o seu leitor de e-books pode falar com uma voz enquanto o app de mensagens usa outra. Tudo que ficar sem direcionamento segue o seu apelido principal.</p>
+<p>O Marmalade gira em torno de apelidos. Monte sua voz favorita com ajustes de velocidade e efeito. Direcione apps para apelidos e seu leitor de e-book pode falar com uma voz enquanto o app de mensagens usa outra. O que não for direcionado segue seu apelido principal.</p>
 
-<p><b>FALA 8 IDIOMAS</b></p>
-<p>O mecanismo multilíngue Kokoro fala inglês (EUA e Reino Unido), espanhol, francês, italiano, português (Brasil), híndi, japonês e chinês mandarim. Ele detecta o idioma enquanto lê e troca a pronúncia na hora.</p>
+<p><b>PRIVADO, COM OU SEM NUVEM</b></p>
+<p>Sem analytics, sem telemetria, sem contas e nenhum servidor nosso. As vozes no dispositivo só usam a rede para baixar os motores que você escolher. Para vozes além do que seu celular consegue rodar, adicione um provedor de nuvem com sua própria chave de API. Alguns provedores, como a Venice.ai, dizem que não armazenam nem registram as solicitações; outros podem registrar, então confira a política de privacidade de cada um. Até você configurar um, nada do que você lê sai do seu celular.</p>
 
-<p><b>VOZES EXPRESSIVAS EM INGLÊS</b></p>
-<p>O Pocket TTS, da Kyutai Labs, dá ao inglês as suas vozes mais expressivas: ritmo e entonação naturais, gerados no seu celular enquanto ele fala. Ele dá conta na maioria dos celulares intermediários, e o Marmalade o recomenda quando o seu celular consegue rodá-lo com folga.</p>
-
-<p><b>PRIVADO, COM OU SEM A NUVEM</b></p>
-<p>Sem análises de uso, sem telemetria, sem contas e sem nenhum servidor nosso. As vozes no dispositivo acessam a rede apenas para baixar os mecanismos que você escolher. Se quiser vozes além do que o seu celular consegue rodar, adicione um mecanismo de nuvem com a sua própria chave de API. Entre os provedores está a Venice.ai, que afirma não armazenar nem registrar as solicitações. Até você configurar um, nada do que você lê sai do seu celular. <i>Observação: outros provedores podem registrar as solicitações. Consulte as políticas de privacidade deles.</i></p>
+<p><b>LEIA A WEB</b></p>
+<p>Compartilhe um link com o Marmalade: ele abre o artigo numa tela de leitura limpa e o lê em voz alta, destacando o parágrafo atual. Escolha qual voz lê cada artigo e em que velocidade. Só a página que você compartilhou é acessada, nenhuma imagem ou rastreador é carregado e nada é armazenado.</p>
 
 <p><b>FEITO PARA LEITORES DE TELA</b></p>
-<p>O Marmalade é acessível, com amplo suporte ao TalkBack, e foi projetado para atender à WCAG 2.1 AA com um tema escuro de alto contraste. Todos os controles têm rótulo, e o progresso e os erros são anunciados em voz alta quando o TalkBack está ativado. Nada do que uma pessoa usuária de tecnologia assistiva precisa fica atrás de uma compra.</p>
+<p>Use o Marmalade como motor de texto para fala por trás do TalkBack e de outros leitores de tela. O próprio app é compatível com o TalkBack e projetado para atender à WCAG 2.1 AA, com um tema escuro que atende ao contraste AA. Progresso e erros são anunciados em voz alta quando o TalkBack está ativado.</p>
 
-<p><b>DEIXE DO SEU JEITO</b></p>
-<p>22 predefinições de efeito integradas, como 8-bit, cyborg, megaphone e vintage radio, dão personalidade ao texto falado. Ou monte as suas próprias cadeias de efeito no editor.</p>
+<p><b>DO SEU JEITO</b></p>
+<p>Mais de 20 predefinições de efeito integradas, como 8-bit, Cyborg, Megaphone e Vintage radio, dão personalidade à fala. Ou monte suas próprias cadeias de efeitos no editor. Escolha qualquer velocidade, da metade ao dobro, e as vozes mantêm o som natural.</p>
 
-<p><b>LÊ OS TEXTOS LONGOS</b></p>
-<p>Um serviço de reprodução em primeiro plano lê textos longos com segurança e a tela desligada, com controles na tela de bloqueio e no Bluetooth. Compartilhe texto de qualquer app ou use a ação "ler seleção" do sistema.</p>
+<p><b>LÊ TEXTOS LONGOS</b></p>
+<p>O Marmalade continua lendo textos longos com a tela desligada, com controles na tela de bloqueio e por Bluetooth. Compartilhe texto de qualquer app, ou selecione um texto e escolha "Falar com o Marmalade".</p>
 
 <p><b>CÓDIGO ABERTO</b></p>
-<p>O código-fonte do próprio Marmalade é licenciado sob MIT e o repositório dele não contém nenhum código GPL. O app publicado também inclui o fonemizador espeak-ng, compilado a partir do código-fonte no momento do build, então o app que você instala é distribuído sob GPL-3.0-or-later. A versão exata do espeak-ng usada é fixada a partir do repositório do projeto, e os detalhes de licença de cada componente são exibidos dentro do app.</p>
+<p>O código-fonte do próprio Marmalade usa a licença MIT e não contém código GPL. O app publicado também inclui o fonemizador espeak-ng, compilado a partir do código-fonte, então o app que você instala é distribuído sob GPL-3.0-or-later. O app mostra a licença de cada componente.</p>

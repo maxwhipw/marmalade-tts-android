@@ -1,47 +1,48 @@
-<p>Marmalade TTS gives your phone a voice worth listening to. Set it as your system text-to-speech engine and every app that reads aloud, from screen readers to e-readers to chat apps, speaks through Marmalade.</p>
+<p>Marmalade TTS gives your phone a voice worth listening to. Set it as your text-to-speech engine and every app that reads aloud, from screen readers to e-book readers to chat apps, speaks through Marmalade, with natural voices that run offline on your phone.</p>
 
 <ul>
-<li><b>Natural neural voices.</b> Ready to speak the moment you install</li>
+<li><b>Natural neural voices.</b> Over 70, with a fast English voice ready the moment you install</li>
+<li><b>Hear before you pick.</b> Every on-device voice plays a short sample</li>
 <li><b>Fast.</b> Speech responds quickly even on modest phones</li>
 <li><b>Private by default.</b> Everything runs on your device</li>
-<li><b>Optional cloud voices.</b> From private third parties with your own API key (Venice.ai)</li>
 <li><b>Per app voices.</b> Route each app to its own voice</li>
-<li><b>Speaks 8 languages.</b> Auto detects what language is being read on the Kokoro TTS engine</li>
-<li><b>Expressive English voices.</b> Pocket TTS adds lively, natural-sounding English voices that run on your phone</li>
+<li><b>Speaks 9 languages.</b> Kokoro TTS detects what language is being read</li>
+<li><b>Expressive English voices.</b> Pocket TTS runs lively, natural English voices on your phone</li>
 <li><b>Accessible.</b> TalkBack supported and designed to meet WCAG 2.1 AA</li>
-<li><b>Voice effects.</b> 22 voice effect presets plus an editor to make your own</li>
+<li><b>Voice effects.</b> Over 20 presets plus an editor to make your own</li>
+<li><b>Optional cloud voices.</b> From cloud providers such as Venice.ai, with your own API key</li>
 <li><b>Free, open source, no ads, no accounts</b></li>
 </ul>
 
+<p><b>SPEAKS 9 LANGUAGES</b></p>
+<p>The multilingual Kokoro engine speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language as it reads and switches pronunciation on the fly. Kokoro German adds a native German voice.</p>
+
 <p><b>WORKS EVERYWHERE</b></p>
-<p>Marmalade implements Android's standard text-to-speech interface, so it is a drop-in replacement for Google or Samsung TTS. Pick it once in Settings and it powers spoken text across your apps.</p>
+<p>Marmalade plugs into Android's standard text-to-speech setting, so any app that speaks through it speaks with Marmalade. Pick it once as your TTS engine in Settings.</p>
 
 <p><b>READY OUT OF THE BOX</b></p>
-<p>Marmalade comes with a fast English voice built in, so text to speech works offline from your very first launch. Bigger and better engines download only when you choose them, and text read by on-device voices never leaves your phone.</p>
+<p>Marmalade comes with a fast English voice built in, so text to speech works offline from your very first launch. Bigger and better engines download only when you choose them, then run offline too.</p>
 
 <p><b>A VOICE FOR EVERY APP</b></p>
 <p>Marmalade is built around aliases. Build your favorite voice with speed and effect settings. Route apps to aliases and your e-reader can speak in one voice while your chat app uses another. Anything unrouted follows your primary alias.</p>
-
-<p><b>SPEAKS 8 LANGUAGES</b></p>
-<p>The multilingual Kokoro engine speaks English (US and UK), Spanish, French, Italian, Portuguese (Brazil), Hindi, Japanese, and Mandarin Chinese. It detects the language as it reads and switches pronunciation on the fly.</p>
 
 <p><b>EXPRESSIVE ENGLISH VOICES</b></p>
 <p>Pocket TTS, from Kyutai Labs, gives English its most expressive voices: natural rhythm and intonation, generated on your phone as it speaks. It keeps up on most mid-range phones, and Marmalade recommends it when your phone can run it comfortably.</p>
 
 <p><b>PRIVATE, WITH OR WITHOUT THE CLOUD</b></p>
-<p>No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add a cloud engine with your own API key. Providers include Venice.ai, which says it does not store or log requests. Until you set one up, nothing you read ever leaves your phone. <i>Note: other providers may log requests. Refer to their privacy policies.</i></p>
+<p>No analytics, no telemetry, no accounts, and no backend of ours. On-device voices touch the network only to download the engines you pick. If you want voices beyond what your phone can run, add voices from a cloud provider with your own API key. Some cloud providers, such as Venice.ai, say they don't store or log requests; others may, so check their privacy policies. Until you set one up, nothing you read ever leaves your phone.</p>
 
 <p><b>READ THE WEB</b></p>
-<p>Share a link to Marmalade and it opens the article in a clean reader view, then reads it aloud with the current paragraph highlighted as it goes. Only the page you shared is contacted, no images or trackers are loaded, and nothing is stored.</p>
+<p>Share a link to Marmalade and it opens the article in a clean reader view, then reads it aloud with the current paragraph highlighted as it goes. Choose which voice reads each article, and how fast. Only the page you shared is contacted, no images or trackers are loaded, and nothing is stored.</p>
 
 <p><b>BUILT FOR SCREEN READERS</b></p>
-<p>Marmalade is accessible with rich TalkBack support and designed to meet WCAG 2.1 AA with a high-contrast dark theme. Every control is labeled, and progress and errors are announced aloud when TalkBack is enabled. Nothing an assistive-tech user needs sits behind a purchase.</p>
+<p>Use Marmalade as the TTS engine behind TalkBack and other screen readers. The app itself is TalkBack supported and designed to meet WCAG 2.1 AA, with a dark theme that meets AA contrast. Progress and errors are announced aloud when TalkBack is enabled.</p>
 
 <p><b>MAKE IT YOURS</b></p>
-<p>22 built-in effect presets like 8-bit, cyborg, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor.</p>
+<p>Over 20 built-in effect presets like 8-bit, cyborg, megaphone, and vintage radio give spoken output character. Or build your own effect chains in the editor. Set any speed from half to double, and voices keep their natural sound.</p>
 
 <p><b>READS THE LONG STUFF</b></p>
-<p>A foreground playback service reads long text reliably with the screen off, with lock-screen and Bluetooth controls. Share text from any app or use the system "read selection" action.</p>
+<p>Marmalade keeps reading long text with the screen off, with lock-screen and Bluetooth controls. Share text from any app, or select text and choose "Speak with Marmalade".</p>
 
 <p><b>OPEN SOURCE</b></p>
-<p>Marmalade's own source code is MIT licensed and its repository contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source at build time, so the app you install is distributed under GPL-3.0-or-later. The exact espeak-ng version used is pinned from the project repository, and license details for every component are shown inside the app.</p>
+<p>Marmalade's own source code is MIT licensed and contains no GPL code. The published app also contains the espeak-ng phonemizer, compiled from source, so the app you install is distributed under GPL-3.0-or-later. License details for every component are shown in the app.</p>
