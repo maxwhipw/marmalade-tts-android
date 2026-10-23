@@ -32,6 +32,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -450,7 +452,17 @@ fun AppRoot(
                                         contentDescription = label,
                                     )
                                 },
-                                label = { Text(label) },
+                                // As the shared library's MarmaladeNavigationBarLabel
+                                // (marmalade-ui 99ca502, which STT uses): one line,
+                                // ellipsized, bold when selected.
+                                label = {
+                                    Text(
+                                        text = label,
+                                        fontWeight = if (selected) FontWeight.Bold else null,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
                                 colors = itemColors,
                             )
                         }

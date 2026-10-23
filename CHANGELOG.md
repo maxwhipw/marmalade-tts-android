@@ -5,6 +5,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **The selected tab's name is bold** in the bottom bar.
+
 ### Fixed
 - **Swiping away "Loading article…" cancels the article**: on Android 14 and
   later it could be swiped away, and the article still started reading once

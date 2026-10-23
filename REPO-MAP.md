@@ -1219,6 +1219,9 @@ and `MarmaladeSynthService` is its foreground host. System TTS
 
 ### Navigation
 - `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
+  The selected tab's label is bold, one line, ellipsized: the look of the
+  shared library's `MarmaladeNavigationBarLabel` (marmalade-ui 99ca502, used
+  by STT), copied locally because TTS doesn't depend on marmalade-ui (#95).
   Tabs: **Speak / Aliases / Effects / Engines / Settings** (Aliases
   promoted to a tab in v0.1.18; Voices left the bottom bar and Engines
   rejoined it in v0.3.0-alpha.12 — Voices is now a detail route
