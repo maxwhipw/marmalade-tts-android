@@ -7,6 +7,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **The selected tab's name is bold** in the bottom bar.
+- **The Google Play version no longer links to GitHub Sponsors** from
+  Settings, because Play's payment rules don't allow links to outside
+  payment pages. The F-Droid and GitHub versions keep the link.
 
 ### Fixed
 - **Swiping away "Loading article…" cancels the article**: on Android 14 and

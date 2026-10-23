@@ -357,28 +357,40 @@ private fun AdvancedRow(onClick: () -> Unit) {
     )
 }
 
+/**
+ * Whether Settings links to GitHub Sponsors in [flavor]. Not on Play (Max,
+ * 2026-10-23): Play's Payments policy bars in-app links to a payment method
+ * other than Play billing, and its only donation exception is a validated
+ * tax-exempt organization. Play enforced it against AnkiDroid's donate link
+ * from 2026-08 (github.com/ankidroid/Anki-Android/issues/21656). F-Droid and
+ * GitHub builds keep the row. A Play-billing supporter purchase is Forgejo
+ * #97's lab.
+ */
+internal fun showsSponsorLink(flavor: String = BuildConfig.FLAVOR): Boolean = flavor != "play"
+
 @Composable
 private fun SupportSection() {
     SectionHeader(stringResource(R.string.settings_support))
 
-    // Both flavors (Max, 2026-09-07 — it used to be F-Droid-only for Play
-    // first-listing policy safety; he asked for it everywhere). Disclosure
-    // for donors also lives in NOTICE.md and the README FAQ: donations are
-    // not tax-deductible, because Marmalade is not a registered charity.
-    AboutLinkRow(
-        label = stringResource(R.string.settings_support_dev),
-        supporting = stringResource(R.string.settings_support_dev_desc),
-        url = "https://github.com/sponsors/maxwhipw",
-        leading = {
-            // A vector heart (not an emoji). Quiet like the other row icons:
-            // a primary tint put orange on stone in dark mode (#83).
-            Icon(
-                imageVector = Icons.Filled.Favorite,
-                contentDescription = null,
-                tint = MaterialTheme.depth.faint,
-            )
-        },
-    )
+    // Disclosure for donors also lives in NOTICE.md and the README FAQ:
+    // donations are not tax-deductible, because Marmalade is not a
+    // registered charity.
+    if (showsSponsorLink()) {
+        AboutLinkRow(
+            label = stringResource(R.string.settings_support_dev),
+            supporting = stringResource(R.string.settings_support_dev_desc),
+            url = "https://github.com/sponsors/maxwhipw",
+            leading = {
+                // A vector heart (not an emoji). Quiet like the other row icons:
+                // a primary tint put orange on stone in dark mode (#83).
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = MaterialTheme.depth.faint,
+                )
+            },
+        )
+    }
 
     AboutLinkRow(
         label = stringResource(R.string.settings_more_marmalade),

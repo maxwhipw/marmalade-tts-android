@@ -187,6 +187,11 @@ by `BuildConfig.FLAVOR`:
   nothing on Play, so Advanced settings hides its toggle there
   (`EngineCatalog.developerModeRevealsAnything`).
 - **Bug reports:** the Settings "Report a bug" link records the flavor.
+- **Sponsors link:** Settings links to GitHub Sponsors only outside Play
+  (`showsSponsorLink`, Max 2026-10-23). Play's Payments policy bars in-app
+  links to non-Play payment pages unless the payee is a validated tax-exempt
+  organization, and Play enforced it against AnkiDroid's donate link in 2026.
+  A Play-billing supporter purchase is Forgejo #97.
 
 The release workflow builds `bundlePlayRelease`/`assemblePlayRelease`;
 fdroiddata's recipe needs `gradle: [fdroid]`.
