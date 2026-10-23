@@ -1,5 +1,6 @@
 package app.marmalade.tts.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -138,6 +139,16 @@ data class VoiceAlias(
      * Added in db v11→v12.
      */
     val expressiveness: Float? = null,
+    /**
+     * Silence added after each sentence, in ms: one of the
+     * [app.marmalade.tts.data.SentencePause] stops (0 = Natural, the voice's
+     * own pauses). Paragraph breaks get 1.5× as much. Ignored for cloud
+     * voices ([app.marmalade.tts.data.SentencePause.appliesTo]).
+     *
+     * Added in db v12→v13; existing aliases read 0.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val sentencePauseMs: Int = 0,
 ) {
     companion object {
         /** A fresh opaque id. Only creation calls this; renames never do. */

@@ -76,7 +76,8 @@ class Migration11To12Test {
 
     private fun openV12(): MarmaladeDb =
         Room.databaseBuilder(context, MarmaladeDb::class.java, DB_NAME)
-            .addMigrations(MIGRATION_11_12)
+            // The chain on to the current version: Room opens at the latest.
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
             .allowMainThreadQueries()
             .build()
 
