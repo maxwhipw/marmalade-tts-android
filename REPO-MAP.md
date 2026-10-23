@@ -148,7 +148,7 @@ app/src/main/
   `collectAsStateWithLifecycle`.
 - **DI**: Hilt. Single `AppModule` provides DAOs, settings, engines,
   installer, router.
-- **Data**: Room (v4 schema, 3 entities) for voice/alias/per-app
+- **Data**: Room (v13 schema, 4 entities) for voice/alias/per-app/effect
   mappings; DataStore Preferences for user settings (theme, primary
   alias, per-engine preprocessing rule toggles).
 - **Engines**: Vendored Sherpa-ONNX AAR (`libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar`).
@@ -1140,15 +1140,17 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   9-language sentence set; diff two runs to see what a shim change does.
 
 ### Persistence
-- `data/db/MarmaladeDb.kt` — RoomDatabase, schema v12 (history in its
+- `data/db/MarmaladeDb.kt` — RoomDatabase, schema v13 (history in its
   kdoc). Every step has a migration except 1→2 (v1 held no user data) and 9→10
   (alias re-key): the armed `fallbackToDestructiveMigration()` resets
   those on purpose.
   The fallback would also hide a broken new migration by wiping aliases,
-  so test each one without it: `Migration11To12Test` builds a real v11
-  file from `app/schemas/.../11.json` and opens it with the migration
+  so test each one without it: `Migration12To13Test` builds a real v12
+  file from `app/schemas/.../12.json` and opens it with the migration
   alone (Robolectric has no instrumentation assets for
-  `MigrationTestHelper`).
+  `MigrationTestHelper`). An older step's test (`Migration11To12Test`)
+  opens with the chain on to the current version, since Room opens at the
+  latest.
 - **Catalog versioning**: `MarmaladeTtsApplication.CATALOG_VERSION` (int,
   bumped on every catalog content change) gates a one-shot `upsertAll`
   re-seed on cold start; the last-applied version lives in DataStore via
@@ -1173,12 +1175,66 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   `OneShotVoice.Explicit`) and system TTS (`SynthParams`). Pocket and its
   dev twin turn it into the flow head's noise std (`pocketNoiseStd`) and
   log `request temperature=…` per request; every other engine ignores it.
+  `sentencePauseMs` (v13, #96, `NOT NULL DEFAULT 0`) is the pause between
+  sentences ([Pause between sentences](#pause-between-sentences-96) below);
+  it rides the same paths as `expressiveness` (`ResolvedVoice` /
+  `OneShotVoice.Explicit.sentencePauseMs`, `EXTRA_SENTENCE_PAUSE_MS`,
+  `SynthParams.sentencePauseMs`).
 - `data/db/AppAliasMapping.kt` + DAO — per-app routing (packageName
-  → aliasName)
+  → aliasId)
 - `data/SettingsRepository.kt` — DataStore Prefs (theme preset, theme
   mode, primary alias name, keep-engine-loaded, per-engine preprocessing
   enables, the last "What's new" notes seen — see Navigation). `keepEngineLoaded` is **stored but unused** as of v0.1.16
   — UI toggle was removed; the engines don't honour it yet.
+
+### Pause between sentences (#96)
+An alias's `sentencePauseMs` ([`data/SentencePause.kt`](app/src/main/java/app/marmalade/tts/data/SentencePause.kt):
+Natural 0 / Short 250 / Medium 500 / Long 1000; a paragraph break gets
+`paragraphMs` = 1.5×) is silence added on top of the voice's own pause,
+only BETWEEN sentences. Never for cloud voices (`SentencePause.appliesTo`;
+the editor hides the slider and saves 0). **At Natural every engine takes
+its pre-#96 path**: each check is `sentencePauseMs > 0`, pinned by
+`PocketSentencePauseTest` (chunk plan identical to the old call),
+`KittenSentenceGapTest`, `KokoroSentencePauseTest` and the
+`SentenceGapsTest` identity cases.
+- **Who adds it.** `TtsEngine.synthesize/synthesizeStream(…, sentencePauseMs)`
+  carries it; each engine puts it where its audio has a sentence end
+  (`engine/SentenceGaps.kt` has the shared bits):
+  - Kitten: on its existing 260 ms sentence gap (`kittenGapMs`); it already
+    renders a chunk per clause, so nothing else changes.
+  - Pocket, its dev twin and VITS: a silence chunk (not a resume point)
+    after each chunk that ends a sentence (`SentenceGaps.endsSentence`: not
+    a clause mark), never the last. With a pause they stop merging tiny
+    sentences (`SentenceGaps.mergeFloor`), or "Yes. No." would get none.
+  - Kokoro keeps its grouping: re-cutting grouped sentences moved their
+    pitch by up to 1.3 semitones (#96 lab) and costs a planner call each.
+    `engine/kokoro/KokoroSentencePause.kt` splices zeros into the middle of
+    each `. ! ?` pause-token run (ids ≤ 16) that has speech on both sides,
+    placed from the planner's `duration` output (600 samples a frame),
+    snapped to the quietest cut within 10 ms; a piece ending a sentence
+    gets the pause after it unless it is the request's last. Same on the
+    whole path from the unsplit model's second output (`pred_dur`); a
+    model without it logs `whole model gave … durations` and pauses only
+    between pieces. Logcat `StreamPerf`: `kokoro pause=…ms splices=[…]
+    trailing=…` per piece.
+- **Paragraphs** are the caller's: the Narrator's segments are paragraphs,
+  so `SegmentRenderer.render(…, pauseAfterMs)` ends every segment but the
+  session's last with a silence chunk (`Narrator.paragraphPauseMs`; not a
+  resume point, not an RTF sample). System TTS splits an utterance at
+  blank lines (`SentenceGaps.paragraphs` / `paragraphsWhole`) only when a
+  pause is set; at Natural it is the one call it always was. So at Natural
+  a system-TTS paragraph break carries the engine's sentence gap (Kitten's
+  260 ms), and with a pause the paragraph's edge silence plus 1.5× the
+  pause, as in the reader (measured on the 6a, #96).
+- Pauses are audio like any other, so the writer's live Tempo scales them
+  with speed. The RTF the engines and the renderer measure includes the
+  silence an engine adds inside its chunks (more audio per render ms).
+- Device checks (debug only): `EngineBenchService --ei pauseMs <ms>`;
+  `DevStateService --es readFile <f> --es alias <name>` reads with an
+  alias; `service/NarratorCapture` (debug twin; release returns the track
+  unchanged) appends what the Narrator writes to its tracks to
+  `files/dev/narrator-capture-<rate>.pcm` while `files/dev/narrator-capture`
+  exists — the reader's real output, for measuring gaps silently.
 
 ### TTS service surface (external apps)
 - `service/MarmaladeTtsService.kt` — `TextToSpeechService` subclass;
