@@ -9,6 +9,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 - **Swiping away "Loading article…" cancels the article**: on Android 14 and
   later it could be swiped away, and the article still started reading once
   it had loaded.
+- **Hindi reads in whole sentences**: long Hindi text is now split at the
+  danda (। and ॥), Hindi's full stop, instead of at commas or in the middle
+  of a sentence, and an article's short opening Hindi sentence is no longer
+  mistaken for page clutter.
 
 ## [1.3.2] - 2026-10-18
 

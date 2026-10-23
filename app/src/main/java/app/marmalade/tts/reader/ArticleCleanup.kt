@@ -246,7 +246,7 @@ internal object ArticleCleanup {
     /** A credit line is a caption's worth of text, never a paragraph's. */
     private const val CREDIT_MAX_CHARS = 120
 
-    private val SENTENCE_ENDINGS = charArrayOf('.', '!', '?', '。', '！', '？')
+    private val SENTENCE_ENDINGS = charArrayOf('.', '!', '?', '。', '！', '？', '।', '॥')
 
     /**
      * Closers that can sit after the sentence-ending punctuation. Includes the

@@ -772,7 +772,10 @@ When investigating **{concern}**, start at **{files}**:
   engine): sentences split at `.!?;:` + space, newlines and 。！？；：; tiny
   sentences merge up to 90 tokens (never past 200, never the request's
   first); a sentence over 270 is cut at `,;:`/—/、，；： to ≤ 200, then
-  word level (spaces; Japanese kana→kanji/katakana steps), then hard. (The
+  word level (spaces; Japanese kana→kanji/katakana steps), then hard. The
+  Devanagari danda (`।`, `॥`, and "।।" as one mark; with or without spaces
+  around it) is a sentence end in every `TextChunker` split, the reader's
+  `splitText` and `ArticleCleanup.endsSentence` (#62). (The
   streaming path uses target 360 and never the short first piece below; see
   "Kokoro streams".) Every piece of a cut sentence uses the WHOLE sentence's style row
   (`TokenChunk.rowTokens` → `kokoroStyleRow`) — Kokoro picks its row by
