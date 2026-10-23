@@ -1107,11 +1107,12 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   dash is aliased to it; VITS packs have neither, so
   `VitsPhonemeIds.splitClauses` turns a spaced dash into a `;` clause (what
   Piper trained on). espeak-de 1.52 phonemizes "aneinander" with a literal
-  `1` (its de_list entry); a `GermanOverrides` MARMALADE entry covers it
-  (#46). Since #48 `EspeakPhonemizer.stripDigits` drops every ASCII digit
-  from raw espeak IPA for all engines (espeak spells numbers out, so a digit
-  there is dictionary notation): the hyphenated "aneinander-geklebt" and a
-  lone Cyrillic letter on an English voice ("л" → `ˈɛl1`) lose theirs too.
+  `1` (its de_list entry). Since #48 `EspeakPhonemizer.stripDigits` drops
+  every ASCII digit from raw espeak IPA for all engines (espeak spells
+  numbers out, so a digit there is dictionary notation): "aneinander", the
+  hyphenated "aneinander-geklebt" and a lone Cyrillic letter on an English
+  voice ("л" → `ˈɛl1`) lose theirs. The `GermanOverrides` entry #46 added for
+  "aneinander" gave the same IPA and went in #62.
   `stripInWordDots` (#62) drops a `.` written against a phoneme: espeak's
   Hindi retroflex flap (ड़, ढ़) is the phoneme `r.`, which has no IPA symbol,
   so its name passes through (पढ़ें → `pˈʌr.hẽː`; 552 of 3,000 Common Voice
