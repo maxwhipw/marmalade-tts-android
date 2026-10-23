@@ -126,7 +126,8 @@ class EspeakPhonemizer(
      * a French sentence with an English loanword comes back as
      * `(en)ˈʌpdeɪt(fr)`, and no acoustic model has a phoneme for the
      * flag's letters — Kitten encoded them as real vocab. So are ASCII
-     * digits ([stripDigits], #48).
+     * digits ([stripDigits], #48) and dots inside a word ([stripInWordDots],
+     * #62).
      *
      * Spanish text first goes through [EsTextFixups] (old spelling's
      * standalone "á" otherwise reads as "a acentuada").
@@ -137,12 +138,14 @@ class EspeakPhonemizer(
             return ""
         }
         val input = if (voice.startsWith("es")) EsTextFixups.apply(text) else text
-        val raw = stripDigits(
-            stripLanguageFlags(
-                synchronized(nativeLock) {
-                    applyVoiceLocked(voice)
-                    nativePhonemize(input, tie) ?: ""
-                },
+        val raw = stripInWordDots(
+            stripDigits(
+                stripLanguageFlags(
+                    synchronized(nativeLock) {
+                        applyVoiceLocked(voice)
+                        nativePhonemize(input, tie) ?: ""
+                    },
+                ),
             ),
         )
         // espeak's English LTS gets some common informal words wrong
@@ -251,6 +254,20 @@ class EspeakPhonemizer(
          */
         internal fun stripDigits(ipa: String): String =
             if (ipa.none { it in '0'..'9' }) ipa else ipa.filterNot { it in '0'..'9' }
+
+        /** A dot written against the phoneme before it; see [stripInWordDots]. */
+        private val IN_WORD_DOT = Regex("""(?<=\S)\.""")
+
+        /**
+         * Remove the dots espeak writes inside a word (#62). Its Hindi
+         * retroflex flap (ड़, ढ़) is the phoneme `r.`, which has no IPA
+         * symbol in the phoneme table, so its name passes through: पढ़ें →
+         * `pˈʌr.hẽː`. Kokoro reads that `.` as a full stop mid-word. The
+         * JNI shim puts every punctuation mark it re-injects after a space
+         * (`… hɛː . `), so a dot against a phoneme is never a clause end.
+         */
+        internal fun stripInWordDots(ipa: String): String =
+            if ('.' !in ipa) ipa else IN_WORD_DOT.replace(ipa, "")
 
         @Volatile private var libsLoaded: Boolean = false
 

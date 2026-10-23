@@ -13,6 +13,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   danda (। and ॥), Hindi's full stop, instead of at commas or in the middle
   of a sentence, and an article's short opening Hindi sentence is no longer
   mistaken for page clutter.
+- **Hindi words with ड़ or ढ़ no longer break in the middle**: Kokoro's Hindi
+  voices read the sound as a full stop inside the word (बड़ा, पढ़ना).
 
 ## [1.3.2] - 2026-10-18
 

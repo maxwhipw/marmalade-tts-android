@@ -1112,6 +1112,11 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   from raw espeak IPA for all engines (espeak spells numbers out, so a digit
   there is dictionary notation): the hyphenated "aneinander-geklebt" and a
   lone Cyrillic letter on an English voice ("л" → `ˈɛl1`) lose theirs too.
+  `stripInWordDots` (#62) drops a `.` written against a phoneme: espeak's
+  Hindi retroflex flap (ड़, ढ़) is the phoneme `r.`, which has no IPA symbol,
+  so its name passes through (पढ़ें → `pˈʌr.hẽː`; 552 of 3,000 Common Voice
+  Hindi sentences, no other app language has any). The shim puts every
+  re-injected mark after a space, so no clause end is touched.
 - Clause punctuation (#46): `espeak_jni.c` re-injects the LAST mark of
   each clause that only spaces/closing quotes follow, so marks espeak
   reads through ("3.5", "10–20") don't replace the terminator. espeak's
