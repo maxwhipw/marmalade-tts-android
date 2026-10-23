@@ -28,29 +28,10 @@ class GermanOverridesTest {
     }
 
     @Test
-    fun `aneinander skips espeak's stray digit`() {
-        // Pinned espeak-ng 1.52 phonemizes it "ˌan1a^ɪnˈandɜ" (#46).
-        assertEquals("ˌanInˈandɜ", GermanOverrides.overrideFor("aneinander"))
-        assertEquals("ˌanInˈandɜ", GermanOverrides.overrideFor("Aneinander"))
-    }
-
-    @Test
-    fun `aneinander reaches the model without a digit`() {
-        val requested = ArrayList<String>()
-        val g2p = GermanG2P { span ->
-            requested.add(span)
-            when (span.trim()) {
-                "Sie lehnten" -> "zˌiː lˈeːntən"
-                else -> error("unexpected espeak span: $span")
-            }
-        }
-        val out = g2p.phonemes("Sie lehnten aneinander.")
-        assertEquals(listOf("Sie lehnten "), requested)
-        assertEquals("zˌiː lˈeːntən ˌanInˈandɜ.", out)
-    }
-
-    @Test
     fun `plain German word is not overridden`() {
         assertNull(GermanOverrides.overrideFor("Haus"))
+        // "aneinander" reaches the model through espeak and the digit guard
+        // (EspeakDigitGuardTest); #62 removed its override.
+        assertNull(GermanOverrides.overrideFor("aneinander"))
     }
 }

@@ -16,8 +16,7 @@ import java.util.Locale
 // The table (90 entries) is ported verbatim from kikiri-tts PR #28
 // (author dida-80b) via the semidark/misaki fork, misaki/data/
 // de_overrides.json, Apache-2.0. Phoneme values are copied exactly.
-// Priority on lookup collisions: brand > en > de_foreign > marmalade (first
-// writer wins). The MARMALADE section is ours, not upstream's.
+// Priority on lookup collisions: brand > en > de_foreign (first writer wins).
 // -----------------------------------------------------------------------------
 
 internal object GermanOverrides {
@@ -156,21 +155,11 @@ internal object GermanOverrides {
         "synthese" to "zyntˈeːzə",
     )
 
-    /**
-     * Marmalade's own entries (not from the upstream table): words where the
-     * pinned espeak-ng 1.52 emits something the model has no token for.
-     * "aneinander": de_list spells it `an1aIn'and3` and espeak passes the `1`
-     * through literally (#46). The value is espeak's own output without it.
-     */
-    private val MARMALADE = linkedMapOf(
-        "aneinander" to "ˌanInˈandɜ",
-    )
-
     private val RAW_ALIASES = mapOf("moetandchandon" to "moetchandon")
 
-    /** Normalized lookup table, brand > en > de_foreign > marmalade on key collisions. */
+    /** Normalized lookup table, brand > en > de_foreign on key collisions. */
     private val LOOKUP: Map<String, String> = buildMap {
-        for (section in listOf(BRAND, EN, DE_FOREIGN, MARMALADE)) {
+        for (section in listOf(BRAND, EN, DE_FOREIGN)) {
             for ((key, value) in section) putIfAbsent(normalizeForLookup(key), value)
         }
     }

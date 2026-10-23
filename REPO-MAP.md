@@ -602,7 +602,9 @@ When investigating **{concern}**, start at **{files}**:
   first slices are already in the writer's queue (`Narrator.pump` writes
   every rendered chunk at once), so only a hold inside the writer could stop
   it (6a reader, 1× → 2× mid-paragraph: 16–22 stalls inside pieces per take
-  before; after, 0–1 per take, always in that piece, none in any later one). In chunk mode
+  before; after, 0–1 per take, always in that piece, none in any later one;
+  on main after 1.3.2's WSOLA, 2026-10-23: 0 in 12 takes, Kokoro and Pocket,
+  1× → 1.5× and 2×, #55 closed). In chunk mode
   a `PieceGate` holds each piece's slices for `holdMs`: until every slice
   still to render arrives before playback reaches it (estimates from the
   piece's slice grid and a `SliceCost` fit, Kokoro's and Kitten's scaled by
@@ -772,7 +774,10 @@ When investigating **{concern}**, start at **{files}**:
   engine): sentences split at `.!?;:` + space, newlines and 。！？；：; tiny
   sentences merge up to 90 tokens (never past 200, never the request's
   first); a sentence over 270 is cut at `,;:`/—/、，；： to ≤ 200, then
-  word level (spaces; Japanese kana→kanji/katakana steps), then hard. (The
+  word level (spaces; Japanese kana→kanji/katakana steps), then hard. The
+  Devanagari danda (`।`, `॥`, and "।।" as one mark; with or without spaces
+  around it) is a sentence end in every `TextChunker` split, the reader's
+  `splitText` and `ArticleCleanup.endsSentence` (#62). (The
   streaming path uses target 360 and never the short first piece below; see
   "Kokoro streams".) Every piece of a cut sentence uses the WHOLE sentence's style row
   (`TokenChunk.rowTokens` → `kokoroStyleRow`) — Kokoro picks its row by
@@ -1104,11 +1109,25 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   dash is aliased to it; VITS packs have neither, so
   `VitsPhonemeIds.splitClauses` turns a spaced dash into a `;` clause (what
   Piper trained on). espeak-de 1.52 phonemizes "aneinander" with a literal
-  `1` (its de_list entry); a `GermanOverrides` MARMALADE entry covers it
-  (#46). Since #48 `EspeakPhonemizer.stripDigits` drops every ASCII digit
-  from raw espeak IPA for all engines (espeak spells numbers out, so a digit
-  there is dictionary notation): the hyphenated "aneinander-geklebt" and a
-  lone Cyrillic letter on an English voice ("л" → `ˈɛl1`) lose theirs too.
+  `1` (its de_list entry). Since #48 `EspeakPhonemizer.stripDigits` drops
+  every ASCII digit from raw espeak IPA for all engines (espeak spells
+  numbers out, so a digit there is dictionary notation): "aneinander", the
+  hyphenated "aneinander-geklebt" and a lone Cyrillic letter on an English
+  voice ("л" → `ˈɛl1`) lose theirs. The `GermanOverrides` entry #46 added for
+  "aneinander" gave the same IPA and went in #62.
+  `stripInWordDots` (#62) drops a `.` written against a phoneme: espeak's
+  Hindi retroflex flap (ड़, ढ़) is the phoneme `r.`, which has no IPA symbol,
+  so its name passes through (पढ़ें → `pˈʌr.hẽː`; 552 of 3,000 Common Voice
+  Hindi sentences, no other app language has any). The shim puts every
+  re-injected mark after a space, so no clause end is touched. Measured on
+  the emulator (Kokoro v26, 4 Hindi voices × 30 flap sentences + 2 × 8
+  paragraphs, Whisper large-v3-turbo; `~/coding/scratch/mtts-62`): with the
+  dot Kokoro splits the word ("फार ने", "जमावर आ"); without it the word stays
+  whole and WER drops 33.0 → 28.3% (paragraphs 30.4 → 29.0%), but the flap
+  leans toward र (Whisper spells the ड़/ढ़ word exactly 26/132 times vs 42).
+  Mapping `r.` to `ɽ` instead (vocab 129) was worse on both (31.4%, 8/132):
+  Kokoro's Hindi evidently never learned ɽ. The danda chunker (above) took
+  the paragraphs from 32.5 to 30.4%.
 - Clause punctuation (#46): `espeak_jni.c` re-injects the LAST mark of
   each clause that only spaces/closing quotes follow, so marks espeak
   reads through ("3.5", "10–20") don't replace the terminator. espeak's
@@ -1210,6 +1229,9 @@ and `MarmaladeSynthService` is its foreground host. System TTS
 
 ### Navigation
 - `ui/AppRoot.kt` — Scaffold + NavigationBar (5 tabs) + NavHost.
+  The selected tab's label is bold, one line, ellipsized: the look of the
+  shared library's `MarmaladeNavigationBarLabel` (marmalade-ui 99ca502, used
+  by STT), copied locally because TTS doesn't depend on marmalade-ui (#95).
   Tabs: **Speak / Aliases / Effects / Engines / Settings** (Aliases
   promoted to a tab in v0.1.18; Voices left the bottom bar and Engines
   rejoined it in v0.3.0-alpha.12 — Voices is now a detail route

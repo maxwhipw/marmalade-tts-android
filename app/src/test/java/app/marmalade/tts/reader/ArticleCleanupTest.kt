@@ -204,6 +204,14 @@ class ArticleCleanupTest {
     }
 
     @Test
+    fun `endsSentence recognizes a Hindi danda`() {
+        // Else a short Hindi opening sentence reads as unfinished leading cruft (#62).
+        assertTrue(ArticleCleanup.endsSentence("यह अच्छा है।"))
+        assertTrue(ArticleCleanup.endsSentence("यह अच्छा है ॥"))
+        assertFalse(ArticleCleanup.endsSentence("लोड हो रहा है"))
+    }
+
+    @Test
     fun `a short CJK-quoted opening sentence is kept`() {
         val blocks = listOf(p("「もう行こう。」"), p(prose(1)))
         assertEquals(blocks, clean(blocks))

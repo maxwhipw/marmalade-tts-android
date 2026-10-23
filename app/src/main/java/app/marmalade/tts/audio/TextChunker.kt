@@ -109,8 +109,9 @@ object TextChunker {
      * quotes/brackets ends a sentence; when closers are present the next
      * word must start uppercase/digit/opening-quote — a lowercase next
      * word is attribution (`"Stop!" he said`) and stays attached. Plain
-     * `.!?` + whitespace always cuts (today's rule). Newlines and CJK
-     * enders (。！？) are sentence boundaries too.
+     * `.!?` + whitespace always cuts (today's rule). Newlines, CJK
+     * enders (。！？) and the Devanagari danda (। ॥) are sentence boundaries
+     * too.
      */
     private fun sentencesQuoteAware(text: String): List<QSentence> {
         val out = ArrayList<QSentence>()
@@ -127,7 +128,9 @@ object TextChunker {
                     while (i < text.length && text[i].isWhitespace()) i++
                     start = i
                 }
-                '。', '！', '？' -> {
+                '。', '！', '？', '।', '॥' -> {
+                    // "।।" is a double danda typed as two: one boundary.
+                    while (i + 1 < text.length && text[i + 1] in DANDAS) i++
                     emit(i + 1)
                     i++
                     start = i
@@ -156,12 +159,20 @@ object TextChunker {
         return out
     }
 
+    private const val DANDAS = "।॥"
+    /** A sentence end after a run of dandas, with the whitespace after it; see [SENTENCE_END]. */
+    private const val DANDA_END = "(?<=[।॥])(?![।॥])\\s*"
+
     // CJK sentence enders (。！？, ideographic + fullwidth) take NO following
     // whitespace in Japanese/Chinese — "文。文。" — so they split as a
     // zero-width boundary after the ender rather than the ASCII `…\s+` rule.
-    private val SENTENCE_END = Regex("(?<=[.!?])\\s+|(?<=[。！？])")
-    /** Stricter boundary for engines that want pause-only splits — `.!?;:` + newlines + CJK sentence enders. Commas and em-dashes do NOT trigger a split. */
-    private val CLAUSE_END = Regex("(?<=[.!?:;])\\s+|(?<=[。！？])|\\n+")
+    // The Devanagari danda (। U+0964, ॥ U+0965) is Hindi's full stop (#62).
+    // Hindi usually puts a space after it, often one before it too ("है ।"),
+    // and some text types the double danda as "।।": the boundary falls after
+    // the last danda of a run and takes the spaces that follow.
+    private val SENTENCE_END = Regex("(?<=[.!?])\\s+|(?<=[。！？])|$DANDA_END")
+    /** Stricter boundary for engines that want pause-only splits — `.!?;:` + newlines + CJK sentence enders + dandas. Commas and em-dashes do NOT trigger a split. */
+    private val CLAUSE_END = Regex("(?<=[.!?:;])\\s+|(?<=[。！？])|$DANDA_END|\\n+")
     /**
      * Terminal sentence marks + newlines ONLY — `:` and `;` stay inside
      * their sentence. KittenDirect's per-sentence style rows (R16) need
@@ -171,7 +182,7 @@ object TextChunker {
      * split (the lookbehind sees the quote), so dialogue keeps its
      * attribution — same behaviour as the CLI's run splitter.
      */
-    private val SENTENCE_TERMINAL = Regex("(?<=[.!?])\\s+|(?<=[。！？])|\\n+")
+    private val SENTENCE_TERMINAL = Regex("(?<=[.!?])\\s+|(?<=[。！？])|$DANDA_END|\\n+")
     private val PARAGRAPH_BREAK = Regex("\\n\\s*\\n")
     private val WHITESPACE = Regex("\\s+")
     /**
@@ -230,8 +241,9 @@ object TextChunker {
      * on English made CJK chunks three times too heavy (TTFA assessment
      * 2026-09-28, `docs/release/ttfa-chunking-lab.html`, T3 + T4).
      *
-     * 1. Paragraphs, then sentences: `.!?;:` + whitespace, newlines, and the
-     *    CJK marks 。！？；： (no whitespace needed). Commas never split here.
+     * 1. Paragraphs, then sentences: `.!?;:` + whitespace, newlines, the
+     *    CJK marks 。！？；： (no whitespace needed) and the danda । ॥.
+     *    Commas never split here.
      * 2. Tiny sentences merge within a paragraph while the chunk is under
      *    [TokenBudget.mergeFloor] — but only while the result stays within
      *    the target (a 70-char + 95-char merge built a 240-token chunk that
@@ -317,7 +329,7 @@ object TextChunker {
     private fun wholeLimit(target: Int): Int = (target * WHOLE_TOL).toInt()
 
     /** [planByTokens]' sentence boundary; see step 1 there. */
-    private val TOKEN_PLAN_BOUNDARY = Regex("(?<=[.!?:;])\\s+|(?<=[。！？；：])|\\n+")
+    private val TOKEN_PLAN_BOUNDARY = Regex("(?<=[.!?:;])\\s+|(?<=[。！？；：])|$DANDA_END|\\n+")
 
     /**
      * In-sentence cut points for an over-budget sentence. ASCII marks need

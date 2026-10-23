@@ -288,7 +288,7 @@ open class ArticleExtractor @Inject constructor() {
          * closing quote or bracket) and before whitespace, or straight after
          * CJK full-width terminators, which take no space.
          */
-        private val SENTENCE_BREAK = Regex("""(?<=[.!?…]['"’”)\]]?)\s|(?<=[。！？])""")
+        private val SENTENCE_BREAK = Regex("""(?<=[.!?…।॥]['"’”)\]]?)\s|(?<=[。！？])""")
 
         /**
          * Split [text] into pieces of at most [max] chars, preferring the last

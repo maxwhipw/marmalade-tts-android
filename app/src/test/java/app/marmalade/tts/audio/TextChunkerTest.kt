@@ -54,6 +54,37 @@ class TextChunkerTest {
         assertEquals(listOf("こんにちは、元気ですか。"), chunks)
     }
 
+    // -- Devanagari danda (#62) ------------------------------------------------
+
+    @Test
+    fun hindiSentencesSplitAtTheDanda() {
+        // A space after the danda, one before it ("है ।"), none at all, and a
+        // double danda typed as "।।": each ends exactly one sentence.
+        val text = "पहला वाक्य। दूसरा वाक्य॥ तीसरा वाक्य है । चौथा।पाँचवाँ।। छठा"
+        val expected = listOf("पहला वाक्य।", "दूसरा वाक्य॥", "तीसरा वाक्य है ।", "चौथा।", "पाँचवाँ।।", "छठा")
+        for (terminal in listOf(false, true)) {
+            assertEquals(
+                expected,
+                TextChunker.chunk(
+                    text = text,
+                    maxChars = 255,
+                    packSentences = false,
+                    sentenceOnly = true,
+                    allowWordSplits = false,
+                    terminalMarksOnly = terminal,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun hindiPackingCutsAtADandaNotMidSentence() {
+        val a = "यह पहला लंबा वाक्य है जिसमें बहुत सारे शब्द हैं।"
+        val b = "यह दूसरा वाक्य है।"
+        assertEquals(listOf("$a $b"), TextChunker.chunk("$a $b", maxChars = 80))
+        assertEquals(listOf(a, b), TextChunker.chunk("$a $b", maxChars = a.length + 5))
+    }
+
     // -- ASCII regression -----------------------------------------------------
 
     @Test
@@ -315,6 +346,21 @@ class TextChunkerTest {
             listOf("First sentence.", "Second sentence. Third one."),
             plan("First sentence. Second sentence. Third one.").map { it.text },
         )
+    }
+
+    @Test
+    fun planSplitsHindiAtTheDanda() {
+        // Before #62 a Hindi paragraph had no sentence boundary: the whole
+        // thing was one unit, cut at commas or word gaps once over budget.
+        assertEquals(
+            listOf("पहला वाक्य।", "दूसरा वाक्य। तीसरा ।"),
+            plan("पहला वाक्य। दूसरा वाक्य। तीसरा ।").map { it.text },
+        )
+        val long = "यह एक लंबा वाक्य है, जिसमें कई शब्द हैं और कई विचार भी हैं"
+        val sentence = "$long, ${long}।" // 92 tokens each: over the merge floor
+        val chunks = plan("$sentence $sentence $sentence")
+        assertEquals(listOf(sentence, sentence, sentence), chunks.map { it.text })
+        assertTrue(chunks.all { it.rowTokens == null })
     }
 
     @Test

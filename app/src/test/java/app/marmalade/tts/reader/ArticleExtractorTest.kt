@@ -321,6 +321,14 @@ class ArticleExtractorTest {
     }
 
     @Test
+    fun `splitText breaks after a Hindi danda`() {
+        assertEquals(
+            listOf("पहला वाक्य।", "दूसरा वाक्य॥", "तीसरा"),
+            ArticleExtractor.splitText("पहला वाक्य। दूसरा वाक्य॥ तीसरा", max = 14),
+        )
+    }
+
+    @Test
     fun `splitText leaves text under the cap alone`() {
         assertEquals(listOf("Short. Text."), ArticleExtractor.splitText("Short. Text.", max = 50))
     }
