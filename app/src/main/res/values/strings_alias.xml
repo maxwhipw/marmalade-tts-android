@@ -50,6 +50,13 @@
     <string name="alias_expressiveness_lively">Lively</string>
     <string name="alias_expressiveness_content_description">Expressiveness, %1$s to %2$s</string>
     <string name="alias_expressiveness_reset">Reset to default</string>
+    <!-- Pause between sentences (#96): the slider's name, its label with the stop, and the four stops. -->
+    <string name="alias_sentence_pause">Pause between sentences</string>
+    <string name="alias_sentence_pause_label">Pause between sentences: %1$s</string>
+    <string name="alias_sentence_pause_natural">Natural</string>
+    <string name="alias_sentence_pause_short">Short</string>
+    <string name="alias_sentence_pause_medium">Medium</string>
+    <string name="alias_sentence_pause_long">Long</string>
     <string name="alias_effect_label">Effect</string>
     <string name="alias_pick_effect">Pick effect</string>
     <string name="alias_make_primary">Make primary</string>

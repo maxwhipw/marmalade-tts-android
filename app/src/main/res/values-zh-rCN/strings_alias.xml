@@ -49,6 +49,12 @@
     <string name="alias_expressiveness_lively">生动</string>
     <string name="alias_expressiveness_content_description">表现力，从%1$s到%2$s</string>
     <string name="alias_expressiveness_reset">恢复默认</string>
+    <string name="alias_sentence_pause">句间停顿</string>
+    <string name="alias_sentence_pause_label">句间停顿：%1$s</string>
+    <string name="alias_sentence_pause_natural">自然</string>
+    <string name="alias_sentence_pause_short">短</string>
+    <string name="alias_sentence_pause_medium">中</string>
+    <string name="alias_sentence_pause_long">长</string>
     <string name="alias_effect_label">音效</string>
     <string name="alias_pick_effect">选择音效</string>
     <string name="alias_make_primary">设为主别名</string>

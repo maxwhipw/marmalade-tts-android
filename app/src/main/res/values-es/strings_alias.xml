@@ -50,6 +50,12 @@
     <string name="alias_expressiveness_lively">Animada</string>
     <string name="alias_expressiveness_content_description">Expresividad, de %1$s a %2$s</string>
     <string name="alias_expressiveness_reset">Restablecer valor predeterminado</string>
+    <string name="alias_sentence_pause">Pausa entre frases</string>
+    <string name="alias_sentence_pause_label">Pausa entre frases: %1$s</string>
+    <string name="alias_sentence_pause_natural">Natural</string>
+    <string name="alias_sentence_pause_short">Corta</string>
+    <string name="alias_sentence_pause_medium">Media</string>
+    <string name="alias_sentence_pause_long">Larga</string>
     <string name="alias_effect_label">Efecto</string>
     <string name="alias_pick_effect">Elegir efecto</string>
     <string name="alias_make_primary">Hacer principal</string>

@@ -5,6 +5,7 @@ import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketVoiceCatalog
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.data.VoiceLatencySource
 import app.marmalade.tts.data.VoicePathResolver
 import app.marmalade.tts.data.db.AppAliasMapping
@@ -840,6 +841,47 @@ class AliasViewModelTest {
         assertNull(aliasDao.upsertedAliases.single().expressiveness)
     }
 
+    // -- Pause between sentences (issue #96) ------------------------------------
+
+    @Test
+    fun `opening an alias loads its pause between sentences`() = runTest {
+        val existing = alias("reader", sentencePauseMs = 500)
+        val vm = newViewModel(aliases = listOf(existing))
+        vm.aliases.first { it.isNotEmpty() }
+
+        vm.openEditor(existing)
+        assertEquals(SentencePause.MEDIUM, vm.editorState.first().sentencePause)
+    }
+
+    @Test
+    fun `save persists the pause, and a new alias starts at Natural`() = runTest {
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        assertEquals(SentencePause.NATURAL, vm.editorState.first().sentencePause)
+        vm.onEditorNameChange("bedtime")
+        vm.onEditorEngineChange(KokoroDirectVoiceCatalog.ENGINE)
+        vm.onEditorVoiceChange(KokoroDirectVoiceCatalog.DEFAULT_VOICE_ID)
+        vm.onEditorSentencePauseChange(SentencePause.LONG)
+
+        assertTrue(vm.save())
+        assertEquals(1000, aliasDao.upsertedAliases.single().sentencePauseMs)
+    }
+
+    @Test
+    fun `save drops the pause for a cloud voice`() = runTest {
+        val aliasDao = FakeAliasDao()
+        val vm = newViewModel(aliasDao = aliasDao)
+        vm.openEditor()
+        vm.onEditorNameChange("cloudy")
+        vm.onEditorSentencePauseChange(SentencePause.SHORT)
+        vm.onEditorEngineChange(CLOUD_VOICE.engine)
+        vm.onEditorVoiceChange(CLOUD_VOICE.id)
+
+        assertTrue(vm.save())
+        assertEquals(0, aliasDao.upsertedAliases.single().sentencePauseMs)
+    }
+
     @Test
     fun onEditorEngineChange_resetsVoiceWhenIncompatible() = runTest {
         // Set up: editor in create mode (defaults to engine = "kitten-direct-v0_8"),
@@ -1215,6 +1257,7 @@ class AliasViewModelTest {
         createdAt: Long = 0L,
         phonemizationLanguage: String? = null,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ): VoiceAlias = VoiceAlias(
         name = name,
         // Stable, derived id: the fixtures are keyed by name for
@@ -1227,6 +1270,7 @@ class AliasViewModelTest {
         createdAt = createdAt,
         phonemizationLanguage = phonemizationLanguage,
         expressiveness = expressiveness,
+        sentencePauseMs = sentencePauseMs,
     )
 }
 

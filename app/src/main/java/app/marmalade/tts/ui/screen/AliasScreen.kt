@@ -88,6 +88,7 @@ import app.marmalade.tts.data.db.AppAliasMapping
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.data.Expressiveness
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.PocketDevVoiceCatalog
@@ -302,6 +303,7 @@ fun AliasScreen(
             onFallbackChange = viewModel::onEditorFallbackChange,
             onSpeedChange = viewModel::onEditorSpeedChange,
             onExpressivenessChange = viewModel::onEditorExpressivenessChange,
+            onSentencePauseChange = viewModel::onEditorSentencePauseChange,
             onEffectChange = viewModel::onEditorEffectChange,
             onPhonemizationLanguageChange = viewModel::onEditorPhonemizationLanguageChange,
             onDelete = {
@@ -726,6 +728,7 @@ private fun AliasEditorSheet(
     onFallbackChange: (String?) -> Unit,
     onSpeedChange: (Float) -> Unit,
     onExpressivenessChange: (Float?) -> Unit,
+    onSentencePauseChange: (SentencePause) -> Unit,
     onEffectChange: (String?) -> Unit,
     onPhonemizationLanguageChange: (String?) -> Unit,
     onDelete: () -> Unit,
@@ -830,6 +833,17 @@ private fun AliasEditorSheet(
                 }
             }
 
+            // The pause between sentences (#96) is the app's own silence, so it
+            // works for every on-device voice. Hidden for cloud voices: their
+            // audio comes back a request at a time, and a pause per sentence
+            // would mean a paid request per sentence.
+            if (voicePath?.isCloud != true) {
+                SentencePauseSlider(
+                    value = state.sentencePause,
+                    onChange = onSentencePauseChange,
+                )
+            }
+
             // Pocket samples its speech, so how lively it sounds is a choice
             // (its sampling temperature). The other engines are deterministic
             // and have nothing to set, so the block is hidden for them rather
@@ -915,6 +929,72 @@ private fun AliasEditorSheet(
             }
         }
     }
+}
+
+/**
+ * The alias editor's pause between sentences (#96): four named stops on a
+ * slider styled like Speed's (Max picked the slider over chips, 2026-10-23).
+ * The label and TalkBack say the stop's name; the ends are named under the
+ * track as on Expressiveness. A paragraph break gets 1.5× the stop's pause
+ * ([SentencePause.paragraphMs]); the label doesn't spell that out.
+ */
+@Composable
+private fun SentencePauseSlider(
+    value: SentencePause,
+    onChange: (SentencePause) -> Unit,
+) {
+    Column {
+        val valueText = stringResource(sentencePauseName(value))
+        Text(
+            text = stringResource(R.string.alias_sentence_pause_label, valueText),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        val haptics = LocalHapticFeedback.current
+        val name = stringResource(R.string.alias_sentence_pause)
+        Slider(
+            value = value.ordinal.toFloat(),
+            onValueChange = {
+                val stop = SentencePause.entries[it.roundToInt().coerceIn(0, SentencePause.entries.size - 1)]
+                if (stop != value) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onChange(stop)
+                }
+            },
+            valueRange = 0f..(SentencePause.entries.size - 1).toFloat(),
+            // Slider's `steps` counts only the stops between the ends.
+            steps = SentencePause.entries.size - 2,
+            track = { SteppedSliderTrack(it) },
+            modifier = Modifier.semantics {
+                contentDescription = name
+                stateDescription = valueText
+            },
+        )
+        // The slider's state already speaks the stop, so TalkBack skips these.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clearAndSetSemantics {},
+        ) {
+            Text(
+                text = stringResource(sentencePauseName(SentencePause.entries.first())),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = stringResource(sentencePauseName(SentencePause.entries.last())),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun sentencePauseName(pause: SentencePause): Int = when (pause) {
+    SentencePause.NATURAL -> R.string.alias_sentence_pause_natural
+    SentencePause.SHORT -> R.string.alias_sentence_pause_short
+    SentencePause.MEDIUM -> R.string.alias_sentence_pause_medium
+    SentencePause.LONG -> R.string.alias_sentence_pause_long
 }
 
 /**

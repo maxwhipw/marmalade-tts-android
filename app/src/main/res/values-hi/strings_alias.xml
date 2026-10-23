@@ -50,6 +50,12 @@
     <string name="alias_expressiveness_lively">जीवंत</string>
     <string name="alias_expressiveness_content_description">अभिव्यक्ति, %1$s से %2$s तक</string>
     <string name="alias_expressiveness_reset">डिफ़ॉल्ट पर लौटाएँ</string>
+    <string name="alias_sentence_pause">वाक्यों के बीच ठहराव</string>
+    <string name="alias_sentence_pause_label">वाक्यों के बीच ठहराव: %1$s</string>
+    <string name="alias_sentence_pause_natural">स्वाभाविक</string>
+    <string name="alias_sentence_pause_short">छोटा</string>
+    <string name="alias_sentence_pause_medium">मध्यम</string>
+    <string name="alias_sentence_pause_long">लंबा</string>
     <string name="alias_effect_label">इफ़ेक्ट</string>
     <string name="alias_pick_effect">इफ़ेक्ट चुनें</string>
     <string name="alias_make_primary">प्राथमिक बनाएँ</string>

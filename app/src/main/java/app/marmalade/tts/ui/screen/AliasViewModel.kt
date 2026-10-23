@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.audio.SpeechPlayer
 import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.Expressiveness
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.data.InstalledVoiceAssets
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
@@ -145,6 +146,11 @@ data class EditorState(
      * [VoiceAlias.expressiveness].
      */
     val expressiveness: Float? = null,
+    /**
+     * The pause between sentences, one of the [SentencePause] stops. Not
+     * offered for cloud voices; see [VoiceAlias.sentencePauseMs].
+     */
+    val sentencePause: SentencePause = SentencePause.NATURAL,
     val error: SaveError? = null,
 )
 
@@ -563,6 +569,7 @@ class AliasViewModel @Inject constructor(
                 // disarm a cloud alias's offline fallback.
                 fallbackAliasId = fallbackIdOf(existing),
                 expressiveness = existing.expressiveness,
+                sentencePause = SentencePause.fromMs(existing.sentencePauseMs),
             )
         }
     }
@@ -615,6 +622,10 @@ class AliasViewModel @Inject constructor(
             ?.let { (it * 10).roundToInt() / 10f }
         val current = _editorState.value
         _editorState.value = current.copy(expressiveness = snapped)
+    }
+
+    fun onEditorSentencePauseChange(pause: SentencePause) {
+        _editorState.value = _editorState.value.copy(sentencePause = pause)
     }
 
     /** Pass null to clear the effect (= "No effect" — dry). */
@@ -703,6 +714,11 @@ class AliasViewModel @Inject constructor(
             // unasked, the day the alias is pointed at Pocket again.
             expressiveness = state.expressiveness
                 ?.takeIf { Expressiveness.appliesTo(state.engine) },
+            // Cloud voices don't take it (one paid request per sentence); the
+            // editor hides it for them, and saves Natural for the same reason
+            // as expressiveness above.
+            sentencePauseMs = state.sentencePause.sentenceMs
+                .takeIf { SentencePause.appliesTo(state.engine) } ?: 0,
         )
 
         viewModelScope.launch {
