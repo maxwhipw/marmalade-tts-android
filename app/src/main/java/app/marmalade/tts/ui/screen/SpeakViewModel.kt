@@ -189,6 +189,9 @@ class SpeakViewModel @Inject constructor(
      */
     private var currentExpressiveness: Float? = null
 
+    /** The active alias's pause between sentences, ms (0 = Natural); like [currentExpressiveness]. */
+    private var currentSentencePauseMs: Int = 0
+
     /**
      * The voice the user has chosen as default. Composed from two flows so
      * the lookup re-runs both when the user picks a different voice AND
@@ -233,6 +236,7 @@ class SpeakViewModel @Inject constructor(
                 _currentSpeed.value = 1.0f
                 _currentPhonemizationLanguage.value = null
                 currentExpressiveness = null
+                currentSentencePauseMs = 0
                 expectedAliasVoiceId = null
             }
         },
@@ -325,6 +329,7 @@ class SpeakViewModel @Inject constructor(
                     _currentSpeed.value = fresh.speed
                     _currentPhonemizationLanguage.value = fresh.phonemizationLanguage
                     currentExpressiveness = fresh.expressiveness
+                    currentSentencePauseMs = fresh.sentencePauseMs
                     // The edit may also have changed the alias's VOICE.
                     // Follow it (mirroring applyAlias) or the chip keeps
                     // claiming the alias while synthesis runs the pre-edit
@@ -488,6 +493,7 @@ class SpeakViewModel @Inject constructor(
             _currentSpeed.value = alias.speed
             _currentPhonemizationLanguage.value = alias.phonemizationLanguage
             currentExpressiveness = alias.expressiveness
+            currentSentencePauseMs = alias.sentencePauseMs
             _activeAlias.value = alias.id
         }
     }
@@ -522,6 +528,7 @@ class SpeakViewModel @Inject constructor(
         val speed = _currentSpeed.value
         val language = _currentPhonemizationLanguage.value
         val expressiveness = currentExpressiveness
+        val sentencePauseMs = currentSentencePauseMs
         val generation = ++speakGeneration
         // A cold engine can take seconds to page in, all of it before the
         // first sample exists. Saying "Speaking…" through that is a lie the
@@ -544,7 +551,7 @@ class SpeakViewModel @Inject constructor(
                     if (generation != speakGeneration) return@launch // superseded
                     _playbackState.value = PlaybackState.Speaking
                 }
-                val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language, expressiveness)
+                val result = synthesizer.speak(currentText, voiceId, speed, effectBlocks, language, expressiveness, sentencePauseMs)
                 if (generation != speakGeneration) return@launch // superseded
                 _playbackState.value = result.fold(
                     onSuccess = { PlaybackState.Idle },

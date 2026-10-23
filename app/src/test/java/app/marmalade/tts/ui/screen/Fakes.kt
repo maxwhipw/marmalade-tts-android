@@ -47,6 +47,7 @@ internal data class Call(
     val effectBlocks: List<EffectBlock>,
     val phonemizationLanguage: String? = null,
     val expressiveness: Float? = null,
+    val sentencePauseMs: Int = 0,
 )
 
 internal class RecordingPlayer(
@@ -63,8 +64,9 @@ internal class RecordingPlayer(
         effectBlocks: List<EffectBlock>,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Result<Unit> {
-        calls += Call(text, voiceId, speed, effectBlocks, phonemizationLanguage, expressiveness)
+        calls += Call(text, voiceId, speed, effectBlocks, phonemizationLanguage, expressiveness, sentencePauseMs)
         if (holdUntilCancel) CompletableDeferred<Unit>().also { held = it }.await()
         return behaviour()
     }

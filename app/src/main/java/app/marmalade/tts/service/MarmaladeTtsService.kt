@@ -12,6 +12,7 @@ import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.audio.PipelineResult
 import app.marmalade.tts.audio.runSynthesisPipeline
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VoiceLatencyTracker
 import app.marmalade.tts.data.db.VoiceAlias
@@ -24,6 +25,7 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.allRetiredVoices
 import app.marmalade.tts.data.isVoiceReleased
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstalledBundle
@@ -737,15 +739,22 @@ class MarmaladeTtsService : TextToSpeechService() {
         // other is a stall inside one (#54).
         var sent = 0L
         val pieceStarts = StringBuilder()
-        streamForEngine(
-            engineName,
-            stripped,
-            params.voiceId,
-            plan.speed,
-            params.phonemizationLanguage,
-            plan.playbackRate,
-            params.expressiveness,
-        ).collect { audio ->
+        // The alias's pause between sentences (#96): the engine adds it within
+        // a paragraph; paragraphs (blank lines) render one per call with the
+        // paragraph pause between. At Natural this is the one call it always was.
+        val pause = pauseFor(engineName, params)
+        SentenceGaps.paragraphs(stripped, pause) { paragraph ->
+            streamForEngine(
+                engineName,
+                paragraph,
+                params.voiceId,
+                plan.speed,
+                params.phonemizationLanguage,
+                plan.playbackRate,
+                params.expressiveness,
+                pause,
+            )
+        }.collect { audio ->
                 val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate).also {
                     chain = it
                     if (audio.sampleRate != committedRate) {
@@ -793,7 +802,10 @@ class MarmaladeTtsService : TextToSpeechService() {
             effectBlocks = plan.blocks,
             preprocessor = preprocessor,
             synthesize = { t, v, s ->
-                synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage, params.expressiveness)
+                val pause = pauseFor(engineName, params)
+                SentenceGaps.paragraphsWhole(t, pause) { paragraph ->
+                    synthesizeForEngine(engineName, paragraph, v, s, params.phonemizationLanguage, params.expressiveness, pause)
+                }
             },
         )
         when (result) {
@@ -843,6 +855,8 @@ class MarmaladeTtsService : TextToSpeechService() {
         val fallbackVoiceId: String? = null,
         /** See [app.marmalade.tts.data.db.VoiceAlias.expressiveness]. Null = engine default. */
         val expressiveness: Float? = null,
+        /** See [app.marmalade.tts.data.db.VoiceAlias.sentencePauseMs]. 0 = Natural. */
+        val sentencePauseMs: Int = 0,
     )
 
     /**
@@ -893,6 +907,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     effectBlocks = effectResolver.blocksFor(perApp.effectId),
                     phonemizationLanguage = perApp.phonemizationLanguage,
                     expressiveness = perApp.expressiveness,
+                    sentencePauseMs = perApp.sentencePauseMs,
                 )
             }
 
@@ -940,6 +955,7 @@ class MarmaladeTtsService : TextToSpeechService() {
                     phonemizationLanguage = primary.phonemizationLanguage,
                     fallbackVoiceId = router.fallbackVoiceIdFor(primary),
                     expressiveness = primary.expressiveness,
+                    sentencePauseMs = primary.sentencePauseMs,
                 )
             } else {
                 null
@@ -1192,6 +1208,10 @@ class MarmaladeTtsService : TextToSpeechService() {
      */
     private fun engineDefaultSampleRate(engineName: String): Int = engineHandleFor(engineName).sampleRate
 
+    /** [params]' pause between sentences, or 0 for an engine it doesn't apply to (cloud). */
+    private fun pauseFor(engineName: String, params: SynthParams): Int =
+        if (SentencePause.appliesTo(engineName)) params.sentencePauseMs else 0
+
     /**
      * Route synthesis to the engine identified by [engineName]. Suspending
      * because each engine hands off to `Dispatchers.Default` internally,
@@ -1208,9 +1228,11 @@ class MarmaladeTtsService : TextToSpeechService() {
         speed: Float,
         phonemizationLanguage: String? = null,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ): SynthAudio {
         val startedAt = SystemClock.elapsedRealtime()
-        val audio = engineHandleFor(engineName).synthesize(text, voiceId, speed, phonemizationLanguage, expressiveness)
+        val audio = engineHandleFor(engineName)
+            .synthesize(text, voiceId, speed, phonemizationLanguage, expressiveness, sentencePauseMs)
         recordLatency(engineName, voiceId, text, SystemClock.elapsedRealtime() - startedAt)
         return audio
     }
@@ -1227,9 +1249,10 @@ class MarmaladeTtsService : TextToSpeechService() {
         phonemizationLanguage: String? = null,
         playbackRate: Float = 1f,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ): Flow<SynthAudio> {
         val stream = engineHandleFor(engineName)
-            .synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate, expressiveness)
+            .synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate, expressiveness, sentencePauseMs)
         var startedAt = 0L
         var recorded = false
         return stream

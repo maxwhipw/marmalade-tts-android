@@ -240,6 +240,8 @@ sealed interface OneShotVoice {
         val engine: String? = null,
         /** The applied alias's expressiveness (Pocket's temperature); null = engine default. */
         val expressiveness: Float? = null,
+        /** The applied alias's pause between sentences, ms ([app.marmalade.tts.data.SentencePause]); 0 = Natural. */
+        val sentencePauseMs: Int = 0,
     ) : OneShotVoice
 
     /**
@@ -278,6 +280,12 @@ data class ResolvedVoice(
     val rules: Set<String>,
     /** The alias's expressiveness, handed to the engine per render; null = engine default. */
     val expressiveness: Float? = null,
+    /**
+     * The alias's pause between sentences, ms ([app.marmalade.tts.data.SentencePause]):
+     * the engine adds it inside a segment, the renderer 1.5× of it between
+     * segments (paragraphs). 0 = Natural; always 0 for a cloud voice.
+     */
+    val sentencePauseMs: Int = 0,
 )
 
 sealed interface ResolveTarget {

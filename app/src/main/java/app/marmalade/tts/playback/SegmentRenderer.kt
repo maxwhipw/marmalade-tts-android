@@ -1,6 +1,7 @@
 package app.marmalade.tts.playback
 
 import app.marmalade.tts.engine.EngineNotInstalledException
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.lang.UtteranceLanguage
@@ -43,6 +44,11 @@ internal sealed interface RenderEvent {
  *
  * Bookkeeping it owns (§2.9): one time-to-first-audio sample per job, and one
  * warm, unskewed RTF sample per job.
+ *
+ * The alias's pause between sentences (#96): the engine adds it inside the
+ * segment ([ResolvedVoice.sentencePauseMs]); a segment followed by another
+ * (a paragraph break) ends with [pauseAfterMs] of silence, a chunk of its own
+ * that is neither a resume point nor an RTF sample.
  */
 internal class SegmentRenderer(
     private val preparer: SegmentPreparer,
@@ -55,6 +61,7 @@ internal class SegmentRenderer(
         text: String,
         playbackRate: Float,
         permit: StateFlow<Boolean>,
+        pauseAfterMs: Int = 0,
         emit: (RenderEvent) -> Unit,
     ) {
         try {
@@ -70,7 +77,7 @@ internal class SegmentRenderer(
             // permit is closed the engine renders at most this far ahead.
             val stream = engine.synthesizeStream(
                 prepared.text, voice.voiceId, 1f, prepared.phonemizationLanguage, playbackRate,
-                voice.expressiveness,
+                voice.expressiveness, voice.sentencePauseMs,
             ).buffer(ENGINE_AHEAD_CHUNKS)
             val startedAt = clock()
             var lastResume = startedAt
@@ -97,10 +104,13 @@ internal class SegmentRenderer(
                 val renderMs = clock() - startedAt
                 stats.recordLatency(voice.voiceId, voice.engine, renderMs, text.length)
                 emit(RenderEvent.Chunk(0, SynthAudio(shaped, rate), renderMs, skewed = false))
+                if (pauseAfterMs > 0) emit(RenderEvent.Chunk(1, SentenceGaps.silence(pauseAfterMs, rate), 0, skewed = true))
                 emit(RenderEvent.Done)
                 return
             }
+            var rate = 0
             stream.collect { audio ->
+                rate = audio.sampleRate
                 val now = clock()
                 val renderMs = now - lastResume
                 if (first) {
@@ -122,6 +132,9 @@ internal class SegmentRenderer(
             if (warm && audioSum >= MIN_RTF_AUDIO_MS && renderSum > 0) {
                 val language = UtteranceLanguage.renderLanguage(voice.engine, voice.voiceId, prepared.phonemizationLanguage)
                 stats.recordRtf(voice.engine, renderSum / audioSum, language)
+            }
+            if (pauseAfterMs > 0 && rate > 0) {
+                emit(RenderEvent.Chunk(index, SentenceGaps.silence(pauseAfterMs, rate), 0, skewed = true))
             }
             emit(RenderEvent.Done)
         } catch (e: CancellationException) {

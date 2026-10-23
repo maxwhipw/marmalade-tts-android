@@ -396,12 +396,17 @@ class MarmaladeTtsServiceTest {
     // the "kitten primary alias keeps speaking Bella Kokoro" bug.
 
     /** Wire a kitten primary alias ("kitty", 1.5×) into the service's router. */
-    private fun installKittenPrimary(phonemizationLanguage: String? = null, expressiveness: Float? = null) {
+    private fun installKittenPrimary(
+        phonemizationLanguage: String? = null,
+        expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
+    ) {
         installPrimary(
             engine = "kitten-direct-v0_8",
             voiceId = "kitten-direct-v0_8:Bella",
             phonemizationLanguage = phonemizationLanguage,
             expressiveness = expressiveness,
+            sentencePauseMs = sentencePauseMs,
         )
     }
 
@@ -428,6 +433,7 @@ class MarmaladeTtsServiceTest {
         phonemizationLanguage: String?,
         fallbackTo: app.marmalade.tts.data.db.VoiceAlias? = null,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ) {
         val alias = app.marmalade.tts.data.db.VoiceAlias(
             name = "kitty",
@@ -440,6 +446,7 @@ class MarmaladeTtsServiceTest {
             phonemizationLanguage = phonemizationLanguage,
             fallbackAliasId = fallbackTo?.id,
             expressiveness = expressiveness,
+            sentencePauseMs = sentencePauseMs,
         )
         val rows = listOfNotNull(alias, fallbackTo)
         val aliasDao = object : app.marmalade.tts.data.db.VoiceAliasDao {
@@ -1171,6 +1178,39 @@ class MarmaladeTtsServiceTest {
         assertEquals(listOf<Float?>(null), fakeEngine.expressivenesses)
     }
 
+    // -- pause between sentences (#96) -------------------------------------------
+
+    @Test
+    fun onSynthesizeText_primaryAliasSentencePauseReachesTheEngine() {
+        installKittenPrimary(sentencePauseMs = 500)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        service.onSynthesizeText(SynthesisRequest("Hello there. Bye now.", Bundle()), FakeSynthesisCallback())
+
+        assertEquals(listOf(500), fakeEngine.sentencePauses)
+    }
+
+    @Test
+    fun onSynthesizeText_withAPauseEachParagraphIsItsOwnCall() {
+        installKittenPrimary(sentencePauseMs = 500)
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        service.onSynthesizeText(SynthesisRequest("First one.\n\nSecond one.", Bundle()), FakeSynthesisCallback())
+
+        assertEquals(listOf("First one.", "Second one."), fakeEngine.calls.map { it.first.trim() })
+    }
+
+    @Test
+    fun onSynthesizeText_atNaturalParagraphsStayOneCall() {
+        installKittenPrimary()
+        fakeEngine.nextPcm = ShortArray(1024)
+
+        service.onSynthesizeText(SynthesisRequest("First one.\n\nSecond one.", Bundle()), FakeSynthesisCallback())
+
+        assertEquals(1, fakeEngine.calls.size)
+        assertEquals(listOf(0), fakeEngine.sentencePauses)
+    }
+
     @Test
     fun onSynthesizeText_kittenAliasWithNoStoredLanguageIsUntouched() {
         // The English-only engines are pinned at English in the UI, so a
@@ -1508,6 +1548,9 @@ internal class FakeKittenDirectEngine(
     /** expressiveness of each call, index-aligned with [calls]. */
     val expressivenesses: MutableList<Float?> = mutableListOf()
 
+    /** sentencePauseMs of each call, index-aligned with [calls]. */
+    val sentencePauses: MutableList<Int> = mutableListOf()
+
     override val sampleRate: Int get() = 24_000
 
     override fun isInstalled(): Boolean = synthesizeException !is EngineNotInstalledException
@@ -1523,6 +1566,7 @@ internal class FakeKittenDirectEngine(
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
         expressivenesses += expressiveness
+        sentencePauses += sentencePauseMs
         synthesizeException?.let { throw it }
         return SynthAudio(pcm = nextPcm, sampleRate = sampleRate)
     }
@@ -1542,6 +1586,7 @@ internal class FakeKittenDirectEngine(
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
         expressivenesses += expressiveness
+        sentencePauses += sentencePauseMs
         synthesizeException?.let { throw it }
         emit(SynthAudio(pcm = nextPcm, sampleRate = sampleRate))
     }

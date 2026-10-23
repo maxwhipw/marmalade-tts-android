@@ -1,6 +1,8 @@
 package app.marmalade.tts.playback
 
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.engine.LivePlaybackRate
+import app.marmalade.tts.engine.SentenceGaps
 import java.util.TreeMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -849,11 +851,17 @@ class Narrator(
         val rate = s.tempo
         s.liveTempo.value = rate
         val job = scope.launch(workDispatcher + LivePlaybackRate(s.liveTempo)) {
-            renderer.render(engine, voice, seg.text, rate, permit) { event ->
+            renderer.render(engine, voice, seg.text, rate, permit, paragraphPauseMs(s, segment)) { event ->
                 inbox.trySend(Msg.Rendered(sessionId, token, event))
             }
         }
         render = RenderJob(token, s, segment, job, permit)
+    }
+
+    /** The paragraph pause after [segment] (#96): none after the session's last. */
+    private fun paragraphPauseMs(s: Session, segment: Int): Int {
+        val ms = s.voice?.sentencePauseMs ?: 0
+        return if (ms > 0 && segment < s.segs.size - 1) SentencePause.paragraphMsFor(ms) else 0
     }
 
     private fun cancelRender(reason: String) {
@@ -1270,8 +1278,7 @@ class Narrator(
             if (speed.isNaN()) 1f else speed.coerceIn(NarratorControl.MIN_ONE_SHOT_SPEED, NarratorControl.MAX_ONE_SHOT_SPEED)
 
         /** Shared text is spoken as paragraphs (blank-line separated); blank ones are dropped. */
-        fun splitParagraphs(text: String): List<String> =
-            text.split(Regex("\\n\\s*\\n")).map { it.trim() }.filter { it.isNotEmpty() }
+        fun splitParagraphs(text: String): List<String> = SentenceGaps.splitParagraphs(text)
 
         /** The loop's dedicated thread (not `Default.limitedParallelism(1)`, §2.3). */
         fun newLoopDispatcher(): CoroutineDispatcher =
