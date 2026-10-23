@@ -94,6 +94,9 @@ class FakeEngine(
     /** The expressiveness of each request, in the same order as [requests]. */
     val expressivenessRequests = ArrayList<Float?>()
 
+    /** Each render's pause between sentences, in request order (#96). */
+    val sentencePauseRequests = ArrayList<Int>()
+
     fun rendersOf(text: String): List<Render> = renders.filter { it.text == text }
 
     fun completedRendersOf(text: String): List<Render> = renders.filter { it.text == text && !it.aborted }
@@ -111,6 +114,7 @@ class FakeEngine(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = throw UnsupportedOperationException("stream only")
 
     override fun synthesizeStream(
@@ -120,8 +124,12 @@ class FakeEngine(
         phonemizationLanguage: String?,
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = stream(text, voiceId, speed, phonemizationLanguage)
-        .onStart { expressivenessRequests += expressiveness }
+        .onStart {
+            expressivenessRequests += expressiveness
+            sentencePauseRequests += sentencePauseMs
+        }
         // Default capacity (64), like the engines' channelFlow, so the
         // renderer's own buffer(n) fuses with it the same way.
         .let { if (internalBuffer) it.buffer() else it }

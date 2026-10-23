@@ -121,6 +121,10 @@ private const val STYLE_DIM = 256
 private const val CLAUSE_GAP_MS = 80
 private const val SENTENCE_GAP_MS = 260
 
+/** The silence after a chunk: its boundary's gap, plus the alias's pause after a sentence (#96). */
+internal fun kittenGapMs(sentenceEnd: Boolean, sentencePauseMs: Int): Int =
+    if (sentenceEnd) SENTENCE_GAP_MS + sentencePauseMs.coerceAtLeast(0) else CLAUSE_GAP_MS
+
 /**
  * Per-voice speed multipliers. The voices differ in inherent pace, so a
  * single global prior can't work: at the old uniform 0.84, Bella read
@@ -422,9 +426,10 @@ open class KittenDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val parts = ArrayList<ShortArray>()
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage).collect { parts.add(it.pcm) }
+        synthesizeStream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs = sentencePauseMs).collect { parts.add(it.pcm) }
         if (parts.isEmpty()) return@withContext SynthAudio(ShortArray(0), sampleRate)
         val total = parts.sumOf { it.size }
         val merged = ShortArray(total)
@@ -458,6 +463,7 @@ open class KittenDirectEngine @Inject constructor(
         // pieces (chunk mode, #54).
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic: split "load wait" from the first render.
         // If loadMs > 0 on the first run after a cold start, the user is paying
@@ -523,8 +529,11 @@ open class KittenDirectEngine @Inject constructor(
                     ensureActive()
                     // Boundary-typed gap rides on the chunk's last slice (see
                     // CLAUSE_GAP_MS/SENTENCE_GAP_MS). Not after the last chunk.
+                    // The alias's pause between sentences (#96) adds to a
+                    // sentence gap; Kitten already renders a chunk per clause,
+                    // so nothing else about the audio changes.
                     val gapSamples = if (idx < chunks.size - 1 && pi == pieces.size - 1) {
-                        sampleRate * (if (chunk.sentenceEnd) SENTENCE_GAP_MS else CLAUSE_GAP_MS) / 1000
+                        sampleRate * kittenGapMs(chunk.sentenceEnd, sentencePauseMs) / 1000
                     } else {
                         0
                     }

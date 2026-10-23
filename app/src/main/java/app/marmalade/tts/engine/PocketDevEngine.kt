@@ -199,9 +199,13 @@ class PocketDevEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val chunks = mutableListOf<ShortArray>()
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage, expressiveness = expressiveness).collect { audio ->
+        synthesizeStream(
+            text, voiceId, speed, phonemizationLanguage,
+            expressiveness = expressiveness, sentencePauseMs = sentencePauseMs,
+        ).collect { audio ->
             chunks.add(audio.pcm)
         }
         val total = chunks.sumOf { it.size }
@@ -220,6 +224,7 @@ class PocketDevEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float, // unused — dev-only engine, strict sequential by design
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = flow {
         ensureLoadedSuspending()
         synthLock.withLock {
@@ -236,6 +241,10 @@ class PocketDevEngine @Inject constructor(
                 val pcm = synthesizeChunk(chunk, voiceEmb, chunkIndex = i, noiseStd = noiseStd)
                 Log.d(TAG, "PocketDev: chunk $i (${chunk.length} chars) → ${pcm.size} samples")
                 emit(SynthAudio(pcm = floatToPcm16(pcm), sampleRate = bundle.sampleRate))
+                // The alias's pause between sentences (#96), not after the last.
+                if (sentencePauseMs > 0 && i < chunks.size - 1 && SentenceGaps.endsSentence(chunk)) {
+                    emit(SentenceGaps.silence(sentencePauseMs, bundle.sampleRate))
+                }
             }
         }
     }.flowOn(Dispatchers.Default)

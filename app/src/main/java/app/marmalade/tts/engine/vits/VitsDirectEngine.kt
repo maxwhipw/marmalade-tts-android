@@ -10,6 +10,7 @@ import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.OrtRunAbort
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.abortableInference
@@ -209,10 +210,11 @@ open class VitsDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val parts = ArrayList<ShortArray>()
         var rate = sampleRate
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage).collect {
+        synthesizeStream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs = sentencePauseMs).collect {
             parts.add(it.pcm)
             rate = it.sampleRate
         }
@@ -245,6 +247,7 @@ open class VitsDirectEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float, // unused — VITS renders at RTF 0.08–0.21, ample headroom at any speed
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): kotlinx.coroutines.flow.Flow<SynthAudio> = kotlinx.coroutines.flow.channelFlow {
         val voice = voiceFrom(voiceId)
         val packId = voice.packId
@@ -270,7 +273,7 @@ open class VitsDirectEngine @Inject constructor(
             packSentences = false,
             sentenceOnly = true,
             allowWordSplits = false,
-            minChars = MIN_CHARS_PER_CHUNK,
+            minChars = SentenceGaps.mergeFloor(MIN_CHARS_PER_CHUNK, sentencePauseMs),
             minCharsExemptFirst = true,
         )
         for ((idx, chunk) in chunks.withIndex()) {
@@ -296,6 +299,10 @@ open class VitsDirectEngine @Inject constructor(
                     "textLen=${chunk.length}",
             )
             send(audio)
+            // The alias's pause between sentences (#96), not after the last.
+            if (sentencePauseMs > 0 && idx < chunks.size - 1 && SentenceGaps.endsSentence(chunk)) {
+                send(SentenceGaps.silence(sentencePauseMs, audio.sampleRate))
+            }
         }
     }.flowOn(Dispatchers.Default)
 

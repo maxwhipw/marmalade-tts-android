@@ -121,6 +121,14 @@ interface TtsEngine {
      * ([app.marmalade.tts.data.Expressiveness]); null = engine default.
      * Only engines that sample (Pocket, which reads it as its temperature)
      * act on it; deterministic engines ignore it.
+     *
+     * [sentencePauseMs] is the alias's pause between sentences
+     * ([app.marmalade.tts.data.SentencePause]): silence the engine adds
+     * after each sentence of [text] but the last, on top of its own pause.
+     * 0 (Natural) must leave the rendering exactly as it was before #96:
+     * engines take their pause code path only for a positive value. Cloud
+     * voices ignore it. Paragraph breaks are the caller's: text split at
+     * blank lines is rendered a paragraph per call ([SentenceGaps]).
      */
     suspend fun synthesize(
         text: String,
@@ -128,6 +136,7 @@ interface TtsEngine {
         speed: Float,
         phonemizationLanguage: String? = null,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ): SynthAudio
 
     /**
@@ -168,7 +177,7 @@ interface TtsEngine {
      * against the *played* clock, buffering more chunks up front when
      * the stretch erases their realtime headroom.
      *
-     * [expressiveness]: as for [synthesize].
+     * [expressiveness], [sentencePauseMs]: as for [synthesize].
      */
     fun synthesizeStream(
         text: String,
@@ -177,8 +186,9 @@ interface TtsEngine {
         phonemizationLanguage: String? = null,
         playbackRate: Float = 1f,
         expressiveness: Float? = null,
+        sentencePauseMs: Int = 0,
     ): Flow<SynthAudio> = flow {
-        emit(synthesize(text, voiceId, speed, phonemizationLanguage, expressiveness))
+        emit(synthesize(text, voiceId, speed, phonemizationLanguage, expressiveness, sentencePauseMs))
     }
 
     /**

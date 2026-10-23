@@ -606,12 +606,16 @@ open class PocketEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         // Pocket does its own phonemization upstream of ORT; the espeak
         // language knob doesn't apply.
         val parts = ArrayList<ShortArray>()
         var sampleRate = 0
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage, expressiveness = expressiveness).collect { chunk ->
+        synthesizeStream(
+            text, voiceId, speed, phonemizationLanguage,
+            expressiveness = expressiveness, sentencePauseMs = sentencePauseMs,
+        ).collect { chunk ->
             parts.add(chunk.pcm)
             sampleRate = chunk.sampleRate
         }
@@ -647,6 +651,7 @@ open class PocketEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic — see KittenDirectEngine for the rationale.
         val streamStartNs = System.nanoTime()
@@ -669,17 +674,14 @@ open class PocketEngine @Inject constructor(
         // choppy. Post-process pass below enforces the model's hard
         // token limit on the rare 255-char chunk that exceeds it.
         val preprocessed = preprocessForPocket(text.trim(), bundle)
-        val outerChunks = TextChunker.chunk(
-            text = preprocessed,
-            maxChars = POCKET_MAX_CHARS_PER_CHUNK,
-            packSentences = false,
-            sentenceOnly = true,
-            allowWordSplits = false,
-            minChars = POCKET_MIN_CHARS_PER_CHUNK,
-        )
+        val outerChunks = pocketOuterChunks(preprocessed, sentencePauseMs)
         val miniChunks = ArrayList<String>(outerChunks.size)
-        for (chunk in outerChunks) {
+        // The alias's pause between sentences (#96) follows the last mini-chunk
+        // of a sentence, never the request's last.
+        val pauseAfter = ArrayList<Boolean>(outerChunks.size)
+        for ((oi, chunk) in outerChunks.withIndex()) {
             val tokenCount = tokenizer.encode(chunk).size
+            val before = miniChunks.size
             if (tokenCount <= bundle.maxTokenPerChunk) {
                 miniChunks.add(chunk)
             } else {
@@ -689,6 +691,8 @@ open class PocketEngine @Inject constructor(
                 Log.d(TAG, "outer chunk has $tokenCount tokens > ${bundle.maxTokenPerChunk}; sub-splitting")
                 miniChunks.addAll(chunkPocketByTokens(chunk, tokenizer, bundle, bundle.maxTokenPerChunk))
             }
+            val pause = sentencePauseMs > 0 && oi < outerChunks.size - 1 && SentenceGaps.endsSentence(chunk)
+            for (i in before until miniChunks.size) pauseAfter.add(pause && i == miniChunks.size - 1)
         }
         if (miniChunks.isEmpty()) return@channelFlow
         Log.d(TAG, "synthesizeStream: ${miniChunks.size} mini-chunk(s) from ${outerChunks.size} outer chunk(s)")
@@ -712,7 +716,10 @@ open class PocketEngine @Inject constructor(
             noiseStd = pocketNoiseStd(expressiveness)
             Log.d(TAG, "request temperature=${Expressiveness.pocketTemperature(expressiveness)}" +
                 if (expressiveness == null) " (default)" else " (alias)")
-            streamChunks(this@channelFlow, bundle, voiceEmb, miniChunks, playbackRate, pace, streamStartNs, loadWaitMs)
+            streamChunks(
+                this@channelFlow, bundle, voiceEmb, miniChunks, playbackRate, pace, streamStartNs, loadWaitMs,
+                pauseAfter, sentencePauseMs,
+            )
             if (profileRequestsLeft > 0 && --profileRequestsLeft == 0) endOrtProfiling()
         } }
     }.flowOn(Dispatchers.Default)
@@ -810,6 +817,9 @@ open class PocketEngine @Inject constructor(
         pace: RequestPace,
         streamStartNs: Long,
         loadWaitMs: Long,
+        /** Per mini-chunk: [sentencePauseMs] of silence follows it (#96). */
+        pauseAfter: List<Boolean>,
+        sentencePauseMs: Int,
     ) = coroutineScope {
         val tokenizer = tokenizer ?: error("tokenizer missing")
         val chunkTokens = miniChunks.map { tokenizer.encode(preprocessForPocket(it, bundle)).size }
@@ -932,6 +942,10 @@ open class PocketEngine @Inject constructor(
                     for (a in released) send(bank.offer(a, sendMs))
                 }
                 if (job.last) for (a in gate.endPiece(sendMs)) send(bank.offer(a, sendMs))
+                // After the sentence's last slice, so a chunk-mode gate never holds it.
+                if (job.last && pauseAfter[job.chunk]) {
+                    send(bank.offer(SentenceGaps.silence(sentencePauseMs, bundle.sampleRate), sendMs))
+                }
             }
         }
         // Bounded, so the AR loop waits when the decoder does: when the
@@ -2229,6 +2243,21 @@ open class PocketEngine @Inject constructor(
 
         /** Sentence-boundary cap (KokoroDirect's former character cap). */
         private const val POCKET_MAX_CHARS_PER_CHUNK = 255
+
+        /**
+         * Pocket's sentence chunks of [preprocessed] text. At Natural this is
+         * the pre-#96 plan exactly; with a pause every sentence is its own
+         * chunk ([SentenceGaps.mergeFloor]).
+         */
+        internal fun pocketOuterChunks(preprocessed: String, sentencePauseMs: Int): List<String> =
+            TextChunker.chunk(
+                text = preprocessed,
+                maxChars = POCKET_MAX_CHARS_PER_CHUNK,
+                packSentences = false,
+                sentenceOnly = true,
+                allowWordSplits = false,
+                minChars = SentenceGaps.mergeFloor(POCKET_MIN_CHARS_PER_CHUNK, sentencePauseMs),
+            )
 
         /**
          * Tiny-sentence merge threshold. Lower than KokoroDirect's 80
