@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import app.marmalade.tts.data.SettingsRepository
+import app.marmalade.tts.data.db.VoiceAliasDao
 import app.marmalade.tts.lang.VoiceChoice
 import app.marmalade.tts.playback.NarratorControl
 import app.marmalade.tts.reader.ArticleBlock
@@ -47,6 +48,9 @@ import kotlinx.coroutines.launch
 // paragraph, through ReaderPlaybackController, as the reader screen does), so
 // a run can change the reader's speed mid-paragraph (`--ef readerSpeed <x>`)
 // or stop everything (`--ez stop true`) like the reader's controls.
+// `--es alias <name>` (issue #96) reads it with that alias instead of the bare
+// voice (its pause between sentences, effect and speed), as the reader's
+// voice sheet does when an alias is picked.
 // -----------------------------------------------------------------------------
 
 @AndroidEntryPoint
@@ -55,6 +59,7 @@ class DevStateService : Service() {
     @Inject lateinit var settings: SettingsRepository
     @Inject lateinit var reader: ReaderPlaybackController
     @Inject lateinit var narrator: NarratorControl
+    @Inject lateinit var aliasDao: VoiceAliasDao
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -113,10 +118,11 @@ class DevStateService : Service() {
     }
 
     /** Reads `files/bench/[name]` in the reader: one paragraph block per blank-line-separated paragraph. */
-    private fun read(name: String, intent: Intent) {
+    private suspend fun read(name: String, intent: Intent) {
         val text = java.io.File(filesDir, "bench/$name").readText()
         val paragraphs = text.split(Regex("\\n\\s*\\n")).map { it.trim().replace(Regex("\\s+"), " ") }.filter { it.isNotEmpty() }
-        val voiceId = intent.getStringExtra(EXTRA_VOICE) ?: return
+        val alias = intent.getStringExtra(EXTRA_ALIAS)?.let { aliasDao.findByName(it) }
+        val voiceId = alias?.voiceId ?: intent.getStringExtra(EXTRA_VOICE) ?: return
         val article = ReaderArticle(
             url = "dev://$name/${System.currentTimeMillis()}",
             title = name,
@@ -124,9 +130,11 @@ class DevStateService : Service() {
             blocks = paragraphs.map { ArticleBlock.Paragraph(it) },
             totalTextChars = paragraphs.sumOf { it.length },
         )
-        reader.open(article, intent.getFloatExtra(EXTRA_SPEED, 1f), VoiceChoice.Installed(voiceId, voiceId.substringBefore(':')))
+        val choice = alias?.let { VoiceChoice.Alias(it.id, it.voiceId, it.engine, it.speed) }
+            ?: VoiceChoice.Installed(voiceId, voiceId.substringBefore(':'))
+        reader.open(article, intent.getFloatExtra(EXTRA_SPEED, 1f), choice)
         reader.play()
-        Log.i(TAG, "read file=$name voice=$voiceId blocks=${paragraphs.size}")
+        Log.i(TAG, "read file=$name voice=$voiceId alias=${alias?.name} pauseMs=${alias?.sentencePauseMs} blocks=${paragraphs.size}")
     }
 
     override fun onDestroy() {
@@ -141,6 +149,7 @@ class DevStateService : Service() {
         const val EXTRA_SPEAK_FILE = "speakFile"
         const val EXTRA_VOICE = "voice"
         const val EXTRA_SPEED = "speed"
+        const val EXTRA_ALIAS = "alias"
         const val EXTRA_READ_FILE = "readFile"
         const val EXTRA_READER_SPEED = "readerSpeed"
         const val EXTRA_STOP = "stop"

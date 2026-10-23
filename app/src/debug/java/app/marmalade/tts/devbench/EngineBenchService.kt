@@ -83,6 +83,8 @@ import kotlinx.coroutines.withContext
 // Narrator asks for at a listening speed: the engines' pre-roll and
 // first-piece sizing depend on it) and paces by the played length; a line of
 // the sentences file may be a whole paragraph, rendered as one request.
+// `--ei pauseMs <ms>` (issue #96) renders with that pause between sentences,
+// as an alias set to it would (0, the default, is Natural).
 // `--ez topApp true` (issue #52) holds the in-app reader's self TTS session
 // (TopAppHold.selfSession) for the run, so the bench renders on the cores the
 // reader now gets (top-app) rather than the screen-off service's.
@@ -125,6 +127,7 @@ class EngineBenchService : Service() {
             stopAfterMs = intent.getIntExtra(EXTRA_STOP_AFTER, 0).toLong(),
             exit = intent.getBooleanExtra(EXTRA_EXIT, false),
             rate = intent.getFloatExtra(EXTRA_RATE, 1f).takeIf { it > 0f } ?: 1f,
+            pauseMs = intent.getIntExtra(EXTRA_PAUSE_MS, 0).coerceAtLeast(0),
         )
         running = true
         val topApp = if (intent.getBooleanExtra(EXTRA_TOP_APP, false)) TopAppHold.selfSession(this) else null
@@ -180,6 +183,7 @@ class EngineBenchService : Service() {
         val stopAfterMs: Long,
         val exit: Boolean,
         val rate: Float,
+        val pauseMs: Int,
     )
 
     private fun engineFor(name: String): TtsEngine? = when (name) {
@@ -221,7 +225,7 @@ class EngineBenchService : Service() {
                 val pcm = ArrayList<ShortArray>()
                 val start = System.nanoTime()
                 var firstNs = 0L
-                c.engine.synthesizeStream(text, c.voice, 1f, null, c.rate).collect {
+                c.engine.synthesizeStream(text, c.voice, 1f, null, c.rate, sentencePauseMs = c.pauseMs).collect {
                     if (firstNs == 0L) firstNs = System.nanoTime()
                     pcm.add(it.pcm)
                 }
@@ -334,6 +338,7 @@ class EngineBenchService : Service() {
         const val EXTRA_LANG = "lang"
         const val EXTRA_RATE = "rate"
         const val EXTRA_TOP_APP = "topApp"
+        const val EXTRA_PAUSE_MS = "pauseMs"
 
         private const val NOTIFICATION_ID = 0xB1
         private const val WARMUP_SETTLE_MS = 3_000L

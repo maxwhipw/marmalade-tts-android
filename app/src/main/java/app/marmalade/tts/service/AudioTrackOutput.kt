@@ -1,5 +1,6 @@
 package app.marmalade.tts.service
 
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.SystemClock
@@ -12,6 +13,7 @@ import app.marmalade.tts.playback.PcmTrack
 import app.marmalade.tts.playback.PcmTrackFactory
 import app.marmalade.tts.playback.Track
 import app.marmalade.tts.playback.TrackWriter
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -38,7 +40,8 @@ class AudioTrackOutput internal constructor(
     factory: PcmTrackFactory,
 ) : AudioOutput {
 
-    @Inject constructor(wakeLock: NarratorWakeLock) : this(wakeLock::onChunk, PcmTrackFactory { AndroidPcmTrack(it) })
+    @Inject constructor(wakeLock: NarratorWakeLock, @ApplicationContext context: Context) :
+        this(wakeLock::onChunk, PcmTrackFactory { NarratorCapture.wrap(AndroidPcmTrack(it), context.filesDir) })
 
     @Volatile private var sink: (OutputEvent) -> Unit = {}
 
