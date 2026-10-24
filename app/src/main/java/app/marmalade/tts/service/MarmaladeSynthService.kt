@@ -713,6 +713,8 @@ class MarmaladeSynthService : Service() {
                 engine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it.isNotBlank() },
                 // A missing (or mistyped) extra means the engine's default.
                 expressiveness = intent.extras?.get(EXTRA_EXPRESSIVENESS) as? Float,
+                // Likewise Natural.
+                sentencePauseMs = (intent.extras?.get(EXTRA_SENTENCE_PAUSE_MS) as? Int)?.coerceAtLeast(0) ?: 0,
             )
             return when {
                 named != null -> given
@@ -763,6 +765,9 @@ class MarmaladeSynthService : Service() {
 
         /** Float; absent = engine default. See [app.marmalade.tts.data.db.VoiceAlias.expressiveness]. */
         const val EXTRA_EXPRESSIVENESS: String = "app.marmalade.tts.extra.EXPRESSIVENESS"
+
+        /** Int ms; absent = Natural. See [app.marmalade.tts.data.db.VoiceAlias.sentencePauseMs]. */
+        const val EXTRA_SENTENCE_PAUSE_MS: String = "app.marmalade.tts.extra.SENTENCE_PAUSE_MS"
 
         /** [PreviewCompletions] request id (Long). */
         const val EXTRA_REQUEST_ID: String = "app.marmalade.tts.extra.REQUEST_ID"

@@ -90,6 +90,8 @@ interface SpeechPlayer {
         phonemizationLanguage: String? = null,
         /** The applied alias's expressiveness (Pocket's temperature); null = engine default. */
         expressiveness: Float? = null,
+        /** The applied alias's pause between sentences, ms; 0 = Natural. */
+        sentencePauseMs: Int = 0,
     ): Result<Unit>
     fun cancel()
 
@@ -164,6 +166,7 @@ class Synthesizer @Inject constructor(
         effectBlocks: List<EffectBlock>,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Result<Unit> = coroutineScope {
         if (text.isBlank()) return@coroutineScope Result.success(Unit)
         // Playback runs inside MarmaladeSynthService, not on a local
@@ -212,6 +215,7 @@ class Synthesizer @Inject constructor(
             )
             phonemizationLanguage?.let { putExtra(MarmaladeSynthService.EXTRA_LANG, it) }
             expressiveness?.let { putExtra(MarmaladeSynthService.EXTRA_EXPRESSIVENESS, it) }
+            if (sentencePauseMs > 0) putExtra(MarmaladeSynthService.EXTRA_SENTENCE_PAUSE_MS, sentencePauseMs)
             putExtra(MarmaladeSynthService.EXTRA_REQUEST_ID, requestId)
         }
         activeRequestId = requestId

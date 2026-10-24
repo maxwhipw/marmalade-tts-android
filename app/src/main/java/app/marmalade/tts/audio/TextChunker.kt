@@ -514,6 +514,11 @@ object TextChunker {
      *   short opening sentence starts playing immediately instead of
      *   waiting for a merged ≥[minChars] chunk to synthesize —
      *   first-chunk inference time is the time-to-first-audio.
+     * @param keepApart When set, two sentence-chunks it is true for (the
+     *   chunk so far, the next) never merge, whatever [minChars] says. An
+     *   alias's pause between sentences (#96) needs each real sentence end
+     *   to be a chunk boundary; merging across clause marks and
+     *   abbreviations goes on as before.
      */
     fun chunk(
         text: String,
@@ -524,6 +529,7 @@ object TextChunker {
         minChars: Int = 0,
         minCharsExemptFirst: Boolean = false,
         terminalMarksOnly: Boolean = false,
+        keepApart: ((String, String) -> Boolean)? = null,
     ): List<String> {
         require(maxChars > 0) { "maxChars must be positive (got $maxChars)" }
         val trimmed = text.trim()
@@ -540,7 +546,7 @@ object TextChunker {
             return paragraphs.flatMapIndexed { i, p ->
                 chunk(
                     p, maxChars, packSentences, sentenceOnly, allowWordSplits,
-                    minChars, minCharsExemptFirst && i == 0, terminalMarksOnly,
+                    minChars, minCharsExemptFirst && i == 0, terminalMarksOnly, keepApart,
                 )
             }
         }
@@ -568,7 +574,7 @@ object TextChunker {
                     }
                 }
                 if (minChars > 0) {
-                    mergeUpToMin(perSentence, minChars, minCharsExemptFirst)
+                    mergeUpToMin(perSentence, minChars, minCharsExemptFirst, keepApart)
                 } else {
                     perSentence
                 }
@@ -594,6 +600,7 @@ object TextChunker {
         chunks: List<String>,
         minChars: Int,
         exemptFirst: Boolean = false,
+        keepApart: ((String, String) -> Boolean)? = null,
     ): List<String> {
         if (chunks.isEmpty()) return chunks
         // The first sentence gates time-to-first-audio (inference time
@@ -602,7 +609,7 @@ object TextChunker {
         // through unmerged; merging resumes from the second sentence.
         if (exemptFirst) {
             return listOf(chunks.first()) +
-                mergeUpToMin(chunks.drop(1), minChars, exemptFirst = false)
+                mergeUpToMin(chunks.drop(1), minChars, exemptFirst = false, keepApart = keepApart)
         }
         val out = ArrayList<String>()
         val cur = StringBuilder()
@@ -611,7 +618,7 @@ object TextChunker {
                 cur.append(c)
                 continue
             }
-            if (cur.length < minChars) {
+            if (cur.length < minChars && keepApart?.invoke(cur.toString(), c) != true) {
                 cur.append(' ').append(c)
             } else {
                 out.add(cur.toString())

@@ -199,9 +199,13 @@ class PocketDevEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val chunks = mutableListOf<ShortArray>()
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage, expressiveness = expressiveness).collect { audio ->
+        synthesizeStream(
+            text, voiceId, speed, phonemizationLanguage,
+            expressiveness = expressiveness, sentencePauseMs = sentencePauseMs,
+        ).collect { audio ->
             chunks.add(audio.pcm)
         }
         val total = chunks.sumOf { it.size }
@@ -220,6 +224,7 @@ class PocketDevEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float, // unused — dev-only engine, strict sequential by design
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = flow {
         ensureLoadedSuspending()
         synthLock.withLock {
@@ -229,13 +234,19 @@ class PocketDevEngine @Inject constructor(
             val voiceEmb = encodeVoiceIfNeeded(voiceName)
             val noiseStd = pocketNoiseStd(expressiveness)
 
-            val chunks = splitIntoBestSentences(tokenizer, text, bundle.maxTokenPerChunk, bundle)
+            // The alias's pause between sentences (#96) after each chunk; with
+            // one set, paragraphs are packed on their own.
+            val plan = SentenceGaps.byParagraph(text, sentencePauseMs) { paragraph, _ ->
+                splitIntoBestSentences(tokenizer, paragraph, bundle.maxTokenPerChunk, bundle)
+            }
+            val chunks = plan.map { it.first }
             Log.i(TAG, "PocketDev: ${chunks.size} chunk(s) for input of ${text.length} chars")
 
             for ((i, chunk) in chunks.withIndex()) {
                 val pcm = synthesizeChunk(chunk, voiceEmb, chunkIndex = i, noiseStd = noiseStd)
                 Log.d(TAG, "PocketDev: chunk $i (${chunk.length} chars) → ${pcm.size} samples")
                 emit(SynthAudio(pcm = floatToPcm16(pcm), sampleRate = bundle.sampleRate))
+                if (plan[i].second > 0) emit(SentenceGaps.silence(plan[i].second, bundle.sampleRate))
             }
         }
     }.flowOn(Dispatchers.Default)

@@ -606,12 +606,16 @@ open class PocketEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         // Pocket does its own phonemization upstream of ORT; the espeak
         // language knob doesn't apply.
         val parts = ArrayList<ShortArray>()
         var sampleRate = 0
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage, expressiveness = expressiveness).collect { chunk ->
+        synthesizeStream(
+            text, voiceId, speed, phonemizationLanguage,
+            expressiveness = expressiveness, sentencePauseMs = sentencePauseMs,
+        ).collect { chunk ->
             parts.add(chunk.pcm)
             sampleRate = chunk.sampleRate
         }
@@ -647,6 +651,7 @@ open class PocketEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic — see KittenDirectEngine for the rationale.
         val streamStartNs = System.nanoTime()
@@ -668,18 +673,20 @@ open class PocketEngine @Inject constructor(
         // chunk boundary breaks Pocket's prosody seed, so it sounded
         // choppy. Post-process pass below enforces the model's hard
         // token limit on the rare 255-char chunk that exceeds it.
-        val preprocessed = preprocessForPocket(text.trim(), bundle)
-        val outerChunks = TextChunker.chunk(
-            text = preprocessed,
-            maxChars = POCKET_MAX_CHARS_PER_CHUNK,
-            packSentences = false,
-            sentenceOnly = true,
-            allowWordSplits = false,
-            minChars = POCKET_MIN_CHARS_PER_CHUNK,
-        )
+        // The alias's pause between sentences (#96): with one set, each
+        // paragraph is prepared and chunked on its own (the preprocessing
+        // collapses blank lines), and each outer chunk carries the pause that
+        // follows it. At Natural this is the one plan it always was.
+        val outerPlan = SentenceGaps.byParagraph(text.trim(), sentencePauseMs) { paragraph, _ ->
+            pocketOuterChunks(preprocessForPocket(paragraph, bundle), sentencePauseMs)
+        }
+        val outerChunks = outerPlan.map { it.first }
         val miniChunks = ArrayList<String>(outerChunks.size)
-        for (chunk in outerChunks) {
+        // The pause follows an outer chunk's last mini-chunk.
+        val pauseAfter = ArrayList<Int>(outerChunks.size)
+        for ((oi, chunk) in outerChunks.withIndex()) {
             val tokenCount = tokenizer.encode(chunk).size
+            val before = miniChunks.size
             if (tokenCount <= bundle.maxTokenPerChunk) {
                 miniChunks.add(chunk)
             } else {
@@ -689,6 +696,7 @@ open class PocketEngine @Inject constructor(
                 Log.d(TAG, "outer chunk has $tokenCount tokens > ${bundle.maxTokenPerChunk}; sub-splitting")
                 miniChunks.addAll(chunkPocketByTokens(chunk, tokenizer, bundle, bundle.maxTokenPerChunk))
             }
+            for (i in before until miniChunks.size) pauseAfter.add(if (i == miniChunks.size - 1) outerPlan[oi].second else 0)
         }
         if (miniChunks.isEmpty()) return@channelFlow
         Log.d(TAG, "synthesizeStream: ${miniChunks.size} mini-chunk(s) from ${outerChunks.size} outer chunk(s)")
@@ -712,7 +720,10 @@ open class PocketEngine @Inject constructor(
             noiseStd = pocketNoiseStd(expressiveness)
             Log.d(TAG, "request temperature=${Expressiveness.pocketTemperature(expressiveness)}" +
                 if (expressiveness == null) " (default)" else " (alias)")
-            streamChunks(this@channelFlow, bundle, voiceEmb, miniChunks, playbackRate, pace, streamStartNs, loadWaitMs)
+            streamChunks(
+                this@channelFlow, bundle, voiceEmb, miniChunks, playbackRate, pace, streamStartNs, loadWaitMs,
+                pauseAfter,
+            )
             if (profileRequestsLeft > 0 && --profileRequestsLeft == 0) endOrtProfiling()
         } }
     }.flowOn(Dispatchers.Default)
@@ -810,6 +821,8 @@ open class PocketEngine @Inject constructor(
         pace: RequestPace,
         streamStartNs: Long,
         loadWaitMs: Long,
+        /** Per mini-chunk: the ms of silence that follow it, an alias's pause (#96). */
+        pauseAfter: List<Int>,
     ) = coroutineScope {
         val tokenizer = tokenizer ?: error("tokenizer missing")
         val chunkTokens = miniChunks.map { tokenizer.encode(preprocessForPocket(it, bundle)).size }
@@ -932,6 +945,10 @@ open class PocketEngine @Inject constructor(
                     for (a in released) send(bank.offer(a, sendMs))
                 }
                 if (job.last) for (a in gate.endPiece(sendMs)) send(bank.offer(a, sendMs))
+                // After the sentence's last slice, so a chunk-mode gate never holds it.
+                if (job.last && pauseAfter[job.chunk] > 0) {
+                    send(bank.offer(SentenceGaps.silence(pauseAfter[job.chunk], bundle.sampleRate), sendMs))
+                }
             }
         }
         // Bounded, so the AR loop waits when the decoder does: when the
@@ -2229,6 +2246,23 @@ open class PocketEngine @Inject constructor(
 
         /** Sentence-boundary cap (KokoroDirect's former character cap). */
         private const val POCKET_MAX_CHARS_PER_CHUNK = 255
+
+        /**
+         * Pocket's sentence chunks of [preprocessed] text. At Natural this is
+         * the pre-#96 plan exactly. With a pause, tiny chunks still merge
+         * across clause marks and abbreviations, never across a real sentence
+         * end ([SentenceGaps.isSentenceBreak]), so each sentence gets its pause.
+         */
+        internal fun pocketOuterChunks(preprocessed: String, sentencePauseMs: Int): List<String> =
+            TextChunker.chunk(
+                text = preprocessed,
+                maxChars = POCKET_MAX_CHARS_PER_CHUNK,
+                packSentences = false,
+                sentenceOnly = true,
+                allowWordSplits = false,
+                minChars = POCKET_MIN_CHARS_PER_CHUNK,
+                keepApart = if (sentencePauseMs > 0) SentenceGaps::isSentenceBreak else null,
+            )
 
         /**
          * Tiny-sentence merge threshold. Lower than KokoroDirect's 80

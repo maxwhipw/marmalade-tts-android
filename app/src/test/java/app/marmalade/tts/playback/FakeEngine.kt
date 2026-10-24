@@ -2,6 +2,7 @@ package app.marmalade.tts.playback
 
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.LivePlaybackRate
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import kotlin.math.roundToInt
@@ -94,6 +95,12 @@ class FakeEngine(
     /** The expressiveness of each request, in the same order as [requests]. */
     val expressivenessRequests = ArrayList<Float?>()
 
+    /** Each render's pause between sentences, in request order (#96). */
+    val sentencePauseRequests = ArrayList<Int>()
+
+    /** Put the pause on the chunk's last slice, as Kokoro and Kitten do, instead of a chunk of its own (Pocket, VITS). */
+    var pauseInChunk = false
+
     fun rendersOf(text: String): List<Render> = renders.filter { it.text == text }
 
     fun completedRendersOf(text: String): List<Render> = renders.filter { it.text == text && !it.aborted }
@@ -111,6 +118,7 @@ class FakeEngine(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = throw UnsupportedOperationException("stream only")
 
     override fun synthesizeStream(
@@ -120,23 +128,34 @@ class FakeEngine(
         phonemizationLanguage: String?,
         playbackRate: Float,
         expressiveness: Float?,
-    ): Flow<SynthAudio> = stream(text, voiceId, speed, phonemizationLanguage)
-        .onStart { expressivenessRequests += expressiveness }
+        sentencePauseMs: Int,
+    ): Flow<SynthAudio> = stream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs)
+        .onStart {
+            expressivenessRequests += expressiveness
+            sentencePauseRequests += sentencePauseMs
+        }
         // Default capacity (64), like the engines' channelFlow, so the
         // renderer's own buffer(n) fuses with it the same way.
         .let { if (internalBuffer) it.buffer() else it }
 
-    private fun stream(text: String, voiceId: String, speed: Float, phonemizationLanguage: String?) = flow {
+    /** Like Pocket: [sentencePauseMs] of added silence after each sentence chunk but the last (#96). */
+    private fun stream(text: String, voiceId: String, speed: Float, phonemizationLanguage: String?, sentencePauseMs: Int = 0) = flow {
         requests += Triple(voiceId, phonemizationLanguage, speed)
         val pieces = chunksOf(text)
         if (lockMode == LockMode.WholeUtterance) {
             synthLock.withLock { for (p in pieces) for (i in 0 until slicesPerChunk) emit(renderOne(p, text, i)) }
         } else {
-            for (p in pieces) {
+            for ((pi, p) in pieces.withIndex()) {
+                val pause = if (sentencePauseMs > 0 && pi < pieces.lastIndex) SentenceGaps.samples(sentencePauseMs, sampleRate) else 0
                 for (i in 0 until slicesPerChunk) {
                     val audio = synthLock.withLock { renderOne(p, text, i) }
-                    emit(audio)
+                    if (pauseInChunk && pause > 0 && i == slicesPerChunk - 1) {
+                        emit(audio.copy(pcm = audio.pcm.copyOf(audio.pcm.size + pause), addedSilence = pause))
+                    } else {
+                        emit(audio)
+                    }
                 }
+                if (!pauseInChunk && pause > 0) emit(SentenceGaps.silence(sentencePauseMs, sampleRate))
             }
         }
     }

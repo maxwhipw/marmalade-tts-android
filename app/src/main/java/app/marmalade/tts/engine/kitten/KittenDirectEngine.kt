@@ -14,6 +14,7 @@ import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.OrtRunAbort
 import app.marmalade.tts.engine.PlaybackHorizon
 import app.marmalade.tts.engine.RenderMode
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SliceCost
 import app.marmalade.tts.engine.SliceEstimate
 import app.marmalade.tts.engine.TimedPieceGate
@@ -120,6 +121,13 @@ private const val STYLE_DIM = 256
  */
 private const val CLAUSE_GAP_MS = 80
 private const val SENTENCE_GAP_MS = 260
+
+/**
+ * The silence after a chunk: its boundary's own gap, plus [pauseMs], the
+ * alias's pause that follows it (#96; [SentenceGaps.Follower]).
+ */
+internal fun kittenGapMs(sentenceEnd: Boolean, pauseMs: Int): Int =
+    (if (sentenceEnd) SENTENCE_GAP_MS else CLAUSE_GAP_MS) + pauseMs.coerceAtLeast(0)
 
 /**
  * Per-voice speed multipliers. The voices differ in inherent pace, so a
@@ -422,9 +430,10 @@ open class KittenDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val parts = ArrayList<ShortArray>()
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage).collect { parts.add(it.pcm) }
+        synthesizeStream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs = sentencePauseMs).collect { parts.add(it.pcm) }
         if (parts.isEmpty()) return@withContext SynthAudio(ShortArray(0), sampleRate)
         val total = parts.sumOf { it.size }
         val merged = ShortArray(total)
@@ -458,6 +467,7 @@ open class KittenDirectEngine @Inject constructor(
         // pieces (chunk mode, #54).
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic: split "load wait" from the first render.
         // If loadMs > 0 on the first run after a cold start, the user is paying
@@ -489,6 +499,8 @@ open class KittenDirectEngine @Inject constructor(
         // they stayed when streaming made the first chunk's length cheap.
         val chunks = TextChunker.clauseChunks(text)
         if (chunks.isEmpty()) return@channelFlow
+        // The alias's pause between sentences (#96), read off the text after each chunk.
+        val pauses = SentenceGaps.Follower(text, sentencePauseMs)
 
         val pace = RenderMode.paceFor(engineName, settings, ctx.filesDir, playbackRate)
         horizon.startRequest(pace.rate())
@@ -515,6 +527,7 @@ open class KittenDirectEngine @Inject constructor(
                 // the next request's TTFA paid for all of them (~11 s on the 8a).
                 ensureActive()
                 val pieces = synthLock.withLock { ipaPieces(chunk.text, espeakVoice) }
+                val pauseMs = pauses.pauseAfter(chunk.text)
                 // An over-cap chunk's pieces go out one at a time, each as soon
                 // as it is rendered, instead of all joined after the last one.
                 for ((pi, piece) in pieces.withIndex()) {
@@ -523,11 +536,11 @@ open class KittenDirectEngine @Inject constructor(
                     ensureActive()
                     // Boundary-typed gap rides on the chunk's last slice (see
                     // CLAUSE_GAP_MS/SENTENCE_GAP_MS). Not after the last chunk.
-                    val gapSamples = if (idx < chunks.size - 1 && pi == pieces.size - 1) {
-                        sampleRate * (if (chunk.sentenceEnd) SENTENCE_GAP_MS else CLAUSE_GAP_MS) / 1000
-                    } else {
-                        0
-                    }
+                    // The alias's pause (#96) adds to it; Kitten already renders a
+                    // chunk per clause, so nothing else about the audio changes.
+                    val lastSlice = idx < chunks.size - 1 && pi == pieces.size - 1
+                    val gapSamples = if (lastSlice) sampleRate * kittenGapMs(chunk.sentenceEnd, pauseMs) / 1000 else 0
+                    val pauseSamples = if (lastSlice) SentenceGaps.samples(pauseMs, sampleRate) else 0
                     // Chunk mode (#54), decided per piece at the speed it will be heard at.
                     val mode = pace.pieceMode()
                     horizon.follow(mode.playbackRate)
@@ -542,7 +555,10 @@ open class KittenDirectEngine @Inject constructor(
                         val out = if (rest.isEmpty() && gapSamples > 0) pcm.copyOf(pcm.size + gapSamples) else pcm
                         // A piece starts at a clause (or, over the cap, a word):
                         // the Narrator may resume there, never mid-piece.
-                        val audio = SynthAudio(pcm = out, sampleRate = sampleRate, resumePoint = first, extraRenderMs = extraMs)
+                        val audio = SynthAudio(
+                            pcm = out, sampleRate = sampleRate, resumePoint = first, extraRenderMs = extraMs,
+                            addedSilence = if (rest.isEmpty()) pauseSamples else 0,
+                        )
                         gate.offer(audio, out.size * 1000.0 / sampleRate, aheadMs = { horizon.requestRemainingMs().toDouble() }) {
                             rest.map { SliceEstimate(sliceCost.cautiousMs(it.render.count()), it.keep.count() * FRAME_MS) }
                         }

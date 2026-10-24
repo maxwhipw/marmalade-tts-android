@@ -39,13 +39,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       see the destructive-fallback note in `AppModule`.
  * - v11: [MIGRATION_10_11] adds `voice_meta.sortOrder`.
  * - v12: [MIGRATION_11_12] adds `voice_alias.expressiveness`.
+ * - v13: [MIGRATION_12_13] adds `voice_alias.sentencePauseMs`.
  *
  * Schemas are exported under `app/schemas/` so future versions can write
  * migrations against the v4 hash without guesswork.
  */
 @Database(
     entities = [VoiceMeta::class, VoiceAlias::class, AppAliasMapping::class, Effect::class],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class MarmaladeDb : RoomDatabase() {
@@ -223,5 +224,17 @@ val MIGRATION_10_11: Migration = object : Migration(10, 11) {
 val MIGRATION_11_12: Migration = object : Migration(11, 12) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `voice_alias` ADD COLUMN `expressiveness` REAL")
+    }
+}
+
+/**
+ * v12 → v13: adds `voice_alias.sentencePauseMs` (issue #96, the alias's
+ * pause between sentences). NOT NULL with a default of 0, so every existing
+ * alias reads Natural and sounds exactly as before. Covered by
+ * `Migration12To13Test`.
+ */
+val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `voice_alias` ADD COLUMN `sentencePauseMs` INTEGER NOT NULL DEFAULT 0")
     }
 }

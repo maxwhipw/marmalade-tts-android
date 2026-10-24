@@ -40,7 +40,7 @@
     <string name="alias_voice_error">このエイリアスに使うボイスを選んでください</string>
     <string name="alias_speed">速度</string>
     <string name="alias_speed_label">速度: %1$s</string>
-    <string name="alias_speed_perf_warning">この速度では、お使いの端末で音声の生成が追いつかないことがあり、文と文の間に間が空きます。</string>
+    <string name="alias_speed_perf_warning">この速度では、お使いの端末で音声の生成が追いつかないことがあり、文と文の間に途切れが聞こえる場合があります。</string>
     <!-- Expressiveness (Pocket only). Steady and Lively are the slider's two ends. -->
     <string name="alias_expressiveness_label">表現力: %1$s</string>
     <string name="alias_expressiveness_value">%1$.1f</string>
@@ -49,6 +49,12 @@
     <string name="alias_expressiveness_lively">生き生き</string>
     <string name="alias_expressiveness_content_description">表現力、%1$sから%2$sまで</string>
     <string name="alias_expressiveness_reset">初期値に戻す</string>
+    <string name="alias_sentence_pause">文の間のポーズ</string>
+    <string name="alias_sentence_pause_label">文の間のポーズ: %1$s</string>
+    <string name="alias_sentence_pause_natural">自然</string>
+    <string name="alias_sentence_pause_short">短め</string>
+    <string name="alias_sentence_pause_medium">普通</string>
+    <string name="alias_sentence_pause_long">長め</string>
     <string name="alias_effect_label">エフェクト</string>
     <string name="alias_pick_effect">エフェクトを選択</string>
     <string name="alias_make_primary">メインにする</string>

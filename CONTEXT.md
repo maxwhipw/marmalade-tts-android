@@ -30,6 +30,12 @@ its entry here in the same change.
   mapping, then the primary alias.
 - **Effect.** Audio processing attached to an alias, such as pitch, reverb,
   echo or a telephone filter: built-ins, plus the user's own copies of them.
+- **Pause between sentences.** Silence an alias adds after each sentence, on
+  top of the voice's own pause: Natural (none), Short, Medium or Long
+  (+0.25, +0.5, +1 s); a paragraph break gets 1.5× as much. Only between
+  sentences, never before the first or after the last; scales with speed;
+  not for cloud voices (#96, GitHub #10). Code: `data/SentencePause.kt`.
+  Not the *speed warning*'s pauses, which are the phone falling behind.
 - **Expressive voice** *(planned, Forgejo #73)*. One speaker recorded in
   several emotions at several intensities, cloned by Pocket. The app switches
   between the recordings sentence by sentence to match each sentence's

@@ -17,6 +17,7 @@ import app.marmalade.tts.engine.OrtRunAbort
 import app.marmalade.tts.engine.PlaybackHorizon
 import app.marmalade.tts.engine.PrerollGate
 import app.marmalade.tts.engine.RenderMode
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SliceCost
 import app.marmalade.tts.engine.SliceEstimate
 import app.marmalade.tts.engine.TimedPieceGate
@@ -751,7 +752,7 @@ open class KokoroDirectEngine @Inject constructor(
             val pieces = synthLock.withLock { tokenPieces("Hi.", lang) }
             for (piece in pieces) {
                 if (streaming) {
-                    renderSliced(piece, voiceKey, lang, speed = 1.0f, warmup = true) { _, _, _, _ -> }
+                    renderSliced(piece, voiceKey, lang, speed = 1.0f, warmup = true) { _, _, _, _, _ -> }
                 } else {
                     synthLock.withLock { inferTokens(piece.text, piece.ids, voiceKey, speed = 1.0f, piece.styleRow) }
                 }
@@ -770,9 +771,10 @@ open class KokoroDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val parts = ArrayList<ShortArray>()
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage).collect { parts.add(it.pcm) }
+        synthesizeStream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs = sentencePauseMs).collect { parts.add(it.pcm) }
         if (parts.isEmpty()) return@withContext SynthAudio(ShortArray(0), sampleRate)
         val total = parts.sumOf { it.size }
         val merged = ShortArray(total)
@@ -791,6 +793,7 @@ open class KokoroDirectEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): Flow<SynthAudio> = channelFlow {
         // TTFA diagnostic — see KittenDirectEngine for the rationale.
         val streamStartNs = System.nanoTime()
@@ -815,10 +818,14 @@ open class KokoroDirectEngine @Inject constructor(
             ?: espeakVoiceFor(voiceName)
         phonemizer?.setVoice(effectiveLang)
         if (streaming) {
-            streamSliced(text, voiceName, effectiveLang, speed, playbackRate, streamStartNs, loadWaitMs)
+            streamSliced(text, voiceName, effectiveLang, speed, playbackRate, streamStartNs, loadWaitMs, sentencePauseMs)
             return@channelFlow
         }
         // Whole path (see the file comment).
+        //
+        // The alias's pause between sentences (#96) goes into each piece's
+        // audio at its sentence ends, as on the streaming path, placed from
+        // the model's own duration output.
         //
         // Chunks are sized in the model's own tokens (TextChunker.planByTokens):
         // Kokoro's cost is linear in tokens, and a character is ≈1.1 tokens in
@@ -874,6 +881,8 @@ open class KokoroDirectEngine @Inject constructor(
         // it decides K=1 and this loop behaves exactly as before.
         val gate = PrerollGate<SynthAudio>(playbackRate, chunks.size)
         val sender = AudioSender(this, streamStartNs, loadWaitMs, pace::rate) { "K=${gate.prerollChunks}" }
+        // The alias's pause after each piece (#96), read off the request text.
+        val pauses = SentenceGaps.Follower(text, sentencePauseMs)
         // Played audio the gate holds: it plays once released, so it is ahead too.
         var heldMs = 0L
         val queue = ArrayDeque(chunks)
@@ -903,7 +912,13 @@ open class KokoroDirectEngine @Inject constructor(
                     // inference nobody will hear once the user has pressed Stop.
                     ensureActive()
                     val inferStartNs = System.nanoTime()
-                    val pcm = synthLock.withLock { inferTokens(piece.text, piece.ids, voiceName, speed, piece.styleRow) }
+                    var dur: LongArray? = null
+                    val pcm = synthLock.withLock {
+                        inferTokens(
+                            piece.text, piece.ids, voiceName, speed, piece.styleRow,
+                            durations = if (sentencePauseMs > 0) { d -> dur = d } else null,
+                        )
+                    }
                     val inferMs = (System.nanoTime() - inferStartNs) / 1_000_000
                     renderCost.record(piece.ids.size, inferMs.toDouble())
                     if (pcm.isEmpty()) continue
@@ -917,8 +932,10 @@ open class KokoroDirectEngine @Inject constructor(
                     }
                     val pieceTag = if (pieces.size > 1) " piece=$pi/${pieces.size}" else ""
                     Log.d(PERF_TAG, "kokoro chunk=$idx/${idx + 1 + queue.size}$pieceTag infer=${inferMs}ms audio=${audioMs}ms rtf=${"%.2f".format(rtf)} tokens=${piece.ids.size} row=${piece.styleRow} textLen=${piece.text.length}")
+                    val paused = wholePiecePause(piece, dur, sentencePauseMs, pauses.pauseAfter(piece.text))
+                        ?.apply(pcm, 0, last = true) ?: pcm
                     val release = gate.onChunkRendered(
-                        chunk = SynthAudio(pcm = pcm, sampleRate = sampleRate),
+                        chunk = SynthAudio(pcm = paused, sampleRate = sampleRate, addedSilence = paused.size - pcm.size),
                         renderMs = inferMs,
                         audioMs = audioMs,
                     )
@@ -1033,6 +1050,7 @@ open class KokoroDirectEngine @Inject constructor(
         playbackRate: Float,
         streamStartNs: Long,
         loadWaitMs: Long,
+        sentencePauseMs: Int,
     ) {
         val planStartNs = System.nanoTime()
         val rtf = measuredStreamRtf.takeUnless { it.isNaN() } ?: DEFAULT_STREAM_RTF
@@ -1087,6 +1105,8 @@ open class KokoroDirectEngine @Inject constructor(
                 Log.d(PERF_TAG, "kokoro chunk-mode release held=${heldMs}ms slices=$slices rest=$rest")
             },
         )
+        // The alias's pause after each piece (#96), read off the request text.
+        val pauses = SentenceGaps.Follower(text, sentencePauseMs)
         val queue = ArrayDeque(chunks)
         var idx = -1
         try {
@@ -1116,8 +1136,16 @@ open class KokoroDirectEngine @Inject constructor(
                     val mode = pace.pieceMode()
                     horizon.follow(mode.playbackRate)
                     gate.startPiece(mode.chunk)
-                    renderSliced(piece, voiceName, lang, speed, chunkMode = mode.chunk) { pcm, first, rest, extraMs ->
-                        val audio = SynthAudio(pcm = pcm, sampleRate = sampleRate, resumePoint = first, extraRenderMs = extraMs)
+                    // The alias's pause between sentences (#96): inside the piece
+                    // at its sentence ends, and after it as the text says.
+                    renderSliced(
+                        piece, voiceName, lang, speed, chunkMode = mode.chunk,
+                        sentencePauseMs = sentencePauseMs, trailingMs = pauses.pauseAfter(piece.text),
+                    ) { pcm, first, rest, extraMs, added ->
+                        val audio = SynthAudio(
+                            pcm = pcm, sampleRate = sampleRate, resumePoint = first, extraRenderMs = extraMs,
+                            addedSilence = added,
+                        )
                         gate.offer(
                             audio, pcm.size * 1000.0 / sampleRate,
                             // This request's audio still ahead, and what the bank holds.
@@ -1157,7 +1185,9 @@ open class KokoroDirectEngine @Inject constructor(
         speed: Float,
         warmup: Boolean = false,
         chunkMode: Boolean = false,
-        emit: suspend (pcm: ShortArray, first: Boolean, rest: List<KittenStreamSlicing.Slice>, extraMs: Long) -> Unit,
+        sentencePauseMs: Int = 0,
+        trailingMs: Int = 0,
+        emit: suspend (pcm: ShortArray, first: Boolean, rest: List<KittenStreamSlicing.Slice>, extraMs: Long, addedSilence: Int) -> Unit,
     ) {
         if (piece.ids.isEmpty()) return
         val ids = wrapForKokoro(piece.ids)
@@ -1176,6 +1206,7 @@ open class KokoroDirectEngine @Inject constructor(
         )
         val measure = piece.ids.size >= MEASURE_MIN_TOKENS
         if (!warmup) planCost.record(ids.size, planMs.toDouble())
+        val pause = kokoroPiecePause(piece.text, ids, plan.dur, sentencePauseMs, trailingMs)
         var genMs = 0L
         var samples = 0L
         var started = false
@@ -1190,8 +1221,9 @@ open class KokoroDirectEngine @Inject constructor(
             samples += pcm.size
             Log.d(PERF_TAG, "kokoro slice=$i/${slices.size} frames=${slice.render.count()} gen=${sliceMs}ms")
             if (pcm.isEmpty()) continue
+            val paused = pause?.apply(pcm, slice.keep.first * FRAME_SAMPLES, last = i == slices.size - 1) ?: pcm
             val extraMs = if (started) 0L else (extraCalls.coerceAtLeast(0) * sliceCost.fixedMs()).toLong()
-            emit(pcm, !started, slices.subList(i + 1, slices.size), extraMs)
+            emit(paused, !started, slices.subList(i + 1, slices.size), extraMs, paused.size - pcm.size)
             started = true
         }
         val audioMs = samples * 1000L / sampleRate
@@ -1205,6 +1237,37 @@ open class KokoroDirectEngine @Inject constructor(
             "kokoro piece tokens=${ids.size} row=${piece.styleRow} plan=${planMs}ms gen=${genMs}ms " +
                 "slices=${slices.size} audio=${audioMs}ms rtf=${"%.2f".format(rtf)}",
         )
+    }
+
+    /**
+     * [kokoroPiecePause] for a whole-path [piece] and the model's [dur]
+     * output. A model without that output (none ships today) still gets the
+     * pause after the piece, logged, never inside it.
+     */
+    private fun wholePiecePause(piece: TokenPiece, dur: LongArray?, sentencePauseMs: Int, trailingMs: Int): KokoroSentencePause.Piece? {
+        if (sentencePauseMs <= 0) return null
+        val wrapped = wrapForKokoro(piece.ids)
+        if (dur != null && dur.size == wrapped.size) return kokoroPiecePause(piece.text, wrapped, dur, sentencePauseMs, trailingMs)
+        Log.w(TAG, "whole model gave ${dur?.size} durations for ${wrapped.size} tokens: pause only between pieces")
+        if (trailingMs <= 0) return null
+        return KokoroSentencePause.Piece(emptyList(), 0, SentenceGaps.samples(trailingMs, sampleRate))
+    }
+
+    /**
+     * The alias's pause between sentences for one planned piece of [text]
+     * (#96, [KokoroSentencePause]): inside it where its text has a real
+     * sentence end, [trailingMs] after it. Null at Natural or when the piece
+     * needs none. Logged, so a render's pauses can be told from logcat.
+     */
+    private fun kokoroPiecePause(text: String, ids: IntArray, dur: LongArray, sentencePauseMs: Int, trailingMs: Int): KokoroSentencePause.Piece? {
+        val inner = if (sentencePauseMs > 0) SentenceGaps.innerBreaks(text) else emptyList()
+        return KokoroSentencePause.forPiece(ids, dur, sentencePauseMs, inner, trailingMs, sampleRate)?.also {
+            Log.d(
+                PERF_TAG,
+                "kokoro pause=${sentencePauseMs}ms splices=${it.spliceSamples} trailing=${it.trailing}" +
+                    if (it.matched) "" else " textBreaks=$inner (token runs differ)",
+            )
+        }
     }
 
     /**
@@ -1224,6 +1287,8 @@ open class KokoroDirectEngine @Inject constructor(
         val gn: FloatArray,
         val tailStart: Int,
         val encoder: String,
+        /** The planned duration frames of the piece's wrapped token ids (#96's pause splice). */
+        val dur: LongArray,
     )
 
     /**
@@ -1274,6 +1339,7 @@ open class KokoroDirectEngine @Inject constructor(
                         gn = KokoroGenStats.normTable(stats, pause, totalFrames),
                         tailStart = tail,
                         encoder = encoderGraph,
+                        dur = dur,
                     )
                 }
             }
@@ -1419,6 +1485,8 @@ open class KokoroDirectEngine @Inject constructor(
         voiceName: String,
         speed: Float,
         styleRow: Int,
+        /** Gets the model's duration output (frames per wrapped token), or null when it has none. */
+        durations: ((LongArray?) -> Unit)? = null,
     ): ShortArray {
         if (phonemeIds.isEmpty()) return ShortArray(0)
         val ort = env ?: error("engine not loaded")
@@ -1429,6 +1497,10 @@ open class KokoroDirectEngine @Inject constructor(
             // between graph nodes instead of finishing an unwanted chunk.
             return abortableInference(engineName, { OrtRunAbort(shrinkArena) }) { abort ->
                 session.run(inputs, abort.options).use { results ->
+                    durations?.invoke(
+                        (results.takeIf { it.size() > 1 }?.get(1) as? OnnxTensor)?.longBuffer
+                            ?.let { b -> LongArray(b.remaining()).also { b.get(it) } },
+                    )
                     finishTail(extractWaveform(results[0].value))
                 }
             }

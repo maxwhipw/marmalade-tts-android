@@ -286,6 +286,22 @@ class NarratorBudgetTest {
     }
 
     @Test
+    fun `26c - an alias's added pause is left out of the measured RTF`() = runTest {
+        // #96: a Long pause adds a second of silence per sentence that renders in
+        // no time; counted, it would make the engine look faster than it is.
+        val h = harness(NarratorConfig(budgetMs = 10_000.0))
+        h.kokoro.internalBuffer = true
+        val segs = article(4, sentences = 4)
+        h.articleVoice = NarratorHarness.voice(sentencePauseMs = 1000)
+        h.open(segs)
+        h.runUntil(maxMs = 600_000) { h.article.status == Status.Finished }
+        assertTrue("the engine was asked for the pause", h.kokoro.sentencePauseRequests.all { it == 1000 })
+        assertTrue("some RTF recorded", h.rtfs.isNotEmpty())
+        for ((_, rtf) in h.rtfs) assertEquals(0.436, rtf, 0.02)
+        h.done()
+    }
+
+    @Test
     fun `26b - chunk mode's extra render time is left out of the measured RTF`() = runTest {
         val h = harness(NarratorConfig(budgetMs = 10_000.0))
         h.kokoro.internalBuffer = true

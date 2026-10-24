@@ -148,7 +148,7 @@ app/src/main/
   `collectAsStateWithLifecycle`.
 - **DI**: Hilt. Single `AppModule` provides DAOs, settings, engines,
   installer, router.
-- **Data**: Room (v4 schema, 3 entities) for voice/alias/per-app
+- **Data**: Room (v13 schema, 4 entities) for voice/alias/per-app/effect
   mappings; DataStore Preferences for user settings (theme, primary
   alias, per-engine preprocessing rule toggles).
 - **Engines**: Vendored Sherpa-ONNX AAR (`libs/sherpa-onnx-static-link-onnxruntime-1.13.2.aar`).
@@ -1140,15 +1140,17 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   9-language sentence set; diff two runs to see what a shim change does.
 
 ### Persistence
-- `data/db/MarmaladeDb.kt` — RoomDatabase, schema v12 (history in its
+- `data/db/MarmaladeDb.kt` — RoomDatabase, schema v13 (history in its
   kdoc). Every step has a migration except 1→2 (v1 held no user data) and 9→10
   (alias re-key): the armed `fallbackToDestructiveMigration()` resets
   those on purpose.
   The fallback would also hide a broken new migration by wiping aliases,
-  so test each one without it: `Migration11To12Test` builds a real v11
-  file from `app/schemas/.../11.json` and opens it with the migration
+  so test each one without it: `Migration12To13Test` builds a real v12
+  file from `app/schemas/.../12.json` and opens it with the migration
   alone (Robolectric has no instrumentation assets for
-  `MigrationTestHelper`).
+  `MigrationTestHelper`). An older step's test (`Migration11To12Test`)
+  opens with the chain on to the current version, since Room opens at the
+  latest.
 - **Catalog versioning**: `MarmaladeTtsApplication.CATALOG_VERSION` (int,
   bumped on every catalog content change) gates a one-shot `upsertAll`
   re-seed on cold start; the last-applied version lives in DataStore via
@@ -1173,12 +1175,107 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   `OneShotVoice.Explicit`) and system TTS (`SynthParams`). Pocket and its
   dev twin turn it into the flow head's noise std (`pocketNoiseStd`) and
   log `request temperature=…` per request; every other engine ignores it.
+  `sentencePauseMs` (v13, #96, `NOT NULL DEFAULT 0`) is the pause between
+  sentences ([Pause between sentences](#pause-between-sentences-96) below);
+  it rides the same paths as `expressiveness` (`ResolvedVoice` /
+  `OneShotVoice.Explicit.sentencePauseMs`, `EXTRA_SENTENCE_PAUSE_MS`,
+  `SynthParams.sentencePauseMs`).
 - `data/db/AppAliasMapping.kt` + DAO — per-app routing (packageName
-  → aliasName)
+  → aliasId)
 - `data/SettingsRepository.kt` — DataStore Prefs (theme preset, theme
   mode, primary alias name, keep-engine-loaded, per-engine preprocessing
   enables, the last "What's new" notes seen — see Navigation). `keepEngineLoaded` is **stored but unused** as of v0.1.16
   — UI toggle was removed; the engines don't honour it yet.
+
+### Pause between sentences (#96)
+An alias's `sentencePauseMs` ([`data/SentencePause.kt`](app/src/main/java/app/marmalade/tts/data/SentencePause.kt):
+Natural 0 / Short 250 / Medium 500 / Long 1000; a paragraph break gets
+`paragraphMs` = 1.5×) is silence added on top of the voice's own pause,
+only BETWEEN sentences. Never for cloud voices (`SentencePause.appliesTo`;
+the editor hides the slider and saves 0). **At Natural every engine takes
+its pre-#96 path**: each check is `sentencePauseMs > 0`, pinned by
+`PocketSentencePauseTest` (chunk plan identical to the old call),
+`KittenSentenceGapTest`, `KokoroSentencePauseTest` and the
+`SentenceGapsTest` identity cases.
+- **Where it goes: one rule.** `SentenceGaps.isSentenceBreak(before, after)`
+  (`engine/SentenceGaps.kt`): after `. ! ? …` (and 。！？ and the danda), unless
+  the next text starts lower case or with a digit ("Well… maybe", "“Wait!” she
+  said", "approx. 5") or the period ends an abbreviation, an initial or
+  letters joined by periods ("Fig.", "Dr.", "J.", "U.S."). Clause marks and
+  word cuts never take one. A blank line takes the paragraph pause (1.5×),
+  inside the same engine request.
+- **Who adds it.** `TtsEngine.synthesize/synthesizeStream(…, sentencePauseMs)`
+  carries it; each engine puts it where its audio has a sentence end:
+  - Kitten: on its own gap after a chunk (`kittenGapMs`); it already renders
+    a chunk per clause, so nothing else changes. `SentenceGaps.Follower`
+    reads each chunk's pause off the request text after it (blank lines
+    included), matching chunks on their non-whitespace characters.
+  - Pocket, its dev twin and VITS: a silence chunk (not a resume point)
+    after each chunk the rule says, never the last. Their plans come from
+    `SentenceGaps.byParagraph`: with a pause, each paragraph is chunked on
+    its own (Pocket's preprocessing collapses blank lines) and its last chunk
+    gets the paragraph pause. Pocket and VITS merge tiny sentences as at
+    Natural except across a real sentence end (`TextChunker.chunk(keepApart)`),
+    so "Yes. No." gets its pause while "Fig. 3" and clause marks still merge.
+    The dev twin (developer mode only) still packs sentences up to its token
+    cap (`splitIntoBestSentences`, unchanged), so it pauses only between
+    packs and at blank lines, not between the sentences inside a pack.
+  - Kokoro keeps its grouping: re-cutting grouped sentences moved their
+    pitch by up to 1.3 semitones (#96 lab) and costs a planner call each.
+    `engine/kokoro/KokoroSentencePause.kt` splices zeros into the middle of
+    each `. ! ? …` pause-token run (ids ≤ 16) that has speech on both sides,
+    placed from the planner's `duration` output (600 samples a frame),
+    snapped to the quietest cut within 10 ms. The piece's text says which of
+    those runs get one (`SentenceGaps.innerBreaks`, matched to the runs in
+    order; when the counts differ it splices only if the phonemizer plainly
+    dropped the abbreviations' marks, else none). The phonemizer keeps a `.`
+    token for "Fig.", "Dr.", "p." and "U.S." (token dump on the 6a), so the
+    text, not the tokens, decides. The pause after a piece
+    comes from `SentenceGaps.Follower` over the request text. Same on the
+    whole path from the unsplit model's second output (`pred_dur`); a model
+    without it logs `whole model gave … durations` and pauses only between
+    pieces. Logcat `StreamPerf`: `kokoro pause=…ms splices=[…] trailing=…`
+    per piece, plus `textBreaks=… (token runs differ)` when unmatched.
+- **Paragraphs in the reader** are segments: `SegmentRenderer.render(…,
+  pauseAfterMs)` ends every segment but the session's last with a silence
+  chunk (`Narrator.paragraphPauseMs`; not a resume point). System TTS sends
+  a whole utterance as one request and the engine adds the paragraph pause
+  at its blank lines, so no paragraph pays a fresh first-audio wait. On the
+  6a at Medium, a two-paragraph request's sentence gap grew by 500 ms and
+  its paragraph gap by 750 ms (Kitten exactly, Kokoro within 10 ms; Pocket
+  and VITS within ~120 ms, their chunk edges differ from mid-chunk gaps).
+- **RTF.** An added pause renders in no time, so it is marked
+  (`SynthAudio.addedSilence`, set by `SentenceGaps.silence`, Kitten's gap and
+  Kokoro's splices) and `SegmentRenderer` leaves it out of the measured RTF
+  (`SynthAudio.renderedMs`). Counted, a Long pause made Pocket look ~25%
+  faster on the 6a (per-read RTF 0.31 against 0.42 at Natural; left out,
+  0.43 at both, and Kokoro 0.57 at both), and that
+  shared RTF drives chunk mode and the speed warning for every alias.
+  `NarratorBudgetTest` 26c pins it.
+- **Waits don't stack on pauses.** Pause frames are real audio to the
+  writer: they play while the engine renders the next sentence, and a stall
+  (`stall before … silent=`) only starts once they are heard; chunk mode's
+  piece gates count an emitted pause as audio still ahead. So the silence
+  heard at a join is the voice's gap plus max(pause, the wait the phone
+  needed anyway), never both. The Narrator's start hold must not count the
+  pause as rendered speech: its live RTF, its banked-sentence count and its
+  estimate of speech still to render all use `Chunk.renderedMs`. Counted, a
+  Long pause halved the live RTF and a pause chunk passed for a banked
+  sentence, so playback started with one sentence banked instead of two and
+  the waits came from the first join on (`NarratorPauseWaitTest`: 850 ms
+  heard at every join where 500 was due). On the 6a at 2×, Kokoro's stalls
+  per read fell from 2.5–3.3 s at Natural to 0.1–0.4 s at Medium and
+  0–0.3 s at Long, streaming or chunk mode.
+- Pauses are audio like any other, so the writer's live Tempo scales them
+  with speed.
+- Device checks (debug only): `EngineBenchService --ei pauseMs <ms>`;
+  `DevStateService --es readFile <f> --es alias <name>` reads with an
+  alias; `service/NarratorCapture` (debug twin; release returns the track
+  unchanged) appends what the Narrator writes to its tracks to
+  `files/dev/narrator-capture-<rate>.pcm` while `files/dev/narrator-capture`
+  exists — the reader's real output, for measuring gaps silently. When that
+  file says `timeline`, the capture is what was heard: padding, and zeros for
+  the time the track sat empty, so a stall shows up as silence.
 
 ### TTS service surface (external apps)
 - `service/MarmaladeTtsService.kt` — `TextToSpeechService` subclass;

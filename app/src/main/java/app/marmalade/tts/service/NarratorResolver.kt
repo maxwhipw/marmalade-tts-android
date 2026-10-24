@@ -4,6 +4,7 @@ import android.util.Log
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
 import app.marmalade.tts.data.CloudApiVoiceCatalog
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.VoiceAlias
@@ -83,6 +84,7 @@ class NarratorResolver internal constructor(
             engine = engine,
             cloud = engine == CloudApiVoiceCatalog.ENGINE,
             rules = rulesFor(engine),
+            sentencePauseMs = if (SentencePause.appliesTo(engine)) base.sentencePauseMs else 0,
         )
     }
 
@@ -99,6 +101,7 @@ class NarratorResolver internal constructor(
             cloud = false,
             rules = emptySet(),
             expressiveness = alias.expressiveness,
+            sentencePauseMs = alias.sentencePauseMs,
         )
     }
 
@@ -121,6 +124,7 @@ class NarratorResolver internal constructor(
             cloud = false,
             rules = emptySet(),
             expressiveness = v.expressiveness,
+            sentencePauseMs = v.sentencePauseMs,
         )
 
         /** An installed voice no alias uses: that voice, dry, at 1.0x, the engine's own language detection. */

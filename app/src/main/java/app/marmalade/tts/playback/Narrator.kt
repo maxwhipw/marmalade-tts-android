@@ -1,6 +1,8 @@
 package app.marmalade.tts.playback
 
+import app.marmalade.tts.data.SentencePause
 import app.marmalade.tts.engine.LivePlaybackRate
+import app.marmalade.tts.engine.SentenceGaps
 import java.util.TreeMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -215,9 +217,15 @@ class Narrator(
 
     // -- sessions --------------------------------------------------------------------
 
-    /** [resumePoint]: playback may restart here (see [app.marmalade.tts.engine.SynthAudio.resumePoint]). */
-    private class Chunk(val pcm: ShortArray, val sampleRate: Int, val resumePoint: Boolean) {
+    /**
+     * [resumePoint]: playback may restart here (see [app.marmalade.tts.engine.SynthAudio.resumePoint]).
+     * [addedSilence]: samples of an alias's pause (#96), heard but never rendered.
+     */
+    private class Chunk(val pcm: ShortArray, val sampleRate: Int, val resumePoint: Boolean, val addedSilence: Int) {
         val audioMs: Double get() = pcm.size * 1000.0 / sampleRate
+
+        /** The audio the engine rendered: [audioMs] without the added pause. */
+        val renderedMs: Double get() = (pcm.size - addedSilence) * 1000.0 / sampleRate
     }
 
     private class Seg(val text: String) {
@@ -237,6 +245,8 @@ class Narrator(
         fun intactFrom(from: Int): Boolean = (from until rendered).all { it in chunks }
 
         fun audioMsFrom(from: Int): Double = chunks.tailMap(from, true).values.sumOf { it.audioMs }
+
+        fun renderedMs(): Double = chunks.values.sumOf { it.renderedMs }
     }
 
     private sealed interface Kind {
@@ -817,11 +827,11 @@ class Narrator(
         val seg = s.segs[r.segment]
         when (val e = msg.event) {
             is RenderEvent.Chunk -> {
-                seg.chunks[e.index] = Chunk(e.audio.pcm, e.audio.sampleRate, e.audio.resumePoint)
+                seg.chunks[e.index] = Chunk(e.audio.pcm, e.audio.sampleRate, e.audio.resumePoint, e.audio.addedSilence)
                 seg.rendered = e.index + 1
-                if (!e.skewed) {
-                    s.rtf.add(e.renderMs.toDouble(), e.audio.pcm.size * 1000.0 / e.audio.sampleRate)
-                }
+                // An alias's added pause renders in no time (#96): counted, it
+                // would make the engine look fast and start playback too soon.
+                if (!e.skewed) s.rtf.add(e.renderMs.toDouble(), e.audio.renderedMs)
             }
             RenderEvent.Done -> {
                 seg.complete = true
@@ -849,11 +859,17 @@ class Narrator(
         val rate = s.tempo
         s.liveTempo.value = rate
         val job = scope.launch(workDispatcher + LivePlaybackRate(s.liveTempo)) {
-            renderer.render(engine, voice, seg.text, rate, permit) { event ->
+            renderer.render(engine, voice, seg.text, rate, permit, paragraphPauseMs(s, segment)) { event ->
                 inbox.trySend(Msg.Rendered(sessionId, token, event))
             }
         }
         render = RenderJob(token, s, segment, job, permit)
+    }
+
+    /** The paragraph pause after [segment] (#96): none after the session's last. */
+    private fun paragraphPauseMs(s: Session, segment: Int): Int {
+        val ms = s.voice?.sentencePauseMs ?: 0
+        return if (ms > 0 && segment < s.segs.size - 1) SentencePause.paragraphMsFor(ms) else 0
     }
 
     private fun cancelRender(reason: String) {
@@ -966,12 +982,15 @@ class Narrator(
             var c = s.listenerChunk()
             var banked = 0.0
             var chunks = 0
+            var sentences = 0
             while (segI < s.segs.size) {
                 val seg = s.segs[segI]
                 val chunk = seg.chunks[c]
                 if (chunk != null) {
                     banked += chunk.audioMs / s.tempo
                     chunks++
+                    // A pause of its own isn't a sentence banked (#96).
+                    if (chunk.renderedMs > 0) sentences++
                     c++
                     continue
                 }
@@ -985,12 +1004,13 @@ class Narrator(
                 continue
             }
             val seg = s.segs[s.cursor]
-            val remaining = (seg.text.length * learnedMsPerChar(s) - seg.audioMsFrom(0)).coerceAtLeast(0.0) / s.tempo
+            // Speech still to render: added pauses take no rendering (#96).
+            val remaining = (seg.text.length * learnedMsPerChar(s) - seg.renderedMs()).coerceAtLeast(0.0) / s.tempo
             val listenerSegDone = segI > s.cursor
             val start = StartPolicy.shouldStart(
                 StartPolicy.Input(
                     bankedPlayedMs = banked,
-                    bankedChunks = chunks,
+                    bankedChunks = sentences,
                     renderComplete = listenerSegDone,
                     rtf = s.rtf.value,
                     speed = s.tempo,
@@ -1014,7 +1034,7 @@ class Narrator(
         for (seg in s.segs) {
             if (!seg.complete || seg.chunks.size != seg.rendered) continue
             chars += seg.text.length
-            ms += seg.audioMsFrom(0)
+            ms += seg.renderedMs()
         }
         return if (chars > 0 && ms > 0) ms / chars else config.defaultMsPerChar
     }
@@ -1270,8 +1290,7 @@ class Narrator(
             if (speed.isNaN()) 1f else speed.coerceIn(NarratorControl.MIN_ONE_SHOT_SPEED, NarratorControl.MAX_ONE_SHOT_SPEED)
 
         /** Shared text is spoken as paragraphs (blank-line separated); blank ones are dropped. */
-        fun splitParagraphs(text: String): List<String> =
-            text.split(Regex("\\n\\s*\\n")).map { it.trim() }.filter { it.isNotEmpty() }
+        fun splitParagraphs(text: String): List<String> = SentenceGaps.splitParagraphs(text)
 
         /** The loop's dedicated thread (not `Default.limitedParallelism(1)`, §2.3). */
         fun newLoopDispatcher(): CoroutineDispatcher =

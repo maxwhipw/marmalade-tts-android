@@ -10,6 +10,7 @@ import app.marmalade.tts.audio.TextChunker
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.OrtRunAbort
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.abortableInference
@@ -209,10 +210,11 @@ open class VitsDirectEngine @Inject constructor(
         speed: Float,
         phonemizationLanguage: String?,
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): SynthAudio = withContext(Dispatchers.Default) {
         val parts = ArrayList<ShortArray>()
         var rate = sampleRate
-        synthesizeStream(text, voiceId, speed, phonemizationLanguage).collect {
+        synthesizeStream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs = sentencePauseMs).collect {
             parts.add(it.pcm)
             rate = it.sampleRate
         }
@@ -245,6 +247,7 @@ open class VitsDirectEngine @Inject constructor(
         phonemizationLanguage: String?,
         playbackRate: Float, // unused — VITS renders at RTF 0.08–0.21, ample headroom at any speed
         expressiveness: Float?,
+        sentencePauseMs: Int,
     ): kotlinx.coroutines.flow.Flow<SynthAudio> = kotlinx.coroutines.flow.channelFlow {
         val voice = voiceFrom(voiceId)
         val packId = voice.packId
@@ -264,15 +267,22 @@ open class VitsDirectEngine @Inject constructor(
             // it between chunks.
             phonemizer?.setVoice(lang)
         }
-        val chunks = TextChunker.chunk(
-            text = text,
-            maxChars = maxInputChars,
-            packSentences = false,
-            sentenceOnly = true,
-            allowWordSplits = false,
-            minChars = MIN_CHARS_PER_CHUNK,
-            minCharsExemptFirst = true,
-        )
+        // The alias's pause between sentences (#96) after each chunk. With
+        // one set, tiny sentences no longer merge across a sentence end, and a
+        // blank line gets the paragraph pause. At Natural: the plan as ever.
+        val plan = SentenceGaps.byParagraph(text, sentencePauseMs) { paragraph, first ->
+            TextChunker.chunk(
+                text = paragraph,
+                maxChars = maxInputChars,
+                packSentences = false,
+                sentenceOnly = true,
+                allowWordSplits = false,
+                minChars = MIN_CHARS_PER_CHUNK,
+                minCharsExemptFirst = first,
+                keepApart = if (sentencePauseMs > 0) SentenceGaps::isSentenceBreak else null,
+            )
+        }
+        val chunks = plan.map { it.first }
         for ((idx, chunk) in chunks.withIndex()) {
             // A cancelled stream (reader tap, Stop, skip) must stop HERE:
             // inference blocks and the uncontended lock/buffered send never
@@ -296,6 +306,7 @@ open class VitsDirectEngine @Inject constructor(
                     "textLen=${chunk.length}",
             )
             send(audio)
+            if (plan[idx].second > 0) send(SentenceGaps.silence(plan[idx].second, audio.sampleRate))
         }
     }.flowOn(Dispatchers.Default)
 

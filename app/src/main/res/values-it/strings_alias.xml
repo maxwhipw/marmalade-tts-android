@@ -41,7 +41,7 @@
     <string name="alias_voice_error">Scegli una voce per questo alias</string>
     <string name="alias_speed">Velocità</string>
     <string name="alias_speed_label">Velocità: %1$s</string>
-    <string name="alias_speed_perf_warning">Il tuo telefono potrebbe fare fatica a generare la voce a questa velocità, e lo sentirai come pause tra le frasi.</string>
+    <string name="alias_speed_perf_warning">Il tuo telefono potrebbe fare fatica a generare la voce a questa velocità, quindi potresti sentire dei vuoti tra una frase e l’altra.</string>
     <!-- Expressiveness (Pocket only). Steady and Lively are the slider's two ends. -->
     <string name="alias_expressiveness_label">Espressività: %1$s</string>
     <string name="alias_expressiveness_value">%1$.1f</string>
@@ -50,6 +50,12 @@
     <string name="alias_expressiveness_lively">Vivace</string>
     <string name="alias_expressiveness_content_description">Espressività, da %1$s a %2$s</string>
     <string name="alias_expressiveness_reset">Ripristina il valore predefinito</string>
+    <string name="alias_sentence_pause">Pausa tra le frasi</string>
+    <string name="alias_sentence_pause_label">Pausa tra le frasi: %1$s</string>
+    <string name="alias_sentence_pause_natural">Naturale</string>
+    <string name="alias_sentence_pause_short">Breve</string>
+    <string name="alias_sentence_pause_medium">Media</string>
+    <string name="alias_sentence_pause_long">Lunga</string>
     <string name="alias_effect_label">Effetto</string>
     <string name="alias_pick_effect">Scegli un effetto</string>
     <string name="alias_make_primary">Imposta come principale</string>
