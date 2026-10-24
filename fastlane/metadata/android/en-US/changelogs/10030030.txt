@@ -1,0 +1,4 @@
+Marmalade TTS 1.3.3.
+- Pauses between sentences: give a voice alias a short, medium or long pause after each sentence, under Speed in the alias editor. Paragraphs get a little more.
+- Hindi reads in whole sentences, and words with ड़ or ढ़ no longer break in the middle.
+- Small fixes and polish.
