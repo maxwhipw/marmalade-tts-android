@@ -98,6 +98,9 @@ class FakeEngine(
     /** Each render's pause between sentences, in request order (#96). */
     val sentencePauseRequests = ArrayList<Int>()
 
+    /** Put the pause on the chunk's last slice, as Kokoro and Kitten do, instead of a chunk of its own (Pocket, VITS). */
+    var pauseInChunk = false
+
     fun rendersOf(text: String): List<Render> = renders.filter { it.text == text }
 
     fun completedRendersOf(text: String): List<Render> = renders.filter { it.text == text && !it.aborted }
@@ -146,9 +149,13 @@ class FakeEngine(
                 val pause = if (sentencePauseMs > 0 && pi < pieces.lastIndex) SentenceGaps.samples(sentencePauseMs, sampleRate) else 0
                 for (i in 0 until slicesPerChunk) {
                     val audio = synthLock.withLock { renderOne(p, text, i) }
-                    emit(audio)
+                    if (pauseInChunk && pause > 0 && i == slicesPerChunk - 1) {
+                        emit(audio.copy(pcm = audio.pcm.copyOf(audio.pcm.size + pause), addedSilence = pause))
+                    } else {
+                        emit(audio)
+                    }
                 }
-                if (pause > 0) emit(SentenceGaps.silence(sentencePauseMs, sampleRate))
+                if (!pauseInChunk && pause > 0) emit(SentenceGaps.silence(sentencePauseMs, sampleRate))
             }
         }
     }
