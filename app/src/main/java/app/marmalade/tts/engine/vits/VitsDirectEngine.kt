@@ -267,15 +267,22 @@ open class VitsDirectEngine @Inject constructor(
             // it between chunks.
             phonemizer?.setVoice(lang)
         }
-        val chunks = TextChunker.chunk(
-            text = text,
-            maxChars = maxInputChars,
-            packSentences = false,
-            sentenceOnly = true,
-            allowWordSplits = false,
-            minChars = SentenceGaps.mergeFloor(MIN_CHARS_PER_CHUNK, sentencePauseMs),
-            minCharsExemptFirst = true,
-        )
+        // The alias's pause between sentences (#96) after each chunk. With
+        // one set, tiny sentences no longer merge across a sentence end, and a
+        // blank line gets the paragraph pause. At Natural: the plan as ever.
+        val plan = SentenceGaps.byParagraph(text, sentencePauseMs) { paragraph, first ->
+            TextChunker.chunk(
+                text = paragraph,
+                maxChars = maxInputChars,
+                packSentences = false,
+                sentenceOnly = true,
+                allowWordSplits = false,
+                minChars = MIN_CHARS_PER_CHUNK,
+                minCharsExemptFirst = first,
+                keepApart = if (sentencePauseMs > 0) SentenceGaps::isSentenceBreak else null,
+            )
+        }
+        val chunks = plan.map { it.first }
         for ((idx, chunk) in chunks.withIndex()) {
             // A cancelled stream (reader tap, Stop, skip) must stop HERE:
             // inference blocks and the uncontended lock/buffered send never
@@ -299,10 +306,7 @@ open class VitsDirectEngine @Inject constructor(
                     "textLen=${chunk.length}",
             )
             send(audio)
-            // The alias's pause between sentences (#96), not after the last.
-            if (sentencePauseMs > 0 && idx < chunks.size - 1 && SentenceGaps.endsSentence(chunk)) {
-                send(SentenceGaps.silence(sentencePauseMs, audio.sampleRate))
-            }
+            if (plan[idx].second > 0) send(SentenceGaps.silence(plan[idx].second, audio.sampleRate))
         }
     }.flowOn(Dispatchers.Default)
 

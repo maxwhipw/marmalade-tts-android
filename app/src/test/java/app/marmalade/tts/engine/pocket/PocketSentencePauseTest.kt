@@ -5,7 +5,7 @@ import app.marmalade.tts.engine.PocketEngine
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** #96: Pocket's chunk plan at Natural is exactly the pre-#96 one; with a pause every sentence is its own chunk. */
+/** #96: Pocket's chunk plan at Natural is exactly the pre-#96 one; with a pause, tiny chunks merge only short of a real sentence end. */
 class PocketSentencePauseTest {
 
     private val texts = listOf(
@@ -13,6 +13,8 @@ class PocketSentencePauseTest {
         "By morning the old pier was gone, and the boats lay scattered along the beach. Still, everyone was safe.",
         "One line\nAnother line: with a colon; and a semicolon. Then a question? And an answer!",
         "Short.",
+        "See Fig. 3 for the data. It is clear.",
+        "Note: this; that. Next one here.",
     )
 
     /** The call PocketEngine made before #96, verbatim. */
@@ -31,7 +33,7 @@ class PocketSentencePauseTest {
     }
 
     @Test
-    fun `with a pause tiny sentences are no longer merged`() {
+    fun `with a pause tiny sentences no longer merge across a sentence end`() {
         assertEquals(
             listOf("Yes.", "No.", "Maybe.", "The storm reached the harbour just after midnight."),
             PocketEngine.pocketOuterChunks(texts[0], 500),
@@ -40,5 +42,13 @@ class PocketSentencePauseTest {
             listOf("By morning the old pier was gone, and the boats lay scattered along the beach.", "Still, everyone was safe."),
             PocketEngine.pocketOuterChunks(texts[1], 250),
         )
+    }
+
+    @Test
+    fun `with a pause abbreviations and clause marks still merge`() {
+        assertEquals(listOf("See Fig. 3 for the data.", "It is clear."), PocketEngine.pocketOuterChunks(texts[4], 500))
+        assertEquals(listOf("Note: this; that.", "Next one here."), PocketEngine.pocketOuterChunks(texts[5], 500))
+        // At Natural both are one chunk, as before.
+        assertEquals(listOf(texts[4]), PocketEngine.pocketOuterChunks(texts[4], 0))
     }
 }

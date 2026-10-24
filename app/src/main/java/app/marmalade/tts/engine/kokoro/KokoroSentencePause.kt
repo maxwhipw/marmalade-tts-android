@@ -18,13 +18,18 @@ import kotlin.math.abs
  * is spliced into the middle of that run. The voice is rendered exactly as at
  * Natural; only zeros are added.
  *
- * A piece that ends a sentence and isn't the request's last gets the pause
- * after its audio instead ([endsSentence]).
+ * The text decides which sentence ends get a pause, by the same rule as every
+ * other engine ([SentenceGaps.isSentenceBreak]): not after "Fig." or "Dr.",
+ * not before a lower-case word. The piece's own text says that for each of
+ * its inner boundaries ([SentenceGaps.innerBreaks]), matched in order to the
+ * sentence marks the phonemizer kept. The pause after the piece's end (a
+ * sentence's, or a paragraph's at 1.5x) comes from the request text
+ * ([SentenceGaps.Follower]).
  */
 internal object KokoroSentencePause {
 
-    /** Kokoro's `.` `!` `?` token ids (the shared IPA vocab, `tokens.txt`). */
-    private val SENTENCE_ENDERS = intArrayOf(4, 5, 6)
+    /** Kokoro's `.` `!` `?` `…` token ids (the shared IPA vocab, `tokens.txt`). */
+    private val SENTENCE_ENDERS = intArrayOf(4, 5, 6, 10)
 
     /** How far a splice may move to land on the quietest sample (10 ms at 24 kHz). */
     const val SNAP_SAMPLES = 240
@@ -32,36 +37,63 @@ internal object KokoroSentencePause {
     private fun isPause(id: Int) = id <= SPACE_TOKEN
 
     /**
-     * The pause for one planned piece ([ids] wrapped, [durFrames] planned),
-     * or null when it adds nothing: at Natural (so the piece renders exactly
-     * as before #96), or when the piece has no sentence end with speech after
-     * it, inside it or (unless it is the [lastPiece] of the request) at its end.
+     * The pause for one planned piece ([ids] wrapped, [durFrames] planned), or
+     * null when it adds nothing: at Natural (so the piece renders exactly as
+     * before #96), or when no inner sentence end gets one and [trailingMs] is 0
+     * (unless its text and tokens didn't match, [Piece.matched], for the log).
+     * [innerBreaks] are the text's inner boundaries, in order, true where the
+     * pause belongs ([SentenceGaps.innerBreaks]).
      */
-    fun forPiece(ids: IntArray, durFrames: LongArray, sentencePauseMs: Int, lastPiece: Boolean, sampleRate: Int): Piece? {
+    fun forPiece(
+        ids: IntArray,
+        durFrames: LongArray,
+        sentencePauseMs: Int,
+        innerBreaks: List<Boolean>,
+        trailingMs: Int,
+        sampleRate: Int,
+    ): Piece? {
         if (sentencePauseMs <= 0) return null
-        val splices = spliceFrames(ids, durFrames).map { it * TailTrim.FRAME_SAMPLES }
-        val trailing = !lastPiece && endsSentence(ids)
-        if (splices.isEmpty() && !trailing) return null
-        return Piece(splices, SentenceGaps.samples(sentencePauseMs, sampleRate), trailing)
+        val runs = spliceFrames(ids, durFrames)
+        val kept = keptRuns(runs.size, innerBreaks)
+        val splices = runs.filterIndexed { i, _ -> kept[i] }.map { it * TailTrim.FRAME_SAMPLES }
+        val trailing = SentenceGaps.samples(trailingMs, sampleRate)
+        val matched = runs.size == innerBreaks.size
+        // An unmatched piece comes back even when it adds nothing, so it is logged.
+        if (splices.isEmpty() && trailing == 0 && matched) return null
+        return Piece(splices, SentenceGaps.samples(sentencePauseMs, sampleRate), trailing, matched)
+    }
+
+    /**
+     * Which of [runs] sentence-mark runs get the pause, given the text's
+     * [innerBreaks]. One run per boundary: in order. Fewer runs, one per
+     * real break: the phonemizer dropped the abbreviations' marks, so all.
+     * Otherwise there is no telling which run is which, and a pause after
+     * "Fig." is worse than none: no run gets one.
+     */
+    fun keptRuns(runs: Int, innerBreaks: List<Boolean>): List<Boolean> = when {
+        runs == innerBreaks.size -> innerBreaks
+        runs == innerBreaks.count { it } -> List(runs) { true }
+        else -> List(runs) { false }
     }
 
     /**
      * One piece's pause: [silence] samples at each of [spliceSamples] (piece
-     * sample positions), and after the piece's last audio when [trailing].
+     * sample positions), and [trailing] samples after the piece's last audio.
+     * [matched]: the text's boundaries matched the token runs one for one.
      */
-    class Piece(val spliceSamples: List<Int>, val silence: Int, val trailing: Boolean) {
+    class Piece(val spliceSamples: List<Int>, val silence: Int, val trailing: Int, val matched: Boolean = true) {
         /** [pcm] (the piece's audio from sample [offset]) with its pauses; [last] = the piece's last audio. */
         fun apply(pcm: ShortArray, offset: Int, last: Boolean): ShortArray {
             val spliced = insertSilence(pcm, offset, spliceSamples, silence)
-            return if (last && trailing) spliced.copyOf(spliced.size + silence) else spliced
+            return if (last && trailing > 0) spliced.copyOf(spliced.size + trailing) else spliced
         }
     }
 
     /**
-     * The frames, within a piece, where a pause goes: the middle of each run
+     * The frames, within a piece, where a pause may go: the middle of each run
      * of pause tokens (pad / punctuation / space, ids ≤ [SPACE_TOKEN]) that
-     * holds a sentence end and has speech on both sides. [ids] are the piece's
-     * wrapped token ids and [durFrames] their planned durations.
+     * holds a sentence mark and has speech on both sides. [ids] are the
+     * piece's wrapped token ids and [durFrames] their planned durations.
      */
     fun spliceFrames(ids: IntArray, durFrames: LongArray): List<Int> {
         require(ids.size == durFrames.size) { "${ids.size} ids, ${durFrames.size} durations" }
@@ -84,15 +116,6 @@ internal object KokoroSentencePause {
             if (ender && spoken && i < ids.size) out.add(((runStart + frame) / 2).toInt())
         }
         return out
-    }
-
-    /** True when the piece's trailing run of pause tokens holds a sentence end. */
-    fun endsSentence(ids: IntArray): Boolean {
-        for (i in ids.indices.reversed()) {
-            if (!isPause(ids[i])) return false
-            if (ids[i] in SENTENCE_ENDERS) return true
-        }
-        return false
     }
 
     /**

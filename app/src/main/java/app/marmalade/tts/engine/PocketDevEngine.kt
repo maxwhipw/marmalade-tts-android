@@ -234,17 +234,19 @@ class PocketDevEngine @Inject constructor(
             val voiceEmb = encodeVoiceIfNeeded(voiceName)
             val noiseStd = pocketNoiseStd(expressiveness)
 
-            val chunks = splitIntoBestSentences(tokenizer, text, bundle.maxTokenPerChunk, bundle)
+            // The alias's pause between sentences (#96) after each chunk; with
+            // one set, paragraphs are packed on their own.
+            val plan = SentenceGaps.byParagraph(text, sentencePauseMs) { paragraph, _ ->
+                splitIntoBestSentences(tokenizer, paragraph, bundle.maxTokenPerChunk, bundle)
+            }
+            val chunks = plan.map { it.first }
             Log.i(TAG, "PocketDev: ${chunks.size} chunk(s) for input of ${text.length} chars")
 
             for ((i, chunk) in chunks.withIndex()) {
                 val pcm = synthesizeChunk(chunk, voiceEmb, chunkIndex = i, noiseStd = noiseStd)
                 Log.d(TAG, "PocketDev: chunk $i (${chunk.length} chars) → ${pcm.size} samples")
                 emit(SynthAudio(pcm = floatToPcm16(pcm), sampleRate = bundle.sampleRate))
-                // The alias's pause between sentences (#96), not after the last.
-                if (sentencePauseMs > 0 && i < chunks.size - 1 && SentenceGaps.endsSentence(chunk)) {
-                    emit(SentenceGaps.silence(sentencePauseMs, bundle.sampleRate))
-                }
+                if (plan[i].second > 0) emit(SentenceGaps.silence(plan[i].second, bundle.sampleRate))
             }
         }
     }.flowOn(Dispatchers.Default)

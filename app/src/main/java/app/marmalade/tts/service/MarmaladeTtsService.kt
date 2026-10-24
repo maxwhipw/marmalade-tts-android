@@ -25,7 +25,6 @@ import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.allRetiredVoices
 import app.marmalade.tts.data.isVoiceReleased
-import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstalledBundle
@@ -739,22 +738,18 @@ class MarmaladeTtsService : TextToSpeechService() {
         // other is a stall inside one (#54).
         var sent = 0L
         val pieceStarts = StringBuilder()
-        // The alias's pause between sentences (#96): the engine adds it within
-        // a paragraph; paragraphs (blank lines) render one per call with the
-        // paragraph pause between. At Natural this is the one call it always was.
-        val pause = pauseFor(engineName, params)
-        SentenceGaps.paragraphs(stripped, pause) { paragraph ->
-            streamForEngine(
-                engineName,
-                paragraph,
-                params.voiceId,
-                plan.speed,
-                params.phonemizationLanguage,
-                plan.playbackRate,
-                params.expressiveness,
-                pause,
-            )
-        }.collect { audio ->
+        // The alias's pause between sentences (#96): the engine adds it, and
+        // the paragraph pause at a blank line, all in this one request.
+        streamForEngine(
+            engineName,
+            stripped,
+            params.voiceId,
+            plan.speed,
+            params.phonemizationLanguage,
+            plan.playbackRate,
+            params.expressiveness,
+            pauseFor(engineName, params),
+        ).collect { audio ->
                 val c = chain ?: StreamingEffectChain(plan.blocks, audio.sampleRate).also {
                     chain = it
                     if (audio.sampleRate != committedRate) {
@@ -802,10 +797,7 @@ class MarmaladeTtsService : TextToSpeechService() {
             effectBlocks = plan.blocks,
             preprocessor = preprocessor,
             synthesize = { t, v, s ->
-                val pause = pauseFor(engineName, params)
-                SentenceGaps.paragraphsWhole(t, pause) { paragraph ->
-                    synthesizeForEngine(engineName, paragraph, v, s, params.phonemizationLanguage, params.expressiveness, pause)
-                }
+                synthesizeForEngine(engineName, t, v, s, params.phonemizationLanguage, params.expressiveness, pauseFor(engineName, params))
             },
         )
         when (result) {

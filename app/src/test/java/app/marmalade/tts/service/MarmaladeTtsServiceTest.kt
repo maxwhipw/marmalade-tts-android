@@ -1191,17 +1191,20 @@ class MarmaladeTtsServiceTest {
     }
 
     @Test
-    fun onSynthesizeText_withAPauseEachParagraphIsItsOwnCall() {
+    fun onSynthesizeText_withAPauseParagraphsStayOneEngineRequest() {
+        // The engine puts the paragraph pause in itself: no fresh first-audio wait per paragraph.
         installKittenPrimary(sentencePauseMs = 500)
         fakeEngine.nextPcm = ShortArray(1024)
 
         service.onSynthesizeText(SynthesisRequest("First one.\n\nSecond one.", Bundle()), FakeSynthesisCallback())
 
-        assertEquals(listOf("First one.", "Second one."), fakeEngine.calls.map { it.first.trim() })
+        assertEquals(1, fakeEngine.calls.size)
+        assertTrue(fakeEngine.calls.single().first.contains("\n\n"))
+        assertEquals(listOf(500), fakeEngine.sentencePauses)
     }
 
     @Test
-    fun onSynthesizeText_atNaturalParagraphsStayOneCall() {
+    fun onSynthesizeText_atNaturalTheEngineGetsNoPause() {
         installKittenPrimary()
         fakeEngine.nextPcm = ShortArray(1024)
 

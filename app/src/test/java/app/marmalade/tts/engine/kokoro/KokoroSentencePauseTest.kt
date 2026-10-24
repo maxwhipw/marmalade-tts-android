@@ -29,27 +29,54 @@ class KokoroSentencePauseTest {
     }
 
     @Test
-    fun `a piece ends a sentence when its trailing pause run holds a sentence end`() {
-        assertTrue(KokoroSentencePause.endsSentence(two))
-        assertTrue(KokoroSentencePause.endsSentence(intArrayOf(0, 50, 6, 15, 0)))
-        assertFalse(KokoroSentencePause.endsSentence(intArrayOf(0, 50, 3, 0)))
-        assertFalse(KokoroSentencePause.endsSentence(intArrayOf(0, 50, 0)))
+    fun `an ellipsis is a sentence mark too`() {
+        val ell = intArrayOf(0, 50, 10, 16, 51, 4, 0) // "a… b."
+        assertEquals(1, KokoroSentencePause.spliceFrames(ell, LongArray(ell.size) { 2 }).size)
     }
 
     @Test
     fun `at Natural a piece gets nothing, so it renders as before`() {
-        assertNull(KokoroSentencePause.forPiece(two, twoDur, 0, lastPiece = false, sampleRate = 24_000))
+        assertNull(KokoroSentencePause.forPiece(two, twoDur, 0, listOf(true), trailingMs = 500, sampleRate = 24_000))
     }
 
     @Test
-    fun `a piece's pause holds its splices and, unless it is the last, the trailing pause`() {
-        val p = KokoroSentencePause.forPiece(two, twoDur, 500, lastPiece = false, sampleRate = 24_000)!!
+    fun `a piece's pause holds its splices and the trailing pause the text gives it`() {
+        val p = KokoroSentencePause.forPiece(two, twoDur, 500, listOf(true), trailingMs = 750, sampleRate = 24_000)!!
         assertEquals(listOf(16 * 600), p.spliceSamples)
         assertEquals(12_000, p.silence)
-        assertTrue(p.trailing)
-        assertFalse(KokoroSentencePause.forPiece(two, twoDur, 500, lastPiece = true, sampleRate = 24_000)!!.trailing)
+        assertEquals(18_000, p.trailing)
+        assertEquals(0, KokoroSentencePause.forPiece(two, twoDur, 500, listOf(true), trailingMs = 0, sampleRate = 24_000)!!.trailing)
         val oneSentence = intArrayOf(0, 50, 51, 4, 0)
-        assertNull(KokoroSentencePause.forPiece(oneSentence, LongArray(5) { 2 }, 500, lastPiece = true, sampleRate = 24_000))
+        assertNull(KokoroSentencePause.forPiece(oneSentence, LongArray(5) { 2 }, 500, emptyList(), trailingMs = 0, sampleRate = 24_000))
+    }
+
+    @Test
+    fun `a period the text calls an abbreviation gets no splice`() {
+        // "See Fig. 3 here. Done." with every period kept as a token: runs at Fig. and here.
+        val ids = intArrayOf(0, 50, 16, 51, 4, 16, 52, 16, 53, 4, 16, 54, 4, 0)
+        val runs = KokoroSentencePause.spliceFrames(ids, LongArray(ids.size) { 2 })
+        assertEquals(2, runs.size)
+        val inner = listOf(false, true)
+        val p = KokoroSentencePause.forPiece(ids, LongArray(ids.size) { 2 }, 500, inner, trailingMs = 0, sampleRate = 24_000)!!
+        assertEquals(listOf(runs[1] * 600), p.spliceSamples)
+        assertTrue(p.matched)
+    }
+
+    @Test
+    fun `token runs are matched to the text's boundaries, or skipped when they can't be`() {
+        assertEquals(listOf(false, true), KokoroSentencePause.keptRuns(2, listOf(false, true)))
+        // The phonemizer dropped the abbreviation's period: one run per real break.
+        assertEquals(listOf(true), KokoroSentencePause.keptRuns(1, listOf(false, true)))
+        // No telling which run is which: none.
+        assertEquals(listOf(false, false), KokoroSentencePause.keptRuns(2, listOf(false, true, false)))
+    }
+
+    @Test
+    fun `an unmatched piece still comes back for the log`() {
+        val ids = intArrayOf(0, 50, 4, 16, 51, 4, 16, 52, 0)
+        val p = KokoroSentencePause.forPiece(ids, LongArray(ids.size) { 2 }, 500, listOf(false, true, false), trailingMs = 0, sampleRate = 24_000)!!
+        assertTrue(p.spliceSamples.isEmpty())
+        assertFalse(p.matched)
     }
 
     @Test
@@ -73,7 +100,7 @@ class KokoroSentencePauseTest {
 
     @Test
     fun `the trailing pause follows the piece's last audio only`() {
-        val p = KokoroSentencePause.Piece(emptyList(), silence = 10, trailing = true)
+        val p = KokoroSentencePause.Piece(emptyList(), silence = 0, trailing = 10)
         val pcm = ShortArray(20) { 3 }
         assertEquals(20, p.apply(pcm, 0, last = false).size)
         assertEquals(30, p.apply(pcm, 0, last = true).size)
