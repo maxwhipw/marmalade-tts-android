@@ -29,7 +29,8 @@ object SentenceGaps {
     /**
      * Words that end in a period without ending the sentence ("Fig. 3",
      * "Dr. Smith"). Lower case, without the period. A single letter (an
-     * initial, "p. 12") counts too ([isAbbreviation]). Left out: words that
+     * initial, "p. 12") and letters joined by periods ("U.S.", "e.g.") count
+     * too ([isAbbreviation]). Left out: words that
      * often end a sentence ("etc.", "Inc.", "sec.") and ones that are words
      * too ("No.", "Nr."): before a number, the usual case, the digit rule in
      * [isSentenceBreak] keeps their pause out anyway.
@@ -37,7 +38,7 @@ object SentenceGaps {
     private val ABBREVIATIONS = setOf(
         "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "mt", "gen", "col", "lt", "sgt", "capt", "rev",
         "fig", "figs", "vol", "ch", "eq", "pp", "approx", "ca", "cf", "vs", "al",
-        "e.g", "i.e", "z.b", "bzw", "sra", "dra", "mme", "mlle", "pág", "núm",
+        "bzw", "sra", "dra", "mme", "mlle", "pág", "núm",
     )
 
     /**
@@ -45,8 +46,8 @@ object SentenceGaps {
      * chunker cut) and [after] (the text that follows it): [before] ends with
      * a sentence mark and the next sentence really starts there. Not after a
      * clause mark, a word cut, an abbreviation or an initial ("Fig. 3",
-     * "Dr. Smith", "J. Smith"), nor before a lower-case word or a digit (a
-     * mid-sentence ellipsis, "“Wait!” she said", "approx. 5").
+     * "Dr. Smith", "J. Smith", "the U.S. Army"), nor before a lower-case word
+     * or a digit (a mid-sentence ellipsis, "“Wait!” she said", "approx. 5").
      */
     fun isSentenceBreak(before: String, after: String): Boolean {
         val head = before.trimEnd().trimEnd { it in CLOSERS }
@@ -57,12 +58,20 @@ object SentenceGaps {
         return !(last == '.' && isAbbreviation(head))
     }
 
-    /** [head] (ending in its period) ends with an abbreviation or an initial. */
+    /**
+     * [head] (ending in its period) ends with an abbreviation, an initial or
+     * letters joined by periods. "U.S." can end a sentence too; no pause
+     * there is the lesser miss than one inside "the U.S. Army".
+     */
     private fun isAbbreviation(head: String): Boolean {
         val word = head.dropLast(1).takeLastWhile { !it.isWhitespace() }.trimStart { it in OPENERS }
         if (word.length == 1 && word[0].isLetter()) return true
+        if (DOTTED.matches(word)) return true
         return word.lowercase() in ABBREVIATIONS
     }
+
+    /** Letters joined by periods, without the last one: "U.S", "e.g", "z.B". */
+    private val DOTTED = Regex("(\\p{L}\\.)+\\p{L}")
 
     /** A paragraph break: whitespace holding a blank line. */
     fun isParagraphBreak(whitespace: CharSequence): Boolean = whitespace.count { it == '\n' } >= 2

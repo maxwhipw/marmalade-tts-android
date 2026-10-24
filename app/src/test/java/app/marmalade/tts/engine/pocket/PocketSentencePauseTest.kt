@@ -15,6 +15,7 @@ class PocketSentencePauseTest {
         "Short.",
         "See Fig. 3 for the data. It is clear.",
         "Note: this; that. Next one here.",
+        "The U.S. Army came. They left.",
     )
 
     /** The call PocketEngine made before #96, verbatim. */
@@ -48,6 +49,7 @@ class PocketSentencePauseTest {
     fun `with a pause abbreviations and clause marks still merge`() {
         assertEquals(listOf("See Fig. 3 for the data.", "It is clear."), PocketEngine.pocketOuterChunks(texts[4], 500))
         assertEquals(listOf("Note: this; that.", "Next one here."), PocketEngine.pocketOuterChunks(texts[5], 500))
+        assertEquals(listOf("The U.S. Army came.", "They left."), PocketEngine.pocketOuterChunks(texts[6], 500))
         // At Natural both are one chunk, as before.
         assertEquals(listOf(texts[4]), PocketEngine.pocketOuterChunks(texts[4], 0))
     }

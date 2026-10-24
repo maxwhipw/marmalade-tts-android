@@ -38,6 +38,8 @@ class SentenceGapsTest {
         assertFalse(SentenceGaps.isSentenceBreak("I met Dr.", "Smith."))
         assertFalse(SentenceGaps.isSentenceBreak("(e.g.", "Rome)"))
         assertFalse(SentenceGaps.isSentenceBreak("by J.", "Smith"))
+        assertFalse(SentenceGaps.isSentenceBreak("The U.S.", "Army came."))
+        assertFalse(SentenceGaps.isSentenceBreak("(i.e.", "Rome)"))
         assertFalse(SentenceGaps.isSentenceBreak("Well…", "maybe not."))
         assertFalse(SentenceGaps.isSentenceBreak("“Wait!”", "she said."))
     }
