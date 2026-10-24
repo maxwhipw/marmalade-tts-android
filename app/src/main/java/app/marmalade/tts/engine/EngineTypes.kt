@@ -24,10 +24,19 @@ data class SynthAudio(
      * app's measured RTF leaves it out, so it doesn't depend on the mode.
      */
     val extraRenderMs: Long = 0,
+    /**
+     * Samples of [pcm] that are an alias's pause between sentences (#96):
+     * silence the app added, which the model never rendered. The measured
+     * RTF leaves them out, or a long pause would make the engine look fast.
+     */
+    val addedSilence: Int = 0,
 ) {
 
+    /** The audio the model rendered, in ms: [pcm] without [addedSilence]. */
+    val renderedMs: Double get() = (pcm.size - addedSilence) * 1000.0 / sampleRate
+
     // Generated equality so test fixtures can compare audio buffers directly
-    // (audio only: [resumePoint] and [extraRenderMs] are hints, not part of the sound).
+    // (audio only: [resumePoint], [extraRenderMs] and [addedSilence] are hints, not part of the sound).
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is SynthAudio) return false

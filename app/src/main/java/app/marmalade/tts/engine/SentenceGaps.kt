@@ -42,11 +42,13 @@ object SentenceGaps {
     fun samples(ms: Int, sampleRate: Int): Int = (sampleRate.toLong() * ms / 1000).toInt()
 
     /**
-     * [ms] of silence. Not a resume point: a resume steps back to the
-     * sentence before it.
+     * [ms] of added silence ([SynthAudio.addedSilence]). Not a resume point:
+     * a resume steps back to the sentence before it.
      */
-    fun silence(ms: Int, sampleRate: Int): SynthAudio =
-        SynthAudio(ShortArray(samples(ms, sampleRate)), sampleRate, resumePoint = false)
+    fun silence(ms: Int, sampleRate: Int): SynthAudio {
+        val n = samples(ms, sampleRate)
+        return SynthAudio(ShortArray(n), sampleRate, resumePoint = false, addedSilence = n)
+    }
 
     /**
      * [text] rendered by [render] a paragraph (blank-line separated) at a

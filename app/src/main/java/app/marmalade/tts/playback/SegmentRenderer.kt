@@ -120,7 +120,8 @@ internal class SegmentRenderer(
                 if (!waited) {
                     // Chunk mode's extra generator calls don't count (#54).
                     renderSum += (renderMs - audio.extraRenderMs).coerceAtLeast(0)
-                    audioSum += audio.pcm.size * 1000.0 / audio.sampleRate
+                    // An alias's added pause renders in no time (#96): it isn't the engine's pace.
+                    audioSum += audio.renderedMs
                 }
                 emit(RenderEvent.Chunk(index++, audio, renderMs, skewed = waited))
                 if (!permit.value) {

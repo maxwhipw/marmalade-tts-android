@@ -2,6 +2,7 @@ package app.marmalade.tts.playback
 
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.LivePlaybackRate
+import app.marmalade.tts.engine.SentenceGaps
 import app.marmalade.tts.engine.SynthAudio
 import app.marmalade.tts.engine.TtsEngine
 import kotlin.math.roundToInt
@@ -125,7 +126,7 @@ class FakeEngine(
         playbackRate: Float,
         expressiveness: Float?,
         sentencePauseMs: Int,
-    ): Flow<SynthAudio> = stream(text, voiceId, speed, phonemizationLanguage)
+    ): Flow<SynthAudio> = stream(text, voiceId, speed, phonemizationLanguage, sentencePauseMs)
         .onStart {
             expressivenessRequests += expressiveness
             sentencePauseRequests += sentencePauseMs
@@ -134,17 +135,20 @@ class FakeEngine(
         // renderer's own buffer(n) fuses with it the same way.
         .let { if (internalBuffer) it.buffer() else it }
 
-    private fun stream(text: String, voiceId: String, speed: Float, phonemizationLanguage: String?) = flow {
+    /** Like Pocket: [sentencePauseMs] of added silence after each sentence chunk but the last (#96). */
+    private fun stream(text: String, voiceId: String, speed: Float, phonemizationLanguage: String?, sentencePauseMs: Int = 0) = flow {
         requests += Triple(voiceId, phonemizationLanguage, speed)
         val pieces = chunksOf(text)
         if (lockMode == LockMode.WholeUtterance) {
             synthLock.withLock { for (p in pieces) for (i in 0 until slicesPerChunk) emit(renderOne(p, text, i)) }
         } else {
-            for (p in pieces) {
+            for ((pi, p) in pieces.withIndex()) {
+                val pause = if (sentencePauseMs > 0 && pi < pieces.lastIndex) SentenceGaps.samples(sentencePauseMs, sampleRate) else 0
                 for (i in 0 until slicesPerChunk) {
                     val audio = synthLock.withLock { renderOne(p, text, i) }
                     emit(audio)
                 }
+                if (pause > 0) emit(SentenceGaps.silence(sentencePauseMs, sampleRate))
             }
         }
     }
