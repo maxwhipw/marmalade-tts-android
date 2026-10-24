@@ -205,6 +205,40 @@ class ChunkModeTest {
     }
 
     @Test
+    fun `complete pieces do not trust optimistic pace or release timers`() {
+        val gate = PieceGate<String>()
+        gate.startPiece(chunk = false, holdUntilEnd = true)
+        assertEquals(emptyList<String>(), gate.offer("first", 480.0, 0, 60_000.0) {
+            error("Complete pieces must not rely on render estimates")
+        })
+        assertEquals(emptyList<String>(), gate.recheck(10_000, 60_000.0))
+        assertEquals(emptyList<String>(), gate.offer("late", 480.0, 10_000, 0.0) { emptyList() })
+        assertEquals(listOf("first", "late"), gate.endPiece(10_001))
+        assertEquals(emptyList<String>(), gate.endPiece(10_002))
+
+        // The next complete piece is held independently, including a one-slice piece.
+        gate.startPiece(chunk = false, holdUntilEnd = true)
+        assertEquals(emptyList<String>(), gate.offer("next", 80.0, 20_000, 0.0) { emptyList() })
+        assertEquals(listOf("next"), gate.endPiece(20_001))
+
+        // Opt-in is scoped to a piece; ordinary streaming stays unchanged.
+        gate.startPiece(chunk = false)
+        assertEquals(listOf("stream"), gate.offer("stream", 80.0, 30_000, 0.0) { emptyList() })
+    }
+
+    @Test
+    fun `abandoning a complete piece never releases its partial audio`() {
+        val gate = PieceGate<String>()
+        gate.startPiece(chunk = false, holdUntilEnd = true)
+        assertEquals(emptyList<String>(), gate.offer("cancelled", 480.0, 0, 0.0) { emptyList() })
+        // A cancelled render never calls endPiece. Starting a fresh piece
+        // discards the abandoned buffer rather than leaking it into playback.
+        gate.startPiece(chunk = false, holdUntilEnd = true)
+        assertEquals(emptyList<String>(), gate.offer("replacement", 480.0, 1_000, 0.0) { emptyList() })
+        assertEquals(listOf("replacement"), gate.endPiece(1_001))
+    }
+
+    @Test
     fun `chunk mode holds a piece until the rest can't run dry, then streams the rest`() {
         val released = ArrayList<Triple<Long, Int, Int>>()
         val gate = PieceGate<String>(margin = 1.0, slowSlice = null) { ms, n, rest -> released += Triple(ms, n, rest) }

@@ -703,6 +703,7 @@ open class PocketEngine @Inject constructor(
         for ((i, c) in miniChunks.withIndex()) {
             Log.d(TAG, "  chunk[$i] (${c.length} chars): \"${c.take(80)}${if (c.length > 80) "…" else ""}\"")
         }
+        val completePieces = coroutineContext[CompletePieceOutput] != null
         val pace = RenderMode.paceFor(engineName, settingsRepository, ctx.filesDir, playbackRate)
         horizon.startRequest(pace.rate())
 
@@ -722,7 +723,7 @@ open class PocketEngine @Inject constructor(
                 if (expressiveness == null) " (default)" else " (alias)")
             streamChunks(
                 this@channelFlow, bundle, voiceEmb, miniChunks, playbackRate, pace, streamStartNs, loadWaitMs,
-                pauseAfter,
+                pauseAfter, completePieces,
             )
             if (profileRequestsLeft > 0 && --profileRequestsLeft == 0) endOrtProfiling()
         } }
@@ -823,6 +824,7 @@ open class PocketEngine @Inject constructor(
         loadWaitMs: Long,
         /** Per mini-chunk: the ms of silence that follow it, an alias's pause (#96). */
         pauseAfter: List<Int>,
+        completePieces: Boolean,
     ) = coroutineScope {
         val tokenizer = tokenizer ?: error("tokenizer missing")
         val chunkTokens = miniChunks.map { tokenizer.encode(preprocessForPocket(it, bundle)).size }
@@ -891,7 +893,9 @@ open class PocketEngine @Inject constructor(
                 // this slice was submitted, and a stale arMs only skews one
                 // estimate (benign).
                 val prefillMs = (firstFrameNs - job.chunkStartNs) / 1e6 - arMs - chunk0PromptMs
-                val holdMs = PocketStreamPlan.holdMs(
+                // Complete-piece output already waits for each final decode.
+                // Do not stack a predictive first-sound hold on that wait.
+                val holdMs = if (completePieces) 0.0 else PocketStreamPlan.holdMs(
                     estFrames, decodeBatch, arMs, prefillMs, decodeMs, overlap, playedFrameMs, decodeSafety,
                 ).coerceAtMost(STREAM_HOLD_CAP_MS)
                 clock.holdMs = holdMs
@@ -920,7 +924,7 @@ open class PocketEngine @Inject constructor(
                 if (job.slice == 0) {
                     val mode = pace.pieceMode()
                     horizon.follow(mode.playbackRate)
-                    gate.startPiece(mode.chunk)
+                    gate.startPiece(mode.chunk, holdUntilEnd = completePieces)
                     gateChunk = job.chunk
                 }
                 if (audio != null) {

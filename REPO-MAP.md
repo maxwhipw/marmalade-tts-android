@@ -87,7 +87,11 @@ Kokoro while its table read the catalog); every speed take waits until the
 previous take's audio would have finished playing, so the playback horizon
 is empty and each take is the cold case. It
 writes a listening lab (`speed-lab.html`, “as heard” clips with the stalls
-put in). System-TTS path only; the in-app reader's segment scheduling isn't
+put in). System-TTS Pocket output holds each model-bounded piece until its last
+slice is decoded (`CompletePieceOutput` → `PieceGate.holdUntilEnd`). This
+trades first-piece latency for protection against decoder-supply gaps inside
+pieces; waits can still occur between pieces. The in-app reader keeps its
+adaptive slice path. System-TTS path only; the in-app reader's segment scheduling isn't
 measured. **Every row checks which voice spoke it** (#50): the TTS service
 logs `onSynthesizeText: asked=… voice=… engine=… speed=… effectBlocks=…` at
 Info (R8 keeps it), and a row fails unless the voice it asked for spoke it at
