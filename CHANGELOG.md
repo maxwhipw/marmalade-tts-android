@@ -5,6 +5,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Pocket system-TTS playback now waits for each bounded speech piece to finish
+  rendering before sending it to Android. This prevents late decoder slices
+  from interrupting a piece, at the cost of a longer initial wait. The in-app
+  reader retains its adaptive streaming behavior.
+
 ## [1.3.3] - 2026-10-23
 
 ### Added

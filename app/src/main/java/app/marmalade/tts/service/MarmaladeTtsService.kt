@@ -29,6 +29,7 @@ import app.marmalade.tts.engine.vits.VitsDirectEngine
 import app.marmalade.tts.install.EngineInstaller
 import app.marmalade.tts.install.InstalledBundle
 import app.marmalade.tts.audio.StreamingEffectChain
+import app.marmalade.tts.engine.CompletePieceOutput
 import app.marmalade.tts.engine.EngineRegistry
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.pocket.PocketVoiceFiles
@@ -51,6 +52,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -1243,8 +1245,16 @@ class MarmaladeTtsService : TextToSpeechService() {
         expressiveness: Float? = null,
         sentencePauseMs: Int = 0,
     ): Flow<SynthAudio> {
-        val stream = engineHandleFor(engineName)
+        val slices = engineHandleFor(engineName)
             .synthesizeStream(text, voiceId, speed, phonemizationLanguage, playbackRate, expressiveness, sentencePauseMs)
+        // No framework playback-buffer feedback: Pocket hands off complete,
+        // model-bounded pieces, including when selected as a fallback voice.
+        // Other engines and the in-app reader keep their existing streaming.
+        val stream = if (engineName == PocketEngine.ENGINE_NAME) {
+            slices.flowOn(CompletePieceOutput())
+        } else {
+            slices
+        }
         var startedAt = 0L
         var recorded = false
         return stream

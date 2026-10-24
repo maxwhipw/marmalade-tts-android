@@ -30,6 +30,7 @@ import app.marmalade.tts.preprocessing.PreprocessingRules
 import java.util.Locale
 import kotlin.math.sin
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import app.marmalade.tts.engine.EngineRegistry
@@ -386,6 +387,98 @@ class MarmaladeTtsServiceTest {
         )
 
         assertEquals("kokoro-direct-v1_0:af_heart", fakeKokoroDirectEngine.calls.single().second)
+    }
+
+    @Test
+    fun `system Pocket receives complete piece context including fallback`() {
+        val ctx: Context = ApplicationProvider.getApplicationContext()
+        var requests = 0
+        val completeContexts = mutableListOf<Boolean>()
+        val pocket = object : PocketEngine(ctx, fakeSettings) {
+            override val sampleRate: Int get() = 24_000
+            override fun isInstalled() = true
+            override fun synthesizeStream(
+                text: String,
+                voiceId: String,
+                speed: Float,
+                phonemizationLanguage: String?,
+                playbackRate: Float,
+                expressiveness: Float?,
+                sentencePauseMs: Int,
+            ): Flow<SynthAudio> = kotlinx.coroutines.flow.channelFlow {
+                completeContexts += kotlin.coroutines.coroutineContext[app.marmalade.tts.engine.CompletePieceOutput] != null
+                requests++
+                send(SynthAudio(shortArrayOf(1, 2, 3, 4), sampleRate))
+            }
+        }
+        kotlinx.coroutines.runBlocking { fakeDao.upsertAll(app.marmalade.tts.data.PocketVoiceCatalog.voices) }
+        setField(service, "engines", EngineRegistry(listOf(fakeKokoroDirectEngine, fakeEngine, fakeVits, pocket)))
+        val voice = app.marmalade.tts.data.PocketVoiceCatalog.DEFAULT_VOICE_ID
+        val callback = FakeSynthesisCallback()
+        service.onSynthesizeText(newRequestWithVoice("A synthetic sentence.", voice), callback)
+        assertEquals(1, requests)
+        assertEquals(listOf(true), completeContexts)
+        assertTrue(callback.events.contains(FakeSynthesisCallback.Event.Done))
+        assertFalse(callback.events.any { it is FakeSynthesisCallback.Event.Error })
+
+        val fallback = app.marmalade.tts.data.db.VoiceAlias(
+            id = "fallback-pocket", name = "fallback", engine = PocketEngine.ENGINE_NAME,
+            voiceId = voice, speed = 1f, effectPreset = "NONE", createdAt = 0L,
+        )
+        installPrimary("kitten-direct-v0_8", "kitten-direct-v0_8:Bella", null, fallbackTo = fallback)
+        fakeEngine.synthesizeException = IllegalStateException("synthetic failure")
+        val recovered = FakeSynthesisCallback()
+        service.onSynthesizeText(newRequestWithVoice("A synthetic sentence.", "kitten-direct-v0_8:Bella"), recovered)
+        assertEquals(2, requests)
+        assertTrue(recovered.events.contains(FakeSynthesisCallback.Event.Done))
+        assertFalse(recovered.events.any { it is FakeSynthesisCallback.Event.Error })
+        assertEquals(listOf(true, true), completeContexts)
+
+        // An in-app consumer of the same engine keeps the adaptive default.
+        kotlinx.coroutines.runBlocking {
+            pocket.synthesizeStream("A synthetic sentence.", voice, 1f, null, 1f, null, 0).collect { }
+        }
+        assertEquals(listOf(true, true, false), completeContexts)
+    }
+
+    @Test
+    fun `stopping system Pocket discards an incomplete piece`() {
+        val started = java.util.concurrent.CountDownLatch(1)
+        val ctx: Context = ApplicationProvider.getApplicationContext()
+        val pocket = object : PocketEngine(ctx, fakeSettings) {
+            override val sampleRate: Int get() = 24_000
+            override fun isInstalled() = true
+            override fun synthesizeStream(
+                text: String, voiceId: String, speed: Float,
+                phonemizationLanguage: String?, playbackRate: Float,
+                expressiveness: Float?, sentencePauseMs: Int,
+            ): Flow<SynthAudio> = kotlinx.coroutines.flow.channelFlow {
+                val gate = app.marmalade.tts.engine.PieceGate<SynthAudio>()
+                gate.startPiece(chunk = false, holdUntilEnd =
+                    kotlin.coroutines.coroutineContext[app.marmalade.tts.engine.CompletePieceOutput] != null)
+                for (slice in gate.offer(SynthAudio(shortArrayOf(1, 2), sampleRate), 80.0, 0, 0.0) { emptyList() }) {
+                    send(slice)
+                }
+                started.countDown()
+                kotlinx.coroutines.awaitCancellation()
+            }
+        }
+        kotlinx.coroutines.runBlocking { fakeDao.upsertAll(app.marmalade.tts.data.PocketVoiceCatalog.voices) }
+        setField(service, "engines", EngineRegistry(listOf(fakeKokoroDirectEngine, fakeEngine, fakeVits, pocket)))
+        val callback = FakeSynthesisCallback()
+        val request = newRequestWithVoice("A synthetic sentence.", app.marmalade.tts.data.PocketVoiceCatalog.DEFAULT_VOICE_ID)
+        val worker = Thread { service.onSynthesizeText(request, callback) }
+        worker.start()
+        try {
+            assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        } finally {
+            service.onStop()
+            worker.join(5_000)
+        }
+        assertFalse(worker.isAlive)
+        assertTrue(callback.events.none { it is FakeSynthesisCallback.Event.AudioAvailable })
+        assertTrue(callback.events.none { it is FakeSynthesisCallback.Event.Error })
+        assertEquals(FakeSynthesisCallback.Event.Done, callback.events.last())
     }
 
     // -- primary-alias routing vs auto-filled voiceName --------------------
@@ -1586,6 +1679,7 @@ internal class FakeKittenDirectEngine(
         expressiveness: Float?,
         sentencePauseMs: Int,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        check(kotlin.coroutines.coroutineContext[app.marmalade.tts.engine.CompletePieceOutput] == null)
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
         expressivenesses += expressiveness
@@ -1659,6 +1753,7 @@ internal open class FakeKokoroDirectEngine(
         expressiveness: Float?,
         sentencePauseMs: Int,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        check(kotlin.coroutines.coroutineContext[app.marmalade.tts.engine.CompletePieceOutput] == null)
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
         synthesizeException?.let { throw it }
@@ -1734,6 +1829,7 @@ internal class FakeVitsDirectEngine(
         expressiveness: Float?,
         sentencePauseMs: Int,
     ): Flow<SynthAudio> = kotlinx.coroutines.flow.flow {
+        check(kotlin.coroutines.coroutineContext[app.marmalade.tts.engine.CompletePieceOutput] == null)
         calls += Triple(text, voiceId, speed)
         languages += phonemizationLanguage
         synthesizeException?.let { throw it }

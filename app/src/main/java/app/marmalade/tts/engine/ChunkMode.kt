@@ -100,13 +100,17 @@ data class RenderMode(
             settings: SettingsRepository,
             filesDir: File,
             playbackRate: Float,
-        ): RequestPace = RequestPace(
-            engineName,
-            RenderPace.estimate(settings, engineName),
-            playbackRate,
-            forced(EngineDevKnobs.get(filesDir, "chunkMode")),
-            currentCoroutineContext()[LivePlaybackRate]?.rate,
-        )
+        ): RequestPace {
+            val whole = currentCoroutineContext()[CompletePieceOutput] != null
+            return RequestPace(
+                engineName,
+                RenderPace.estimate(settings, engineName),
+                playbackRate,
+                forced(EngineDevKnobs.get(filesDir, "chunkMode")),
+                currentCoroutineContext()[LivePlaybackRate]?.rate,
+                log = { it.log(engineName, path = if (whole) "whole" else "sliced") },
+            )
+        }
 
         /** Debug knob `chunkMode=on|off` ([EngineDevKnobs]); null = decide. */
         fun forced(knob: String?): Boolean? = when (knob?.trim()?.lowercase()) {
@@ -126,6 +130,15 @@ data class RenderMode(
  */
 class LivePlaybackRate(val rate: StateFlow<Float>) : AbstractCoroutineContextElement(LivePlaybackRate) {
     companion object Key : CoroutineContext.Key<LivePlaybackRate>
+}
+
+/**
+ * Ask a streaming engine to hand off only complete pieces. System TTS has
+ * no playback-buffer feedback, so a predicted render pace cannot guarantee
+ * that a late slice will arrive before the framework runs out of audio.
+ */
+class CompletePieceOutput : AbstractCoroutineContextElement(CompletePieceOutput) {
+    companion object Key : CoroutineContext.Key<CompletePieceOutput>
 }
 
 /**
@@ -237,6 +250,7 @@ class PieceGate<T>(
 ) {
     private val held = ArrayList<T>()
     private var open = true
+    private var holdUntilEnd = false
     private var heldSince = 0L
     private var restAtDue = 0
     private var lastOfferAt = 0L
@@ -250,13 +264,17 @@ class PieceGate<T>(
     var dueAtMs: Long? = null
         private set
 
-    /** A new piece, played in chunk mode or not. */
-    fun startPiece(chunk: Boolean) {
+    /**
+     * A new piece. [holdUntilEnd] disables estimate/timer-based early release:
+     * only [endPiece] may hand off its slices, regardless of [chunk].
+     */
+    fun startPiece(chunk: Boolean, holdUntilEnd: Boolean = false) {
         // A piece the engine abandoned (empty render) leaves nothing to send.
         held.clear()
         heldAudioMs = 0.0
         dueAtMs = null
-        open = !chunk
+        this.holdUntilEnd = holdUntilEnd
+        open = !chunk && !holdUntilEnd
     }
 
     /**
@@ -269,6 +287,7 @@ class PieceGate<T>(
         if (held.isEmpty()) heldSince = nowMs
         held += slice
         heldAudioMs += audioMs
+        if (holdUntilEnd) return emptyList()
         lastOfferAt = nowMs
         lastRest = rest
         return check(nowMs, aheadMs, rest())
@@ -282,7 +301,7 @@ class PieceGate<T>(
      * time, the current [rate] and [aheadMs].
      */
     fun recheck(nowMs: Long, aheadMs: Double): List<T> {
-        if (open || held.isEmpty()) {
+        if (open || held.isEmpty() || holdUntilEnd) {
             dueAtMs = null
             return emptyList()
         }
