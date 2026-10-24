@@ -12,8 +12,11 @@ This project follows [Semantic Versioning](https://semver.org/).
   (+1 s). A paragraph break gets one and a half times as much. It works for
   every on-device voice, in the reader, in Speak, for shared text and for
   other apps that use Marmalade as their voice, and it speeds up and slows
-  down with the speech. A single sentence, like a screen reader's item, has
-  nothing to pause between, so it sounds the same as before.
+  down with the speech. A period after an abbreviation such as "Fig." or
+  "Dr." gets no pause. When the phone is busy preparing the next sentence,
+  that wait counts towards the pause instead of adding to it. A single
+  sentence, like a screen reader's item, has nothing to pause between, so it
+  sounds the same as before.
 
 ### Changed
 - **The selected tab's name is bold** in the bottom bar.
