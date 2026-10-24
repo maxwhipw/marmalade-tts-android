@@ -82,7 +82,9 @@ import kotlinx.coroutines.withContext
 // statistics. `--ef rate <x>` passes x as the playback rate (what the
 // Narrator asks for at a listening speed: the engines' pre-roll and
 // first-piece sizing depend on it) and paces by the played length; a line of
-// the sentences file may be a whole paragraph, rendered as one request.
+// the sentences file may be a whole paragraph, rendered as one request, and a
+// literal `\n` in it is a line break (`\n\n`: several paragraphs in one
+// request, as a system TTS client sends them).
 // `--ei pauseMs <ms>` (issue #96) renders with that pause between sentences,
 // as an alias set to it would (0, the default, is Natural).
 // `--ez topApp true` (issue #52) holds the in-app reader's self TTS session

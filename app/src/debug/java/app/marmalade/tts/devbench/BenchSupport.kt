@@ -17,9 +17,10 @@ internal object BenchSupport {
     /** Logcat tag of every bench line — `adb logcat -s B1Bench StreamPerf`. */
     const val TAG = "B1Bench"
 
-    /** One sentence per non-blank line; `#` starts a comment line. */
+    /** One sentence per non-blank line; `#` starts a comment line; a literal `\n` is a line break. */
     fun parseSentences(text: String): List<String> =
-        text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
+        text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+            .map { it.replace("\\n", "\n") }.toList()
 
     /** 16-bit mono PCM WAV (RIFF, 44-byte header). */
     fun wavBytes(pcm: ShortArray, sampleRate: Int): ByteArray {
