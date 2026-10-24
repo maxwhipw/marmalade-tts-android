@@ -5,6 +5,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-10-23
+
 ### Added
 - **Pauses between sentences** (GitHub #10): an alias can add a pause after
   each sentence, set with "Pause between sentences" under Speed in the alias
