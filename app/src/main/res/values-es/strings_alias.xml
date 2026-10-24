@@ -41,7 +41,7 @@
     <string name="alias_voice_error">Elige una voz para este alias</string>
     <string name="alias_speed">Velocidad</string>
     <string name="alias_speed_label">Velocidad: %1$s</string>
-    <string name="alias_speed_perf_warning">Puede que a tu teléfono le cueste generar la voz a esta velocidad, y eso se notará como pausas entre frases.</string>
+    <string name="alias_speed_perf_warning">Puede que a tu teléfono le cueste generar la voz a esta velocidad, así que quizá oigas silencios entre las frases.</string>
     <!-- Expressiveness (Pocket only). Steady and Lively are the slider's two ends. -->
     <string name="alias_expressiveness_label">Expresividad: %1$s</string>
     <string name="alias_expressiveness_value">%1$.1f</string>

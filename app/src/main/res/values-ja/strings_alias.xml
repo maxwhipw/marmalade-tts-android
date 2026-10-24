@@ -40,7 +40,7 @@
     <string name="alias_voice_error">このエイリアスに使うボイスを選んでください</string>
     <string name="alias_speed">速度</string>
     <string name="alias_speed_label">速度: %1$s</string>
-    <string name="alias_speed_perf_warning">この速度では、お使いの端末で音声の生成が追いつかないことがあり、文と文の間に間が空きます。</string>
+    <string name="alias_speed_perf_warning">この速度では、お使いの端末で音声の生成が追いつかないことがあり、文と文の間に途切れが聞こえる場合があります。</string>
     <!-- Expressiveness (Pocket only). Steady and Lively are the slider's two ends. -->
     <string name="alias_expressiveness_label">表現力: %1$s</string>
     <string name="alias_expressiveness_value">%1$.1f</string>

@@ -40,7 +40,7 @@
     <string name="alias_voice_error">请为此别名选择语音</string>
     <string name="alias_speed">语速</string>
     <string name="alias_speed_label">语速：%1$s</string>
-    <string name="alias_speed_perf_warning">在这个速度下，你的手机可能难以及时生成语音，表现为句子之间的停顿。</string>
+    <string name="alias_speed_perf_warning">在这个速度下，你的手机可能难以及时生成语音，所以句子之间可能会出现间隙。</string>
     <!-- Expressiveness (Pocket only). Steady and Lively are the slider's two ends. -->
     <string name="alias_expressiveness_label">表现力：%1$s</string>
     <string name="alias_expressiveness_value">%1$.1f</string>
