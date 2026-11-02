@@ -118,5 +118,6 @@ class TtsRouterTest {
         override suspend fun upsert(mapping: AppAliasMapping) = Unit
         override suspend fun delete(packageName: String) = Unit
         override suspend fun releaseAppsRoutedTo(aliasName: String) = Unit
+        override suspend fun deleteOrphans() = Unit
     }
 }

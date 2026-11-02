@@ -35,12 +35,26 @@ interface AppAliasMappingDao {
     /**
      * Drop every mapping pointing at [aliasId].
      *
-     * Used when an alias is promoted to primary. The primary already
-     * catches every caller that has no rule of its own, so rows naming it
-     * are redundant — and worse, the alias card deliberately makes the
-     * primary's routing strip inert, so those rows become unreachable and
-     * the apps are stuck on it with no way to move them.
+     * Used when an alias is promoted to primary or deleted.
+     *
+     * - Promoted: the primary already catches every caller that has no rule
+     *   of its own, so rows naming it are redundant — and worse, the alias
+     *   card deliberately makes the primary's routing strip inert, so those
+     *   rows become unreachable and the apps are stuck on it with no way to
+     *   move them.
+     * - Deleted: a row naming a missing alias has no card to edit it from,
+     *   and the routing sheet used to show it as owned by a raw id that
+     *   couldn't be ticked (GitHub #32).
      */
     @Query("DELETE FROM app_alias_mapping WHERE aliasId = :aliasId")
     suspend fun releaseAppsRoutedTo(aliasId: String)
+
+    /**
+     * Drop every mapping whose alias no longer exists: rows an older
+     * version left behind when it deleted an alias without releasing its
+     * apps. Not a foreign-key cascade, because [VoiceAliasDao.upsert] is a
+     * REPLACE (delete + insert), which would cascade on every alias edit.
+     */
+    @Query("DELETE FROM app_alias_mapping WHERE aliasId NOT IN (SELECT id FROM voice_alias)")
+    suspend fun deleteOrphans()
 }

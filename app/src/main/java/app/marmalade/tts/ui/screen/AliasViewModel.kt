@@ -85,7 +85,8 @@ import kotlinx.coroutines.launch
 //     └── actions
 //          ├── save()    → validate → VoiceAliasDao.upsert(...)
 //          │                + auto-promote first alias to primary if none set.
-//          ├── delete(id) → VoiceAliasDao.delete(id) + promote a successor.
+//          ├── delete(id) → VoiceAliasDao.delete(id) + release its apps
+//          │               + promote a successor.
 //          └── setPrimary(id) → SettingsRepository.setPrimaryAliasId(id)
 // -----------------------------------------------------------------------------
 
@@ -753,12 +754,17 @@ class AliasViewModel @Inject constructor(
      *    never sit in a "aliases exist but no primary" state. Pair with
      *    the auto-promote rule in [save] which handles the fresh-install
      *    + recovery cases.
+     *  - The apps routed to it are released, so they fall back to the
+     *    primary and can be routed again from any alias. Left behind, the
+     *    routing sheet showed them owned by the deleted alias's raw id and
+     *    wouldn't let them be ticked (GitHub #32).
      */
     fun delete(id: String): Boolean {
         if (aliases.value.size <= 1) return false
         viewModelScope.launch {
             val wasPrimary = settings.primaryAliasId.first() == id
             aliasDao.delete(id)
+            mappingDao.releaseAppsRoutedTo(id)
             if (wasPrimary) {
                 val successor = aliases.value.firstOrNull { it.id != id }?.id
                 // Null can't happen behind the size<=1 guard, but a null

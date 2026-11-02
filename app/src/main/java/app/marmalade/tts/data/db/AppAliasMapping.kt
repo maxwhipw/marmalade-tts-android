@@ -24,12 +24,13 @@ import androidx.room.PrimaryKey
 //     ▼
 //   AppAliasMappingDao.findByPackage(packageName) ──► AppAliasMapping?
 //     │
-//     └─► VoiceAliasDao.findByName(mapping.aliasName) ──► VoiceAlias?
+//     └─► VoiceAliasDao.findById(mapping.aliasId) ──► VoiceAlias?
 //
-//   Note: aliasName is NOT a foreign key. If the referenced alias is
-//   deleted, the mapping intentionally lingers and the router silently
-//   falls through to the primary alias on the next synth — see
-//   TtsRouter for the precedence rules.
+//   Note: aliasId is NOT a foreign key. Deleting an alias releases its
+//   apps (AliasViewModel.delete), and rows an older version left behind
+//   are purged when the routing UI loads (AppAliasMappingDao.deleteOrphans).
+//   Until then the router treats such a row as no mapping and falls
+//   through to the primary — see TtsRouter for the precedence rules.
 // -----------------------------------------------------------------------------
 
 /**
@@ -52,10 +53,11 @@ import androidx.room.PrimaryKey
  *                        so renaming an alias no longer orphans every
  *                        mapping that points at it (the bug this column
  *                        was renamed to fix, db v10). **Still not a
- *                        foreign key on purpose**: cascade-delete is wrong
- *                        here. If the alias is deleted we want the router
- *                        to fall through to the primary, not silently drop
- *                        the user's per-app preference.
+ *                        foreign key on purpose**: the alias upsert is a
+ *                        REPLACE (delete + insert), so a cascade would
+ *                        drop the app's routing on every alias edit.
+ *                        Deleting an alias releases its apps explicitly
+ *                        instead (GitHub #32).
  * @property displayName  Cached human-readable app label from
  *                        `PackageManager.getApplicationLabel(...)` at
  *                        mapping-creation time. Nullable because the

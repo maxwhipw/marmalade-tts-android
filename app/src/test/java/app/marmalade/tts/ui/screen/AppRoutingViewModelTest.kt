@@ -1,6 +1,8 @@
 package app.marmalade.tts.ui.screen
 
+import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.db.AppAliasMapping
+import app.marmalade.tts.data.db.VoiceAlias
 import app.marmalade.tts.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -201,15 +203,80 @@ class AppRoutingViewModelTest {
         assertEquals(listOf("com.moon.reader"), dao.deleted)
     }
 
+    // -- A deleted alias's apps (GitHub #32) -----------------------------------
+    // Deleting through the alias screen is AliasViewModelTest's
+    // deletingAnAlias_freesItsAppsToBeRoutedElsewhere.
+
+    @Test
+    fun aMappingToAMissingAlias_isPurgedOnLoadAndCountsAsUnrouted() = runTest {
+        // A row an older version left behind when it deleted an alias.
+        val aliasDao = FakeAliasDao(listOf(alias("narrator"), alias("quick read")))
+        val dao = FakeAppAliasMappingDao(
+            listOf(
+                mapping("com.maps", "f7d1a5a1-500c-gone"),
+                mapping("com.pocket", "quick read"),
+            ),
+            aliases = aliasDao,
+        )
+
+        val vm = newViewModel(dao = dao, aliasDao = aliasDao)
+
+        assertEquals(1, dao.orphanSweeps)
+        assertEquals(listOf("com.pocket"), dao.getAll().first().map { it.packageName })
+        // The live alias's route still shows as owned there, by name.
+        assertEquals(listOf("com.pocket"), vm.mappings.first { it.isNotEmpty() }.map { it.packageName })
+        assertEquals("quick read", vm.aliasNames.first { it.isNotEmpty() }["quick read"])
+    }
+
+    @Test
+    fun mappings_hideARowNamingAMissingAlias_evenBeforeThePurge() = runTest {
+        // The fake without an alias table can't purge, which stands in for
+        // the moment between opening the screen and the sweep landing.
+        val aliasDao = FakeAliasDao(listOf(alias("narrator")))
+        val dao = FakeAppAliasMappingDao(
+            listOf(mapping("com.maps", "gone"), mapping("com.moon.reader", "narrator")),
+        )
+        val vm = newViewModel(dao = dao, aliasDao = aliasDao, roster = listOf(installed("com.maps", "Maps")))
+
+        assertEquals(listOf("com.moon.reader"), vm.mappings.first { it.isNotEmpty() }.map { it.packageName })
+
+        // So the sheet offers the app as free, and ticking it re-routes it.
+        vm.openSheet("narrator", "narrator")
+        vm.toggle("com.maps")
+        vm.saveRouting()
+        assertEquals("narrator", dao.getAll().first().single { it.packageName == "com.maps" }.aliasId)
+    }
+
     // -- helpers --------------------------------------------------------------
 
+    /**
+     * A ViewModel whose alias table holds every alias [dao]'s rows name, plus
+     * "narrator", unless the test passes its own [aliasDao]: `mappings` hides
+     * rows naming a missing alias.
+     */
     private fun newViewModel(
         dao: FakeAppAliasMappingDao = FakeAppAliasMappingDao(),
         roster: List<InstalledApp> = emptyList(),
+        aliasDao: FakeAliasDao = FakeAliasDao(
+            (dao.getAll().value.map { it.aliasId } + "narrator").distinct().map(::aliasWithId),
+        ),
     ) = AppRoutingViewModel(
         mappingDao = dao,
-            aliasDao = FakeAliasDao(),
+        aliasDao = aliasDao,
         appsProvider = FakeInstalledAppsProvider(roster),
+    )
+
+    /** An alias whose id and name are both [name], as [mapping] keys them. */
+    private fun alias(name: String) = aliasWithId(name)
+
+    private fun aliasWithId(id: String) = VoiceAlias(
+        id = id,
+        name = id,
+        engine = "kitten-direct-v0_8",
+        voiceId = KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
+        speed = 1.0f,
+        effectPreset = "NONE",
+        createdAt = 0L,
     )
 
     private fun mapping(

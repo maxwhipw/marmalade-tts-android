@@ -126,7 +126,7 @@ fun AppRoutingSheet(
             Text(
                 text = stringResource(
                     R.string.alias_routing_title,
-                    state.aliasName.ifBlank { state.aliasId },
+                    state.aliasName,
                 ),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
@@ -179,7 +179,10 @@ fun AppRoutingSheet(
                         AppRoutingRow(
                             app = app,
                             checked = app.packageName in state.selected,
-                            currentOwner = owner?.let { aliasNames[it] ?: it },
+                            // Never the id: `mappings` holds live aliases
+                            // only, and a name still loading shows the
+                            // package name instead.
+                            currentOwner = owner?.let { aliasNames[it] },
                             // An app resolves to exactly one alias, so a row
                             // owned by another one is not tickable here.
                             // Ticking used to silently steal it, which meant

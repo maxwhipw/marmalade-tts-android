@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,8 +29,9 @@ import kotlinx.coroutines.withContext
 //   AliasScreen (routing strip on each alias card + AppRoutingSheet)
 //     │
 //     ├── mappings  ◄────── AppRoutingViewModel.mappings
-//     │                        ▲  Flow — AppAliasMappingDao.getAll(), grouped
-//     │                        │  by aliasId to render each card's strip.
+//     │                        ▲  Flow — AppAliasMappingDao.getAll() minus rows
+//     │                        │  naming a deleted alias, grouped by aliasId
+//     │                        │  to render each card's strip.
 //     │
 //     ├── installedApps ◄── AppRoutingViewModel.installedApps
 //     │                        ▲  one-shot InstalledAppsProvider.load(), fired
@@ -51,8 +53,10 @@ import kotlinx.coroutines.withContext
 // alias-scoped tick set back into per-package upserts and deletes.
 //
 // `aliasId` references VoiceAlias.id but is NOT a foreign key — see
-// AppAliasMapping kdoc. If the user deletes the referenced alias the mapping
-// stays around and TtsRouter falls back to the primary on the next synth.
+// AppAliasMapping kdoc. Deleting an alias releases its apps; rows an older
+// version left behind are purged when this ViewModel starts, and until then
+// they're filtered out of `mappings`, so such an app reads as unrouted
+// (GitHub #32: the sheet showed it owned by a raw id and wouldn't tick it).
 // -----------------------------------------------------------------------------
 
 /**
@@ -176,8 +180,16 @@ class AppRoutingViewModel @Inject constructor(
     /** Clock indirection for tests — same idiom as [AliasViewModel]. */
     internal var now: () -> Long = { System.currentTimeMillis() }
 
-    val mappings: StateFlow<List<AppAliasMapping>> = mappingDao.getAll()
-        .stateIn(
+    /**
+     * The saved routes, minus any naming an alias that no longer exists:
+     * such an app is unrouted (the router ignores the row too), so it must
+     * not show as owned by a missing alias in the sheet.
+     */
+    val mappings: StateFlow<List<AppAliasMapping>> =
+        combine(mappingDao.getAll(), aliasDao.getAll()) { rows, aliases ->
+            val live = aliases.mapTo(HashSet()) { it.id }
+            rows.filter { it.aliasId in live }
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
             initialValue = emptyList(),
@@ -193,6 +205,11 @@ class AppRoutingViewModel @Inject constructor(
 
     private val _sheetState = MutableStateFlow(RoutingSheetState())
     val sheetState: StateFlow<RoutingSheetState> = _sheetState.asStateFlow()
+
+    init {
+        // Rows an older version left behind when it deleted an alias.
+        viewModelScope.launch { mappingDao.deleteOrphans() }
+    }
 
     /**
      * Open the routing sheet for [aliasId], ticking the apps already routed

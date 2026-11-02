@@ -413,11 +413,14 @@ internal class FakeEffectDao(
  */
 internal class FakeAppAliasMappingDao(
     initial: List<AppAliasMapping> = emptyList(),
+    /** The alias table [deleteOrphans] checks against, like Room's subquery. */
+    private val aliases: FakeAliasDao? = null,
 ) : AppAliasMappingDao {
     private val state = MutableStateFlow(initial)
     val upserted = mutableListOf<AppAliasMapping>()
     val deleted = mutableListOf<String>()
     val released = mutableListOf<String>()
+    var orphanSweeps = 0
 
     override fun getAll() = state
     override suspend fun findByPackage(packageName: String): AppAliasMapping? =
@@ -438,6 +441,12 @@ internal class FakeAppAliasMappingDao(
     override suspend fun releaseAppsRoutedTo(aliasId: String) {
         released += aliasId
         state.value = state.value.filterNot { it.aliasId == aliasId }
+    }
+
+    override suspend fun deleteOrphans() {
+        orphanSweeps++
+        val live = aliases?.getAll()?.value?.mapTo(HashSet()) { it.id } ?: return
+        state.value = state.value.filter { it.aliasId in live }
     }
 }
 

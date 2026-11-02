@@ -386,6 +386,42 @@ class AliasViewModelTest {
     }
 
     @Test
+    fun deletingAnAlias_freesItsAppsToBeRoutedElsewhere() = runTest {
+        // GitHub #32, which regressed once: after deleting an alias, Maps
+        // showed "Routed to <uuid> — un-route it there first" in every other
+        // alias's routing sheet and couldn't be ticked, with no card left to
+        // un-route it from.
+        val aliasDao = FakeAliasDao(initial = listOf(alias("narrator"), alias("doomed")))
+        val mappings = FakeAppAliasMappingDao(
+            listOf(
+                AppAliasMapping("com.maps", "id-doomed", "Maps", 0L),
+                AppAliasMapping("com.moon.reader", "id-narrator", "Moon+", 0L),
+            ),
+            aliases = aliasDao,
+        )
+        val vm = newViewModel(aliasDao = aliasDao, mappingDao = mappings)
+        val routing = AppRoutingViewModel(
+            mappingDao = mappings,
+            aliasDao = aliasDao,
+            appsProvider = FakeInstalledAppsProvider(listOf(InstalledApp("com.maps", "Maps", null))),
+        )
+        vm.aliases.first { it.size == 2 }
+
+        vm.delete("id-doomed")
+
+        assertEquals(listOf("id-doomed"), mappings.released)
+        assertEquals(listOf("com.moon.reader"), mappings.getAll().first().map { it.packageName })
+        routing.mappings.first { it.size == 1 }
+        routing.openSheet("id-narrator", "narrator")
+        routing.toggle("com.maps")
+        routing.saveRouting()
+        assertEquals(
+            "id-narrator",
+            mappings.getAll().first().single { it.packageName == "com.maps" }.aliasId,
+        )
+    }
+
+    @Test
     fun deletingLastAlias_isRefused() = runTest {
         // Cannot delete the final alias — every install with at least one
         // alias must always keep at least one.
