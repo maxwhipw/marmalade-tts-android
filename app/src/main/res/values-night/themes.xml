@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window theme when the phone is in dark theme. A dark parent declares
+         isLightTheme=false, which tells Android the app draws its own dark theme.
+         Without it, Android 16's "Expanded" dark theme takes the light window theme
+         to mean a light-only app and inverts it, so filled areas flip to light while
+         Compose's light text stays light (GitHub #39). Compose still picks light or dark
+         from the in-app setting; this only covers the window and the first frame. -->
+    <style name="Theme.MarmaladeTts" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- MarmaladeDarkColors.background, so a cold start doesn't flash white. -->
+        <item name="android:windowBackground">#FF1C1917</item>
+    </style>
+</resources>
