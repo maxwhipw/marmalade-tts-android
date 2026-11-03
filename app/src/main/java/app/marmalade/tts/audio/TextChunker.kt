@@ -13,7 +13,8 @@ import app.marmalade.tts.engine.SentenceGaps
 //   2. Paragraph splits on blank lines (`\n\s*\n`); each paragraph
 //      recursively chunked.
 //   3. Sentence splits using lookbehind on `[.!?]` followed by
-//      whitespace (keeps punctuation attached to the sentence).
+//      whitespace (keeps punctuation attached to the sentence), never
+//      after an abbreviation's period on the same line ("Fig. 3").
 //      Sentences greedily bin-packed up to `maxChars`.
 //   4. Last-resort word splits if a single sentence exceeds `maxChars`
 //      (unless the caller forbids them — see `allowWordSplits`).
@@ -111,7 +112,9 @@ object TextChunker {
      * quotes/brackets ends a sentence; when closers are present the next
      * word must start uppercase/digit/opening-quote — a lowercase next
      * word is attribution (`"Stop!" he said`) and stays attached. Plain
-     * `.!?` + whitespace always cuts (today's rule). Newlines, CJK
+     * `.!?` + whitespace always cuts, except an abbreviation's period
+     * ([SentenceGaps.isAbbreviation]: "Fig. 3", "Dr. Smith", "J. Smith";
+     * #124) followed by more of the line. Newlines, CJK
      * enders (。！？) and the Devanagari danda (। ॥) are sentence boundaries
      * too.
      */
@@ -145,6 +148,12 @@ object TextChunker {
                     if (k > j && k < text.length) {
                         val nxt = text[k]
                         val plain = j == i + 1
+                        // An abbreviation's period ends no sentence (#124); a
+                        // line break after it still does, in the '\n' branch.
+                        if (plain && c == '.' && SentenceGaps.isAbbreviation(text.substring(start, j), nxt)) {
+                            i = j
+                            continue
+                        }
                         if (plain || nxt.isUpperCase() || nxt.isDigit() || nxt in SENTENCE_OPENERS) {
                             emit(j)
                             start = k
@@ -284,7 +293,7 @@ object TextChunker {
         if (trimmed.isEmpty()) return emptyList()
         val out = ArrayList<TokenChunk>()
         for (paragraph in PARAGRAPH_BREAK.split(trimmed)) {
-            val sentences = tokenPlanSentences(paragraph)
+            val sentences = sentencesAt(paragraph, TOKEN_PLAN_BOUNDARY)
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .map { TokenChunk(it, count(it)) }
@@ -336,21 +345,23 @@ object TextChunker {
     private val TOKEN_PLAN_BOUNDARY = Regex("(?<=[.!?:;])\\s+|(?<=[。！？；：])|$DANDA_END|\\n+")
 
     /**
-     * [paragraph] cut at [TOKEN_PLAN_BOUNDARY], except at spaces (no
-     * newline) after an abbreviation's period ([SentenceGaps.isAbbreviation]).
-     * Cutting there made a mid-sentence piece end that Kokoro voiced like a
-     * sentence's (#98). Only the abbreviation part of
-     * [SentenceGaps.isSentenceBreak]: its digit and lower-case rules would
-     * re-cut text that has no abbreviation in it.
+     * [paragraph] cut at [boundary], except at spaces (no newline) after an
+     * abbreviation's period ([SentenceGaps.isAbbreviation]). Cutting there
+     * made a mid-sentence piece end that the engine voiced like a sentence's
+     * (#98 for Kokoro's [planByTokens], #124 for [chunk]). Only the
+     * abbreviation part of [SentenceGaps.isSentenceBreak]: its digit and
+     * lower-case rules would re-cut text that has no abbreviation in it.
      */
-    private fun tokenPlanSentences(paragraph: String): List<String> {
+    private fun sentencesAt(paragraph: String, boundary: Regex): List<String> {
         val out = ArrayList<String>()
         var start = 0
-        for (m in TOKEN_PLAN_BOUNDARY.findAll(paragraph)) {
+        for (m in boundary.findAll(paragraph)) {
             val at = m.range.first
             val after = m.range.last + 1
             val sameLine = m.value.isNotEmpty() && m.value.none { it == '\n' }
-            if (sameLine && at > 0 && paragraph[at - 1] == '.' && SentenceGaps.isAbbreviation(paragraph.substring(start, at))) continue
+            if (sameLine && at > 0 && after < paragraph.length && paragraph[at - 1] == '.' &&
+                SentenceGaps.isAbbreviation(paragraph.substring(start, at), paragraph[after])
+            ) continue
             out += paragraph.substring(start, at)
             start = after
         }
@@ -516,7 +527,9 @@ object TextChunker {
      *   minimum-latency first-emit. Combine with [minChars] to merge
      *   runs of tiny sentences (sherpa's pattern).
      * @param sentenceOnly When true, only `.!?;:` + newlines trigger a
-     *   split. Commas, em-dashes do not.
+     *   split. Commas, em-dashes do not. In every mode an abbreviation's
+     *   period followed by more of the line never splits
+     *   ([SentenceGaps.isAbbreviation], #124).
      * @param terminalMarksOnly When true (overrides [sentenceOnly]),
      *   only `.!?` + newlines split — `:` and `;` stay in-sentence.
      *   KittenDirect's mode: with [packSentences]=false every chunk is
@@ -544,8 +557,8 @@ object TextChunker {
      * @param keepApart When set, two sentence-chunks it is true for (the
      *   chunk so far, the next) never merge, whatever [minChars] says. An
      *   alias's pause between sentences (#96) needs each real sentence end
-     *   to be a chunk boundary; merging across clause marks and
-     *   abbreviations goes on as before.
+     *   to be a chunk boundary; merging across clause marks goes on as
+     *   before.
      */
     fun chunk(
         text: String,
@@ -584,7 +597,7 @@ object TextChunker {
             sentenceOnly -> CLAUSE_END
             else -> SENTENCE_END
         }
-        val sentences = boundary.split(trimmed)
+        val sentences = sentencesAt(trimmed, boundary)
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         if (sentences.size > 1) {

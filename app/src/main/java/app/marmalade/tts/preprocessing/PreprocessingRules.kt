@@ -186,7 +186,11 @@ object PreprocessingRules {
     // The fraction capture spans the full run (`\d+`, not `\d{1,2}`) so
     // over-long decimals ($3.501) can be rejected in the callback rather than
     // partially matched ($3.50 + a stray "1"). Mirrors ts/src/preprocessing.ts.
-    private val currencyRegex = Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d+)?)")
+    // A scale word after the amount ("$1.5 billion") is captured too: the
+    // amount and the scale come first and the currency name after ("1.5
+    // billion dollars"), leaving the decimal to the number rule (#121).
+    private val currencyRegex =
+        Regex("([\$£€¥])($INT_GROUPED(?:\\.\\d+)?)(?:\\s+((?i:thousand|million|billion|trillion))\\b)?")
 
     // Singular/plural names per unit. Plurals are explicit per currency:
     // yen is invariant (no "s"), so "¥100" reads "100 yen", not "100 yens".
@@ -215,7 +219,10 @@ object PreprocessingRules {
             val sym = m.groupValues[1]
             val amount = m.groupValues[2]
             val names = currencySymbols[sym] ?: CurrencyNames("units", "units", "", "")
-            if ("." in amount) {
+            val scale = m.groupValues[3]
+            if (scale.isNotEmpty()) {
+                "$amount $scale ${names.majorPlural}"
+            } else if ("." in amount) {
                 val parts = amount.split(".", limit = 2)
                 // Over-long decimal (>2 fraction digits) is not a currency minor
                 // unit — "$3.501" is not "3 dollars 50 cents 1". Leave the token
@@ -226,7 +233,8 @@ object PreprocessingRules {
                 // match unchanged rather than throwing out of the pipeline
                 // (same policy as expandOrdinal / expandNumber).
                 val majorN = parts[0].replace(",", "").ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
-                val minorN = parts[1].ifEmpty { "0" }.toLongOrNull() ?: return@replace m.value
+                // One fraction digit is tenths: "$3.5" is 50 cents, not 5 (#121).
+                val minorN = parts[1].padEnd(2, '0').toLongOrNull() ?: return@replace m.value
                 val pieces = mutableListOf<String>()
                 if (majorN > 0L) {
                     pieces += "$majorN ${if (majorN == 1L) names.majorSingular else names.majorPlural}"
@@ -476,20 +484,32 @@ object PreprocessingRules {
 
     // -- Hashtag rule ---------------------------------------------------------
     //
-    // #100 → number 100, #hello → hashtag hello. CLI: _hashtag.
+    // #100 → number 100, #hello → hashtag hello. CLI: hashtagSub. Runs just
+    // before the number rule, so "#1" is "number one", not "hashtag one"
+    // (#121). A digit right before the "#" ("q=1#f") gets a space: the "#"
+    // gave it the word boundary the number rule needs, and a letter glued
+    // onto it would leave the digit unspoken.
 
     private val hashtagRegex = Regex("#(\\w+)")
     private fun expandHashtag(text: String): String =
         hashtagRegex.replace(text) { m ->
             val body = m.groupValues[1]
-            if (body.all { it.isDigit() }) "number $body" else "hashtag $body"
+            val word = if (body.all { it.isDigit() }) "number $body" else "hashtag $body"
+            val start = m.range.first
+            if (start > 0 && text[start - 1].isDigit()) " $word" else word
         }
 
     // -- HTML rule ------------------------------------------------------------
     //
     // Strip tags, decode entities. CLI: _html_strip + _html.
+    //
+    // A tag is "<", an optional "/", "!" or "?", a letter, then anything but
+    // angle brackets up to ">" (attributes may wrap lines); a comment is
+    // <!-- … -->.
+    // "<[^>]+>" ate the prose between any "<" and the next ">" ("I <3 you
+    // -> me", "x < 5 and y > 3"; #121). The CLI still has the old pattern.
 
-    private val htmlTagRegex = Regex("<[^>]+>")
+    private val htmlTagRegex = Regex("<!--[\\s\\S]*?-->|<[/!?]?[A-Za-z][^<>]*>")
     private val HTML_ENTITIES: Map<String, String> = mapOf(
         "&amp;" to "&",
         "&lt;" to "<",
@@ -1090,6 +1110,14 @@ object PreprocessingRules {
             description = "Expand filenames: example.txt → example dot T X T",
             transform = ::expandFilename,
         ),
+        // 6b. Hashtags right before numbers: "#1" → "number 1" → "number
+        //     one". After number, "#one" read as a hashtag (#121; the CLI's
+        //     order since 9467e67).
+        PreprocessingRule(
+            name = "hashtag",
+            description = "Hashtags: #100 → number 100, #hello → hashtag hello",
+            transform = ::expandHashtag,
+        ),
         // 7. Bare numbers last so currency / dates / ordinals get first crack.
         //    Years 1900-2099 stay as digits.
         PreprocessingRule(
@@ -1111,8 +1139,8 @@ object PreprocessingRules {
             description = "Built-in respellings for words espeak misreads (biweekly → bi-weekly)",
             transform = ::respell,
         ),
-        // 8. Tail end — math / ampersand / hashtag operate on the already-
-        //    normalized text.
+        // 8. Tail end — math / ampersand operate on the already-normalized
+        //    text.
         PreprocessingRule(
             name = "math",
             description = "Math symbols to words: + → plus (only when standalone)",
@@ -1122,11 +1150,6 @@ object PreprocessingRules {
             name = "ampersand",
             description = "Ampersand: & → and",
             transform = ::expandAmpersand,
-        ),
-        PreprocessingRule(
-            name = "hashtag",
-            description = "Hashtags: #100 → number 100, #hello → hashtag hello",
-            transform = ::expandHashtag,
         ),
         // 9. Collapse repeated terminal punctuation BEFORE the final
         //    terminal-punctuation backstop runs, so the backstop sees

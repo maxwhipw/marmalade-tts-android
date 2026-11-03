@@ -150,6 +150,88 @@ class TextChunkerTest {
         )
     }
 
+    // #124: chunk() doesn't cut at an abbreviation's period either (#98's
+    // rule, SentenceGaps.isAbbreviation), in any of its boundary modes.
+
+    @Test
+    fun exemptFirstDoesNotEmitAnAbbreviationAlone() {
+        // VITS' call. Before #124 "Prof." was the whole first chunk.
+        val chunks = TextChunker.chunk(
+            text = "Prof. Smith arrived late. He sat down at the back and listened to the talk.",
+            maxChars = 255,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 80,
+            minCharsExemptFirst = true,
+        )
+        assertEquals(
+            listOf("Prof. Smith arrived late.", "He sat down at the back and listened to the talk."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun minCharsMergeDoesNotCutAtAnAbbreviation() {
+        // Pocket's call. The text before "Prof." already reaches minChars,
+        // so before #124 the chunk ended there.
+        val chunks = TextChunker.chunk(
+            text = "In the morning the visiting lecturer, Prof. Smith arrived. He sat down.",
+            maxChars = 255,
+            packSentences = false,
+            sentenceOnly = true,
+            allowWordSplits = false,
+            minChars = 40,
+        )
+        assertEquals(
+            listOf("In the morning the visiting lecturer, Prof. Smith arrived.", "He sat down."),
+            chunks,
+        )
+    }
+
+    @Test
+    fun packingDoesNotCutAtAnAbbreviation() {
+        // The cloud engines' call. Before #124: "Results are below. See Fig." + "3 for details."
+        assertEquals(
+            listOf("Results are below.", "See Fig. 3 for details."),
+            TextChunker.chunk("Results are below. See Fig. 3 for details.", maxChars = 30, sentenceOnly = true, allowWordSplits = false),
+        )
+        assertEquals(
+            listOf("Results are below.", "See Fig. 3 for details."),
+            TextChunker.chunk("Results are below. See Fig. 3 for details.", maxChars = 30, allowWordSplits = false),
+        )
+        assertEquals(
+            listOf("Results are below.", "See Fig. 3 for details."),
+            TextChunker.chunk(
+                "Results are below. See Fig. 3 for details.",
+                maxChars = 255,
+                packSentences = false,
+                terminalMarksOnly = true,
+            ),
+        )
+    }
+
+    @Test
+    fun aOneLetterWordThatIsNoInitialStillEndsTheSentence() {
+        // #124 review: "I" and a lower-case letter not before a digit are no
+        // initials, so their period ends the sentence.
+        val text = "Neither did I. Then we left. See p. 12 here."
+        assertEquals(
+            listOf("Neither did I.", "Then we left.", "See p. 12 here."),
+            TextChunker.chunk(text, maxChars = 255, packSentences = false, sentenceOnly = true),
+        )
+        // Kokoro: the first sentence stands alone, the tiny rest merges.
+        assertEquals(listOf("Neither did I.", "Then we left. See p. 12 here."), plan(text).map { it.text })
+    }
+
+    @Test
+    fun aLineBreakAfterAnAbbreviationStillSplits() {
+        assertEquals(
+            listOf("Ask Prof.", "Smith knows."),
+            TextChunker.chunk("Ask Prof.\nSmith knows.", maxChars = 255, packSentences = false, sentenceOnly = true),
+        )
+    }
+
     @Test
     fun exemptFirstAppliesOnlyToFirstParagraph() {
         val chunks = TextChunker.chunk(

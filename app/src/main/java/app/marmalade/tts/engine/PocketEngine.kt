@@ -2251,8 +2251,9 @@ open class PocketEngine @Inject constructor(
         /**
          * Pocket's sentence chunks of [preprocessed] text. At Natural this is
          * the pre-#96 plan exactly. With a pause, tiny chunks still merge
-         * across clause marks and abbreviations, never across a real sentence
-         * end ([SentenceGaps.isSentenceBreak]), so each sentence gets its pause.
+         * across clause marks (an abbreviation is no boundary at all, #124),
+         * never across a real sentence end ([SentenceGaps.isSentenceBreak]),
+         * so each sentence gets its pause.
          */
         internal fun pocketOuterChunks(preprocessed: String, sentencePauseMs: Int): List<String> =
             TextChunker.chunk(

@@ -28,9 +28,9 @@ object SentenceGaps {
 
     /**
      * Words that end in a period without ending the sentence ("Fig. 3",
-     * "Dr. Smith"). Lower case, without the period. A single letter (an
-     * initial, "p. 12") and letters joined by periods ("U.S.", "e.g.") count
-     * too ([isAbbreviation]). Left out: words that
+     * "Dr. Smith"). Lower case, without the period. An initial ("J. Smith"),
+     * a lower-case letter before a digit ("p. 12") and letters joined by
+     * periods ("U.S.", "e.g.") count too ([isAbbreviation]). Left out: words that
      * often end a sentence ("etc.", "Inc.", "sec.") and ones that are words
      * too ("No.", "Nr."): before a number, the usual case, the digit rule in
      * [isSentenceBreak] keeps their pause out anyway.
@@ -55,18 +55,23 @@ object SentenceGaps {
         if (last !in ENDERS) return false
         val next = after.trimStart().trimStart { it in OPENERS }.firstOrNull() ?: return false
         if (next.isLowerCase() || next.isDigit()) return false
-        return !(last == '.' && isAbbreviation(head))
+        return !(last == '.' && isAbbreviation(head, next))
     }
 
     /**
-     * [head] (ending in its period) ends with an abbreviation, an initial or
-     * letters joined by periods. "U.S." can end a sentence too; no pause
-     * there is the lesser miss than one inside "the U.S. Army". Kokoro's
-     * chunker doesn't cut there either (TextChunker.planByTokens, #98).
+     * [head] (ending in its period, [next] the first character after it)
+     * ends with an abbreviation, an initial or letters joined by periods.
+     * "U.S." and "plan B." can end a sentence too; no pause there is the
+     * lesser miss than one inside "the U.S. Army" or "J. Smith". But "I" and
+     * a lower-case letter not before a digit ("did I.", "Così è.", "n > k.")
+     * are words, not initials. No TextChunker split cuts at an abbreviation
+     * either (planByTokens #98, chunk and clauseChunks #124).
      */
-    fun isAbbreviation(head: String): Boolean {
+    fun isAbbreviation(head: String, next: Char): Boolean {
         val word = head.dropLast(1).takeLastWhile { !it.isWhitespace() }.trimStart { it in OPENERS }
-        if (word.length == 1 && word[0].isLetter()) return true
+        if (word.length == 1 && word[0].isLetter()) {
+            return if (word[0].isUpperCase()) word != "I" else next.isDigit()
+        }
         if (DOTTED.matches(word)) return true
         return word.lowercase() in ABBREVIATIONS
     }

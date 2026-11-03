@@ -45,6 +45,16 @@ class SentenceGapsTest {
     }
 
     @Test
+    fun `a one-letter word ends a sentence unless it is an initial or before a digit`() {
+        // #124 review: "I" and lower-case one-letter words aren't initials.
+        assertTrue(SentenceGaps.isSentenceBreak("Neither did I.", "Then we left."))
+        assertTrue(SentenceGaps.isSentenceBreak("Così è.", "Poi andò via."))
+        assertTrue(SentenceGaps.isSentenceBreak("Let n > k.", "Then it holds."))
+        assertFalse(SentenceGaps.isSentenceBreak("by J.", "Smith"))
+        assertFalse(SentenceGaps.isSentenceBreak("on p.", "12."))
+    }
+
+    @Test
     fun `at Natural byParagraph is the one plan, every pause 0`() {
         val text = "One. Two.\n\nThree."
         val plan = SentenceGaps.byParagraph(text, 0) { t, first -> listOf("$first:$t") }

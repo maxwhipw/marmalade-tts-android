@@ -173,6 +173,31 @@ class PreprocessorTest {
     }
 
     @Test
+    fun currency_oneDigitFractionIsTenthsNotCents() {
+        // #121 CORRECT-10: "$3.5" is three and a half dollars. Before, the
+        // fraction's digits were read as the cent count ("5 cents").
+        assertEquals("3 dollars and 50 cents", only("currency", "\$3.5"))
+        assertEquals("50 cents", only("currency", "\$0.5"))
+        assertEquals("2 pounds and 10 pennies", only("currency", "£2.1"))
+    }
+
+    @Test
+    fun currency_scaleWordKeepsTheAmountWhole() {
+        // #121 CORRECT-10: "$1.5 billion" is not "1 dollar and 5 cents
+        // billion". The amount and its scale word come first, the currency
+        // name after, and the number rule reads the decimal.
+        assertEquals("1.5 billion dollars", only("currency", "\$1.5 billion"))
+        assertEquals("5 million dollars ago", only("currency", "\$5 million ago"))
+        assertEquals("1 million euros", only("currency", "€1 million"))
+        assertEquals(
+            "one point five billion dollars",
+            preprocessor.apply("\$1.5 billion", setOf("currency", "number")),
+        )
+        // A word that only starts like a scale word is no scale word.
+        assertEquals("5 dollars thousandfold", only("currency", "\$5 thousandfold"))
+    }
+
+    @Test
     fun currency_overflowingAmountIsLeftUnchanged() {
         // >19 digits overflows Long. Must pass through untouched instead
         // of throwing NumberFormatException out of the synthesis pipeline
@@ -421,6 +446,25 @@ class PreprocessorTest {
     }
 
     @Test
+    fun html_leavesAngleBracketsThatAreNoTag() {
+        // #121 CORRECT-9: the tag rule ate everything from a "<" to the next
+        // ">", whatever lay between.
+        assertEquals("I <3 you. Later -> go", only("html", "I <3 you. Later -> go"))
+        assertEquals("if x < 5 and y > 3", only("html", "if x < 5 and y > 3"))
+        assertEquals("a <\nb> c", only("html", "a <\nb> c"))
+    }
+
+    @Test
+    fun html_stillStripsTagsWithAttributesAndComments() {
+        assertEquals(
+            "Read this now",
+            only("html", "<a href=\"https://example.com\">Read</a> <b>this</b><br/> <!-- note --> now"),
+        )
+        // A tag whose attributes wrap onto a second line.
+        assertEquals("Hi", only("html", "<div style=\"color: red;\"\n class=\"x\">Hi</div>"))
+    }
+
+    @Test
     fun html_decodes_named_entities() {
         assertEquals(
             "1 < 2 & 3 > 0",
@@ -516,6 +560,17 @@ class PreprocessorTest {
     @Test
     fun hashtag_number() {
         assertEquals("number 100", only("hashtag", "#100"))
+    }
+
+    @Test
+    fun hashtag_numberInTheFullPipeline() {
+        // #121 CORRECT-19: the number rule ran first and turned "#1" into
+        // "#one", which the hashtag rule then read as a hashtag.
+        assertEquals("number one", preprocessor.apply("#1", setOf("number", "hashtag")))
+        assertEquals("We're number one.", kitten("We're #1."))
+        assertEquals("hashtag hello", preprocessor.apply("#hello", setOf("number", "hashtag")))
+        // A digit before the "#" keeps its word boundary for the number rule.
+        assertEquals("q=one hashtag f", preprocessor.apply("q=1#f", setOf("number", "hashtag")))
     }
 
     @Test

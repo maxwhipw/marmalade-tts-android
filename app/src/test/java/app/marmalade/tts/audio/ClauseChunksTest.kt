@@ -114,6 +114,39 @@ class ClauseChunksTest {
         assertEquals(1, chunks.size)
     }
 
+    // #124: an abbreviation's period (SentenceGaps.isAbbreviation) ends no
+    // sentence. Before, "Prof." was a chunk of its own with a sentence gap
+    // after it, and its style row came from "Prof." alone.
+
+    @Test
+    fun `an abbreviation's period does not end the sentence`() {
+        val chunks = TextChunker.clauseChunks(
+            "Prof. Smith arrived. See Fig. 3 for details. J. R. Tolkien wrote it.",
+        )
+        assertEquals(
+            listOf("Prof. Smith arrived.", "See Fig. 3 for details.", "J. R. Tolkien wrote it."),
+            texts(chunks),
+        )
+        assertEquals("Prof. Smith arrived.", chunks[0].rowText)
+        assertEquals(listOf(true, true, false), chunks.map { it.sentenceEnd })
+    }
+
+    @Test
+    fun `a one-letter word that is no initial still ends the sentence`() {
+        assertEquals(
+            listOf("Neither did I.", "Then we left.", "See p. 12 here."),
+            texts(TextChunker.clauseChunks("Neither did I. Then we left. See p. 12 here.")),
+        )
+    }
+
+    @Test
+    fun `a line break after an abbreviation still splits`() {
+        assertEquals(
+            listOf("Ask Prof.", "Smith knows."),
+            texts(TextChunker.clauseChunks("Ask Prof.\nSmith knows.")),
+        )
+    }
+
     @Test
     fun `blank input yields no chunks`() {
         assertEquals(emptyList<ClauseChunk>(), TextChunker.clauseChunks("   "))
