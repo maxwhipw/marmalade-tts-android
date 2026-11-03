@@ -61,9 +61,10 @@ object SentenceGaps {
     /**
      * [head] (ending in its period) ends with an abbreviation, an initial or
      * letters joined by periods. "U.S." can end a sentence too; no pause
-     * there is the lesser miss than one inside "the U.S. Army".
+     * there is the lesser miss than one inside "the U.S. Army". Kokoro's
+     * chunker doesn't cut there either (TextChunker.planByTokens, #98).
      */
-    private fun isAbbreviation(head: String): Boolean {
+    fun isAbbreviation(head: String): Boolean {
         val word = head.dropLast(1).takeLastWhile { !it.isWhitespace() }.trimStart { it in OPENERS }
         if (word.length == 1 && word[0].isLetter()) return true
         if (DOTTED.matches(word)) return true

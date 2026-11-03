@@ -348,6 +348,37 @@ class TextChunkerTest {
         )
     }
 
+    // #98: an abbreviation's period (SentenceGaps' rule) is no sentence
+    // boundary, so no piece ends there.
+
+    @Test
+    fun planDoesNotCutTheFirstPieceAtAnAbbreviation() {
+        val texts = listOf(
+            "See Fig. 3 for details. Then more.",
+            "Dr. Smith arrived. He sat down.",
+            "She joined the U.S. Army in 1990. Then more.",
+        )
+        assertEquals(
+            listOf(
+                listOf("See Fig. 3 for details.", "Then more."),
+                listOf("Dr. Smith arrived.", "He sat down."),
+                listOf("She joined the U.S. Army in 1990.", "Then more."),
+            ),
+            texts.map { t -> plan(t).map { it.text } },
+        )
+    }
+
+    @Test
+    fun planDoesNotCutALaterPieceAtAnAbbreviation() {
+        // Before #98 "Dr." topped the 89-token sentence over the merge floor,
+        // so "Smith arrived." started a piece of its own.
+        val long = clause(22, '.')
+        assertEquals(
+            listOf("Hi.", "$long Dr. Smith arrived."),
+            plan("Hi. $long Dr. Smith arrived.").map { it.text },
+        )
+    }
+
     @Test
     fun planSplitsHindiAtTheDanda() {
         // Before #62 a Hindi paragraph had no sentence boundary: the whole

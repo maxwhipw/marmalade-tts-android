@@ -1,5 +1,7 @@
 package app.marmalade.tts.audio
 
+import app.marmalade.tts.engine.SentenceGaps
+
 // -----------------------------------------------------------------------------
 // Text chunker for TTS pipelines.
 //
@@ -243,7 +245,9 @@ object TextChunker {
      *
      * 1. Paragraphs, then sentences: `.!?;:` + whitespace, newlines, the
      *    CJK marks 。！？；： (no whitespace needed) and the danda । ॥.
-     *    Commas never split here.
+     *    Commas never split here, nor an abbreviation's period followed by
+     *    more of the line ([SentenceGaps.isAbbreviation]: "Fig. 3",
+     *    "Dr. Smith", "the U.S. Army"; #98).
      * 2. Tiny sentences merge within a paragraph while the chunk is under
      *    [TokenBudget.mergeFloor] — but only while the result stays within
      *    the target (a 70-char + 95-char merge built a 240-token chunk that
@@ -280,7 +284,7 @@ object TextChunker {
         if (trimmed.isEmpty()) return emptyList()
         val out = ArrayList<TokenChunk>()
         for (paragraph in PARAGRAPH_BREAK.split(trimmed)) {
-            val sentences = TOKEN_PLAN_BOUNDARY.split(paragraph)
+            val sentences = tokenPlanSentences(paragraph)
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .map { TokenChunk(it, count(it)) }
@@ -330,6 +334,29 @@ object TextChunker {
 
     /** [planByTokens]' sentence boundary; see step 1 there. */
     private val TOKEN_PLAN_BOUNDARY = Regex("(?<=[.!?:;])\\s+|(?<=[。！？；：])|$DANDA_END|\\n+")
+
+    /**
+     * [paragraph] cut at [TOKEN_PLAN_BOUNDARY], except at spaces (no
+     * newline) after an abbreviation's period ([SentenceGaps.isAbbreviation]).
+     * Cutting there made a mid-sentence piece end that Kokoro voiced like a
+     * sentence's (#98). Only the abbreviation part of
+     * [SentenceGaps.isSentenceBreak]: its digit and lower-case rules would
+     * re-cut text that has no abbreviation in it.
+     */
+    private fun tokenPlanSentences(paragraph: String): List<String> {
+        val out = ArrayList<String>()
+        var start = 0
+        for (m in TOKEN_PLAN_BOUNDARY.findAll(paragraph)) {
+            val at = m.range.first
+            val after = m.range.last + 1
+            val sameLine = m.value.isNotEmpty() && m.value.none { it == '\n' }
+            if (sameLine && at > 0 && paragraph[at - 1] == '.' && SentenceGaps.isAbbreviation(paragraph.substring(start, at))) continue
+            out += paragraph.substring(start, at)
+            start = after
+        }
+        out += paragraph.substring(start)
+        return out
+    }
 
     /**
      * In-sentence cut points for an over-budget sentence. ASCII marks need
