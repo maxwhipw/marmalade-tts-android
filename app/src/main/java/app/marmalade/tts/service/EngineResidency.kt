@@ -41,8 +41,10 @@ import kotlinx.coroutines.sync.withLock
  * Thread model: [beginSynth] / [endSynth] / [select] are called from
  * arbitrary dispatchers (system-TTS binder threads, the Speak ViewModel,
  * the share-sheet service) and only touch in-memory state under a lock.
- * The eviction itself runs off those threads, serialized — `release()`
- * uses `runBlocking` internally, so it must never run on Dispatchers.Main.
+ * The one exception: [beginSynth] waits while its engine is mid-eviction
+ * (see [evicting]). The eviction itself runs off those threads,
+ * serialized — `release()` uses `runBlocking` internally, so it must never
+ * run on Dispatchers.Main.
  */
 @Singleton
 class EngineResidency internal constructor(
@@ -85,12 +87,24 @@ class EngineResidency internal constructor(
     private var selected: String? = null
 
     /**
+     * Engines a sweep has decided to release and is releasing now. Set in
+     * the same locked section as the idle decision, so a synthesis can't
+     * slip in between "idle" and `release()` (#119 CORRECT-13): PocketEngine
+     * aborts a running synthesis on release. [beginSynth] waits until the
+     * engine leaves this set, then reloads it.
+     */
+    private val evicting = HashSet<String>()
+
+    /**
      * A synthesis is starting on [engineName]. Marks the engine active and
      * sweeps — a new synthesis is exactly the moment the *other* engines
      * became least likely to be needed.
      */
     override fun beginSynth(engineName: String) {
         synchronized(stateLock) {
+            // As long as that release takes: closing the engine's sessions,
+            // after any warmup or benchmark holding its locks.
+            while (engineName in evicting) (stateLock as Object).wait()
             inFlight[engineName] = (inFlight[engineName] ?: 0) + 1
             lastActivated[engineName] = clock()
         }
@@ -140,16 +154,26 @@ class EngineResidency internal constructor(
                 // in-flight synthesis, so a stale "idle" reading would cut a
                 // live utterance off mid-word.
                 if ((inFlight[name] ?: 0) > 0) return@synchronized null
-                val last = lastActivated[name] ?: return@synchronized Long.MAX_VALUE
-                now - last
+                val last = lastActivated[name]
+                val idle = if (last == null) Long.MAX_VALUE else now - last
+                if (idle <= idleTimeoutMs) return@synchronized null
+                evicting += name
+                idle
             } ?: continue
-            if (idleMs <= idleTimeoutMs) continue
             val why = if (idleMs == Long.MAX_VALUE) "never activated" else "idle ${idleMs / 1000}s"
             Log.i(TAG, "evicting $name: $why, selected=$selected")
-            // Idempotent on an unloaded engine (two uncontended mutexes, then
-            // a no-op), so an engine this process never touched costs nothing.
-            runCatching { release() }
-                .onFailure { Log.w(TAG, "release($name) failed: ${it.message}") }
+            try {
+                // Idempotent on an unloaded engine (two uncontended mutexes,
+                // then a no-op), so an engine this process never touched
+                // costs nothing.
+                runCatching { release() }
+                    .onFailure { Log.w(TAG, "release($name) failed: ${it.message}") }
+            } finally {
+                synchronized(stateLock) {
+                    evicting -= name
+                    (stateLock as Object).notifyAll()
+                }
+            }
         }
     }
 

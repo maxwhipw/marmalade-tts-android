@@ -13,12 +13,23 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -80,7 +91,12 @@ private class FakeHttp(private val response: () -> InputStream) : CloudSpeechHtt
     var lastKey: String? = null
     var lastJson: String? = null
     val allJson = mutableListOf<String>()
-    override fun post(url: String, apiKey: String, json: String): InputStream {
+    override fun post(
+        url: String,
+        apiKey: String,
+        json: String,
+        onAbort: (() -> Unit) -> Unit,
+    ): InputStream {
         lastUrl = url
         lastKey = apiKey
         lastJson = json
@@ -418,6 +434,43 @@ class CloudApiEngineTest {
         assertEquals("\\u0001", CloudApiEngine.escapeJson("\u0001"))
         assertEquals("back\\\\slash", CloudApiEngine.escapeJson("back\\slash"))
     }
+
+    // ── #120 CORRECT-2: a stop must abort the HTTP request ──────────────
+
+    @Test
+    fun `a stop aborts a request whose server has not answered yet`() =
+        assertStopIsPrompt(StallingServer(sendPartialBody = false))
+
+    @Test
+    fun `a stop aborts a response body that stalls mid-stream`() =
+        assertStopIsPrompt(StallingServer(sendPartialBody = true))
+
+    /**
+     * Cancels a collection blocked on [server] and asserts the collector's
+     * job ends promptly. The system-TTS service's runBlocking can't return
+     * until it does, so before the fix the next utterance waited out the
+     * 60 s read timeout.
+     */
+    private fun assertStopIsPrompt(server: StallingServer) = runBlocking {
+        server.use {
+            val local = VENICE.copy(baseUrl = server.baseUrl)
+            val engine = CloudApiEngine(
+                FakeKeySettings("venice" to "test-key"),
+                { id -> local.takeIf { id == "venice" } },
+                UrlCloudSpeechHttp(),
+                REJECTING_DECODER,
+            )
+            val job = launch(Dispatchers.Default) {
+                engine.synthesizeStream("hello there", voiceId, 1f).collect {}
+            }
+            assertTrue("request never reached the server", server.stalled.await(5, TimeUnit.SECONDS))
+            // Let the client settle into its blocking read.
+            delay(200)
+            job.cancel()
+            val stopped = withTimeoutOrNull(2_000) { job.join() } != null
+            assertTrue("stop waited on the stalled HTTP read", stopped)
+        }
+    }
 }
 
 class CloudApiVoiceCatalogTest {
@@ -471,3 +524,49 @@ class CloudApiVoiceCatalogTest {
         assertEquals(24_000, CloudApiVoiceCatalog.voiceMeta(VENICE, kokoro, "af_heart").sampleRate)
     }
 }
+
+/**
+ * One-connection HTTP server on loopback that reads the request and then
+ * stalls: before the status line, or after the headers and the start of a
+ * WAV body. [close] drops the socket, which also frees a client a test
+ * failed to abort.
+ */
+private class StallingServer(private val sendPartialBody: Boolean) : AutoCloseable {
+    private val server = ServerSocket(0, 1, InetAddress.getLoopbackAddress())
+    val baseUrl = "http://127.0.0.1:${server.localPort}/api/v1"
+    val stalled = CountDownLatch(1)
+    @Volatile private var client: Socket? = null
+
+    private val acceptor = thread(isDaemon = true) {
+        runCatching {
+            val socket = server.accept().also { client = it }
+            val input = socket.getInputStream().bufferedReader(Charsets.ISO_8859_1)
+            var contentLength = 0
+            while (true) {
+                val line = input.readLine() ?: return@runCatching
+                if (line.isEmpty()) break
+                if (line.startsWith("Content-Length:", ignoreCase = true)) {
+                    contentLength = line.substringAfter(':').trim().toInt()
+                }
+            }
+            repeat(contentLength) { input.read() }
+            if (sendPartialBody) {
+                val out = socket.getOutputStream()
+                out.write(
+                    "HTTP/1.1 200 OK\r\nContent-Type: audio/wav\r\n\r\n"
+                        .toByteArray(Charsets.ISO_8859_1),
+                )
+                out.write(wavBytes(ShortArray(100)))
+                out.flush()
+            }
+            stalled.countDown()
+        }
+    }
+
+    override fun close() {
+        runCatching { client?.close() }
+        server.close()
+        acceptor.join(1_000)
+    }
+}
+

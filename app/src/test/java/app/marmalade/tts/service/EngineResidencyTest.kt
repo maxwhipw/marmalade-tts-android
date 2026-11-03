@@ -1,8 +1,14 @@
 package app.marmalade.tts.service
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -131,5 +137,60 @@ class EngineResidencyTest {
         r.select(kitten)
         r.sweepNow()
         assertEquals(listOf(kokoro, pocket), released.names)
+    }
+
+    /**
+     * #119 CORRECT-13: the sweep decided Pocket was idle under the lock, then
+     * released it after letting go. A synthesis starting in that gap ran
+     * while the release was still going, and PocketEngine.release() aborts
+     * a running synthesis. beginSynth must wait until the release is over,
+     * so the synthesis starts on a released engine and reloads it.
+     */
+    @Test
+    fun `a synthesis starting during an eviction waits for the release to finish`() {
+        val releaseEntered = CountDownLatch(1)
+        val releaseMayFinish = CountDownLatch(1)
+        val r = EngineResidency(
+            releasers = linkedMapOf<String, () -> Unit>(
+                pocket to {
+                    releaseEntered.countDown()
+                    releaseMayFinish.await()
+                },
+            ),
+            keepaliveMode = { KeepaliveMode.Smart },
+            clock = { now },
+            idleTimeoutMs = SMART_TIMEOUT_MS,
+            // Not part of this test: beginSynth's own fire-and-forget sweep.
+            scope = CoroutineScope(kotlinx.coroutines.Job().apply { cancel() }),
+        )
+        val sweeper = thread { runBlocking { r.sweepNow() } }
+        assertTrue("release never started", releaseEntered.await(5, TimeUnit.SECONDS))
+
+        val synthStarted = CountDownLatch(1)
+        val synth = thread {
+            r.beginSynth(pocket)
+            synthStarted.countDown()
+        }
+        assertFalse(
+            "beginSynth returned while Pocket was still being released",
+            synthStarted.await(300, TimeUnit.MILLISECONDS),
+        )
+
+        releaseMayFinish.countDown()
+        assertTrue("beginSynth never returned", synthStarted.await(5, TimeUnit.SECONDS))
+        sweeper.join(5_000)
+        synth.join(5_000)
+    }
+
+    @Test
+    fun `an engine in use when the sweep reaches it is not released`() {
+        // The other side of the same race: a synthesis that begins before the
+        // sweep's decision keeps the engine, even past the idle window.
+        val released = Releases()
+        val r = residency(released, CoroutineScope(kotlinx.coroutines.Job().apply { cancel() }))
+        now += SMART_TIMEOUT_MS + 1
+        r.beginSynth(pocket)
+        runBlocking { r.sweepNow() }
+        assertEquals(listOf(kokoro, kitten), released.names)
     }
 }

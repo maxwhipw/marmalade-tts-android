@@ -489,15 +489,25 @@ object PreprocessingRules {
     // (#121). A digit right before the "#" ("q=1#f") gets a space: the "#"
     // gave it the word boundary the number rule needs, and a letter glued
     // onto it would leave the digit unspoken.
+    //
+    // A "#" glued onto a letter is neither (#125): "abc#def" stays as
+    // written, except a note letter standing alone, which reads "sharp":
+    // "C#7" → "C sharp 7", "F#m" → "F sharp m", "I write C#" → "C sharp".
 
-    private val hashtagRegex = Regex("#(\\w+)")
-    private fun expandHashtag(text: String): String =
-        hashtagRegex.replace(text) { m ->
+    private val sharpRegex = Regex("(?<!\\w)([A-G])#")
+    private val hashtagRegex = Regex("(?<!\\p{L})#(\\w+)")
+    private fun expandHashtag(text: String): String {
+        val sharp = sharpRegex.replace(text) { m ->
+            val glued = text.getOrNull(m.range.last + 1)?.isLetterOrDigit() == true
+            "${m.groupValues[1]} sharp" + if (glued) " " else ""
+        }
+        return hashtagRegex.replace(sharp) { m ->
             val body = m.groupValues[1]
             val word = if (body.all { it.isDigit() }) "number $body" else "hashtag $body"
             val start = m.range.first
-            if (start > 0 && text[start - 1].isDigit()) " $word" else word
+            if (start > 0 && sharp[start - 1].isDigit()) " $word" else word
         }
+    }
 
     // -- HTML rule ------------------------------------------------------------
     //
@@ -507,7 +517,8 @@ object PreprocessingRules {
     // angle brackets up to ">" (attributes may wrap lines); a comment is
     // <!-- … -->.
     // "<[^>]+>" ate the prose between any "<" and the next ">" ("I <3 you
-    // -> me", "x < 5 and y > 3"; #121). The CLI still has the old pattern.
+    // -> me", "x < 5 and y > 3"; #121). The CLI's HTML_TAG is the same
+    // pattern (marmalade-tts-cli #46).
 
     private val htmlTagRegex = Regex("<!--[\\s\\S]*?-->|<[/!?]?[A-Za-z][^<>]*>")
     private val HTML_ENTITIES: Map<String, String> = mapOf(
@@ -520,6 +531,14 @@ object PreprocessingRules {
     )
     private val numericEntityRegex = Regex("&#(\\d+);")
     private val hexEntityRegex = Regex("&#x([0-9a-fA-F]+);")
+
+    // "<3" (or "<33") standing alone is a heart, read "heart". The html
+    // rule is where it stopped being eaten as a tag (#121), and where
+    // "&lt;3" becomes "<3". Left alone, the number rule made it "<three".
+    // Spaced ("x < 3") and glued ("x<3") comparisons don't match, nor does
+    // "<" before a number ("<3%", "<3.5", "<3,000"). The CLI still reads
+    // "<three".
+    private val heartRegex = Regex("(?<![^\\s(\\[\"'‘“])<3+(?=$|\\s|[.,!?;:)\\]\"'’”](?!\\w))")
 
     private fun stripHtml(text: String): String {
         // Tag-strip first (kills real tags), THEN entity-decode so literal
@@ -542,7 +561,7 @@ object PreprocessingRules {
                 String(Character.toChars(cp))
             } else m.value
         }
-        return out
+        return heartRegex.replace(out, "heart")
     }
 
     // -- Markdown rule --------------------------------------------------------

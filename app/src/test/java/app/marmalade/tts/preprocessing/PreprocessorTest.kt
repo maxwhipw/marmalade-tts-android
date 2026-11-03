@@ -449,7 +449,7 @@ class PreprocessorTest {
     fun html_leavesAngleBracketsThatAreNoTag() {
         // #121 CORRECT-9: the tag rule ate everything from a "<" to the next
         // ">", whatever lay between.
-        assertEquals("I <3 you. Later -> go", only("html", "I <3 you. Later -> go"))
+        assertEquals("I heart you. Later -> go", only("html", "I <3 you. Later -> go"))
         assertEquals("if x < 5 and y > 3", only("html", "if x < 5 and y > 3"))
         assertEquals("a <\nb> c", only("html", "a <\nb> c"))
     }
@@ -576,6 +576,47 @@ class PreprocessorTest {
     @Test
     fun hashtag_word() {
         assertEquals("hashtag hello", only("hashtag", "#hello"))
+    }
+
+    @Test
+    fun hashtag_noteLetterReadsSharp() {
+        // #125: "C#7" read "Cnumber 7". A note letter standing alone before
+        // "#" is a chord or the C#/F# languages: both say "sharp".
+        val rules = setOf("number", "hashtag")
+        assertEquals("C sharp seven", preprocessor.apply("C#7", rules))
+        assertEquals("F sharp m", preprocessor.apply("F#m", rules))
+        assertEquals("I write C sharp", preprocessor.apply("I write C#", rules))
+        assertEquals("F sharp seven", preprocessor.apply("F# 7", rules))
+        assertEquals("Play C sharp seven, then G.", kitten("Play C#7, then G."))
+    }
+
+    @Test
+    fun hashtag_notAfterALetter() {
+        // #125: a "#" glued onto a word is no hashtag or number sign.
+        assertEquals("abc#def", only("hashtag", "abc#def"))
+        assertEquals("x#1", only("hashtag", "x#1"))
+        // H is no note letter, so it stays as written too.
+        assertEquals("H#7", only("hashtag", "H#7"))
+    }
+
+    @Test
+    fun html_heartEmoticonReadsHeart() {
+        // "<3" left the html rule intact (#121) and the number rule then
+        // read "<three". Standing alone it is a heart.
+        assertEquals("I heart you.", kitten("I <3 you."))
+        assertEquals("heart heart!", only("html", "<3 <333!"))
+        assertEquals("I heart you", only("html", "I &lt;3 you"))
+        // Comparisons stay comparisons.
+        assertEquals("x less than three.", kitten("x < 3"))
+        assertEquals("x<3", only("html", "x<3"))
+        assertEquals("a <3b", only("html", "a <3b"))
+        assertEquals("inflation <3% now", only("html", "inflation <3% now"))
+        assertEquals("files <3.5 GB", only("html", "files <3.5 GB"))
+        assertEquals("<3,000 users", only("html", "<3,000 users"))
+        assertEquals("<3-5 days", only("html", "<3-5 days"))
+        assertEquals("(heart), heart", only("html", "(<3), <3"))
+        // Accepted: shorthand without a space after "<" reads as a heart.
+        assertEquals("n heart items", only("html", "n <3 items"))
     }
 
     // ── composition ─────────────────────────────────────────────────

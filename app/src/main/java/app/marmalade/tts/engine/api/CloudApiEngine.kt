@@ -13,14 +13,20 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -157,11 +163,49 @@ class CloudApiEngine @Inject constructor(
         // request start while the previous chunk's audio is still playing.
         for (chunk in requestChunks(text)) {
             val body = requestJson(chunk, ref.modelId, ref.voice, speed)
-            http.post("$baseUrl/audio/speech", key, body).use { rawStream ->
-                emitResponse(rawStream, expectedRate, ref.modelId)
+            abortOnCancel { onAbort ->
+                http.post("$baseUrl/audio/speech", key, body, onAbort).use { rawStream ->
+                    emitResponse(rawStream, expectedRate, ref.modelId)
+                }
             }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Runs one request so that a cancel (a system-TTS stop) aborts it.
+     * Coroutine cancellation can't interrupt HttpURLConnection's blocking
+     * I/O, and the service's `runBlocking` can't return until this
+     * producer does, so before this the next utterance waited out the
+     * response or the 60 s read timeout (#120 CORRECT-2). [block] hands its
+     * abort action to `onAbort`; a sibling coroutine runs it on cancel, and
+     * the blocked call then throws. That IOException is reported as the
+     * cancellation it is, not as a synthesis failure.
+     */
+    private suspend fun abortOnCancel(block: suspend (onAbort: (() -> Unit) -> Unit) -> Unit) =
+        coroutineScope {
+            val abort = AtomicReference<(() -> Unit)?>()
+            val watcher = launch(start = CoroutineStart.UNDISPATCHED) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    abort.getAndSet(null)?.invoke()
+                }
+            }
+            try {
+                block { action ->
+                    abort.set(action)
+                    // Cancelled before the request registered: don't start it.
+                    ensureActive()
+                }
+            } catch (e: IOException) {
+                ensureActive()
+                throw e
+            } finally {
+                // Done normally: the watcher must not abort a finished request.
+                abort.set(null)
+                watcher.cancel()
+            }
+        }
 
     /**
      * [text] as provider requests: the whole text when it fits
@@ -414,11 +458,15 @@ fun interface CloudSpeechHttp {
      * POST [json] to [url] with `Authorization: Bearer` [apiKey]; return
      * the (streaming) response body.
      *
+     * Before any blocking I/O, hand [onAbort] an action that, called from
+     * another thread, makes the blocked call (this one, or a read of the
+     * returned stream) throw an IOException. A stop uses it.
+     *
      * @throws IOException on connection failure or a non-2xx status —
      *         the message carries the HTTP code and a fixed explanation,
      *         never the provider's response body. See [explainStatus].
      */
-    fun post(url: String, apiKey: String, json: String): InputStream
+    fun post(url: String, apiKey: String, json: String, onAbort: (() -> Unit) -> Unit): InputStream
 }
 
 /**
@@ -445,7 +493,12 @@ internal fun explainStatus(code: Int): String = when (code) {
 
 /** Production [CloudSpeechHttp] on HttpURLConnection (no extra deps). */
 class UrlCloudSpeechHttp @Inject constructor() : CloudSpeechHttp {
-    override fun post(url: String, apiKey: String, json: String): InputStream {
+    override fun post(
+        url: String,
+        apiKey: String,
+        json: String,
+        onAbort: (() -> Unit) -> Unit,
+    ): InputStream {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
@@ -454,8 +507,16 @@ class UrlCloudSpeechHttp @Inject constructor() : CloudSpeechHttp {
             setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
         }
-        conn.outputStream.use { it.write(json.toByteArray()) }
-        val code = conn.responseCode
+        // disconnect() from another thread closes the socket under a
+        // blocked connect, write, responseCode or read.
+        onAbort(conn::disconnect)
+        val code = try {
+            conn.outputStream.use { it.write(json.toByteArray()) }
+            conn.responseCode
+        } catch (e: IOException) {
+            conn.disconnect()
+            throw e
+        }
         if (code !in 200..299) {
             // Drain and drop the error body rather than reading it: the
             // connection is being torn down anyway, and the body is the
