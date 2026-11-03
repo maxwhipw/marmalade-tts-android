@@ -121,4 +121,29 @@
     <string name="effects_value_bits">%1$.0f 位</string>
     <string name="effects_value_times">%1$d×</string>
     <string name="effects_preview_text">春风吹过山谷，带来远方的花香。</string>
+    <!-- Built-in effect names, keyed by BuiltinEffects id (BuiltinEffects.nameRes) -->
+    <string name="effects_preset_cave">洞穴</string>
+    <string name="effects_preset_chipmunk">花栗鼠</string>
+    <string name="effects_preset_deep">低沉</string>
+    <string name="effects_preset_telephone">电话</string>
+    <string name="effects_preset_stadium">体育场</string>
+    <string name="effects_preset_megaphone">扩音器</string>
+    <string name="effects_preset_broadcaster">播音员</string>
+    <string name="effects_preset_podcast">播客</string>
+    <string name="effects_preset_trailer">预告片</string>
+    <string name="effects_preset_audiobook">有声书</string>
+    <string name="effects_preset_walkie_talkie">对讲机</string>
+    <string name="effects_preset_vintage_radio">复古收音机</string>
+    <string name="effects_preset_intercom">内部通话</string>
+    <string name="effects_preset_underwater">水下</string>
+    <string name="effects_preset_ai">AI</string>
+    <string name="effects_preset_ethereal">空灵</string>
+    <string name="effects_preset_dragon">龙</string>
+    <string name="effects_preset_cyborg">赛博格</string>
+    <string name="effects_preset_eight_bit">8 位</string>
+    <string name="effects_preset_glitch">故障</string>
+    <string name="effects_preset_monotone_female">单调女声</string>
+    <string name="effects_preset_monotone_male">单调男声</string>
+    <!-- Pre-filled name of a duplicated effect -->
+    <string name="effects_copy_name">%1$s 副本</string>
 </resources>

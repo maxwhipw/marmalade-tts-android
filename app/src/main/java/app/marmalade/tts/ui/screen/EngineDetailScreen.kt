@@ -41,7 +41,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +63,7 @@ import app.marmalade.tts.install.EngineDescriptor
 import app.marmalade.tts.install.InstallState
 import app.marmalade.tts.install.VoicePack
 import app.marmalade.tts.install.VoicePackAction
+import app.marmalade.tts.install.VoicePackCatalog
 import app.marmalade.tts.install.VoicePackLanguageGroup
 import app.marmalade.tts.install.VoicePackRow
 import app.marmalade.tts.install.VoicePackSummary
@@ -145,8 +146,11 @@ fun EngineDetailScreen(
     val packGroups by viewModel.packGroups.collectAsStateWithLifecycle()
     val packSummary by viewModel.packSummary.collectAsStateWithLifecycle()
 
-    /** The pack whose removal is waiting on the confirm dialog. */
-    var pendingPackUninstall by remember { mutableStateOf<VoicePack?>(null) }
+    /**
+     * The pack whose removal is waiting on the confirm dialog. By id, so the
+     * dialog survives rotation and other config changes (#118 UI-13).
+     */
+    var pendingPackUninstallId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Re-probe the packs each time the screen becomes the active destination,
     // so a pack installed here, then removed from Android's own app-storage
@@ -163,7 +167,7 @@ fun EngineDetailScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(descriptor?.displayName ?: engineName)
+                    Text(descriptor?.displayName ?: engineName, modifier = Modifier.semantics { heading() })
                 },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
@@ -203,7 +207,7 @@ fun EngineDetailScreen(
                     groups = packGroups,
                     summary = packSummary,
                     onInstall = viewModel::installPack,
-                    onUninstall = { pendingPackUninstall = it },
+                    onUninstall = { pendingPackUninstallId = it.id },
                     onRemoveDownload = viewModel::removePackDownload,
                 )
 
@@ -238,14 +242,14 @@ fun EngineDetailScreen(
         }
     }
 
-    pendingPackUninstall?.let { pack ->
+    pendingPackUninstallId?.let(VoicePackCatalog::byId)?.let { pack ->
         PackUninstallConfirmDialog(
             pack = pack,
             onConfirm = {
                 viewModel.uninstallPack(pack.id)
-                pendingPackUninstall = null
+                pendingPackUninstallId = null
             },
-            onDismiss = { pendingPackUninstall = null },
+            onDismiss = { pendingPackUninstallId = null },
         )
     }
 }

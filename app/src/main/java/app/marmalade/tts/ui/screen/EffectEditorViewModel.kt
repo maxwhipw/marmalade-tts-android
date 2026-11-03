@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -10,7 +11,9 @@ import app.marmalade.tts.audio.EffectBlockJson
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
+import app.marmalade.tts.ui.components.effectDisplayName
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,7 @@ import kotlinx.coroutines.launch
 //     ├── reads nav args from SavedStateHandle:
 //     │     editId  → load that custom effect, write back to the SAME id (edit)
 //     │     dupeId  → load that effect's blocks, mint a NEW id, name "<n> copy"
+//     │               (localized, with a built-in's localized name)
 //     │     (neither) → blank create
 //     │
 //     └── state: EffectEditorState(name, blocks, isEdit, …) ──► EffectEditorScreen
@@ -76,6 +80,7 @@ class EffectEditorViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val synthesizer: app.marmalade.tts.audio.SpeechPlayer,
     savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     private val editId: String? = savedStateHandle[ARG_EDIT_ID]
@@ -118,7 +123,12 @@ class EffectEditorViewModel @Inject constructor(
                 dupeId != null -> {
                     val source = effectDao.findById(dupeId)
                     _state.value = EffectEditorState(
-                        name = source?.let { "${it.name} copy" } ?: "",
+                        name = source?.let {
+                            appContext.getString(
+                                R.string.effects_copy_name,
+                                effectDisplayName(appContext.resources, it.id, it.name),
+                            )
+                        } ?: "",
                         blocks = source?.let { decode(it.blocksJson) } ?: emptyList(),
                         isEdit = false,
                         loaded = true,

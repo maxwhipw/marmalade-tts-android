@@ -66,7 +66,12 @@ fun AdvancedSettingsScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_advanced)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_advanced),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

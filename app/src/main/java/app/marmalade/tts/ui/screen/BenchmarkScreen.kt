@@ -101,7 +101,7 @@ fun BenchmarkScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.bench_title)) },
+                title = { Text(stringResource(R.string.bench_title), modifier = Modifier.semantics { heading() }) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.engines_back))

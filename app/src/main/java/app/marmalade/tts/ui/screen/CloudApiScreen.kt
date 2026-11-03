@@ -32,11 +32,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -93,7 +95,8 @@ fun CloudApiContent(
     val errors by viewModel.errors.collectAsStateWithLifecycle()
     val disclaimerAccepted by viewModel.disclaimerAccepted.collectAsStateWithLifecycle()
 
-    var keyDialogFor by remember { mutableStateOf<CloudProvider?>(null) }
+    // By id, so the dialog survives rotation and other config changes (#118 UI-13).
+    var keyDialogForId by rememberSaveable { mutableStateOf<String?>(null) }
 
     when (disclaimerAccepted) {
         // Still reading DataStore — render nothing rather than guess.
@@ -125,19 +128,19 @@ fun CloudApiContent(
                     voiceCount = voiceCounts[provider.id] ?: 0,
                     busy = provider.id in busyIds,
                     error = errors[provider.id],
-                    onSetKey = { keyDialogFor = provider },
+                    onSetKey = { keyDialogForId = provider.id },
                     onRefreshVoices = { viewModel.refreshVoices(provider) },
                 )
             }
         }
     }
 
-    keyDialogFor?.let { provider ->
+    providers.firstOrNull { it.id == keyDialogForId }?.let { provider ->
         ProviderKeyDialog(
             provider = provider,
             keySet = provider.id in keyedIds,
             onSave = { viewModel.setKey(provider, it) },
-            onDismiss = { keyDialogFor = null },
+            onDismiss = { keyDialogForId = null },
         )
     }
 }
@@ -290,8 +293,12 @@ private fun ProviderCard(
             val modelSummary = provider.models.joinToString { it.displayName }
             Text(
                 text = when {
-                    keyed && voiceCount > 0 ->
-                        stringResource(R.string.engines_cloud_voice_summary, voiceCount, modelSummary)
+                    keyed && voiceCount > 0 -> pluralStringResource(
+                        R.plurals.engines_cloud_voice_summary,
+                        voiceCount,
+                        voiceCount,
+                        modelSummary,
+                    )
                     keyed -> stringResource(R.string.engines_cloud_syncing)
                     else -> stringResource(R.string.engines_cloud_key_hint, provider.keyHint)
                 },
@@ -365,8 +372,10 @@ private fun ProviderKeyDialog(
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // The draft key stays in plain remember on purpose: a secret doesn't go
+    // into the saved-instance-state Bundle, so a rotation clears the field.
     var draft by remember { mutableStateOf("") }
-    var shown by remember { mutableStateOf(false) }
+    var shown by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.engines_cloud_key_dialog_title, provider.displayName)) },

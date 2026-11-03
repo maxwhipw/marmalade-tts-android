@@ -64,7 +64,9 @@
     <string name="engines_cloud_disclaimer_agree">理解して同意する</string>
     <string name="engines_cloud_disclaimer_decline">今はしない</string>
 
-    <string name="engines_cloud_voice_summary">%1$d ボイス · %2$s</string>
+    <plurals name="engines_cloud_voice_summary">
+        <item quantity="other">%1$d ボイス · %2$s</item>
+    </plurals>
     <string name="engines_cloud_syncing">キーを設定しました — ボイスを同期中…</string>
     <string name="engines_cloud_key_hint">API キー: %1$s</string>
     <string name="engines_cloud_provider_moved">%1$s API が更新されました。引き続き使うにはアプリをアップデートしてください。</string>

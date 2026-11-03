@@ -121,4 +121,29 @@
     <string name="effects_value_bits">%1$.0f-बिट</string>
     <string name="effects_value_times">%1$d×</string>
     <string name="effects_preview_text">ऋषि के छोटे भाई ने ढेर सारे अंगूर खाकर ज़ोर से डकार ली।</string>
+    <!-- Built-in effect names, keyed by BuiltinEffects id (BuiltinEffects.nameRes) -->
+    <string name="effects_preset_cave">गुफ़ा</string>
+    <string name="effects_preset_chipmunk">चिपमंक</string>
+    <string name="effects_preset_deep">भारी</string>
+    <string name="effects_preset_telephone">टेलीफ़ोन</string>
+    <string name="effects_preset_stadium">स्टेडियम</string>
+    <string name="effects_preset_megaphone">मेगाफ़ोन</string>
+    <string name="effects_preset_broadcaster">उद्घोषक</string>
+    <string name="effects_preset_podcast">पॉडकास्ट</string>
+    <string name="effects_preset_trailer">ट्रेलर</string>
+    <string name="effects_preset_audiobook">ऑडियोबुक</string>
+    <string name="effects_preset_walkie_talkie">वॉकी-टॉकी</string>
+    <string name="effects_preset_vintage_radio">पुराना रेडियो</string>
+    <string name="effects_preset_intercom">इंटरकॉम</string>
+    <string name="effects_preset_underwater">पानी के अंदर</string>
+    <string name="effects_preset_ai">AI</string>
+    <string name="effects_preset_ethereal">अलौकिक</string>
+    <string name="effects_preset_dragon">ड्रैगन</string>
+    <string name="effects_preset_cyborg">साइबोर्ग</string>
+    <string name="effects_preset_eight_bit">8-बिट</string>
+    <string name="effects_preset_glitch">ग्लिच</string>
+    <string name="effects_preset_monotone_female">मोनोटोन महिला</string>
+    <string name="effects_preset_monotone_male">मोनोटोन पुरुष</string>
+    <!-- Pre-filled name of a duplicated effect -->
+    <string name="effects_copy_name">%1$s (कॉपी)</string>
 </resources>

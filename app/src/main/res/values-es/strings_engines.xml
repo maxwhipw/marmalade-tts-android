@@ -64,7 +64,11 @@
     <string name="engines_cloud_disclaimer_agree">Lo entiendo y acepto</string>
     <string name="engines_cloud_disclaimer_decline">Ahora no</string>
 
-    <string name="engines_cloud_voice_summary">%1$d voces · %2$s</string>
+    <plurals name="engines_cloud_voice_summary">
+        <item quantity="one">%1$d voz · %2$s</item>
+        <item quantity="many">%1$d de voces · %2$s</item>
+        <item quantity="other">%1$d voces · %2$s</item>
+    </plurals>
     <string name="engines_cloud_syncing">Clave configurada: sincronizando voces…</string>
     <string name="engines_cloud_key_hint">Clave de API: %1$s</string>
     <string name="engines_cloud_provider_moved">La API de %1$s se ha actualizado. Actualiza la app para seguir usándola.</string>

@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.screen
 
+import android.content.res.Resources
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,9 +49,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,6 +63,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.ui.components.MarmaladeCard
+import app.marmalade.tts.ui.components.effectDisplayName
+import app.marmalade.tts.ui.components.effectDisplayOrder
 import app.marmalade.tts.ui.theme.depth
 
 // -----------------------------------------------------------------------------
@@ -79,9 +87,8 @@ import app.marmalade.tts.ui.theme.depth
 // -----------------------------------------------------------------------------
 
 /**
- * The effects catalog — the seeded CLI presets (Cave, Robot, Telephone,
- * Chipmunk, Deep, Whisper, Stadium, Megaphone, Slow deep, Fast high) plus any
- * user-created effects, shown as cards. Mirrors the Engines screen idiom.
+ * The effects catalog — the seeded built-ins ([app.marmalade.tts.data.BuiltinEffects])
+ * plus any user-created effects, shown as cards. Mirrors the Engines screen idiom.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,15 +99,23 @@ fun EffectsScreen(
     onDuplicate: (String) -> Unit,
     viewModel: EffectsViewModel = hiltViewModel(),
 ) {
-    val effects by viewModel.effects.collectAsStateWithLifecycle()
+    val stored by viewModel.effects.collectAsStateWithLifecycle()
+    val resources = LocalContext.current.resources
+    val locale = LocalConfiguration.current.locales[0]
+    val effects = remember(stored, locale) {
+        effectDisplayOrder(stored, locale, EffectCard::isBuiltin) {
+            effectDisplayName(resources, it.id, it.name)
+        }
+    }
     val preview by viewModel.preview.collectAsStateWithLifecycle()
-    var pendingDelete by remember { mutableStateOf<EffectCard?>(null) }
+    // By id, so the confirm survives rotation and other config changes (#118 UI-13).
+    var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.effects_title)) },
+                title = { Text(stringResource(R.string.effects_title), modifier = Modifier.semantics { heading() }) },
                 windowInsets = WindowInsets(0),
             )
         },
@@ -142,22 +157,24 @@ fun EffectsScreen(
                     onStop = viewModel::stopPreview,
                     onEdit = { onEdit(card.id) },
                     onDuplicate = { onDuplicate(card.id) },
-                    onDelete = { pendingDelete = card },
+                    onDelete = { pendingDeleteId = card.id },
                 )
             }
         }
     }
 
-    pendingDelete?.let { card ->
+    effects.firstOrNull { it.id == pendingDeleteId }?.let { card ->
         AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.effects_delete_title, card.name)) },
+            onDismissRequest = { pendingDeleteId = null },
+            title = {
+                Text(stringResource(R.string.effects_delete_title, effectDisplayName(card.id, card.name)))
+            },
             text = { Text(stringResource(R.string.effects_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.delete(card.id)
-                        pendingDelete = null
+                        pendingDeleteId = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
@@ -166,7 +183,7 @@ fun EffectsScreen(
                 ) { Text(stringResource(R.string.effects_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
+                TextButton(onClick = { pendingDeleteId = null }) {
                     Text(stringResource(R.string.effects_cancel))
                 }
             },
@@ -198,11 +215,12 @@ private fun EffectCardItem(
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val name = effectDisplayName(card.id, card.name)
     MarmaladeCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = card.name,
+                    text = name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
@@ -231,10 +249,12 @@ private fun EffectCardItem(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (card.chain.isEmpty()) {
-                    BlockChip(stringResource(R.string.effects_chip_none))
+                    val none = stringResource(R.string.effects_chip_none)
+                    BlockChip(none, none)
                 } else {
+                    val resources = LocalContext.current.resources
                     for (block in card.chain) {
-                        BlockChip(blockChipLabel(block))
+                        BlockChip(blockChipLabel(block), blockSpokenLabel(resources, block))
                     }
                 }
             }
@@ -258,7 +278,7 @@ private fun EffectCardItem(
                             } else {
                                 R.string.effects_preview_card
                             },
-                            card.name,
+                            name,
                         ),
                     )
                 }
@@ -268,7 +288,7 @@ private fun EffectCardItem(
                             Icons.Filled.Edit,
                             contentDescription = stringResource(
                                 R.string.effects_edit_card,
-                                card.name,
+                                name,
                             ),
                         )
                     }
@@ -278,7 +298,7 @@ private fun EffectCardItem(
                         ContentCopyIcon,
                         contentDescription = stringResource(
                             R.string.effects_duplicate_card,
-                            card.name,
+                            name,
                         ),
                     )
                 }
@@ -288,7 +308,7 @@ private fun EffectCardItem(
                             Icons.Filled.Delete,
                             contentDescription = stringResource(
                                 R.string.effects_delete_card,
-                                card.name,
+                                name,
                             ),
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -306,11 +326,6 @@ private fun EffectCardItem(
     }
 }
 
-// Outlined chip to match the Engines screen idiom (border, no fill), but tinted
-// with the theme accent (`primary`) so the blocks keep an orange identity and
-// read as the card's primary content — distinct from the muted, gray "Built-in"
-// AssistChip tag. `primary` is theme-aware, so the chips track the user's chosen
-// accent (orange by default, blue under Midnight, etc.).
 /**
  * Material "stop" glyph — a filled square. Hand-built for the same reason as
  * [ContentCopyIcon]: core has no stop icon and the extended set is multi-MB.
@@ -424,9 +439,60 @@ private fun blockChipLabel(block: EffectBlock): String = when (block) {
     is EffectBlock.Monotone -> stringResource(R.string.effects_chip_monotone, block.targetHz.toInt())
 }
 
+/**
+ * What TalkBack reads for a block's chip (#118 UI-17): the block's full name
+ * and its values with spoken units, from the editor's own strings, e.g.
+ * "Low-pass, 3446 Hz" for the chip "LP 3446Hz". The chip's short labels
+ * ("LP", "Comp", "Crush") are spelled out letter by letter otherwise.
+ */
+internal fun blockSpokenLabel(resources: Resources, block: EffectBlock): String {
+    fun s(id: Int, vararg args: Any): String = resources.getString(id, *args)
+    val values: List<String> = when (block) {
+        is EffectBlock.Reverb -> listOf(s(R.string.effects_value_plain0, block.reverberance))
+        is EffectBlock.Echo -> emptyList()
+        is EffectBlock.Overdrive -> listOf(s(R.string.effects_value_db, block.gainDb))
+        is EffectBlock.Pitch -> listOf(s(R.string.effects_value_cents, signedRounded(block.cents)))
+        is EffectBlock.Tempo -> listOf(s(R.string.effects_value_multiplier, block.factor))
+        is EffectBlock.Bandpass -> listOf(
+            s(R.string.effects_value_hz0, block.lowHz),
+            s(R.string.effects_value_hz0, block.highHz),
+        )
+        is EffectBlock.Vol -> listOf(s(R.string.effects_value_multiplier, block.factor))
+        is EffectBlock.Treble -> listOf(s(R.string.effects_value_db_signed, signedRounded(block.db)))
+        is EffectBlock.Bass -> listOf(s(R.string.effects_value_db_signed, signedRounded(block.db)))
+        is EffectBlock.Mid -> listOf(
+            s(R.string.effects_value_hz0, block.freqHz),
+            s(R.string.effects_value_db_signed, signedRounded(block.gainDb)),
+        )
+        is EffectBlock.Lowpass -> listOf(s(R.string.effects_value_hz0, block.freqHz))
+        is EffectBlock.Highpass -> listOf(s(R.string.effects_value_hz0, block.freqHz))
+        is EffectBlock.Tremolo -> listOf(s(R.string.effects_value_hz1, block.speedHz))
+        is EffectBlock.Flanger -> listOf(s(R.string.effects_value_hz2, block.speedHz))
+        is EffectBlock.Chorus -> listOf(s(R.string.effects_value_hz2, block.speedHz))
+        is EffectBlock.Phaser -> listOf(s(R.string.effects_value_hz2, block.speedHz))
+        is EffectBlock.Compressor -> listOf(
+            s(R.string.effects_value_db, block.thresholdDb),
+            s(R.string.effects_value_ratio, block.ratio),
+        )
+        is EffectBlock.Bitcrush -> listOf(
+            s(R.string.effects_value_bits, block.bits),
+            s(R.string.effects_value_times, block.downsample.toInt()),
+        )
+        is EffectBlock.RingMod -> listOf(s(R.string.effects_value_hz0, block.freqHz))
+        is EffectBlock.Monotone -> listOf(s(R.string.effects_value_hz0, block.targetHz))
+    }
+    return (listOf(s(blockTitleRes(block))) + values).joinToString(", ")
+}
+
+// Outlined chip to match the Engines screen idiom (border, no fill), but tinted
+// with the theme accent (`primary`) so the blocks keep an orange identity and
+// read as the card's primary content — distinct from the muted, gray "Built-in"
+// AssistChip tag. `primary` is theme-aware, so the chips track the user's chosen
+// accent (orange by default, blue under Midnight, etc.).
 @Composable
-private fun BlockChip(label: String) {
+private fun BlockChip(label: String, spoken: String) {
     Surface(
+        modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
         color = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.primary,
         shape = MaterialTheme.shapes.small,

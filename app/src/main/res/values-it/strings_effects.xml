@@ -121,4 +121,29 @@
     <string name="effects_value_bits">%1$.0f bit</string>
     <string name="effects_value_times">%1$d×</string>
     <string name="effects_preview_text">Ma la volpe, col suo balzo, ha raggiunto il quieto Fido.</string>
+    <!-- Built-in effect names, keyed by BuiltinEffects id (BuiltinEffects.nameRes) -->
+    <string name="effects_preset_cave">Caverna</string>
+    <string name="effects_preset_chipmunk">Scoiattolo</string>
+    <string name="effects_preset_deep">Profondo</string>
+    <string name="effects_preset_telephone">Telefono</string>
+    <string name="effects_preset_stadium">Stadio</string>
+    <string name="effects_preset_megaphone">Megafono</string>
+    <string name="effects_preset_broadcaster">Speaker</string>
+    <string name="effects_preset_podcast">Podcast</string>
+    <string name="effects_preset_trailer">Trailer</string>
+    <string name="effects_preset_audiobook">Audiolibro</string>
+    <string name="effects_preset_walkie_talkie">Walkie-talkie</string>
+    <string name="effects_preset_vintage_radio">Radio d\'epoca</string>
+    <string name="effects_preset_intercom">Citofono</string>
+    <string name="effects_preset_underwater">Sott\'acqua</string>
+    <string name="effects_preset_ai">IA</string>
+    <string name="effects_preset_ethereal">Etereo</string>
+    <string name="effects_preset_dragon">Drago</string>
+    <string name="effects_preset_cyborg">Cyborg</string>
+    <string name="effects_preset_eight_bit">8 bit</string>
+    <string name="effects_preset_glitch">Glitch</string>
+    <string name="effects_preset_monotone_female">Monotono femminile</string>
+    <string name="effects_preset_monotone_male">Monotono maschile</string>
+    <!-- Pre-filled name of a duplicated effect -->
+    <string name="effects_copy_name">%1$s (copia)</string>
 </resources>

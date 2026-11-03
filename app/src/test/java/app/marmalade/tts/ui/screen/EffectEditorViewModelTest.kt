@@ -1,8 +1,10 @@
 package app.marmalade.tts.ui.screen
 
 import androidx.lifecycle.SavedStateHandle
+import androidx.test.core.app.ApplicationProvider
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectBlockJson
+import app.marmalade.tts.data.BuiltinEffects
 import app.marmalade.tts.data.db.Effect
 import app.marmalade.tts.data.db.EffectDao
 import app.marmalade.tts.util.MainDispatcherRule
@@ -16,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 // -----------------------------------------------------------------------------
 // Covers EffectEditorViewModel: the chain-builder block ops + create / edit /
@@ -66,7 +69,7 @@ class EffectEditorViewModelTest {
                 dupeId?.let { put(EffectEditorViewModel.ARG_DUPE_ID, it) }
             },
         )
-        return EffectEditorViewModel(dao, settings, player, handle)
+        return EffectEditorViewModel(dao, settings, player, handle, ApplicationProvider.getApplicationContext())
     }
 
     // -- Initial load ---------------------------------------------------------
@@ -98,6 +101,32 @@ class EffectEditorViewModelTest {
         assertFalse(state.isEdit)
         assertEquals("My effect copy", state.name)
         assertEquals(customChain, state.blocks)
+    }
+
+    // #118 UI-1/UI-11: the copy's name was "<English name> copy" in every locale.
+    @Test
+    @Config(qualifiers = "es")
+    fun `duplicating a built-in pre-fills the localized name and copy suffix`() = runTest {
+        val dao = FakeEffectDao(
+            initial = listOf(
+                Effect(
+                    id = BuiltinEffects.CAVE_ID,
+                    name = "Cave",
+                    isBuiltin = true,
+                    blocksJson = EffectBlockJson.encode(customChain),
+                    createdAt = 0L,
+                ),
+            ),
+        )
+        val vm = newViewModel(dao = dao, dupeId = BuiltinEffects.CAVE_ID)
+        assertEquals("Cueva (copia)", vm.state.value.name)
+    }
+
+    @Test
+    @Config(qualifiers = "es")
+    fun `duplicating a custom effect keeps the user's name`() = runTest {
+        val vm = newViewModel(dao = daoWithCustom(), dupeId = "custom:abc")
+        assertEquals("My effect (copia)", vm.state.value.name)
     }
 
     // -- Block operations -----------------------------------------------------

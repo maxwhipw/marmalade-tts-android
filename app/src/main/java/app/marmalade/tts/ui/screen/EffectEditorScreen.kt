@@ -39,7 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,6 +92,7 @@ fun EffectEditorScreen(
                                 R.string.effects_editor_title_new
                             },
                         ),
+                        modifier = Modifier.semantics { heading() },
                     )
                 },
                 windowInsets = WindowInsets(0),
@@ -577,7 +578,7 @@ private fun LabeledSlider(
  */
 @Composable
 private fun AddBlockButton(onAdd: (EffectBlock) -> Unit) {
-    var showPicker by remember { mutableStateOf(false) }
+    var showPicker by rememberSaveable { mutableStateOf(false) }
     OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(8.dp))
@@ -646,8 +647,9 @@ private val BLOCK_FACTORIES: List<Pair<Int, () -> EffectBlock>> = listOf(
     R.string.effects_block_monotone to { EffectBlock.Monotone(targetHz = 160f) },
 )
 
+/** The block's full name, as the editor titles it; also the start of a chip's spoken label. */
 @StringRes
-private fun blockTitleRes(block: EffectBlock): Int = when (block) {
+internal fun blockTitleRes(block: EffectBlock): Int = when (block) {
     is EffectBlock.Reverb -> R.string.effects_block_reverb
     is EffectBlock.Echo -> R.string.effects_block_echo
     is EffectBlock.Overdrive -> R.string.effects_block_overdrive

@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -170,6 +171,7 @@ fun VoicePickerScreen(
                                     displayNameForEngine(it),
                                 )
                             } ?: stringResource(R.string.voices_title),
+                            modifier = Modifier.semantics { heading() },
                         )
                         // Breadcrumb — always says where in the tree you are,
                         // so two voices with the same name stay distinguishable.

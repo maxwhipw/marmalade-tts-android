@@ -1,5 +1,7 @@
 package app.marmalade.tts.data
 
+import androidx.annotation.StringRes
+import app.marmalade.tts.R
 import app.marmalade.tts.audio.EffectBlockJson
 import app.marmalade.tts.audio.EffectChain
 import app.marmalade.tts.data.db.Effect
@@ -87,6 +89,41 @@ object BuiltinEffects {
             row(MONOTONE_MALE_ID, "Monotone male", EffectChain.MONOTONE_MALE_BLOCKS),
         )
     }
+
+    /**
+     * The localized display name of each built-in (#118 UI-1). The seeded
+     * `Effect.name` stays English: it is the stable fallback and what the CLI
+     * calls the preset. Show names through `effectDisplayName`, never
+     * `Effect.name` directly, so a built-in follows the app language.
+     */
+    private val nameResById: Map<String, Int> = mapOf(
+        CAVE_ID to R.string.effects_preset_cave,
+        CHIPMUNK_ID to R.string.effects_preset_chipmunk,
+        DEEP_ID to R.string.effects_preset_deep,
+        TELEPHONE_ID to R.string.effects_preset_telephone,
+        STADIUM_ID to R.string.effects_preset_stadium,
+        MEGAPHONE_ID to R.string.effects_preset_megaphone,
+        BROADCASTER_ID to R.string.effects_preset_broadcaster,
+        PODCAST_ID to R.string.effects_preset_podcast,
+        TRAILER_ID to R.string.effects_preset_trailer,
+        AUDIOBOOK_ID to R.string.effects_preset_audiobook,
+        WALKIE_TALKIE_ID to R.string.effects_preset_walkie_talkie,
+        VINTAGE_RADIO_ID to R.string.effects_preset_vintage_radio,
+        INTERCOM_ID to R.string.effects_preset_intercom,
+        UNDERWATER_ID to R.string.effects_preset_underwater,
+        AI_ID to R.string.effects_preset_ai,
+        ETHEREAL_ID to R.string.effects_preset_ethereal,
+        DRAGON_ID to R.string.effects_preset_dragon,
+        CYBORG_ID to R.string.effects_preset_cyborg,
+        EIGHT_BIT_ID to R.string.effects_preset_eight_bit,
+        GLITCH_ID to R.string.effects_preset_glitch,
+        MONOTONE_FEMALE_ID to R.string.effects_preset_monotone_female,
+        MONOTONE_MALE_ID to R.string.effects_preset_monotone_male,
+    )
+
+    /** The name resource for built-in [id], or null for a custom effect. */
+    @StringRes
+    fun nameRes(id: String): Int? = nameResById[id]
 
     /** Ids of the currently-seeded built-ins — used to prune stale built-ins on re-seed. */
     val seedIds: Set<String> by lazy { seedRows.map { it.id }.toSet() }

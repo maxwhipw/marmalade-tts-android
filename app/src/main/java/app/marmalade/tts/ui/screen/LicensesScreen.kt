@@ -87,7 +87,12 @@ fun LicensesScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_licenses)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_licenses),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -237,7 +242,12 @@ fun LicenseTextScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(component?.licenseId ?: stringResource(R.string.settings_license_text_title)) },
+                title = {
+                    Text(
+                        component?.licenseId ?: stringResource(R.string.settings_license_text_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {

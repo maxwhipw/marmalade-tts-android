@@ -121,4 +121,29 @@
     <string name="effects_value_bits">%1$.0f ビット</string>
     <string name="effects_value_times">%1$d×</string>
     <string name="effects_preview_text">秋の夕暮れ、遠くの山から鐘の音が静かに響いてきました。</string>
+    <!-- Built-in effect names, keyed by BuiltinEffects id (BuiltinEffects.nameRes) -->
+    <string name="effects_preset_cave">洞窟</string>
+    <string name="effects_preset_chipmunk">シマリス</string>
+    <string name="effects_preset_deep">低音</string>
+    <string name="effects_preset_telephone">電話</string>
+    <string name="effects_preset_stadium">スタジアム</string>
+    <string name="effects_preset_megaphone">メガホン</string>
+    <string name="effects_preset_broadcaster">アナウンサー</string>
+    <string name="effects_preset_podcast">ポッドキャスト</string>
+    <string name="effects_preset_trailer">予告編</string>
+    <string name="effects_preset_audiobook">オーディオブック</string>
+    <string name="effects_preset_walkie_talkie">トランシーバー</string>
+    <string name="effects_preset_vintage_radio">レトロラジオ</string>
+    <string name="effects_preset_intercom">インターホン</string>
+    <string name="effects_preset_underwater">水中</string>
+    <string name="effects_preset_ai">AI</string>
+    <string name="effects_preset_ethereal">幻想</string>
+    <string name="effects_preset_dragon">ドラゴン</string>
+    <string name="effects_preset_cyborg">サイボーグ</string>
+    <string name="effects_preset_eight_bit">8ビット</string>
+    <string name="effects_preset_glitch">グリッチ</string>
+    <string name="effects_preset_monotone_female">モノトーン（女性）</string>
+    <string name="effects_preset_monotone_male">モノトーン（男性）</string>
+    <!-- Pre-filled name of a duplicated effect -->
+    <string name="effects_copy_name">%1$sのコピー</string>
 </resources>

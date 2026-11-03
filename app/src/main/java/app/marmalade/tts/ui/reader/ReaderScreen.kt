@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -184,8 +185,9 @@ fun ReaderScreen(
     // no page to style and stay on the app theme.
     val articlePalette = if (ready != null) surface.palette else null
 
-    var showDisplaySheet by remember { mutableStateOf(false) }
-    var showDialSheet by remember { mutableStateOf(false) }
+    // Saveable, so an open sheet survives rotation and other config changes (#118 UI-13).
+    var showDisplaySheet by rememberSaveable { mutableStateOf(false) }
+    var showDialSheet by rememberSaveable { mutableStateOf(false) }
     val tocDrawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var tocJump by remember { mutableStateOf<TocJump?>(null) }
@@ -229,7 +231,12 @@ fun ReaderScreen(
                 ?: MaterialTheme.colorScheme.background,
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(stringResource(R.string.reader_title)) },
+                    title = {
+                        Text(
+                            stringResource(R.string.reader_title),
+                            modifier = Modifier.semantics { heading() },
+                        )
+                    },
                     windowInsets = WindowInsets(0),
                     navigationIcon = {
                         IconButton(onClick = leaveReader) {

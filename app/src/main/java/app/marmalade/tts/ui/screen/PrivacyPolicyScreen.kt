@@ -84,7 +84,12 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
         contentWindowInsets = WindowInsets(0),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_privacy)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_privacy),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {

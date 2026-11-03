@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.Flow
  * Room DAO for [Effect] rows. The user's own effects sort first (isBuiltin ASC)
  * — a handful of them shouldn't sit below ~20 seeded presets — then by creation
  * time. Both the Effects catalog and the alias editor's effect picker read this
- * one query, so they agree on order. [deleteCustom] refuses to delete built-ins
- * (the WHERE guard), so a stray call can't wipe a seeded preset.
+ * one query. Built-ins sort here by their stored English names; the Effects tab
+ * re-sorts them by the localized name it shows (`effectDisplayOrder`).
+ * [deleteCustom] refuses to delete built-ins (the WHERE guard), so a stray call
+ * can't wipe a seeded preset.
  */
 @Dao
 interface EffectDao {

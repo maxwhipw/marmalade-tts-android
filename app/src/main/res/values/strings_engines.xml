@@ -177,7 +177,10 @@
     <string name="engines_cloud_disclaimer_agree">I understand and agree</string>
     <string name="engines_cloud_disclaimer_decline">Not now</string>
 
-    <string name="engines_cloud_voice_summary">%1$d voices · %2$s</string>
+    <plurals name="engines_cloud_voice_summary">
+        <item quantity="one">%1$d voice · %2$s</item>
+        <item quantity="other">%1$d voices · %2$s</item>
+    </plurals>
     <string name="engines_cloud_syncing">Key configured — syncing voices…</string>
     <string name="engines_cloud_key_hint">API key: %1$s</string>
     <!-- %1$s = provider display name (e.g. Venice). Shown when the downloaded provider list moved the provider's endpoint to another site and the app refused it. -->
