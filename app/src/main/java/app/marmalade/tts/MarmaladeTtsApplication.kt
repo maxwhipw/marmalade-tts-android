@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 //        last = settings.catalogVersion.first()
 //             │
 //             ▼
-//        if (last < CATALOG_VERSION) {
+//        if (last < CATALOG_VERSION || catalog rows missing) {   (#110)
 //             dao.upsertAll(KokoroDirectVoiceCatalog.voices)
 //             dao.upsertAll(KittenDirectVoiceCatalog.voices)
 //             … (every shipped catalog)
@@ -172,8 +172,7 @@ class MarmaladeTtsApplication : Application() {
         applicationScope.launch {
             val dao = voiceDao.get()
             val prefs = settings.get()
-            val lastSeeded = prefs.catalogVersion.first()
-            if (lastSeeded < CATALOG_VERSION) {
+            if (needsCatalogSeed(prefs.catalogVersion.first(), dao)) {
                 // REPLACE-on-conflict upsert is idempotent: existing rows
                 // get their columns refreshed (e.g. a voice's languageCode
                 // flipping from "en-US" to "ja-JP" in the multi-lang
@@ -258,6 +257,21 @@ class MarmaladeTtsApplication : Application() {
     }
 
     companion object {
+        /**
+         * Whether the catalog seed must run on this start: the shipped
+         * catalog is newer than [lastSeeded], or the rows a seed writes are
+         * gone. Room's destructive fallback (a database version this build
+         * has no path from) drops every table but leaves the DataStore stamp
+         * current, so the stamp alone would leave every voice list empty
+         * until the user cleared app data (#110). The Kitten default's row
+         * stands for the seed: every seed writes it and nothing deletes it.
+         * One indexed lookup per start. Never retire that voice id without
+         * moving this check to another row: a retired row is deleted after
+         * each seed, and the gate would reseed on every start.
+         */
+        internal suspend fun needsCatalogSeed(lastSeeded: Int, dao: VoiceMetaDao): Boolean =
+            lastSeeded < CATALOG_VERSION || dao.findById(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID) == null
+
         /**
          * Bump every time the shipped voice catalogs change (add/remove
          * voices, change a language code, rename a display name, etc.).

@@ -33,7 +33,12 @@ import java.util.concurrent.TimeUnit;
  * </pre>
  *
  * "list" reports every advertised voice as {@code name,languageTag} joined by
- * ';'. "speak" renders the text with that voice to
+ * ';'. "voices" binds the way a voice picker does (Samsung Routines, #108):
+ * construct, wait for onInit, then getVoices at once, timed ("initMs",
+ * "getVoicesMs", a warm "getVoicesAgainMs"), and reports every field of every
+ * Voice, including the ISO 639-2 / 3166 alpha-3 codes a picker derives from the
+ * locale ("!" + the exception when the locale has none), then
+ * getDefaultVoice(), getVoice(), and setLanguage() for each listed locale. "speak" renders the text with that voice to
  * {@code <external files>/<out>.wav} (nothing is played) and reports what came
  * out. {@code -e lang deu} sends that request language (ISO 639-2) with the
  * voice, as a client reading German with a multilingual voice would: the
@@ -69,6 +74,7 @@ public class SmokeProbe extends Instrumentation {
             String engine = required("engine");
             final CountDownLatch ready = new CountDownLatch(1);
             final int[] initStatus = {TextToSpeech.ERROR};
+            long t0 = SystemClock.elapsedRealtime();
             tts = new TextToSpeech(getContext(), status -> {
                 initStatus[0] = status;
                 ready.countDown();
@@ -79,9 +85,12 @@ public class SmokeProbe extends Instrumentation {
             if (initStatus[0] != TextToSpeech.SUCCESS) {
                 throw new IllegalStateException("engine " + engine + " init status " + initStatus[0]);
             }
+            out.putString("initMs", Long.toString(SystemClock.elapsedRealtime() - t0));
             String mode = required("mode");
             if (mode.equals("list")) {
                 list(tts, out);
+            } else if (mode.equals("voices")) {
+                voices(tts, out);
             } else if (mode.equals("speak")) {
                 speak(tts, out);
             } else {
@@ -105,6 +114,55 @@ public class SmokeProbe extends Instrumentation {
         }
         Collections.sort(rows);
         out.putString("voices", String.join(";", rows));
+    }
+
+    private void voices(TextToSpeech tts, Bundle out) {
+        long t = SystemClock.elapsedRealtime();
+        Set<Voice> voices = tts.getVoices();
+        out.putString("getVoicesMs", Long.toString(SystemClock.elapsedRealtime() - t));
+        t = SystemClock.elapsedRealtime();
+        tts.getVoices();
+        out.putString("getVoicesAgainMs", Long.toString(SystemClock.elapsedRealtime() - t));
+        if (voices == null) {
+            out.putString("count", "null");
+            return;
+        }
+        out.putString("count", Integer.toString(voices.size()));
+        Voice def = tts.getDefaultVoice();
+        out.putString("defaultVoice", def == null ? "null" : def.getName());
+        Set<java.util.Locale> langs = tts.getAvailableLanguages();
+        out.putString("availableLanguages", langs == null ? "null" : Integer.toString(langs.size()));
+        List<String> rows = new ArrayList<>();
+        for (Voice v : voices) {
+            java.util.Locale l = v.getLocale();
+            rows.add(v.getName() + " | " + (l == null ? "null" : l.toLanguageTag() + " " + iso3(l, true) + "-" + iso3(l, false)
+                    + " \"" + l.getDisplayName(java.util.Locale.US) + "\" avail=" + tts.isLanguageAvailable(l))
+                    + " | q=" + v.getQuality() + " lat=" + v.getLatency() + " net=" + v.isNetworkConnectionRequired()
+                    + " features=" + v.getFeatures());
+        }
+        Collections.sort(rows);
+        for (int i = 0; i < rows.size(); i++) out.putString(String.format(java.util.Locale.ROOT, "v%03d", i), rows.get(i));
+        // What a picker that preselects the current voice, or switches the
+        // language per group, gets back: null / LANG_NOT_SUPPORTED (-2) when
+        // the engine's default voice name isn't one of its listed voices.
+        Voice current = tts.getVoice();
+        out.putString("voice", current == null ? "null" : current.getName());
+        java.util.TreeMap<String, Integer> setLanguage = new java.util.TreeMap<>();
+        for (Voice v : voices) {
+            if (v.getLocale() != null) setLanguage.put(v.getLocale().toLanguageTag(), null);
+        }
+        for (String tag : new ArrayList<>(setLanguage.keySet())) {
+            setLanguage.put(tag, tts.setLanguage(java.util.Locale.forLanguageTag(tag)));
+        }
+        out.putString("setLanguage", setLanguage.toString());
+    }
+
+    private static String iso3(java.util.Locale l, boolean language) {
+        try {
+            return language ? l.getISO3Language() : l.getISO3Country();
+        } catch (Exception e) {
+            return "!" + e.getClass().getSimpleName();
+        }
     }
 
     private void speak(TextToSpeech tts, Bundle out) throws Exception {

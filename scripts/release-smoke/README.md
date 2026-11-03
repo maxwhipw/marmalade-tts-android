@@ -253,6 +253,23 @@ it is updated the same way (Engines → Update).
 - The probe builds from the SDK's build tools (`build-probe.sh`), outside
   Gradle, so the app's reproducible build is untouched.
 
+## The voice list as other apps see it
+
+Not part of the gate: the probe's `voices` mode, for a voice picker that
+fails on Marmalade (#108). It binds like a picker (construct, wait for
+`onInit`, `getVoices()` at once), times both, and reports every voice's name,
+locale (with the ISO 639-2 and 3166 alpha-3 codes pickers group by),
+quality, latency, network flag and features, then `getDefaultVoice()` and
+`getVoice()`, and `setLanguage()` for each listed locale. A null voice or a
+`-2` (`LANG_NOT_SUPPORTED`) there means the default voice name isn't in the
+list. `force-stop` the app first for a cold bind:
+
+```bash
+adb -s 24281JEGR01333 shell am force-stop app.marmalade.tts.rc
+adb -s 24281JEGR01333 shell am instrument -w -e engine app.marmalade.tts.rc \
+    -e mode voices app.marmalade.tts.smokeprobe/.SmokeProbe
+```
+
 ## Not covered
 
 - How the audio sounds. Ear tests stay manual (`docs/release/device-test-lab.html`);

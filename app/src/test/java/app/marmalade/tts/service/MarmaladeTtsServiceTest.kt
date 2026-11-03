@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.flowOf
 import app.marmalade.tts.engine.EngineRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -742,6 +743,84 @@ class MarmaladeTtsServiceTest {
         )
         // Nothing installed speaks German.
         assertEquals("", service.onGetDefaultVoiceNameFor("deu", "DEU", ""))
+    }
+
+    // -- #108: the default voice is always one onGetVoices lists ----------------
+    //
+    // The framework looks onGetDefaultVoiceNameFor's answer up in the voice
+    // list: an unlisted name makes getDefaultVoice()/getVoice() return null
+    // and setLanguage() fail, while speaking keeps working (reproduced on the
+    // 6a; the suspected cause of Samsung Routines' "Couldn't load voices").
+
+    @Test
+    fun onGetDefaultVoiceNameFor_primaryOnAnUnlistedVoice_namesTheCatalogDefault() {
+        // Jenny's pack isn't on disk, so onGetVoices doesn't list her.
+        installPrimary(engine = VitsVoiceCatalog.ENGINE, voiceId = jennyVoiceId, phonemizationLanguage = null)
+
+        assertEquals(
+            KittenDirectVoiceCatalog.DEFAULT_VOICE_ID,
+            service.onGetDefaultVoiceNameFor("eng", "USA", ""),
+        )
+    }
+
+    @Test
+    fun onGetDefaultVoiceNameFor_neitherPrimaryNorCatalogDefaultListed_namesAnInstalledEnglishVoice() {
+        fakeEngine.synthesizeException = EngineNotInstalledException(KittenDirectVoiceCatalog.ENGINE)
+        installPrimary(engine = VitsVoiceCatalog.ENGINE, voiceId = jennyVoiceId, phonemizationLanguage = null)
+
+        val us = service.onGetDefaultVoiceNameFor("eng", "USA", "")
+        val gb = service.onGetDefaultVoiceNameFor("eng", "GBR", "")
+        val listed = service.onGetVoices().associate { it.name to it.locale }
+        assertEquals(Locale.US, listed[us])
+        assertEquals(Locale.UK, listed[gb])
+    }
+
+    @Test
+    fun onGetDefaultVoiceNameFor_noEnglishVoiceInstalled_namesNone() {
+        fakeEngine.synthesizeException = EngineNotInstalledException(KittenDirectVoiceCatalog.ENGINE)
+        fakeKokoroDirectEngine.synthesizeException = EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+
+        assertEquals("", service.onGetDefaultVoiceNameFor("eng", "USA", ""))
+    }
+
+    @Test
+    fun onSynthesizeText_autoFilledSubstituteDefault_yieldsToPrimaryAlias() {
+        // The primary is unlisted and so is the catalog default, so the
+        // advertised default is some Kokoro voice. A client echoing it back
+        // is auto-fill, not a pick: the primary must still speak.
+        fakeEngine.synthesizeException = EngineNotInstalledException(KittenDirectVoiceCatalog.ENGINE)
+        installPrimary(engine = VitsVoiceCatalog.ENGINE, voiceId = jennyVoiceId, phonemizationLanguage = null)
+        fakeVits.nextPcm = ShortArray(1024) { 0 }
+        val substitute = service.onGetDefaultVoiceNameFor("eng", "USA", "")
+        assertNotEquals(jennyVoiceId, substitute)
+        assertNotEquals(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID, substitute)
+
+        service.onSynthesizeText(newRequestWithVoice("hello", substitute), FakeSynthesisCallback())
+
+        assertEquals(0, fakeKokoroDirectEngine.calls.size)
+        assertEquals(jennyVoiceId, fakeVits.calls.single().second)
+    }
+
+    @Test
+    fun voiceList_everyDefaultIsListedAndEveryLocaleHasIso3Codes() {
+        fakeVits.installedPacks = listOf("en-jenny_dioco-medium")
+        for (primary in listOf(null, jennyVoiceId, "kokoro-direct-v1_0:af_bella", "pocket-tts-en-v2026_04-dev:alba")) {
+            if (primary != null) {
+                installPrimary(engine = primary.substringBefore(':'), voiceId = primary, phonemizationLanguage = null)
+            }
+            val voices = service.onGetVoices()
+            val names = voices.map { it.name }
+            assertEquals("names are unique", names.size, names.toSet().size)
+            for (voice in voices) {
+                // A picker groups by these; both throw for a locale they can't map.
+                assertTrue(voice.name, voice.locale.isO3Language.length == 3)
+                assertTrue(voice.name, voice.locale.isO3Country.length == 3)
+            }
+            for (locale in voices.map { it.locale }.distinct()) {
+                val default = service.onGetDefaultVoiceNameFor(locale.isO3Language, locale.isO3Country, "")
+                assertTrue("primary=$primary $locale → $default", default in names)
+            }
+        }
     }
 
     @Test

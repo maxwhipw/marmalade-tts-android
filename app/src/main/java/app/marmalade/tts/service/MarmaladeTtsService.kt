@@ -502,15 +502,16 @@ class MarmaladeTtsService : TextToSpeechService() {
                 ?.let { return it.id }
         }
         // English request → the user's primary alias voice when one is
-        // set, falling back to the catalog-recommended default. Clients
+        // set, falling back to the catalog-recommended default, each only
+        // when onGetVoices lists it (englishDefaultVoiceId, #108). Clients
         // auto-fill SynthesisRequest.voiceName from this answer, so
         // advertising the hardcoded Kokoro default here while the user
         // had a (say) Kitten primary alias made every request arrive
         // pre-stamped with Kokoro Bella — and the primary never fired.
         // runBlocking is fine: this is a rare negotiation callback on a
         // binder thread, not the per-utterance synthesis hot path.
-        return runBlocking { router.resolveAlias(null)?.voiceId }
-            ?: KittenDirectVoiceCatalog.DEFAULT_VOICE_ID
+        val primaryVoiceId = runBlocking { router.resolveAlias(null)?.voiceId }
+        return englishDefaultVoiceId(primaryVoiceId, country, installedVoices()).orEmpty()
     }
 
     // Widened to public so MarmaladeTtsServiceTest can exercise the
@@ -866,7 +867,10 @@ class MarmaladeTtsService : TextToSpeechService() {
      *      effect, because the caller asked for that exact voice. A
      *      requested voice is NOT deliberate when it merely echoes what
      *      we advertise as the default (the primary alias's voice, or the
-     *      catalog default while a primary exists): clients auto-fill
+     *      catalog default while a primary exists, or the listed English
+     *      voice [englishDefaultVoiceId] names in its place; a caller can't
+     *      pick that one voice on purpose while a primary is set, the same
+     *      trade-off as the catalog default): clients auto-fill
      *      `voiceName` from [onGetDefaultVoiceNameFor] / system Settings,
      *      and before this distinction the auto-filled Kokoro default
      *      outranked the primary alias on every request, so a Kitten
@@ -916,7 +920,8 @@ class MarmaladeTtsService : TextToSpeechService() {
             val deliberate = requested != null && (
                 primary == null ||
                     (requested != primary.voiceId &&
-                        requested != KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+                        requested != KittenDirectVoiceCatalog.DEFAULT_VOICE_ID &&
+                        requested != englishDefaultVoiceId(primary.voiceId, request.country, installedVoices()))
                 )
             if (requested != null && deliberate) {
                 val cachedEngine = voiceEngineCache[requested]?.engine
@@ -1100,7 +1105,10 @@ class MarmaladeTtsService : TextToSpeechService() {
      * Negotiation callbacks can arrive on a binder thread before the
      * onCreate collector has filled [voiceSnapshot], so an empty snapshot
      * falls back to one blocking DAO read — the same defensive pattern
-     * [onLoadVoice] uses, and never on the synthesis hot path.
+     * [onLoadVoice] uses. The filter itself stats each engine's files (a
+     * few ms), so the synthesis path calls this only off its common case:
+     * a non-English auto-detect reroute, or a requested voice that is
+     * neither the primary's nor the catalog default ([resolveSynthParams]).
      */
     private fun installedVoices(): List<VoiceMeta> {
         val all = voiceSnapshot.ifEmpty {
@@ -1352,6 +1360,34 @@ class MarmaladeTtsService : TextToSpeechService() {
                         (meta.engine != PocketVoiceCatalog.ENGINE || PocketVoiceFiles.isOffered(meta.id, pocketVoices))
                 }
             }
+        }
+
+        /**
+         * The voice [onGetDefaultVoiceNameFor] names for an English request,
+         * out of [advertised] (what [onGetVoices] lists): the primary alias's
+         * voice, else the catalog default, else the installed English voice
+         * [TtsLocales.defaultVoiceFor] picks for [country]; null when no
+         * English voice is installed.
+         *
+         * Never a voice [advertised] lacks (#108): the framework looks the
+         * name up in the voice list, so an unlisted one (a primary on an
+         * uninstalled engine, a developer voice, a missing pack) made
+         * `getDefaultVoice()` and `getVoice()` return null and
+         * `setLanguage(en-US)` fail with LANG_NOT_SUPPORTED, while speaking
+         * still worked (the suspected cause of Samsung Routines' "Couldn't
+         * load voices", GitHub #37; unconfirmed without a Samsung phone).
+         * [resolveSynthParams] treats a substitute as an auto-fill echo too,
+         * so the primary alias still speaks.
+         */
+        internal fun englishDefaultVoiceId(
+            primaryVoiceId: String?,
+            country: String?,
+            advertised: List<VoiceMeta>,
+        ): String? {
+            fun listed(id: String?) = id?.takeIf { v -> advertised.any { it.id == v } }
+            return listed(primaryVoiceId)
+                ?: listed(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
+                ?: TtsLocales.defaultVoiceFor(TtsLocales.BASELINE_LANGUAGE, country, advertised)?.id
         }
 
         /** What [onGetLanguage] reports until a language is loaded. */
