@@ -75,6 +75,7 @@
     <string name="engines_cloud_key_dialog_body">Obtenez une clé sur %1$s. Elle est stockée uniquement sur cet appareil et envoyée uniquement à %2$s.</string>
     <string name="engines_cloud_key_label_replace">Nouvelle clé (remplace l\'actuelle)</string>
     <string name="engines_cloud_key_label">Clé d\'API</string>
+    <string name="engines_cloud_key_show">Afficher la clé</string>
     <string name="engines_cloud_save">Enregistrer</string>
     <string name="engines_cloud_remove_key">Supprimer la clé</string>
     <string name="engines_cloud_discovery_failed">Échec de la détection des voix</string>

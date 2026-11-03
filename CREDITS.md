@@ -162,6 +162,8 @@ Full detail, including the MIT notice for the weights:
   protobuf, Abseil, FlatBuffers, Eigen and more), each credited in
   Microsoft's third-party notices, which the app reproduces in full.
 - **Apache Commons Compress** — Apache-2.0. Engine-bundle extraction.
+- **Apache Commons IO** and **Apache Commons Lang** — Apache-2.0. Helpers
+  Commons Compress uses.
 - **Readability4J** (dankito) — Apache-2.0. Pulls the article out of a
   shared web page for reader mode. It is a Kotlin port of **Mozilla's
   Readability.js** (© 2010 Arc90 Inc; © 2010-2026 Mozilla and

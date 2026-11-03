@@ -1100,10 +1100,11 @@ open class PocketEngine @Inject constructor(
         Log.d(PERF_TAG, ar.times.arLine(chunkIdx, (System.nanoTime() - loopStartNs) / 1_000_000))
 
         // Per-chunk summary. WARN on the two failure signatures; INFO otherwise.
+        // A length, never the text: info and warn survive into release builds.
         val summary = "Pocket chunk $chunkIdx: frames=$frames/${ar.maxFrames} " +
             "eosFired=${ar.eosFired}@${ar.eosFiredAtFrame} " +
             "peakLatentAbs=${"%.2f".format(peakLatentAbs)} nonFinite=$sawNonFinite " +
-            "text=\"${miniChunk.take(48)}\""
+            "chars=${miniChunk.length}"
         if (!ar.eosFired || sawNonFinite) {
             Log.w(TAG, "SUSPECT $summary")
         } else {

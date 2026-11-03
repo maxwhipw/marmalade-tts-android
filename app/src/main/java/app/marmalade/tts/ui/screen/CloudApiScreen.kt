@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,7 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -346,6 +353,10 @@ private fun ProviderCard(
 /**
  * Per-provider key dialog. The stored key is never displayed back; the
  * field always starts empty ("Remove key" is the explicit way out).
+ *
+ * The field is a password field (#117): masked unless "Show key" is ticked,
+ * which also keeps TalkBack from reading it aloud, and a password keyboard
+ * with autocorrect off, so the keyboard neither suggests nor learns the key.
  */
 @Composable
 private fun ProviderKeyDialog(
@@ -355,6 +366,7 @@ private fun ProviderKeyDialog(
     onDismiss: () -> Unit,
 ) {
     var draft by remember { mutableStateOf("") }
+    var shown by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.engines_cloud_key_dialog_title, provider.displayName)) },
@@ -384,8 +396,22 @@ private fun ProviderKeyDialog(
                             ),
                         )
                     },
+                    visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = shown, role = Role.Checkbox, onValueChange = { shown = it })
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // The row is the tap target; the Checkbox only shows the state.
+                    Checkbox(checked = shown, onCheckedChange = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.engines_cloud_key_show), style = MaterialTheme.typography.bodyMedium)
+                }
             }
         },
         confirmButton = {

@@ -75,6 +75,7 @@
     <string name="engines_cloud_key_dialog_body">Obtenha uma chave em %1$s. Ela é armazenada apenas neste dispositivo e enviada apenas para %2$s.</string>
     <string name="engines_cloud_key_label_replace">Nova chave (substitui a atual)</string>
     <string name="engines_cloud_key_label">Chave de API</string>
+    <string name="engines_cloud_key_show">Mostrar chave</string>
     <string name="engines_cloud_save">Salvar</string>
     <string name="engines_cloud_remove_key">Remover chave</string>
     <string name="engines_cloud_discovery_failed">Falha ao descobrir as vozes</string>

@@ -189,6 +189,7 @@
     <string name="engines_cloud_key_dialog_body">Get a key at %1$s. It is stored only on this device and sent only to %2$s.</string>
     <string name="engines_cloud_key_label_replace">New key (replaces current)</string>
     <string name="engines_cloud_key_label">API key</string>
+    <string name="engines_cloud_key_show">Show key</string>
     <string name="engines_cloud_save">Save</string>
     <string name="engines_cloud_remove_key">Remove key</string>
     <string name="engines_cloud_discovery_failed">Voice discovery failed</string>

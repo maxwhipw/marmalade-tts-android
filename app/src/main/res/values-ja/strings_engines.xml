@@ -75,6 +75,7 @@
     <string name="engines_cloud_key_dialog_body">キーは %1$s で取得できます。この端末にのみ保存され、%2$s にのみ送信されます。</string>
     <string name="engines_cloud_key_label_replace">新しいキー（現在のキーを置き換えます）</string>
     <string name="engines_cloud_key_label">API キー</string>
+    <string name="engines_cloud_key_show">キーを表示</string>
     <string name="engines_cloud_save">保存</string>
     <string name="engines_cloud_remove_key">キーを削除</string>
     <string name="engines_cloud_discovery_failed">ボイスの取得に失敗しました</string>

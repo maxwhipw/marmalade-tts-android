@@ -104,6 +104,8 @@ folder.
 | ONNX Runtime Mobile | Inference runtime | APK | MIT |
 | ONNX Runtime third-party notices | Libraries statically linked into ONNX Runtime (XNNPACK, protobuf, Abseil, FlatBuffers, Eigen, …) | APK (inside `libonnxruntime.so`) | Per entry, as published with ONNX Runtime 1.26.0 (MIT, BSD, Apache-2.0, **MPL-2.0** for Eigen, …) |
 | Apache Commons Compress | Engine-bundle extraction | APK | Apache-2.0 |
+| Apache Commons IO | Stream helpers used by Commons Compress | APK | Apache-2.0 |
+| Apache Commons Lang | String helpers used by Commons Compress | APK | Apache-2.0 |
 | Readability4J | Reader-mode article extraction | APK | Apache-2.0 |
 | SLF4J API | Logging facade (dependency of Readability4J) | APK | MIT |
 | jsoup | HTML parser (reader mode) | APK | MIT |

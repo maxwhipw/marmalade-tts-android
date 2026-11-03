@@ -353,7 +353,7 @@ class PocketDevEngine @Inject constructor(
             "eosFired=$eosFired@$eosFrame " +
             "maxEosLogit=${"%.2f".format(maxEosLogit)} " +
             "peakLatentAbs=${"%.2f".format(peakLatentAbs)} nonFinite=$sawNonFinite " +
-            "text=\"${rawText.take(48)}\""
+            "chars=${rawText.length}"
         if (!eosFired || sawNonFinite) {
             Log.w(TAG, "SUSPECT $summary")
         } else {

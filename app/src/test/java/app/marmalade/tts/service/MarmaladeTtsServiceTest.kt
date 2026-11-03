@@ -9,15 +9,18 @@ import android.speech.tts.TextToSpeech
 import androidx.test.core.app.ApplicationProvider
 import app.marmalade.tts.audio.EffectBlock
 import app.marmalade.tts.audio.EffectResolver
+import app.marmalade.tts.data.CloudApiVoiceCatalog
 import app.marmalade.tts.data.KittenDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroDirectVoiceCatalog
 import app.marmalade.tts.data.KokoroGermanVoiceCatalog
+import app.marmalade.tts.data.PocketVoiceCatalog
 import app.marmalade.tts.data.SettingsRepository
 import app.marmalade.tts.data.VitsVoiceCatalog
 import app.marmalade.tts.data.db.VoiceMeta
 import app.marmalade.tts.data.db.VoiceMetaDao
 import app.marmalade.tts.engine.EngineNotInstalledException
 import app.marmalade.tts.engine.SynthAudio
+import app.marmalade.tts.engine.TtsEngine
 import app.marmalade.tts.engine.PocketEngine
 import app.marmalade.tts.engine.kitten.KittenDirectEngine
 import app.marmalade.tts.engine.kokoro.KokoroDirectEngine
@@ -1485,6 +1488,91 @@ class MarmaladeTtsServiceTest {
         assertEquals(listOf(jennyVoiceId), vitsVoiceNames)
     }
 
+    // -- #117 SEC-1a: cloud voices are listed after on-device ones ----------
+
+    /**
+     * A saved cloud key: the cloud engine counts as installed and its rows
+     * sit where the real DAO's `ORDER BY engine` puts them, ahead of every
+     * on-device engine ("cloud-api-v1" sorts first).
+     */
+    private fun installCloudVoices(vararg voices: String) {
+        val cloudRows = voices.map { key ->
+            VoiceMeta(
+                id = "${CloudApiVoiceCatalog.ENGINE}:venice:tts-kokoro:$key",
+                engine = CloudApiVoiceCatalog.ENGINE,
+                displayName = key,
+                languageCode = KokoroDirectVoiceCatalog.languageFor(key) ?: "en-US",
+                sampleRate = 24_000,
+                gender = null,
+            )
+        }
+        setField(
+            service,
+            "engines",
+            EngineRegistry(listOf(fakeKokoroDirectEngine, fakeEngine, fakeVits, FakeCloudEngine())),
+        )
+        setField(
+            service,
+            "voiceDao",
+            FakeVoiceMetaDao(
+                cloudRows + KittenDirectVoiceCatalog.voices + KokoroDirectVoiceCatalog.voices + VitsVoiceCatalog.voices,
+            ),
+        )
+    }
+
+    @Test
+    fun onGetVoices_listsCloudVoicesAfterOnDeviceOnes() {
+        installCloudVoices("af_heart", "bf_alice")
+
+        val voices = service.onGetVoices()
+        // A client taking the first US-English voice must get an on-device one.
+        assertFalse(voices.first().isNetworkConnectionRequired)
+        val firstCloud = voices.indexOfFirst { it.isNetworkConnectionRequired }
+        assertEquals(voices.size - 2, firstCloud)
+        assertTrue(voices.drop(firstCloud).all { it.isNetworkConnectionRequired })
+    }
+
+    @Test
+    fun onGetDefaultVoiceNameFor_prefersAnOnDeviceVoiceOverACloudOneOfTheSameLocale() {
+        // Only Jenny (en-GB, VITS) is on device and no primary is set, so the
+        // English default comes from the locale match. A cloud en-GB voice
+        // used to win it by sorting first.
+        fakeEngine.synthesizeException = EngineNotInstalledException(KittenDirectVoiceCatalog.ENGINE)
+        fakeKokoroDirectEngine.synthesizeException = EngineNotInstalledException(KokoroDirectVoiceCatalog.ENGINE)
+        fakeVits.installedPacks = listOf("en-jenny_dioco-medium")
+        installCloudVoices("bf_alice")
+
+        assertEquals(jennyVoiceId, service.onGetDefaultVoiceNameFor("eng", "GBR", ""))
+    }
+
+    private val cloudAlice = VoiceMeta(
+        id = "${CloudApiVoiceCatalog.ENGINE}:venice:tts-kokoro:bf_alice",
+        engine = CloudApiVoiceCatalog.ENGINE,
+        displayName = "Alice",
+        languageCode = "en-GB",
+        sampleRate = 24_000,
+        gender = null,
+    )
+
+    @Test
+    fun englishDefaultVoiceId_anOnDeviceVoiceOfTheLanguageBeatsACloudVoiceOfTheRegion() {
+        // Only en-US voices on device (Pocket) and a cloud en-GB voice: an
+        // en-GB request must still get an on-device voice, the in-app rule
+        // (VoiceForLanguage.installedVoiceFor). Region matching used to pick
+        // the cloud voice before language matching was tried.
+        val advertised = listOf(cloudAlice) + PocketVoiceCatalog.voices
+
+        val picked = MarmaladeTtsService.englishDefaultVoiceId(null, "GBR", advertised)
+        assertEquals(PocketVoiceCatalog.ENGINE, advertised.single { it.id == picked }.engine)
+    }
+
+    @Test
+    fun localeDefaultVoice_fallsBackToACloudVoiceOnlyWhenNoOnDeviceVoiceSpeaksTheLanguage() {
+        // Whether such a voice should be offered at all is #122; until then
+        // a cloud-only language keeps its cloud default.
+        assertEquals(cloudAlice, MarmaladeTtsService.localeDefaultVoice("eng", "GBR", listOf(cloudAlice)))
+    }
+
     // ----------------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------------
@@ -1908,3 +1996,21 @@ private fun fakeSharedEspeakData(): app.marmalade.tts.phonemizer.SharedEspeakDat
         dataVersion = "test",
         copyAssets = {},
     )
+
+/** A cloud engine with a saved key: installed, never asked to speak here. */
+internal class FakeCloudEngine : TtsEngine {
+    override val engineName: String = CloudApiVoiceCatalog.ENGINE
+    override val sampleRate: Int = 24_000
+    override fun isInstalled(): Boolean = true
+    override fun isLoaded(): Boolean = true
+    override fun ensureModelLoaded() = Unit
+    override suspend fun synthesize(
+        text: String,
+        voiceId: String,
+        speed: Float,
+        phonemizationLanguage: String?,
+        expressiveness: Float?,
+        sentencePauseMs: Int,
+    ): SynthAudio = error("not used")
+    override fun release() = Unit
+}

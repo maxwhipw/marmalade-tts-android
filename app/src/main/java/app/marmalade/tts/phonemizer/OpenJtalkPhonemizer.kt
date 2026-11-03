@@ -104,7 +104,8 @@ class OpenJtalkPhonemizer(private val dictDir: String) {
             .mapNotNull { line ->
                 val f = line.split('\t')
                 if (f.size < 7) {
-                    Log.w(TAG, "malformed NJD line (${f.size} fields): '$line'")
+                    // The line's first field is the input's own text: count only.
+                    Log.w(TAG, "malformed NJD line (${f.size} fields)")
                     return@mapNotNull null
                 }
                 NjdNode(

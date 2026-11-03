@@ -240,6 +240,20 @@ object LicenseCatalog {
             copyright = listOf("Copyright (c) The Apache Software Foundation"),
         ),
         Component(
+            key = "commons-io",
+            name = "Apache Commons IO", role = "Stream helpers used by Commons Compress",
+            shipsIn = "APK",
+            licenseId = "Apache-2.0",
+            copyright = listOf("Copyright 2002-2024 The Apache Software Foundation"),
+        ),
+        Component(
+            key = "commons-lang3",
+            name = "Apache Commons Lang", role = "String helpers used by Commons Compress",
+            shipsIn = "APK",
+            licenseId = "Apache-2.0",
+            copyright = listOf("Copyright 2001-2024 The Apache Software Foundation"),
+        ),
+        Component(
             key = "readability4j",
             name = "Readability4J", role = "Reader-mode article extraction",
             shipsIn = "APK",
@@ -504,8 +518,8 @@ object LicenseCatalog {
             copyright = listOf(
                 "Copyright (c) The Android Open Source Project, JetBrains, and Google",
             ),
-            note = "Includes their transitive dependencies (Okio, Guava, Commons " +
-                "IO/Codec, javax.inject / jakarta.inject — all Apache-2.0; plus " +
+            note = "Includes their transitive dependencies (Okio, Guava, " +
+                "javax.inject / jakarta.inject — all Apache-2.0; plus " +
                 "the jsr305 annotations (BSD)).",
         ),
         Component(

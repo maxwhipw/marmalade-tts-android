@@ -32,6 +32,37 @@ the other files in this folder). Versions are authoritative in
 - **License:** Apache-2.0
 - **Notice:** Copyright (c) The Apache Software Foundation.
 
+### Apache Commons IO — commons-io:commons-io (dependency of Commons Compress)
+
+- **Role:** Stream helpers Commons Compress calls during extraction.
+  Version 2.16.1; R8 keeps only the classes Commons Compress uses.
+- **Upstream:** https://commons.apache.org/proper/commons-io/
+- **License:** Apache-2.0
+- **Notice** (from its `NOTICE.txt`):
+
+  > Apache Commons IO
+  > Copyright 2002-2024 The Apache Software Foundation
+  >
+  > This product includes software developed at
+  > The Apache Software Foundation (https://www.apache.org/).
+
+### Apache Commons Lang — org.apache.commons:commons-lang3 (dependency of Commons Compress)
+
+- **Role:** String helpers Commons Compress calls. Version 3.16.0; R8 keeps
+  only the classes Commons Compress uses.
+- **Upstream:** https://commons.apache.org/proper/commons-lang/
+- **License:** Apache-2.0
+- **Notice** (from its `NOTICE.txt`):
+
+  > Apache Commons Lang
+  > Copyright 2001-2024 The Apache Software Foundation
+  >
+  > This product includes software developed at
+  > The Apache Software Foundation (https://www.apache.org/).
+
+Commons Compress also declares commons-codec, but no class of it survives R8,
+so it does not ship.
+
 ## 3. Readability4J — com.github.dankito:Readability4J
 
 - **Role:** Reader mode's article extractor. Given the HTML of a page the

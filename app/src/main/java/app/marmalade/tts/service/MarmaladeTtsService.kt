@@ -339,8 +339,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         if (supported) {
             // Report back whatever we'd actually speak this request with,
             // so onGetLanguage stops claiming en-US for a Japanese load.
-            loadedLanguage = TtsLocales
-                .defaultVoiceFor(lang, country, installedVoices())
+            loadedLanguage = localeDefaultVoice(lang, country, installedVoices())
                 ?.let { TtsLocales.iso3TripleFor(it.languageCode) }
                 ?: DEFAULT_LANGUAGE
             warmUpEngine()
@@ -498,7 +497,7 @@ class MarmaladeTtsService : TextToSpeechService() {
         // mappings); handing a French request an English alias voice is
         // how the engine ends up reading French with an American voice.
         if (TtsLocales.toIso2Language(lang) != TtsLocales.BASELINE_LANGUAGE) {
-            TtsLocales.defaultVoiceFor(lang, country, installedVoices())
+            localeDefaultVoice(lang, country, installedVoices())
                 ?.let { return it.id }
         }
         // English request → the user's primary alias voice when one is
@@ -1341,6 +1340,11 @@ class MarmaladeTtsService : TextToSpeechService() {
          * missing one speaks with the default voice, so each needs its key in
          * [installedPocketVoices]. Cloned Pocket voices aren't catalog voices
          * and follow the engine.
+         *
+         * Cloud voices come last (#117), after every on-device voice. The DAO
+         * orders by engine id, and "cloud-api-v1" sorts first, so a client
+         * taking the first voice of a locale got a cloud one. Locale defaults
+         * prefer on-device voices on their own ([localeDefaultVoice]).
          */
         internal fun advertisableVoices(
             voices: List<VoiceMeta>,
@@ -1359,15 +1363,15 @@ class MarmaladeTtsService : TextToSpeechService() {
                     engineInstalled.getOrPut(meta.engine) { isEngineInstalled(meta.engine) } &&
                         (meta.engine != PocketVoiceCatalog.ENGINE || PocketVoiceFiles.isOffered(meta.id, pocketVoices))
                 }
-            }
+            }.sortedBy { it.engine == CloudApiVoiceCatalog.ENGINE }
         }
 
         /**
          * The voice [onGetDefaultVoiceNameFor] names for an English request,
          * out of [advertised] (what [onGetVoices] lists): the primary alias's
          * voice, else the catalog default, else the installed English voice
-         * [TtsLocales.defaultVoiceFor] picks for [country]; null when no
-         * English voice is installed.
+         * [localeDefaultVoice] picks for [country]; null when no English
+         * voice is installed.
          *
          * Never a voice [advertised] lacks (#108): the framework looks the
          * name up in the voice list, so an unlisted one (a primary on an
@@ -1387,8 +1391,20 @@ class MarmaladeTtsService : TextToSpeechService() {
             fun listed(id: String?) = id?.takeIf { v -> advertised.any { it.id == v } }
             return listed(primaryVoiceId)
                 ?: listed(KittenDirectVoiceCatalog.DEFAULT_VOICE_ID)
-                ?: TtsLocales.defaultVoiceFor(TtsLocales.BASELINE_LANGUAGE, country, advertised)?.id
+                ?: localeDefaultVoice(TtsLocales.BASELINE_LANGUAGE, country, advertised)?.id
         }
+
+        /**
+         * The voice of [advertised] a request for [lang]/[country] defaults
+         * to: [TtsLocales.defaultVoiceFor] over the on-device voices first,
+         * so an on-device voice of the language beats a cloud voice of the
+         * exact region (#117), the in-app rule
+         * ([VoiceForLanguage.installedVoiceFor]). A cloud voice answers only
+         * when no on-device voice speaks the language; whether it should is #122.
+         */
+        internal fun localeDefaultVoice(lang: String?, country: String?, advertised: List<VoiceMeta>): VoiceMeta? =
+            TtsLocales.defaultVoiceFor(lang, country, advertised.filter { it.engine != CloudApiVoiceCatalog.ENGINE })
+                ?: TtsLocales.defaultVoiceFor(lang, country, advertised)
 
         /** What [onGetLanguage] reports until a language is loaded. */
         private val DEFAULT_LANGUAGE = arrayOf("eng", "USA", "")

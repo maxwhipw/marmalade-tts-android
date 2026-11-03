@@ -75,6 +75,7 @@
     <string name="engines_cloud_key_dialog_body">कुंजी %1$s से लें। यह सिर्फ़ इसी डिवाइस पर सेव होती है और सिर्फ़ %2$s को भेजी जाती है।</string>
     <string name="engines_cloud_key_label_replace">नई कुंजी (मौजूदा की जगह लेगी)</string>
     <string name="engines_cloud_key_label">API कुंजी</string>
+    <string name="engines_cloud_key_show">कुंजी दिखाएँ</string>
     <string name="engines_cloud_save">सेव करें</string>
     <string name="engines_cloud_remove_key">कुंजी हटाएँ</string>
     <string name="engines_cloud_discovery_failed">वॉइस की सूची नहीं मिल सकी</string>
