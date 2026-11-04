@@ -215,7 +215,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps the offline TTS model loaded so the next speak request is instant. The user has opted in via Settings → Performance → Keep loaded." />
+                android:value="Keeps the offline text-to-speech model loaded in memory so speech starts instantly instead of reloading the model. By default (&quot;Smart&quot;), the service runs for 10 minutes after the app is opened or a read starts, shows a notification while it runs, and then stops itself. Users can turn it off, or keep it running (&quot;Always&quot;), in Settings → Keep engine loaded." />
         </service>
 
         <!--
