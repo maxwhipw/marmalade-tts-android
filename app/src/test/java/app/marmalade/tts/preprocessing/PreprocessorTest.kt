@@ -70,6 +70,21 @@ class PreprocessorTest {
         )
     }
 
+    // ── time ─────────────────────────────────────────────────────────
+
+    @Test
+    fun time_keepsTheSpaceAfterABareTime() {
+        assertEquals("at nine thirty tomorrow", only("time", "at 9:30 tomorrow"))
+        assertEquals("ten o'clock sharp", only("time", "10:00 sharp"))
+    }
+
+    @Test
+    fun time_readsItsSuffix() {
+        assertEquals("three PM today", only("time", "3:00 PM today"))
+        assertEquals("three fifteen p.m. today", only("time", "3:15 p.m. today"))
+        assertEquals("seven oh five am.", only("time", "7:05am."))
+    }
+
     // ── terminal punctuation (CJK + Spanish aware) ──────────────────────
 
     @Test

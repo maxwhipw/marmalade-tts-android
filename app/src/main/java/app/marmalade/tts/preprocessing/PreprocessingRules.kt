@@ -273,8 +273,12 @@ object PreprocessingRules {
     // 10:30 → ten thirty, 3:00 PM → three PM, 14:00 → fourteen hundred.
     // CLI: _time.
 
+    // The space before AM/PM sits inside the optional group, and the end is
+    // a lookahead, so the space after a bare time survives ("at 9:30
+    // tomorrow" was "nine thirtytomorrow") and "p.m." matches before a
+    // space. CLI: ts/src/preprocessing.ts.
     private val timeRegex = Regex(
-        "\\b(\\d{1,2}):(\\d{2})\\s*(AM|PM|am|pm|a\\.m\\.|p\\.m\\.)?\\b",
+        "\\b(\\d{1,2}):(\\d{2})(?:\\s*(AM|PM|am|pm|a\\.m\\.|p\\.m\\.))?(?!\\w)",
     )
     private fun expandTime(text: String): String =
         timeRegex.replace(text) { m ->
