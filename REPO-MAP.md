@@ -991,6 +991,11 @@ and `MarmaladeSynthService` is its foreground host. System TTS
   (`cloud_api_key_<provider>` prefs; legacy `cloud_api_key` reads as
   Venice). Configure UI: Engines tab → Cloud voices card →
   `ui/screen/CloudApiScreen.kt`.
+- Key dialog (`ProviderKeyDialog`): a password field (#117). The typed
+  draft lives in `CloudApiViewModel.keyDraft` (#156) so it survives a
+  rotation, and never in `rememberSaveable`/`SavedStateHandle`: a secret
+  must not enter the saved-instance-state Bundle. Closing the dialog
+  clears it. "Show key" may stay saveable.
 
 ### Install / download
 - `install/EngineCatalog.kt` — descriptors for installable engines

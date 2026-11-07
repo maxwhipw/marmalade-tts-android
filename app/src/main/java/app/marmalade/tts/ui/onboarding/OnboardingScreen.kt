@@ -188,7 +188,6 @@ fun OnboardingScreen(
                         selectedIds = selected,
                         onToggle = viewModel::toggle,
                         onInstall = viewModel::installSelected,
-                        onBack = viewModel::back,
                         onSkip = {
                             // Installs nothing (the selection set pre-selects the
                             // recommended engines, so installSelected() here would
@@ -315,7 +314,6 @@ private fun EnginePickStep(
     selectedIds: Set<String>,
     onToggle: (String) -> Unit,
     onInstall: () -> Unit,
-    onBack: () -> Unit,
     onSkip: () -> Unit,
 ) {
     Column(
@@ -402,30 +400,29 @@ private fun EnginePickStep(
         val downloadsSomething = cards.any {
             !it.isBuiltIn && selectedIds.contains(it.descriptor.name)
         }
+        // No on-screen Back: like the other steps, the system back gesture
+        // steps back (#148, #156).
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.onboarding_back)) }
-            Row {
-                TextButton(onClick = onSkip) { Text(stringResource(R.string.onboarding_skip)) }
-                Spacer(Modifier.size(8.dp))
-                // Off while checking: the verdict still has to tick the
-                // recommended engine, and Install now would fetch only part
-                // of what the list will show. Skip stays on: it fetches
-                // nothing, so there is no selection to get wrong.
-                Button(
-                    onClick = onInstall,
-                    enabled = !probePending && selectedIds.isNotEmpty(),
-                ) {
-                    Text(
-                        stringResource(
-                            if (downloadsSomething) R.string.onboarding_install_selected
-                            else R.string.onboarding_continue,
-                        ),
-                    )
-                }
+            TextButton(onClick = onSkip) { Text(stringResource(R.string.onboarding_skip)) }
+            Spacer(Modifier.size(8.dp))
+            // Off while checking: the verdict still has to tick the
+            // recommended engine, and Install now would fetch only part
+            // of what the list will show. Skip stays on: it fetches
+            // nothing, so there is no selection to get wrong.
+            Button(
+                onClick = onInstall,
+                enabled = !probePending && selectedIds.isNotEmpty(),
+            ) {
+                Text(
+                    stringResource(
+                        if (downloadsSomething) R.string.onboarding_install_selected
+                        else R.string.onboarding_continue,
+                    ),
+                )
             }
         }
         Spacer(Modifier.height(16.dp))
