@@ -5,6 +5,92 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-06
+
+A bug-fix release: fixes from main only, without its new features and
+setup changes.
+
+### Fixed
+- **Voices read through abbreviations**: no voice breaks off or pauses after
+  the period of an abbreviation, an initial or an acronym ("Fig. 3", "Dr.
+  Smith", "J. R. Tolkien", "the U.S. Army") as if the sentence had ended.
+  Before, a Kokoro voice could break off there, a Kitten voice took a full
+  sentence pause, and a VITS voice could read "Prof." on its own.
+- **Per-app routing after deleting an alias** (GitHub #32): deleting an
+  alias now frees the apps that were routed to it, so they can be routed to
+  another alias again. Before, the routing sheet showed such an app as
+  "Routed to" a long code and wouldn't let it be ticked. Apps left stuck
+  this way by earlier versions are freed when you open the Aliases tab.
+- **Apps that ask for Marmalade's default voice get one**: when your primary
+  alias used a voice Marmalade doesn't offer to other apps (one whose engine
+  or voice pack has been removed, or a developer voice), apps asking for the
+  default or current voice got nothing back, and setting the language to
+  English failed, though speaking still worked. Marmalade now offers an
+  installed voice as the default, and your primary alias keeps speaking.
+- **Other apps see British English as fully supported**: with a British
+  voice installed (Kokoro's British voices or the Jenny pack), Marmalade told
+  apps it spoke English but not British English, so a voice picker that
+  groups voices by country could leave it out.
+- **On-device voices come first in other apps' voice lists**: once you added
+  a cloud API key, apps listing Marmalade's voices saw the cloud voices
+  first, so an app that takes the first voice of a language could pick one.
+  On-device voices now come first. An app asking for a language's default
+  voice now gets an on-device voice whenever one speaks that language, even
+  when a cloud voice matches the region more closely (an on-device American
+  English voice over a cloud British one for British English).
+- **Stopping a cloud voice is instant**: with a cloud voice speaking for
+  other apps, a stop (TalkBack sends one on almost every gesture) left the
+  next sentence waiting until the cancelled request finished or timed out,
+  up to a minute. A stop now ends the request at once.
+- **A sentence starting while Marmalade unloads an idle voice is no longer
+  cut off**: in a rare race, a Pocket sentence that began just as Marmalade
+  freed the idle Pocket voice's memory stopped within a word.
+- **Voices come back after the app's database is reset**: when the app had to
+  rebuild its database from scratch, the voice lists stayed empty ("No voices
+  available") until you cleared the app's data. Marmalade now restores its
+  voice catalog on the next start.
+- **A time no longer runs into the next word**: "at 9:30 tomorrow" was read
+  as "nine thirtytomorrow", and "3:15 p.m. today" as "three fifteenp.m.".
+- **Text with "<" and ">" in it is read whole**: "I <3 you" or "x < 5 and
+  y > 3" no longer loses the words between the two signs. Only real HTML
+  tags are removed, and a standalone "<3" reads "heart".
+- **"#1" is read as "number one"**, not "hashtag one".
+- **"C#7" reads "C sharp seven"**: a note letter followed by "#" was read
+  as "Cnumber seven", and a "#" inside a word as "hashtag" ("abc#def").
+  A "#" after a letter is now left alone, except after a note letter, which
+  reads "sharp" (chords, and the C# and F# languages).
+- **A sentence ending in "I" gets its pause**: with a pause between
+  sentences set, "Neither did I. Then we left." now pauses after "I", as
+  does a sentence ending in another one-letter word ("Così è."). Initials
+  ("J. Smith") and "p. 12" still take none.
+- **Prices with one decimal and a scale word**: "$3.5" is read as "3
+  dollars and 50 cents", not "5 cents", and "$1.5 billion" as "1.5 billion
+  dollars", not "1 dollar and 5 cents billion".
+- **Back steps back through setup**: the phone's Back gesture or button used
+  to close the app from any setup step. It now goes back one step, like the
+  on-screen Back; on the welcome screen it still leaves the app. While an
+  engine is downloading, Back does nothing.
+- **Setup is readable with Android 16's expanded dark theme** (GitHub #39):
+  the screens no longer turn light behind light text when the phone's dark
+  theme is set to darken every app.
+- **The API key field hides your key**: the key field under Engines → Cloud
+  voices is now a password field. The key is masked unless you tick "Show
+  key", and the keyboard doesn't suggest it or learn it.
+- **Spoken text stays out of the system log**: the Pocket engine wrote the
+  start of every sentence it spoke to Android's system log, and Japanese text
+  could land there when it failed to parse. Those lines now record lengths
+  only.
+- **Effect names in your language**: the built-in effects ("Cave",
+  "Telephone" and the rest) showed in English in every language. On the
+  Effects tab they now follow the app's language, and a duplicated effect is
+  named "… copy" in your language too.
+- **Smaller fixes**: an open dialog or sheet stays open when you rotate the
+  phone; a cloud provider with one voice says "1 voice", not "1 voices";
+  TalkBack's heading navigation finds each screen's title, and it reads an
+  effect's chips in full ("Low-pass, 3446 Hz" rather than "LP 3446Hz").
+- **Licences**: the licence list now credits Apache Commons IO and Apache
+  Commons Lang, which ship with Commons Compress.
+
 ## [1.3.3] - 2026-10-23
 
 ### Added
