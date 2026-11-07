@@ -32,12 +32,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -217,7 +220,10 @@ private fun EffectCardItem(
 ) {
     val name = effectDisplayName(card.id, card.name)
     MarmaladeCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        // Spaced like the engine card (#156): 16 dp above the title row, 20 dp
+        // below the icons. The icon buttons' 48 dp targets already add 12 dp
+        // around each glyph, so the bottom padding is the 8 dp left over.
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = name,
@@ -229,16 +235,20 @@ private fun EffectCardItem(
                     // A tag drawn as a disabled chip. TalkBack hears the word
                     // alone, not "button, disabled", and the label takes the
                     // quietest readable ink rather than the disabled 38%.
+                    // Nothing to tap, so no 48 dp touch target: it padded the
+                    // title row to 48 dp and pushed the title down.
                     val builtin = stringResource(R.string.effects_builtin)
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = { Text(builtin) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            disabledLabelColor = MaterialTheme.depth.dim,
-                        ),
-                        modifier = Modifier.clearAndSetSemantics { contentDescription = builtin },
-                    )
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = { Text(builtin) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                disabledLabelColor = MaterialTheme.depth.dim,
+                            ),
+                            modifier = Modifier.clearAndSetSemantics { contentDescription = builtin },
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -320,6 +330,8 @@ private fun EffectCardItem(
                     text = error,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
+                    // Tops up the 8 dp bottom padding to the card's 16 dp.
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
         }
