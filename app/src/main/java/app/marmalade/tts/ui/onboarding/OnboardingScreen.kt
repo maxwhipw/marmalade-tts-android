@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.StringRes
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -155,6 +156,11 @@ fun OnboardingScreen(
     val previewState by viewModel.previewState.collectAsStateWithLifecycle()
     val probeDone by viewModel.probeDone.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // System Back steps back through setup like the on-screen Back (#148);
+    // it used to close the app from any step. Welcome has nowhere to go back
+    // to, so Back leaves the app there as before.
+    BackHandler(enabled = step != OnboardingStep.Welcome, onBack = viewModel::back)
 
     // Each step arrives with the lab's rise (8 dp up and a fade) while the
     // last one fades out (#83). Each content is keyed by its own step.

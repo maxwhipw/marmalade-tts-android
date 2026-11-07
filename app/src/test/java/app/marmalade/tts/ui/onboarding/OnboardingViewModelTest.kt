@@ -27,6 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,6 +85,70 @@ class OnboardingViewModelTest {
         // Back from Welcome is a no-op (back-stop).
         vm.back()
         assertEquals(OnboardingStep.Welcome, vm.step.value)
+    }
+
+    // -- system Back mirrors vm.back() (#148) --------------------------------
+
+    @Test
+    fun backDuringADownloadStaysOnTheProgressStep() = runTest {
+        val download = CompletableDeferred<Result<Unit>>()
+        val installer = RecordingInstaller(behaviour = { Result.success(Unit) }, waitFor = download)
+        val vm = newViewModel(installer = installer)
+        vm.next()
+        vm.installSelected()
+
+        vm.back()
+
+        assertEquals("the step has no Back while it downloads", OnboardingStep.Installing, vm.step.value)
+        download.complete(Result.failure(java.io.IOException("offline")))
+        advanceUntilIdle()
+        vm.back()
+        assertEquals(OnboardingStep.EnginePick, vm.step.value)
+    }
+
+    @Test
+    fun backWalksEveryStepToTheStart() = runTest {
+        val vm = newViewModel(installer = KITTEN_ON_DISK)
+        vm.next()
+        vm.installSelected()
+        vm.next()
+        vm.prepareVoiceStep()
+        vm.useVoice()
+        vm.advancePastBackground()
+        vm.advancePastNotifications()
+        assertEquals(OnboardingStep.SystemDefault, vm.step.value)
+
+        val walked = List(7) { vm.back(); vm.step.value }
+
+        assertEquals(
+            listOf(
+                OnboardingStep.NotificationPermission,
+                OnboardingStep.BackgroundUnrestricted,
+                OnboardingStep.ChooseVoice,
+                OnboardingStep.Installing,
+                OnboardingStep.EnginePick,
+                OnboardingStep.Welcome,
+                OnboardingStep.Welcome,
+            ),
+            walked,
+        )
+    }
+
+    @Test
+    fun backFromTheLastStepSkipsANotificationStepThatIsNotAsked() = runTest {
+        // Android 12 and below: the notification step moves straight on, so
+        // Back onto it would bounce straight back.
+        val vm = newViewModel(installer = KITTEN_ON_DISK, asksNotifications = false)
+        vm.next()
+        vm.skipEngineInstall()
+        vm.prepareVoiceStep()
+        vm.useVoice()
+        vm.advancePastBackground()
+        vm.advancePastNotifications()
+
+        vm.back()
+
+        assertEquals(OnboardingStep.BackgroundUnrestricted, vm.step.value)
     }
 
     @Test
@@ -663,10 +728,14 @@ class OnboardingViewModelTest {
         voices: List<VoiceMeta> = KittenDirectVoiceCatalog.voices,
         player: RecordingPlayer = RecordingPlayer(),
         phone: Locale = Locale.US,
+        asksNotifications: Boolean = true,
     ): OnboardingViewModel {
         val voiceDao = FakeDao(voices = voices)
         return OnboardingViewModel(installer, settings, aliasDao, voiceDao, deviceProbe, player)
-            .apply { phoneLocale = { phone } }
+            .apply {
+                phoneLocale = { phone }
+                this.asksNotifications = asksNotifications
+            }
     }
 
     private fun alias(name: String) = VoiceAlias(
@@ -730,6 +799,8 @@ private class NeverAnswers : DeviceProbeSource {
  */
 private class RecordingInstaller(
     private val behaviour: () -> Result<Unit>,
+    /** When set, every install waits for it and returns its result. */
+    private val waitFor: CompletableDeferred<Result<Unit>>? = null,
 ) : EngineInstaller(
     filesDir = { java.io.File("/tmp/onboarding-test-unused") },
     engineHandle = { /* no-op release */ },
@@ -755,7 +826,7 @@ private class RecordingInstaller(
         onProgress: (InstallState.Downloading) -> Unit,
     ): Result<Unit> {
         installCalls += engineName
-        return behaviour()
+        return waitFor?.await() ?: behaviour()
     }
 }
 

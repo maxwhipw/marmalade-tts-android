@@ -1,5 +1,6 @@
 package app.marmalade.tts.ui.onboarding
 
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -229,6 +230,13 @@ class OnboardingViewModel @Inject constructor(
      */
     internal var now: () -> Long = { System.currentTimeMillis() }
 
+    /**
+     * The notification step asks (Android 13+). Below that it moves straight
+     * on, so Back from the last step skips it rather than bouncing off it
+     * (#148). A var, like [now], so tests pick either.
+     */
+    internal var asksNotifications: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
     private val _step = MutableStateFlow(OnboardingStep.Welcome)
     val step: StateFlow<OnboardingStep> = _step.asStateFlow()
 
@@ -392,19 +400,36 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Move back. The Welcome step is the back-stop — no-op when already there. */
+    /**
+     * Move back: the on-screen Back buttons and system Back (#148) alike. The
+     * Welcome step is the back-stop — no-op when already there (system Back
+     * leaves the app there instead). The progress step has no Back button and
+     * stays put while anything downloads: going back would leave the
+     * downloads running behind a picker that could start them again.
+     */
     fun back() {
         stopPreview()
         _step.value = when (_step.value) {
             OnboardingStep.Welcome -> OnboardingStep.Welcome
             OnboardingStep.EnginePick -> OnboardingStep.Welcome
-            OnboardingStep.Installing -> OnboardingStep.EnginePick
+            OnboardingStep.Installing -> if (_installStates.value.values.any { it.inFlight }) {
+                OnboardingStep.Installing
+            } else {
+                OnboardingStep.EnginePick
+            }
             OnboardingStep.ChooseVoice -> OnboardingStep.Installing
             OnboardingStep.BackgroundUnrestricted -> OnboardingStep.ChooseVoice
             OnboardingStep.NotificationPermission -> OnboardingStep.BackgroundUnrestricted
-            OnboardingStep.SystemDefault -> OnboardingStep.NotificationPermission
+            OnboardingStep.SystemDefault -> if (asksNotifications) {
+                OnboardingStep.NotificationPermission
+            } else {
+                OnboardingStep.BackgroundUnrestricted
+            }
         }
     }
+
+    private val InstallState.inFlight: Boolean
+        get() = this is InstallState.Downloading || this is InstallState.Extracting
 
     /**
      * Kick off installs for every currently-selected engine.
