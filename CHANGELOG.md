@@ -67,9 +67,9 @@ setup changes.
   dollars and 50 cents", not "5 cents", and "$1.5 billion" as "1.5 billion
   dollars", not "1 dollar and 5 cents billion".
 - **Back steps back through setup**: the phone's Back gesture or button used
-  to close the app from any setup step. It now goes back one step, like the
-  on-screen Back; on the welcome screen it still leaves the app. While an
-  engine is downloading, Back does nothing.
+  to close the app from any setup step. It now goes back one step; on the
+  welcome screen it still leaves the app. While an engine is downloading,
+  Back does nothing. The on-screen Back button on "Choose engines" is gone.
 - **Setup is readable with Android 16's expanded dark theme** (GitHub #39):
   the screens no longer turn light behind light text when the phone's dark
   theme is set to darken every app.
@@ -85,7 +85,7 @@ setup changes.
   Effects tab they now follow the app's language, and a duplicated effect is
   named "… copy" in your language too.
 - **Smaller fixes**: an open dialog or sheet stays open when you rotate the
-  phone; a cloud provider with one voice says "1 voice", not "1 voices";
+  phone, and an API key you were typing stays in its field; a cloud provider with one voice says "1 voice", not "1 voices";
   TalkBack's heading navigation finds each screen's title, and it reads an
   effect's chips in full ("Low-pass, 3446 Hz" rather than "LP 3446Hz").
 - **Licences**: the licence list now credits Apache Commons IO and Apache
