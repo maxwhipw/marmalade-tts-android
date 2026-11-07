@@ -85,9 +85,11 @@ setup changes.
   Effects tab they now follow the app's language, and a duplicated effect is
   named "… copy" in your language too.
 - **Smaller fixes**: an open dialog or sheet stays open when you rotate the
-  phone, and an API key you were typing stays in its field; a cloud provider with one voice says "1 voice", not "1 voices";
-  TalkBack's heading navigation finds each screen's title, and it reads an
-  effect's chips in full ("Low-pass, 3446 Hz" rather than "LP 3446Hz").
+  phone, and an API key you were typing stays in its field; a cloud provider
+  with one voice says "1 voice", not "1 voices"; TalkBack's heading
+  navigation finds each screen's title, and it reads an effect's chips in
+  full ("Low-pass, 3446 Hz" rather than "LP 3446Hz"); effect cards are
+  spaced like the engine cards.
 - **Licences**: the licence list now credits Apache Commons IO and Apache
   Commons Lang, which ship with Commons Compress.
 
