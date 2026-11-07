@@ -818,8 +818,15 @@ private class RecordingInstaller(
     // than inheriting the base disk check) so it resolves synchronously on the
     // test dispatcher instead of hopping to Dispatchers.IO, which runInstall's
     // "skip if already installed" guard now calls before installing.
-    override suspend fun verify(engineName: String): InstallState =
-        InstallState.NotInstalled
+    //
+    // With [waitFor] set it also holds there: 1.3.3's runInstall mirrors the
+    // installer's own state flow once it gets past this check, and this fake
+    // never publishes Downloading on it, so waiting here is what keeps the
+    // row in flight the way a real download does.
+    override suspend fun verify(engineName: String): InstallState {
+        waitFor?.await()
+        return InstallState.NotInstalled
+    }
 
     override suspend fun install(
         engineName: String,
