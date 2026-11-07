@@ -265,8 +265,8 @@ quality, latency, network flag and features, then `getDefaultVoice()` and
 list. `force-stop` the app first for a cold bind:
 
 ```bash
-adb -s 24281JEGR01333 shell am force-stop app.marmalade.tts.rc
-adb -s 24281JEGR01333 shell am instrument -w -e engine app.marmalade.tts.rc \
+adb -s "$SERIAL" shell am force-stop app.marmalade.tts.rc
+adb -s "$SERIAL" shell am instrument -w -e engine app.marmalade.tts.rc \
     -e mode voices app.marmalade.tts.smokeprobe/.SmokeProbe
 ```
 
