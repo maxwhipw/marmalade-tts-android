@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -415,11 +416,13 @@ private fun ProviderKeyDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Clear of the field, so a tap meant for one doesn't land on the other.
+                Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .toggleable(value = shown, role = Role.Checkbox, onValueChange = { shown = it })
-                        .padding(vertical = 4.dp),
+                        .heightIn(min = 48.dp)
+                        .toggleable(value = shown, role = Role.Checkbox, onValueChange = { shown = it }),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The row is the tap target; the Checkbox only shows the state.
