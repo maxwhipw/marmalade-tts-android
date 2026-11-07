@@ -80,6 +80,20 @@ class TtsLocalesTest {
     }
 
     @Test
+    fun `an installed british voice makes en-GB a country match`() {
+        // #116: the English branch counted only US as a country match, so
+        // en-GB stayed LANG_AVAILABLE with Kokoro's bf_*/bm_* voices or the
+        // Jenny pack installed.
+        val british = listOf("en-US", "en-GB")
+        assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, TtsLocales.availability("en", "GB", british))
+        assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, TtsLocales.availability("eng", "GBR", british))
+        // en-US stays the country match it always was, British voices only.
+        assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, TtsLocales.availability("eng", "USA", listOf("en-GB")))
+        // Another English region with no voice of its own is language-level.
+        assertEquals(TextToSpeech.LANG_AVAILABLE, TtsLocales.availability("en", "AU", british))
+    }
+
+    @Test
     fun `installed non-english voices make their locale available`() {
         val installed = listOf("en-US", "ja-JP", "fr-FR")
         assertEquals(

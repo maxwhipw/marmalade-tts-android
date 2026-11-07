@@ -678,6 +678,15 @@ class MarmaladeTtsServiceTest {
             TextToSpeech.LANG_COUNTRY_AVAILABLE,
             service.onIsLanguageAvailable("spa", "ESP", ""),
         )
+        // Kokoro's British voices (bf_*, bm_*) make en-GB a country match (#116).
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("en", "GB", ""),
+        )
+        assertEquals(
+            TextToSpeech.LANG_COUNTRY_AVAILABLE,
+            service.onIsLanguageAvailable("eng", "GBR", ""),
+        )
         // Language matches, region doesn't.
         assertEquals(
             TextToSpeech.LANG_AVAILABLE,
@@ -700,6 +709,11 @@ class MarmaladeTtsServiceTest {
         assertEquals(
             TextToSpeech.LANG_COUNTRY_AVAILABLE,
             service.onIsLanguageAvailable("eng", "USA", ""),
+        )
+        // Kitten has no British voice, so en-GB is language-level only.
+        assertEquals(
+            TextToSpeech.LANG_AVAILABLE,
+            service.onIsLanguageAvailable("eng", "GBR", ""),
         )
     }
 

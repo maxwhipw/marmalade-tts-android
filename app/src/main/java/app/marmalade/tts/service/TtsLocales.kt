@@ -41,7 +41,9 @@ internal object TtsLocales {
      * Returns the framework's `TextToSpeech.LANG_*` contract:
      * `LANG_COUNTRY_AVAILABLE` when language *and* country match an
      * installed voice, `LANG_AVAILABLE` for a language-only match, and
-     * `LANG_NOT_SUPPORTED` otherwise.
+     * `LANG_NOT_SUPPORTED` otherwise; English is the exception
+     * ([BASELINE_LANGUAGE]): always available, and en-US a country match
+     * whatever the voices' regions.
      */
     fun availability(
         lang: String?,
@@ -50,21 +52,22 @@ internal object TtsLocales {
     ): Int {
         val language = toIso2Language(lang) ?: return TextToSpeech.LANG_NOT_SUPPORTED
         val region = toIso2Region(country)
+        val installed = installedLanguages.mapNotNull { parse(it) }
+        val languageMatch = installed.filter { it.first == language }
+        val countryMatch = region != null && languageMatch.any { it.second == region }
         if (language == BASELINE_LANGUAGE) {
-            // Pre-existing behaviour, kept verbatim: en-US is the country
-            // match, every other English region is language-level.
-            return if (region == "US") {
+            // en-US is always a country match (the baseline); another English
+            // region is one when a voice of that region is installed (en-GB
+            // with Kokoro's British voices, #116), else language-level.
+            return if (region == "US" || countryMatch) {
                 TextToSpeech.LANG_COUNTRY_AVAILABLE
             } else {
                 TextToSpeech.LANG_AVAILABLE
             }
         }
-        val installed = installedLanguages.mapNotNull { parse(it) }
-        val languageMatch = installed.filter { it.first == language }
         return when {
             languageMatch.isEmpty() -> TextToSpeech.LANG_NOT_SUPPORTED
-            region != null && languageMatch.any { it.second == region } ->
-                TextToSpeech.LANG_COUNTRY_AVAILABLE
+            countryMatch -> TextToSpeech.LANG_COUNTRY_AVAILABLE
             else -> TextToSpeech.LANG_AVAILABLE
         }
     }
