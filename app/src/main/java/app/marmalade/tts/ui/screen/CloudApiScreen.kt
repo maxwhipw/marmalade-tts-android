@@ -31,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -139,8 +138,13 @@ fun CloudApiContent(
         ProviderKeyDialog(
             provider = provider,
             keySet = provider.id in keyedIds,
+            draft = viewModel.keyDraft,
+            onDraftChange = { viewModel.keyDraft = it },
             onSave = { viewModel.setKey(provider, it) },
-            onDismiss = { keyDialogForId = null },
+            onDismiss = {
+                viewModel.clearKeyDraft()
+                keyDialogForId = null
+            },
         )
     }
 }
@@ -364,17 +368,19 @@ private fun ProviderCard(
  * The field is a password field (#117): masked unless "Show key" is ticked,
  * which also keeps TalkBack from reading it aloud, and a password keyboard
  * with autocorrect off, so the keyboard neither suggests nor learns the key.
+ *
+ * The [draft] lives in [CloudApiViewModel.keyDraft], not in this composable:
+ * it survives a rotation but stays out of the saved-instance-state Bundle.
  */
 @Composable
 private fun ProviderKeyDialog(
     provider: CloudProvider,
     keySet: Boolean,
+    draft: String,
+    onDraftChange: (String) -> Unit,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // The draft key stays in plain remember on purpose: a secret doesn't go
-    // into the saved-instance-state Bundle, so a rotation clears the field.
-    var draft by remember { mutableStateOf("") }
     var shown by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -392,7 +398,7 @@ private fun ProviderKeyDialog(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = draft,
-                    onValueChange = { draft = it },
+                    onValueChange = onDraftChange,
                     singleLine = true,
                     label = {
                         Text(

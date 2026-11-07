@@ -1,6 +1,9 @@
 package app.marmalade.tts.ui.screen
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.marmalade.tts.R
@@ -87,6 +90,19 @@ class CloudApiViewModel @Inject constructor(
     /** Records acceptance, unlocking the configure surface. */
     fun acceptDisclaimer() {
         viewModelScope.launch { settings.acceptCloudDisclaimer() }
+    }
+
+    /**
+     * The key being typed in the key dialog. It lives here so a rotation
+     * keeps it, and in plain memory rather than a SavedStateHandle or
+     * rememberSaveable, so the secret never enters the saved-instance-state
+     * Bundle (#117, #156): process death clears it.
+     */
+    var keyDraft by mutableStateOf("")
+
+    /** Empties [keyDraft] when the dialog closes, saved or not. */
+    fun clearKeyDraft() {
+        keyDraft = ""
     }
 
     /** Provider ids with a voice discovery in flight. */

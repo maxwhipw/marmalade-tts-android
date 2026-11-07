@@ -86,4 +86,16 @@ class CloudApiViewModelTest {
         assertTrue(http.firstCall.await(5, TimeUnit.SECONDS))
         assertEquals(listOf(CloudProviderStore.REMOTE_PROVIDERS_URL), http.urls)
     }
+
+    // The key dialog's draft (#156): the ViewModel outlives a rotation, so
+    // the typed key does too; closing the dialog empties it.
+    @Test
+    fun `the key draft is held until the dialog closes`() {
+        val vm = viewModel()
+        assertEquals("", vm.keyDraft)
+        vm.keyDraft = "sk-test-1234"
+        assertEquals("sk-test-1234", vm.keyDraft)
+        vm.clearKeyDraft()
+        assertEquals("", vm.keyDraft)
+    }
 }
