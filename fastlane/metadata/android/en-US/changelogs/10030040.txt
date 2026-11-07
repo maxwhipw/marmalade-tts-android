@@ -1,0 +1,7 @@
+Marmalade TTS 1.3.4, a bug-fix release.
+- Voices read through abbreviations and initials like "Dr. Smith" or "J. R. Tolkien" instead of stopping.
+- Better reading of times, prices, "#1", "C#" and "<3".
+- Routing an app to another alias works again after you delete the alias it used.
+- Apps that look for Marmalade's default voice always find one, and see its British English voices.
+- Stopping a cloud voice is instant.
+- Small fixes.
